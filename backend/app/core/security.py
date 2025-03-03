@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from .config import settings
 from ..schemas.token import TokenPayload
 from ..schemas.user import UserInDB
-from ..db.repositories.users import get_user_by_username
+from ..db.repositories import get_user_by_username
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
