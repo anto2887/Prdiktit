@@ -1,19 +1,30 @@
 # app/main.py
-from fastapi import FastAPI, Depends, HTTPException, status
+import logging
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, matches, predictions, groups, users
-from .core.config import settings
-from .core import security
-from .db.session import create_tables, engine
 
+from .core.config import settings
+from .db.session import create_tables
+from .services.init_services import init_services, shutdown_services
+from .routers import auth_router, users_router, matches_router, predictions_router
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# Create FastAPI app
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    description="Football Prediction API",
-    version="1.0.0",
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    description=settings.PROJECT_DESCRIPTION,
+    version=settings.PROJECT_VERSION,
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-# Configure CORS
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -23,43 +34,47 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(
-    auth.router,
-    prefix=f"{settings.API_V1_STR}/auth",
-    tags=["auth"]
-)
-app.include_router(
-    matches.router,
-    prefix=f"{settings.API_V1_STR}/matches",
-    tags=["matches"]
-)
-app.include_router(
-    predictions.router,
-    prefix=f"{settings.API_V1_STR}/predictions",
-    tags=["predictions"]
-)
-app.include_router(
-    groups.router,
-    prefix=f"{settings.API_V1_STR}/groups",
-    tags=["groups"]
-)
-app.include_router(
-    users.router,
-    prefix=f"{settings.API_V1_STR}/users",
-    tags=["users"]
-)
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(users_router, prefix="/api/users", tags=["Users"])
+app.include_router(matches_router, prefix="/api/matches", tags=["Matches"])
+app.include_router(predictions_router, prefix="/api/predictions", tags=["Predictions"])
 
 @app.on_event("startup")
 async def startup_event():
-    # Create database tables if they don't exist
-    if settings.CREATE_TABLES_ON_STARTUP:
-        create_tables()
+    """
+    Initialize application on startup
+    """
+    logger.info("Starting application...")
     
-    # Initialize API services
-    from .services.init_services import init_services
+    # Create database tables
+    create_tables()
+    logger.info("Database tables created")
+    
+    # Initialize services
     await init_services(app)
+    
+    logger.info("Application startup complete")
 
-@app.get("/health")
-def health_check():
-    """Health check endpoint for AWS infrastructure."""
-    return {"status": "ok"}
+@app.on_event("shutdown")
+async def shutdown_event():
+    """
+    Clean up resources on shutdown
+    """
+    logger.info("Shutting down application...")
+    
+    # Shutdown services
+    await shutdown_services()
+    
+    logger.info("Application shutdown complete")
+
+@app.get("/api/health")
+async def health_check():
+    """
+    Health check endpoint
+    """
+    return {"status": "healthy"}
+
+# For local development
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
