@@ -6,7 +6,7 @@ from ..models import (
     UserPrediction, PredictionStatus, MatchStatus,
     UserResults
 )
-from .fixtures import get_fixture_by_id
+from .matches import get_fixture_by_id
 
 async def get_prediction_by_id(db: Session, prediction_id: int) -> Optional[UserPrediction]:
     """
