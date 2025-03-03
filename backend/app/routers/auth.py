@@ -14,7 +14,7 @@ from ..core.security import (
     get_current_active_user
 )
 from ..db.session import get_db
-from ..db.repositories.users import get_user_by_username, create_user
+from ..db.repositories import get_user_by_username, create_user
 from ..schemas.token import LoginRequest, LoginResponse, Token, RegistrationResponse
 from ..schemas.user import UserCreate, User, UserInDB
 

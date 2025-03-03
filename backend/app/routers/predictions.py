@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from ..core.security import get_current_active_user
 from ..db.session import get_db
 from ..services.cache_service import get_cache, RedisCache
-from ..db.repositories.matches import get_fixture_by_id
-from ..db.repositories.predictions import (
+from ..db.repositories import (
+    get_fixture_by_id,
     get_user_prediction,
     create_prediction,
     update_prediction,

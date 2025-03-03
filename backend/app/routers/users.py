@@ -6,12 +6,10 @@ from sqlalchemy.orm import Session
 
 from ..core.security import get_current_active_user, get_password_hash
 from ..db.session import get_db
-from ..db.repositories.users import (
+from ..db.repositories import (
     get_user_by_id, 
     update_user,
-    get_user_stats
-)
-from ..db.repositories.matches import (
+    get_user_stats,
     get_user_predictions
 )
 from ..services.cache_service import get_cache, RedisCache
