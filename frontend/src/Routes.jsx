@@ -6,28 +6,24 @@ import { useAuth } from './contexts/AuthContext';
 // Layout
 import MainLayout from './components/layout/MainLayout';
 
-// Pages
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import ProfilePage from './pages/ProfilePage';
-import SettingsPage from './pages/SettingsPage';
-
-// Prediction Pages
-import PredictionsPage from './pages/PredictionsPage';
-import PredictionFormPage from './pages/PredictionFormPage';
-import PredictionHistoryPage from './pages/PredictionHistoryPage';
-
-// Group Pages
-import GroupsPage from './pages/GroupsPage';
-import CreateGroupPage from './pages/CreateGroupPage';
-import JoinGroupPage from './pages/JoinGroupPage';
-import GroupDetailsPage from './pages/GroupDetailsPage';
-import GroupManagementPage from './pages/GroupManagementPage';
-
-// Error Pages
-import NotFoundPage from './pages/NotFoundPage';
+// Import all pages from index
+import {
+  HomePage,
+  LoginPage,
+  RegisterPage,
+  DashboardPage,
+  ProfilePage,
+  SettingsPage,
+  PredictionsPage,
+  PredictionFormPage,
+  PredictionHistoryPage,
+  GroupsPage,
+  CreateGroupPage,
+  JoinGroupPage,
+  GroupDetailsPage,
+  GroupManagementPage,
+  NotFoundPage
+} from './pages';
 
 // Protected Route Component
 import ProtectedRoute from './components/auth/ProtectedRoute';
