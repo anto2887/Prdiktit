@@ -60,7 +60,47 @@ const DashboardPage = () => {
     return <ErrorMessage message={errors[0]} />;
   }
 
-  return <Dashboard />;
+  // Instead of just returning the Dashboard component, let's return a layout
+  // that includes all the dashboard components
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      
+      {/* Stats section */}
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Your Stats</h2>
+        <DashboardStats stats={stats} />
+      </section>
+      
+      {/* Live matches section */}
+      {liveMatches && liveMatches.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Live Matches</h2>
+          <LiveMatches matches={liveMatches} />
+        </section>
+      )}
+      
+      {/* Upcoming matches section */}
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Upcoming Matches</h2>
+        <UpcomingMatches matches={fixtures} />
+      </section>
+      
+      {/* Recent predictions section */}
+      <section className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Your Recent Predictions</h2>
+        <RecentPredictions predictions={userPredictions} />
+      </section>
+      
+      {/* League table section */}
+      {userGroups && userGroups.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Your Groups</h2>
+          <LeagueTable groups={userGroups} />
+        </section>
+      )}
+    </div>
+  );
 };
 
 export default DashboardPage;
