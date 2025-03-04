@@ -40,7 +40,7 @@ services:
       - SECRET_KEY=developmentsecretkey
       - JWT_SECRET_KEY=developmentjwtsecretkey
       - CREATE_TABLES_ON_STARTUP=True
-      - CORS_ORIGINS=http://localhost:3000
+      - CORS_ORIGINS=["http://localhost:3000"]
 
   frontend:
     build: ./frontend
