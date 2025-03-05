@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     
     # Football API settings
     FOOTBALL_API_BASE_URL: str = "https://v3.football.api-sports.io"
+    FOOTBALL_API_KEY: str
     
     class Config:
         case_sensitive = True

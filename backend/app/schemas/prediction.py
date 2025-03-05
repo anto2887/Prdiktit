@@ -68,3 +68,16 @@ class BatchPredictionResponse(BaseModel):
     status: str = "success"
     message: str
     data: List[Dict[str, Any]]
+
+class Match(BaseModel):
+    id: int
+    home_team: str
+    away_team: str
+    match_date: datetime
+    competition: str
+    status: str = "SCHEDULED"
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+    
+    class Config:
+        from_attributes = True  # This replaces orm_mode=True in Pydantic v2
