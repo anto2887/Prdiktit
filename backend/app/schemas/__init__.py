@@ -13,7 +13,7 @@ from .token import (
 from .prediction import (
     # Match schemas
     MatchStatus, TeamInfo, Match, MatchBase, MatchCreate, 
-    MatchDetail, MatchList, ScorePrediction, MatchScores,
+    MatchDetail, MatchList, ScorePrediction as MatchScores,
     
     # Prediction schemas
     PredictionStatus, PredictionBase, PredictionCreate, PredictionUpdate,
