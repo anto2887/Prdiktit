@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 from enum import Enum
-from .match import MatchScore, MatchStatus
+
 
 # Enums
 class MatchStatus(str, Enum):

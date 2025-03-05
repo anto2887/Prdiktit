@@ -9,15 +9,20 @@ from .token import (
     LoginRequest, LoginResponse, RegistrationResponse
 )
 
-from .match import (
-    MatchStatus, TeamInfo, MatchScore, MatchScores,
-    MatchBase, MatchCreate, Match, MatchDetail, MatchList
-)
-
+# Import everything from prediction.py (which now contains all match schemas too)
 from .prediction import (
+    # Match schemas
+    MatchStatus, TeamInfo, Match, MatchBase, MatchCreate, 
+    MatchDetail, MatchList, MatchScore, MatchScores,
+    
+    # Prediction schemas
     PredictionStatus, PredictionBase, PredictionCreate, PredictionUpdate,
-    FixtureInfo, Prediction, PredictionResponse, PredictionList,
-    BatchPredictionCreate, BatchPredictionResponse
+    Prediction, PredictionResponse, PredictionList,
+    PredictionWithMatch, PredictionWithUser, PredictionComplete,
+    BatchPredictionCreate, BatchPredictionResponse,
+    
+    # Response schemas
+    MatchResponse, MatchListResponse, PredictionListResponse
 )
 
 from .groups import (
