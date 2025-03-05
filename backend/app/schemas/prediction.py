@@ -12,6 +12,26 @@ class PredictionStatus(str, Enum):
     LOCKED = "LOCKED"
     PROCESSED = "PROCESSED"
 
+# Match schemas
+class Match(BaseModel):
+    id: int
+    home_team: str
+    away_team: str
+    match_date: datetime
+    competition: str
+    status: str = "SCHEDULED"
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+    
+    class Config:
+        from_attributes = True  # This replaces orm_mode=True in Pydantic v2
+
+class MatchDetail(Match):
+    predictions_count: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
 # Prediction schemas
 class PredictionBase(BaseModel):
     fixture_id: int
@@ -69,15 +89,8 @@ class BatchPredictionResponse(BaseModel):
     message: str
     data: List[Dict[str, Any]]
 
-class Match(BaseModel):
-    id: int
-    home_team: str
-    away_team: str
-    match_date: datetime
-    competition: str
-    status: str = "SCHEDULED"
-    home_score: Optional[int] = None
-    away_score: Optional[int] = None
+class PredictionWithMatch(Prediction):
+    match: Match
     
     class Config:
-        from_attributes = True  # This replaces orm_mode=True in Pydantic v2
+        from_attributes = True
