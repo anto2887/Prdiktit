@@ -39,12 +39,10 @@ const HomePage = () => {
               </div>
             </div>
             <div className="mt-12 lg:mt-0 lg:col-span-6">
-              <div className="rounded-lg shadow-xl overflow-hidden">
-                <img
-                  className="w-full h-full object-cover"
-                  src="/static/images/football-hero.jpg"
-                  alt="Football match"
-                />
+              <div className="rounded-lg shadow-xl overflow-hidden bg-blue-100 flex items-center justify-center h-full">
+                <div className="text-blue-800 text-xl font-semibold p-8 text-center">
+                  Predict football matches and compete with friends!
+                </div>
               </div>
             </div>
           </div>
