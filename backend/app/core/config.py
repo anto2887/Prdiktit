@@ -45,6 +45,9 @@ class Settings(BaseSettings):
     FOOTBALL_API_BASE_URL: str = "https://v3.football.api-sports.io"
     FOOTBALL_API_KEY: str
     
+    # Add this line:
+    PROJECT_DESCRIPTION: str = "Your project description"
+    
     class Config:
         case_sensitive = True
         env_file = ".env"
