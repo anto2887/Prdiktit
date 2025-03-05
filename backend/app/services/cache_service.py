@@ -5,7 +5,7 @@ from datetime import timedelta
 from typing import Any, Optional, Union
 
 import redis
-from fastapi import Depends
+from fastapi import Depends, FastAPI
 
 from ..core.config import settings
 
@@ -135,3 +135,31 @@ async def get_cache():
     Get cache client as dependency
     """
     return redis_cache
+
+# Redis client instance
+redis_client = None
+
+def setup_redis_cache():
+    """Initialize Redis connection"""
+    global redis_client
+    redis_client = redis.Redis(
+        host=settings.REDIS_HOST,
+        port=settings.REDIS_PORT,
+        db=0,
+        decode_responses=True
+    )
+    return redis_client
+
+def get_redis_client():
+    """Get Redis client instance"""
+    global redis_client
+    if redis_client is None:
+        redis_client = setup_redis_cache()
+    return redis_client
+
+def close_redis_connection():
+    """Close Redis connection"""
+    global redis_client
+    if redis_client is not None:
+        redis_client.close()
+        redis_client = None
