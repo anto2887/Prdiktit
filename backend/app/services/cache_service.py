@@ -143,12 +143,12 @@ async def setup_redis_cache():
     """
     Initialize Redis cache connection
     """
-    # Remove any await statements when creating the Redis client
+    # Fix the variable name conflict - don't use 'redis' as both module and variable
     # Change this:
-    # redis = await Redis(...)
+    # redis = redis.Redis(...)
     
     # To this:
-    redis = redis.Redis(
+    redis_client = redis.Redis(
         host=settings.REDIS_HOST,
         port=settings.REDIS_PORT,
         db=settings.REDIS_DB,
@@ -159,12 +159,12 @@ async def setup_redis_cache():
     # If you need to check the connection, use a try/except block
     try:
         # Use ping() without await
-        redis.ping()
+        redis_client.ping()
         logger.info("Connected to Redis successfully")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
         
-    return redis
+    return redis_client
 
 def get_redis_client():
     """Get Redis client instance"""
