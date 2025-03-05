@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 import logging
+from sqlalchemy.engine.url import URL
 
 from ..core.config import settings
 from .models import Base
@@ -11,12 +12,7 @@ logger = logging.getLogger(__name__)
 
 # Create engine
 engine = create_engine(
-    settings.DATABASE_URI,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=2,
-    pool_timeout=30,
-    pool_recycle=1800
+    str("postgresql://postgres:postgres@db:5432/football_predictions")
 )
 
 # Create session
