@@ -32,8 +32,10 @@ class Settings(BaseSettings):
     AWS_SECRET_NAME: str = os.getenv("SECRET_NAME", "api-football-key")
     
     # Redis settings
-    REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
-    REDIS_PORT: int = int(os.getenv("REDIS_PORT", 6379))
+    REDIS_HOST: str = "redis"  # Default to service name in docker-compose
+    REDIS_PORT: int = 6379
+    REDIS_DB: int = 0
+    REDIS_PASSWORD: str = ""  # Empty string for no password
     
     # Database init options
     CREATE_TABLES_ON_STARTUP: bool = os.getenv("CREATE_TABLES_ON_STARTUP", "False") == "True"
