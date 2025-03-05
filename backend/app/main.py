@@ -7,6 +7,7 @@ from .core.config import settings
 from .db.session import create_tables
 from .services.init_services import init_services, shutdown_services
 from .routers import auth_router, users_router, matches_router, predictions_router
+from .middleware.rate_limiter import RateLimitMiddleware
 
 # Configure logging
 logging.basicConfig(
@@ -31,6 +32,13 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Add rate limiting middleware here, before the app starts
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=settings.API_RATE_LIMIT,
+    exclude_paths=["/docs", "/redoc", "/openapi.json", "/static"]
 )
 
 # Include routers

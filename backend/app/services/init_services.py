@@ -19,14 +19,6 @@ async def init_services(app: FastAPI) -> None:
     await setup_redis_cache()
     logger.info("Redis cache initialized")
     
-    # Add rate limiting middleware
-    app.add_middleware(
-        RateLimitMiddleware,
-        requests_per_minute=settings.API_RATE_LIMIT,
-        exclude_paths=["/docs", "/redoc", "/openapi.json", "/static"]
-    )
-    logger.info(f"Rate limiting middleware added with {settings.API_RATE_LIMIT} requests per minute")
-    
     # Initialize football API service
     if not settings.FOOTBALL_API_KEY:
         logger.warning("FOOTBALL_API_KEY not set. Football API service will not work properly.")
