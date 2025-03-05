@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     # Add this line:
     PROJECT_DESCRIPTION: str = "Your project description"
     
+    # Add this line:
+    PROJECT_VERSION: str = "0.1.0"  # Or whatever version you want
+    
+    # Add this if it doesn't exist:
+    API_RATE_LIMIT: int = 60  # Default to 60 requests per minute
+    
     class Config:
         case_sensitive = True
         env_file = ".env"

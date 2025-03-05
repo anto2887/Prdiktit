@@ -4,6 +4,7 @@ from fastapi import Request, Response, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Dict, Tuple, Optional
 import asyncio
+import json
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
@@ -58,9 +59,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 
                 # Return 429 Too Many Requests
                 return Response(
-                    content={"detail": "Rate limit exceeded. Try again later."},
+                    content=json.dumps({"detail": "Rate limit exceeded. Try again later."}),
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    headers={"Retry-After": str(int(reset_time))}
+                    headers={"Retry-After": str(int(reset_time)), "Content-Type": "application/json"}
                 )
         
         # Process the request
