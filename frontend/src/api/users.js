@@ -1,51 +1,21 @@
-import { handleApiError, getDefaultHeaders, formatQueryParams } from './utils';
-
-const BASE_URL = '/api/users';
+// src/api/users.js
+import { api } from './client';
 
 /**
  * Get current user's profile
  * @returns {Promise<Object>} User profile data
  */
 export const getUserProfile = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/profile`, {
-      headers: getDefaultHeaders(),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw await handleApiError(response);
-    }
-
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  return await api.get('/users/profile');
 };
 
 /**
  * Update user profile
  * @param {Object} profileData - Profile data to update
- * @param {string} [profileData.username] - New username
  * @returns {Promise<Object>} Updated profile data
  */
 export const updateUserProfile = async (profileData) => {
-  try {
-    const response = await fetch(`${BASE_URL}/profile`, {
-      method: 'PUT',
-      headers: getDefaultHeaders(),
-      body: JSON.stringify(profileData),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw await handleApiError(response);
-    }
-
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  return await api.put('/users/profile', profileData);
 };
 
 /**
@@ -54,20 +24,8 @@ export const updateUserProfile = async (profileData) => {
  * @returns {Promise<Object>} User statistics
  */
 export const getUserStats = async (userId) => {
-  try {
-    const response = await fetch(`${BASE_URL}/stats${userId ? `?user_id=${userId}` : ''}`, {
-      headers: getDefaultHeaders(),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw await handleApiError(response);
-    }
-
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  const endpoint = userId ? `/users/stats?user_id=${userId}` : '/users/stats';
+  return await api.get(endpoint);
 };
 
 /**
@@ -76,23 +34,22 @@ export const getUserStats = async (userId) => {
  * @param {number} [params.user_id] - Filter by user ID
  * @param {string} [params.season] - Filter by season
  * @param {number} [params.week] - Filter by week
+ * @param {string} [params.status] - Filter by prediction status
+ * @param {number} [params.fixture_id] - Filter by fixture ID
  * @param {number} [params.group_id] - Filter by group
  * @returns {Promise<Object>} Prediction history data
  */
 export const getPredictionHistory = async (params = {}) => {
-  try {
-    const queryString = formatQueryParams(params);
-    const response = await fetch(`${BASE_URL}/predictions${queryString}`, {
-      headers: getDefaultHeaders(),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw await handleApiError(response);
+  // Convert params object to query string
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      queryParams.append(key, value);
     }
-
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  });
+  
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/users/predictions?${queryString}` : '/users/predictions';
+  
+  return await api.get(endpoint);
 };

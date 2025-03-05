@@ -1,26 +1,12 @@
-import { handleApiError, getDefaultHeaders, formatQueryParams } from './utils';
-
-const BASE_URL = '/api/matches';
+// src/api/matches.js
+import { api } from './client';
 
 /**
  * Get live matches
  * @returns {Promise<Object>} Live matches data
  */
 export const getLiveMatches = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/live`, {
-      headers: getDefaultHeaders(),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw await handleApiError(response);
-    }
-
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  return await api.get('/matches/live');
 };
 
 /**
@@ -29,20 +15,7 @@ export const getLiveMatches = async () => {
  * @returns {Promise<Object>} Match data
  */
 export const getMatchById = async (matchId) => {
-  try {
-    const response = await fetch(`${BASE_URL}/${matchId}`, {
-      headers: getDefaultHeaders(),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw await handleApiError(response);
-    }
-
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  return await api.get(`/matches/${matchId}`);
 };
 
 /**
@@ -53,24 +26,22 @@ export const getMatchById = async (matchId) => {
  * @param {string} [params.status] - Match status
  * @param {string} [params.from] - Start date (ISO format)
  * @param {string} [params.to] - End date (ISO format)
+ * @param {number} [params.team_id] - Team ID
  * @returns {Promise<Object>} Fixtures data
  */
 export const getFixtures = async (params = {}) => {
-  try {
-    const queryString = formatQueryParams(params);
-    const response = await fetch(`${BASE_URL}/fixtures${queryString}`, {
-      headers: getDefaultHeaders(),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw await handleApiError(response);
+  // Convert params object to query string
+  const queryParams = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      queryParams.append(key, value);
     }
-
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  });
+  
+  const queryString = queryParams.toString();
+  const endpoint = queryString ? `/matches/fixtures?${queryString}` : '/matches/fixtures';
+  
+  return await api.get(endpoint);
 };
 
 /**
@@ -80,21 +51,7 @@ export const getFixtures = async (params = {}) => {
  * @returns {Promise<Object>} League fixtures data
  */
 export const getLeagueFixtures = async (leagueId, season) => {
-  try {
-    const params = new URLSearchParams({ league: leagueId, season });
-    const response = await fetch(`${BASE_URL}/fixtures?${params}`, {
-      headers: getDefaultHeaders(),
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw await handleApiError(response);
-    }
-
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+  return await api.get(`/matches/fixtures?league=${leagueId}&season=${season}`);
 };
 
 /**
@@ -102,18 +59,22 @@ export const getLeagueFixtures = async (leagueId, season) => {
  * @returns {Promise<Object>} Match statuses
  */
 export const getMatchStatuses = async () => {
-  try {
-    const response = await fetch(`${BASE_URL}/statuses`, {
-      headers: getDefaultHeaders(),
-      credentials: 'include',
-    });
+  return await api.get('/matches/statuses');
+};
 
-    if (!response.ok) {
-      throw await handleApiError(response);
-    }
+/**
+ * Get upcoming matches
+ * @returns {Promise<Object>} Upcoming matches
+ */
+export const getUpcomingMatches = async () => {
+  return await api.get('/matches/upcoming');
+};
 
-    return await response.json();
-  } catch (error) {
-    throw error;
-  }
+/**
+ * Get top matches for the week
+ * @param {number} [count=5] - Number of matches to return
+ * @returns {Promise<Object>} Top matches
+ */
+export const getTopMatches = async (count = 5) => {
+  return await api.get(`/matches/top?count=${count}`);
 };
