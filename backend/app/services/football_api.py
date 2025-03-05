@@ -9,7 +9,7 @@ from functools import lru_cache
 
 from ..core.config import settings
 from ..db.repositories import create_or_update_fixture
-from ..schemas import MatchStatus
+from ..schemas.prediction import Match, MatchCreate, MatchStatus
 
 # Configure logging
 logger = logging.getLogger(__name__)

@@ -14,9 +14,7 @@ from ..db.repositories import (
     get_live_matches,
     get_prediction_deadlines
 )
-from ..schemas.prediction import (
-    Match, MatchDetail, MatchList, MatchStatus
-)
+from ..schemas.prediction import Match, MatchDetail, MatchList, MatchStatus
 from ..schemas.user import UserInDB
 
 router = APIRouter()

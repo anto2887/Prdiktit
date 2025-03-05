@@ -18,9 +18,10 @@ from ..db.repositories import (
     get_user_predictions
 )
 from ..schemas.prediction import (
-    PredictionCreate, PredictionUpdate, PredictionResponse,
-    PredictionList, PredictionStatus, MatchStatus,
-    BatchPredictionCreate, BatchPredictionResponse
+    Prediction, PredictionCreate, PredictionWithMatch, 
+    PredictionResponse, PredictionListResponse,
+    BatchPredictionCreate, BatchPredictionResponse,
+    PredictionStatus, MatchStatus, PredictionList
 )
 from ..schemas.user import UserInDB
 
