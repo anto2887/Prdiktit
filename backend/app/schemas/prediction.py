@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pydantic import BaseModel, Field
 from enum import Enum
+from app.schemas.groups import TeamInfo
 
 
 # Enums

@@ -33,3 +33,6 @@ from .groups import (
     MemberActionRequest, MemberActionResponse, TeamInfo,
     TeamList, GroupAnalytics, AuditLogEntry, AuditLogList
 )
+
+# Add this line to export TeamInfo from groups
+from .groups import TeamInfo
