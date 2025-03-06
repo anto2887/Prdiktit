@@ -7,11 +7,13 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import ValidationError
+from sqlalchemy.orm import Session
 
 from .config import settings
 from ..schemas.token import TokenPayload
 from ..schemas.user import UserInDB
 from ..db.repositories import get_user_by_username
+from ..db.session import get_db
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
@@ -41,7 +43,10 @@ def get_password_hash(password: str) -> str:
     """
     return pwd_context.hash(password)
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
+async def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
     """
     Get current user from JWT token
     """
@@ -63,7 +68,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> UserInDB:
     except (JWTError, ValidationError):
         raise credentials_exception
         
-    user = await get_user_by_username(username=token_data.sub)
+    user = await get_user_by_username(db=db, username=token_data.sub)
     
     if not user:
         raise credentials_exception
