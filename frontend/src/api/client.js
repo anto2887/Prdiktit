@@ -9,6 +9,8 @@ import {
 // Get API URL from environment variables with fallback
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
+console.log('API_BASE_URL:', API_BASE_URL);
+
 // Create custom error class for API errors
 export class APIError extends Error {
   constructor(message, code, details = null) {
@@ -53,6 +55,8 @@ const apiClient = axios.create({
   },
   withCredentials: true  // Important for handling credentials
 });
+
+console.log('Full API URL for auth register:', `${API_BASE_URL}/auth/register`);
 
 // Request logging
 const logRequest = (config) => {
