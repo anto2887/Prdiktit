@@ -44,7 +44,7 @@ export const Login = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <img 
-          src="/static/pictures/soccer-ball.png" 
+          src="/static/images/logo.svg" 
           alt="Soccer Ball" 
           className="mx-auto h-12 w-auto"
         />
