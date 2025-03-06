@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 50">
+  <!-- Blue background rectangle -->
+  <rect width="160" height="50" rx="8" fill="#2563eb" />
+  
+  <!-- "PrediktIt" text in white -->
+  <text x="80" y="32" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="bold" fill="white" text-anchor="middle">PrediktIt</text>
+</svg>
