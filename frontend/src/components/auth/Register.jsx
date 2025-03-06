@@ -52,7 +52,7 @@ export const Register = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <img 
           src="/static/images/logo.svg" 
-          alt="Soccer Ball" 
+          alt="Logo" 
           className="mx-auto h-12 w-auto"
         />
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
