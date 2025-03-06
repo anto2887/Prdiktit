@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
 from .db.session import create_tables
 from .services.init_services import init_services, shutdown_services
-from .routers import auth_router, users_router, matches_router, predictions_router
+from .routers import auth_router, users_router, matches_router, predictions_router, groups
 from .middleware.rate_limiter import RateLimitMiddleware
 
 # Configure logging
@@ -46,6 +46,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users_router, prefix="/api/users", tags=["Users"])
 app.include_router(matches_router, prefix="/api/matches", tags=["Matches"])
 app.include_router(predictions_router, prefix="/api/predictions", tags=["Predictions"])
+app.include_router(groups.router, prefix="/api/groups", tags=["groups"])
 
 @app.on_event("startup")
 async def startup_event():

@@ -1,6 +1,6 @@
 # app/routers/predictions.py
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
@@ -15,13 +15,14 @@ from ..db.repositories import (
     update_prediction,
     reset_prediction,
     get_prediction_by_id,
-    get_user_predictions
+    get_user_predictions,
+    get_user_predictions as get_user_predictions_db
 )
 from ..schemas.prediction import (
     Prediction, PredictionCreate, PredictionWithMatch, 
     PredictionResponse, PredictionListResponse,
     BatchPredictionCreate, BatchPredictionResponse,
-    PredictionStatus, MatchStatus, PredictionList
+    PredictionStatus, MatchStatus, PredictionList, UserPredictionListResponse
 )
 from ..schemas.user import UserInDB
 
@@ -181,43 +182,32 @@ async def reset_prediction_endpoint(
         "message": "Prediction reset successfully"
     }
 
-@router.get("/user", response_model=PredictionList)
-async def get_user_predictions_endpoint(
-    fixture_id: int = Query(None),
-    status: PredictionStatus = Query(None),
+@router.get("/user", response_model=UserPredictionListResponse)
+async def get_user_predictions(
+    fixture_id: Optional[int] = None,
+    status: Optional[PredictionStatus] = None,
+    season: Optional[str] = None,
+    week: Optional[int] = None,
     current_user: UserInDB = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-    cache: RedisCache = Depends(get_cache)
-):
+    db: Session = Depends(get_db)
+) -> Any:
     """
-    Get user's predictions
+    Get current user's predictions
     """
-    # If no filters are applied, try to get from cache
-    if not fixture_id and not status:
-        cache_key = f"user_predictions:{current_user.id}"
-        cached_predictions = await cache.get(cache_key)
-        
-        if cached_predictions:
-            return {
-                "status": "success",
-                "data": cached_predictions
-            }
-    
-    # Get predictions from database
-    predictions = await get_user_predictions(
-        db,
-        current_user.id,
+    predictions = await get_user_predictions_db(
+        db=db,
+        user_id=current_user.id,
         fixture_id=fixture_id,
-        status=status
+        status=status,
+        season=season,
+        week=week
     )
     
-    # Cache only if no filters are applied
-    if not fixture_id and not status:
-        await cache.set(f"user_predictions:{current_user.id}", predictions, 300)
-    
+    # Change this return statement
     return {
         "status": "success",
-        "data": predictions
+        "matches": predictions,  # Change 'data' to 'matches'
+        "total": len(predictions)  # Add 'total' field
     }
 
 @router.post("/batch", response_model=BatchPredictionResponse)

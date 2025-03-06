@@ -132,8 +132,9 @@ class PredictionComplete(Prediction):
         from_attributes = True
 
 class PredictionList(BaseModel):
-    status: str
-    data: List[PredictionWithMatch]
+    status: str = "success"
+    matches: List[PredictionWithMatch]
+    total: int
 
 # Response schemas
 class MatchResponse(BaseModel):
@@ -143,7 +144,8 @@ class MatchResponse(BaseModel):
 
 class MatchListResponse(BaseModel):
     status: str = "success"
-    data: MatchList
+    matches: List[Match]
+    total: int
     message: str = "Matches retrieved successfully"
 
 class PredictionResponse(BaseModel):
@@ -170,3 +172,9 @@ class FixtureInfo(BaseModel):
 class PredictionUpdate(BaseModel):
     score1: Optional[int] = None
     score2: Optional[int] = None
+
+class UserPredictionListResponse(BaseModel):
+    status: str = "success"
+    matches: List[PredictionWithMatch]
+    total: int
+    message: str = "Predictions retrieved successfully"

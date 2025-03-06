@@ -156,5 +156,6 @@ async def get_prediction_history(
     
     return {
         "status": "success",
-        "data": predictions
+        "matches": predictions,
+        "total": len(predictions)
     }
