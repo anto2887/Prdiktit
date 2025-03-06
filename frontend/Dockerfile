@@ -31,8 +31,5 @@ RUN chmod +x /entrypoint.sh
 # Expose port
 EXPOSE 80
 
-# Set environment variables
-ENV API_URL=/api/v1
-
 # Start nginx with custom entrypoint
 ENTRYPOINT ["/entrypoint.sh"]
