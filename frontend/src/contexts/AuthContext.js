@@ -18,10 +18,14 @@ export const AuthProvider = ({ children }) => {
     const checkAuth = async () => {
         try {
             setLoading(true);
+            console.log("Checking authentication...");
+            
             // First check if we have a token
             const hasToken = authApi.isAuthenticated();
+            console.log("Has token:", hasToken);
             
             if (!hasToken) {
+                console.log("No token found, setting unauthenticated");
                 setIsAuthenticated(false);
                 setUser(null);
                 setLoading(false);
@@ -29,11 +33,24 @@ export const AuthProvider = ({ children }) => {
             }
             
             // Verify token with the server
-            const response = await authApi.checkAuthStatus();
-            if (response.status === 'success' && response.data?.authenticated) {
-                setUser(response.data.user);
-                setIsAuthenticated(true);
-            } else {
+            console.log("Verifying token with server...");
+            try {
+                const response = await authApi.checkAuthStatus();
+                console.log("Auth check response:", response);
+                
+                if (response && response.status === 'success' && response.data?.authenticated) {
+                    console.log("Token valid, setting authenticated");
+                    setUser(response.data.user);
+                    setIsAuthenticated(true);
+                } else {
+                    console.log("Token invalid, clearing");
+                    setUser(null);
+                    setIsAuthenticated(false);
+                    // Clear invalid token
+                    localStorage.removeItem('accessToken');
+                }
+            } catch (checkErr) {
+                console.error("Error checking auth status:", checkErr);
                 setUser(null);
                 setIsAuthenticated(false);
                 // Clear invalid token

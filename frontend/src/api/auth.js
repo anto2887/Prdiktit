@@ -62,7 +62,28 @@ export const checkAuthStatus = async () => {
  * @returns {boolean} Is authenticated
  */
 export const isAuthenticated = () => {
-  return !!localStorage.getItem('accessToken');
+  const token = localStorage.getItem('accessToken');
+  if (!token) {
+    return false;
+  }
+  
+  try {
+    // Check if token is expired
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const expiry = payload.exp * 1000; // Convert to milliseconds
+    
+    if (Date.now() >= expiry) {
+      // Token is expired
+      localStorage.removeItem('accessToken');
+      return false;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error checking token:', error);
+    localStorage.removeItem('accessToken');
+    return false;
+  }
 };
 
 /**
