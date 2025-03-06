@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from .config import settings
 from ..schemas.token import TokenPayload
 from ..schemas.user import UserInDB
-from ..db.repositories import get_user_by_username
+from ..db.repositories.users import get_user_by_username
 from ..db.session import get_db
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
