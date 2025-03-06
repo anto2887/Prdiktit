@@ -2,7 +2,7 @@
 # frontend/entrypoint.sh
 
 # Set the API URL environment variable
-API_URL=http://backend:8000/api/v1
+API_URL=http://backend:8000/api
 
 # Replace environment variables in the nginx configuration
 envsubst '${API_URL}' < /etc/nginx/conf.d/default.conf > /etc/nginx/conf.d/default.conf.tmp
