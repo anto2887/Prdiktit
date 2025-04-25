@@ -14,12 +14,12 @@ from ..db.repositories import (
     get_live_matches,
     get_prediction_deadlines
 )
-from ..schemas.prediction import Match, MatchDetail, MatchList, MatchStatus
+from ..schemas.prediction import Match, MatchDetail, MatchList, MatchStatus, MatchListResponse
 from ..schemas.user import UserInDB
 
 router = APIRouter()
 
-@router.get("/live", response_model=MatchList)
+@router.get("/live", response_model=MatchListResponse)
 async def get_live_matches_endpoint(
     current_user: UserInDB = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -41,7 +41,8 @@ async def get_live_matches_endpoint(
     
     return {
         "status": "success",
-        "data": matches
+        "matches": matches,
+        "total": len(matches)
     }
 
 @router.get("/{match_id}", response_model=dict)
@@ -89,7 +90,7 @@ async def get_match(
         "data": match_detail
     }
 
-@router.get("/fixtures", response_model=MatchList)
+@router.get("/fixtures", response_model=MatchListResponse)
 async def get_fixtures_endpoint(
     league: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
@@ -139,7 +140,8 @@ async def get_fixtures_endpoint(
     
     return {
         "status": "success",
-        "data": fixtures
+        "matches": fixtures,
+        "total": len(fixtures)
     }
 
 @router.get("/statuses", response_model=dict)

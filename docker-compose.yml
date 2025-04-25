@@ -16,11 +16,15 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - app-network
 
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
+    networks:
+      - app-network
 
   backend:
     build: ./backend
@@ -41,6 +45,9 @@ services:
       - JWT_SECRET_KEY=developmentjwtsecretkey
       - CREATE_TABLES_ON_STARTUP=True
       - CORS_ORIGINS=["http://localhost:3000"]
+      - FOOTBALL_API_KEY=2e229688fb1a199c6243f07a2b6e4b54
+    networks:
+      - app-network
 
   frontend:
     build: ./frontend
@@ -52,7 +59,13 @@ services:
     depends_on:
       - backend
     environment:
-      - API_URL=http://localhost:8000/api/v1
+      - REACT_APP_API_URL=http://backend:8000/api
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
+
+networks:
+  app-network:
+    driver: bridge
