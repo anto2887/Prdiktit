@@ -41,8 +41,7 @@ async def get_live_matches_endpoint(
     
     return {
         "status": "success",
-        "matches": matches,
-        "total": len(matches)
+        "data": matches
     }
 
 @router.get("/{match_id}", response_model=dict)
@@ -110,9 +109,11 @@ async def get_fixtures_endpoint(
     to_datetime = None
     
     if from_date:
+        from_date = from_date.replace('Z', '+00:00')
         from_datetime = datetime.fromisoformat(from_date)
     
     if to_date:
+        to_date = to_date.replace('Z', '+00:00')
         to_datetime = datetime.fromisoformat(to_date)
     
     # Build cache key from query parameters

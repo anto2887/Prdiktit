@@ -228,10 +228,15 @@ apiClient.interceptors.response.use(
 
       // Handle 422 Validation Error
       if (status === 422) {
+        console.error('Validation error:', error.response.data);
+        // Log the actual validation error details to help debugging
+        if (error.response.data.detail) {
+          console.error('Validation details:', error.response.data.detail);
+        }
         return Promise.reject(new APIError(
-          'Validation error',
+          'Validation error in request',
           422,
-          error.response.data.errors
+          error.response.data.detail || error.response.data
         ));
       }
 

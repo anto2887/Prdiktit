@@ -206,7 +206,7 @@ async def get_user_predictions(
     # Change this return statement
     return {
         "status": "success",
-        "matches": predictions,  # Change 'data' to 'matches'
+        "data": predictions,  # Change 'data' to 'matches'
         "total": len(predictions)  # Add 'total' field
     }
 
