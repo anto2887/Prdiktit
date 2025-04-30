@@ -41,7 +41,8 @@ async def get_live_matches_endpoint(
     
     return {
         "status": "success",
-        "data": matches
+        "matches": matches,
+        "total": len(matches)
     }
 
 @router.get("/{match_id}", response_model=dict)
@@ -86,7 +87,7 @@ async def get_match(
     
     return {
         "status": "success",
-        "data": match_detail
+        "matches": match_detail
     }
 
 @router.get("/fixtures", response_model=MatchListResponse)
@@ -156,7 +157,7 @@ async def get_match_statuses(
     
     return {
         "status": "success",
-        "data": statuses
+        "matches": statuses
     }
 
 @router.get("/upcoming", response_model=dict)

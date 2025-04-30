@@ -206,7 +206,7 @@ async def get_user_predictions(
     # Change this return statement
     return {
         "status": "success",
-        "data": predictions,  # Change 'data' to 'matches'
+        "matches": predictions,  # Change 'data' to 'matches'
         "total": len(predictions)  # Add 'total' field
     }
 
@@ -281,5 +281,5 @@ async def create_batch_predictions(
     return {
         "status": "success",
         "message": "Predictions saved successfully",
-        "data": results
+        "matches": results
     }
