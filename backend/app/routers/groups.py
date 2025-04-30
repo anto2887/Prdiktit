@@ -423,11 +423,38 @@ async def get_teams(
     if cached_teams:
         teams = cached_teams
     else:
-        # Import the football API service
-        from ..services.football_api import football_api_service
+        # First try to get teams from the database
+        from ..db.repositories.teams import get_teams_by_league
+        teams_from_db = await get_teams_by_league(db, league)
         
-        # Get teams from the Football API
-        teams = await football_api_service.get_teams_by_league(league)
+        if teams_from_db:
+            # Convert team objects to dict format
+            teams = [
+                {
+                    "id": team.id,
+                    "name": team.team_name,
+                    "logo": team.team_logo
+                }
+                for team in teams_from_db
+            ]
+        else:
+            # If no teams in database, fetch from API
+            from ..services.football_api import football_api_service
+            
+            # Get teams from the Football API
+            teams_from_api = await football_api_service.get_teams_by_league(league)
+            
+            # Save teams to database
+            from ..db.repositories.teams import create_or_update_team
+            for team in teams_from_api:
+                await create_or_update_team(db, {
+                    "team_id": team["id"],
+                    "team_name": team["name"],
+                    "team_logo": team["logo"],
+                    "country": league
+                })
+            
+            teams = teams_from_api
         
         # Cache for 24 hours (since team data doesn't change often)
         await cache.set(cache_key, teams, 86400)
@@ -435,4 +462,4 @@ async def get_teams(
     return {
         "status": "success",
         "data": teams
-    } 
+    }

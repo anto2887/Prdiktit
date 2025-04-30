@@ -28,3 +28,10 @@ from .predictions import (
     lock_predictions_for_match,
     calculate_points
 ) 
+
+from .teams import (
+    get_team_by_id,
+    get_team_by_external_id,
+    get_teams_by_league,
+    get_teams_by_league_id
+)
