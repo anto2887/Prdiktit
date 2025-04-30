@@ -1,9 +1,13 @@
 # app/core/config.py
 import os
 import secrets
+import logging
 from typing import Any, Dict, List, Optional, Union
 from pydantic import AnyHttpUrl, PostgresDsn, validator
 from pydantic_settings import BaseSettings
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
@@ -46,6 +50,12 @@ class Settings(BaseSettings):
     # Football API settings
     FOOTBALL_API_BASE_URL: str = "https://v3.football.api-sports.io"
     FOOTBALL_API_KEY: str
+
+    @validator("FOOTBALL_API_KEY")
+    def validate_football_api_key(cls, v):
+        if not v:
+            logger.warning("FOOTBALL_API_KEY is not set! API requests will fail.")
+        return v
     
     # Add this line:
     PROJECT_DESCRIPTION: str = "Your project description"

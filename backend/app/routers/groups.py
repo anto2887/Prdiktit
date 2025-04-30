@@ -423,13 +423,13 @@ async def get_teams(
     if cached_teams:
         teams = cached_teams
     else:
-        # This is a placeholder - you'll need to implement the actual repository function
-        # teams = await get_teams_by_league(db, league)
+        # Import the football API service
+        from ..services.football_api import football_api_service
         
-        # For now, return a mock response
-        teams = []
+        # Get teams from the Football API
+        teams = await football_api_service.get_teams_by_league(league)
         
-        # Cache for 24 hours
+        # Cache for 24 hours (since team data doesn't change often)
         await cache.set(cache_key, teams, 86400)
     
     return {
