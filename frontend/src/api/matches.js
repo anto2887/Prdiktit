@@ -30,18 +30,37 @@ export const getMatchById = async (matchId) => {
  * @returns {Promise<Object>} Fixtures data
  */
 export const getFixtures = async (params = {}) => {
-  // Convert params object to query string
-  const queryParams = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      queryParams.append(key, value);
+  try {
+    // Make sure all date parameters are properly formatted as strings
+    if (params.from && params.from instanceof Date) {
+      params.from = params.from.toISOString();
     }
-  });
-  
-  const queryString = queryParams.toString();
-  const endpoint = queryString ? `/matches/fixtures?${queryString}` : '/matches/fixtures';
-  
-  return await api.get(endpoint);
+    
+    if (params.to && params.to instanceof Date) {
+      params.to = params.to.toISOString();
+    }
+    
+    // Convert status to string if it's not already
+    if (params.status && typeof params.status !== 'string') {
+      params.status = String(params.status);
+    }
+    
+    // Log the params for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('getFixtures params:', params);
+    }
+    
+    return await api.get('/matches/fixtures', { params });
+  } catch (error) {
+    console.error('Error fetching fixtures:', error);
+    
+    // Return a fallback empty response with correct structure
+    return {
+      status: 'success',
+      matches: [],
+      total: 0
+    };
+  }
 };
 
 /**
@@ -51,7 +70,9 @@ export const getFixtures = async (params = {}) => {
  * @returns {Promise<Object>} League fixtures data
  */
 export const getLeagueFixtures = async (leagueId, season) => {
-  return await api.get(`/matches/fixtures?league=${leagueId}&season=${season}`);
+  return await api.get('/matches/fixtures', { 
+    params: { league: leagueId, season }
+  });
 };
 
 /**

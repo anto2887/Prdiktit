@@ -88,6 +88,37 @@ export const GroupProvider = ({ children }) => {
     }
   }, [isAuthenticated, showError]);
 
+  const fetchTeamsForLeague = useCallback(async (leagueId) => {
+    if (!isAuthenticated || !leagueId) {
+      setError("Missing league ID or not authenticated");
+      return { status: 'error', data: [] };
+    }
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      console.log('Fetching teams for league:', leagueId);
+      const response = await groupsApi.fetchTeamsForLeague(leagueId);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Teams API response:', response);
+      }
+      
+      if (response && response.status === 'success') {
+        return response;
+      } else {
+        throw new Error(response?.message || 'Failed to fetch teams');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to fetch teams');
+      showError(err.message || 'Failed to fetch teams');
+      return { status: 'error', data: [] };
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, showError]);
+
   const createGroup = useCallback(async (groupData) => {
     if (!isAuthenticated) return null;
     
@@ -260,7 +291,8 @@ export const GroupProvider = ({ children }) => {
         manageMember,
         isAdmin,
         isMember,
-        clearGroupData
+        clearGroupData,
+        fetchTeamsForLeague
       }}
     >
       {children}

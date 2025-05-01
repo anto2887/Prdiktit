@@ -1,6 +1,7 @@
-// TeamSelector.jsx
+// TeamSelector.jsx - Fixed version
 import React, { useState, useEffect } from 'react';
 import { useGroups } from '../../contexts/GroupContext';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) => {
   const [teams, setTeams] = useState([]);
@@ -18,9 +19,14 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
     setLoading(true);
     setError(null);
     try {
+      // Call the API function
       const response = await fetchTeamsForLeague(selectedLeague);
-      if (response.status === 'success') {
+      
+      // Check if response is successful
+      if (response && response.status === 'success' && response.data) {
         setTeams(response.data);
+      } else {
+        throw new Error("Invalid response format");
       }
     } catch (err) {
       setError('Failed to load teams');
@@ -38,11 +44,16 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
   };
 
   if (loading) {
-    return <div className="text-center py-4">Loading teams...</div>;
+    return <div className="text-center py-4"><LoadingSpinner size="small" /></div>;
   }
 
   if (error) {
     return <div className="text-red-500 py-4">{error}</div>;
+  }
+
+  // Check if teams is an array before rendering
+  if (!Array.isArray(teams) || teams.length === 0) {
+    return <div className="text-gray-500 py-4">No teams available for this league.</div>;
   }
 
   return (
@@ -63,9 +74,10 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
             className="mr-3"
           />
           <img
-            src={team.logo}
+            src={team.logo || '/placeholder-team-logo.svg'}
             alt={`${team.name} logo`}
             className="w-8 h-8 object-contain mr-2"
+            onError={(e) => { e.target.src = '/placeholder-team-logo.svg'; }}
           />
           <span className="font-medium text-gray-700">{team.name}</span>
         </div>

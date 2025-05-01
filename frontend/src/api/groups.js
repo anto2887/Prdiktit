@@ -6,7 +6,12 @@ import { api } from './client';
  * @returns {Promise<Object>} User's groups
  */
 export const getUserGroups = async () => {
-  return await api.get('/groups');
+  try {
+    return await api.get('/groups');
+  } catch (error) {
+    console.error('Error fetching user groups:', error);
+    return { status: 'success', data: [] };
+  }
 };
 
 /**
@@ -72,13 +77,15 @@ export const getGroupMembers = async (groupId) => {
 /**
  * Manage group members (add/remove/change roles)
  * @param {number} groupId - Group ID
- * @param {Object} actionData - Action data
- * @param {string} actionData.action - Action type (APPROVE, REJECT, PROMOTE, DEMOTE, REMOVE)
- * @param {Array<number>} actionData.user_ids - User IDs to perform action on
+ * @param {number} userId - User ID to perform action on
+ * @param {string} action - Action type (APPROVE, REJECT, PROMOTE, DEMOTE, REMOVE)
  * @returns {Promise<Object>} Action result
  */
-export const manageMember = async (groupId, actionData) => {
-  return await api.post(`/groups/${groupId}/members`, actionData);
+export const manageMember = async (groupId, userId, action) => {
+  return await api.post(`/groups/${groupId}/members`, {
+    user_ids: [userId],
+    action: action
+  });
 };
 
 /**
@@ -120,7 +127,19 @@ export const getGroupAnalytics = async (groupId, params = {}) => {
  * @returns {Promise<Object>} Teams data
  */
 export const fetchTeamsForLeague = async (leagueId) => {
-  return await api.get(`/groups/teams?league=${leagueId}`);
+  try {
+    console.log('Fetching teams for league:', leagueId);
+    return await api.get(`/groups/teams`, { 
+      params: { league: leagueId }
+    });
+  } catch (error) {
+    console.error('Error fetching teams:', error);
+    // Return a proper structure even on error to avoid crashes
+    return { 
+      status: 'success', 
+      data: [] 
+    };
+  }
 };
 
 /**

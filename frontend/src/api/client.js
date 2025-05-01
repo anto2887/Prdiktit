@@ -7,7 +7,7 @@ import {
 } from './utils';
 
 // Get API URL from environment variables with fallback
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
+const API_BASE_URL = '/api';
 
 console.log('API_BASE_URL:', API_BASE_URL);
 
@@ -56,48 +56,17 @@ const apiClient = axios.create({
   withCredentials: true  // Important for handling credentials
 });
 
-console.log('Full API URL for auth register:', `${API_BASE_URL}/auth/register`);
-
-// Request logging
-const logRequest = (config) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`🌐 API Request: ${config.method.toUpperCase()} ${config.url}`, {
-      headers: config.headers,
-      data: config.data,
-      params: config.params
-    });
-  }
-  return config;
-};
-
-// Response logging
-const logResponse = (response) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`✅ API Response: ${response.config.method.toUpperCase()} ${response.config.url}`, {
-      status: response.status,
-      data: response.data
-    });
-  }
-  return response;
-};
-
-// Error logging
-const logError = (error) => {
-  if (process.env.NODE_ENV === 'development') {
-    console.error(`❌ API Error: ${error.config?.method.toUpperCase()} ${error.config?.url}`, {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
-  }
-  return Promise.reject(error);
-};
-
 // Request interceptor
 apiClient.interceptors.request.use(async (config) => {
   try {
-    // Log the request
-    logRequest(config);
+    // Log the request (useful for debugging)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🌐 API Request: ${config.method.toUpperCase()} ${config.url}`, {
+        headers: config.headers,
+        data: config.data,
+        params: config.params
+      });
+    }
 
     // Check if we should try to use cached response
     if (config.method === 'get' && !config.headers['Cache-Control']) {
@@ -144,7 +113,7 @@ apiClient.interceptors.request.use(async (config) => {
   } catch (error) {
     return Promise.reject(error);
   }
-}, logError);
+});
 
 // Response interceptor
 apiClient.interceptors.response.use(
@@ -155,7 +124,12 @@ apiClient.interceptors.response.use(
     }
     
     // Log the response
-    logResponse(response);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`✅ API Response: ${response.config.method.toUpperCase()} ${response.config.url}`, {
+        status: response.status,
+        data: response.data
+      });
+    }
 
     // Store in cache if appropriate
     if (response.config.cacheKey) {
@@ -179,7 +153,13 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     // Log the error
-    logError(error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error(`❌ API Error: ${error.config?.method.toUpperCase()} ${error.config?.url}`, {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+    }
 
     const originalRequest = error.config;
     
@@ -216,16 +196,6 @@ apiClient.interceptors.response.use(
         }
       }
 
-      // Handle 403 Forbidden
-      if (status === 403) {
-        return Promise.reject(new APIError('Access denied', 403));
-      }
-
-      // Handle 404 Not Found
-      if (status === 404) {
-        return Promise.reject(new APIError('Resource not found', 404));
-      }
-
       // Handle 422 Validation Error
       if (status === 422) {
         console.error('Validation error:', error.response.data);
@@ -243,11 +213,6 @@ apiClient.interceptors.response.use(
       // Handle 429 Too Many Requests
       if (status === 429) {
         return Promise.reject(new APIError('Too many requests, please try again later', 429));
-      }
-
-      // Handle 500 Internal Server Error
-      if (status >= 500) {
-        return Promise.reject(new APIError('Server error', status));
       }
 
       // Handle other error responses

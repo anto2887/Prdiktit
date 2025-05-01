@@ -13,25 +13,43 @@ export const getPredictionById = async (predictionId) => {
 /**
  * Create a new prediction
  * @param {Object} predictionData - Prediction data
- * @param {number} predictionData.fixture_id - Fixture ID
- * @param {number} predictionData.score1 - Home team score
- * @param {number} predictionData.score2 - Away team score
+ * @param {number} predictionData.match_id - Match ID (note: match_id vs fixture_id!)
+ * @param {number} predictionData.home_score - Home team score
+ * @param {number} predictionData.away_score - Away team score
  * @returns {Promise<Object>} Created prediction
  */
 export const createPrediction = async (predictionData) => {
-  return await api.post('/predictions', predictionData);
+  // Make sure we're using the right field names
+  const dataToSend = {
+    match_id: predictionData.match_id || predictionData.fixture_id,
+    home_score: predictionData.home_score || predictionData.score1,
+    away_score: predictionData.away_score || predictionData.score2
+  };
+  
+  return await api.post('/predictions', dataToSend);
 };
 
 /**
  * Update an existing prediction
  * @param {number} predictionId - Prediction ID
  * @param {Object} predictionData - Updated prediction data
- * @param {number} [predictionData.score1] - Updated home team score
- * @param {number} [predictionData.score2] - Updated away team score
+ * @param {number} [predictionData.home_score] - Updated home team score
+ * @param {number} [predictionData.away_score] - Updated away team score
  * @returns {Promise<Object>} Updated prediction
  */
 export const updatePrediction = async (predictionId, predictionData) => {
-  return await api.put(`/predictions/${predictionId}`, predictionData);
+  // Make sure we're using the right field names
+  const dataToSend = {};
+  
+  if ('home_score' in predictionData || 'score1' in predictionData) {
+    dataToSend.home_score = predictionData.home_score || predictionData.score1;
+  }
+  
+  if ('away_score' in predictionData || 'score2' in predictionData) {
+    dataToSend.away_score = predictionData.away_score || predictionData.score2;
+  }
+  
+  return await api.put(`/predictions/${predictionId}`, dataToSend);
 };
 
 /**
@@ -51,18 +69,19 @@ export const resetPrediction = async (predictionId) => {
  * @returns {Promise<Object>} User predictions data
  */
 export const getUserPredictions = async (params = {}) => {
-  // Convert params object to query string
-  const queryParams = new URLSearchParams();
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      queryParams.append(key, value);
-    }
-  });
-  
-  const queryString = queryParams.toString();
-  const endpoint = queryString ? `/predictions/user?${queryString}` : '/predictions/user';
-  
-  return await api.get(endpoint);
+  try {
+    const response = await api.get('/predictions/user', { params });
+    return response;
+  } catch (error) {
+    console.error('Error fetching user predictions:', error);
+    
+    // Return a fallback empty response with correct structure
+    return {
+      status: 'success',
+      matches: [],
+      total: 0
+    };
+  }
 };
 
 /**

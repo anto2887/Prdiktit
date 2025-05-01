@@ -1,5 +1,5 @@
 # app/routers/matches.py
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -110,12 +110,20 @@ async def get_fixtures_endpoint(
     to_datetime = None
     
     if from_date:
-        from_date = from_date.replace('Z', '+00:00')
-        from_datetime = datetime.fromisoformat(from_date)
+        try:
+            from_date = from_date.replace('Z', '+00:00')
+            from_datetime = datetime.fromisoformat(from_date)
+        except (ValueError, TypeError):
+            # Handle date parsing errors
+            from_datetime = datetime.now(timezone.utc)
     
     if to_date:
-        to_date = to_date.replace('Z', '+00:00')
-        to_datetime = datetime.fromisoformat(to_date)
+        try:
+            to_date = to_date.replace('Z', '+00:00')
+            to_datetime = datetime.fromisoformat(to_date)
+        except (ValueError, TypeError):
+            # Set a default to_date (1 week from now)
+            to_datetime = datetime.now(timezone.utc) + timedelta(days=7)
     
     # Build cache key from query parameters
     cache_params = f"{league}:{season}:{status}:{from_date}:{to_date}:{team_id}"

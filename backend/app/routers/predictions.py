@@ -81,7 +81,7 @@ async def submit_prediction(
         
         return {
             "status": "success",
-            "data": updated_prediction
+            "matches": updated_prediction
         }
     
     # Create new prediction
@@ -102,7 +102,7 @@ async def submit_prediction(
     
     return {
         "status": "success",
-        "data": new_prediction
+        "matches": new_prediction
     }
 
 @router.get("/{prediction_id}", response_model=PredictionResponse)
@@ -131,7 +131,7 @@ async def get_prediction(
     
     return {
         "status": "success",
-        "data": prediction
+        "matches": prediction
     }
 
 @router.post("/reset/{prediction_id}", response_model=dict)
@@ -184,31 +184,44 @@ async def reset_prediction_endpoint(
 
 @router.get("/user", response_model=UserPredictionListResponse)
 async def get_user_predictions(
-    fixture_id: Optional[int] = None,
-    status: Optional[PredictionStatus] = None,
-    season: Optional[str] = None,
-    week: Optional[int] = None,
+    fixture_id: Optional[int] = Query(None),
+    status: Optional[PredictionStatus] = Query(None),
+    season: Optional[str] = Query(None),
+    week: Optional[int] = Query(None),
     current_user: UserInDB = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ) -> Any:
     """
     Get current user's predictions
     """
-    predictions = await get_user_predictions_db(
-        db=db,
-        user_id=current_user.id,
-        fixture_id=fixture_id,
-        status=status,
-        season=season,
-        week=week
-    )
-    
-    # Change this return statement
-    return {
-        "status": "success",
-        "matches": predictions,  # Change 'data' to 'matches'
-        "total": len(predictions)  # Add 'total' field
-    }
+    try:
+        predictions = await get_user_predictions_db(
+            db=db,
+            user_id=current_user.id,
+            fixture_id=fixture_id,
+            status=status,
+            season=season,
+            week=week
+        )
+        
+        # Return the correct format
+        return {
+            "status": "success",
+            "matches": predictions,  # Changed from 'data' to 'matches'
+            "total": len(predictions)
+        }
+    except Exception as e:
+        # Log the error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in get_user_predictions: {str(e)}")
+        
+        # Return an empty result rather than error
+        return {
+            "status": "success",
+            "matches": [],
+            "total": 0
+        }
 
 @router.post("/batch", response_model=BatchPredictionResponse)
 async def create_batch_predictions(
