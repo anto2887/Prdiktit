@@ -185,7 +185,7 @@ async def reset_prediction_endpoint(
 @router.get("/user", response_model=UserPredictionListResponse)
 async def get_user_predictions(
     fixture_id: Optional[int] = Query(None),
-    status: Optional[PredictionStatus] = Query(None),
+    status: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
     week: Optional[int] = Query(None),
     current_user: UserInDB = Depends(get_current_active_user),
@@ -195,11 +195,20 @@ async def get_user_predictions(
     Get current user's predictions
     """
     try:
+        # Convert status string to enum if provided
+        status_enum = None
+        if status:
+            try:
+                status_enum = PredictionStatus(status)
+            except (ValueError, TypeError):
+                # Invalid status, ignore it
+                pass
+        
         predictions = await get_user_predictions_db(
             db=db,
             user_id=current_user.id,
             fixture_id=fixture_id,
-            status=status,
+            status=status_enum,
             season=season,
             week=week
         )
@@ -207,7 +216,7 @@ async def get_user_predictions(
         # Return the correct format
         return {
             "status": "success",
-            "matches": predictions,  # Changed from 'data' to 'matches'
+            "matches": predictions,
             "total": len(predictions)
         }
     except Exception as e:

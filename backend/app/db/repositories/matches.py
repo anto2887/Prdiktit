@@ -1,6 +1,6 @@
 # app/db/repositories/fixtures.py
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -16,7 +16,7 @@ async def get_fixtures(
     db: Session, 
     league: Optional[str] = None,
     season: Optional[str] = None,
-    status: Optional[MatchStatus] = None,
+    status: Optional[Union[MatchStatus, str]] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
     team_id: Optional[int] = None,
@@ -34,7 +34,16 @@ async def get_fixtures(
         query = query.filter(Fixture.season == season)
     
     if status:
-        query = query.filter(Fixture.status == status)
+        # Convert string to enum if needed
+        if isinstance(status, str):
+            try:
+                status = MatchStatus(status)
+            except (ValueError, KeyError):
+                # Invalid status, ignore
+                pass
+        
+        if isinstance(status, MatchStatus):
+            query = query.filter(Fixture.status == status)
     
     if from_date:
         query = query.filter(Fixture.date >= from_date)

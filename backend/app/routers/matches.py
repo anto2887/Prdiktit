@@ -94,7 +94,7 @@ async def get_match(
 async def get_fixtures_endpoint(
     league: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
-    status: Optional[MatchStatus] = Query(None),
+    status: Optional[str] = Query(None),
     from_date: Optional[str] = Query(None),
     to_date: Optional[str] = Query(None),
     team_id: Optional[int] = Query(None),
@@ -111,19 +111,40 @@ async def get_fixtures_endpoint(
     
     if from_date:
         try:
-            from_date = from_date.replace('Z', '+00:00')
+            # Handle ISO format with timezone (e.g. 2025-05-01T06:19:16.968Z)
+            if 'Z' in from_date:
+                from_date = from_date.replace('Z', '+00:00')
             from_datetime = datetime.fromisoformat(from_date)
-        except (ValueError, TypeError):
-            # Handle date parsing errors
+        except (ValueError, TypeError) as e:
+            # Log the error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error parsing from_date '{from_date}': {str(e)}")
+            # Use current time as fallback
             from_datetime = datetime.now(timezone.utc)
     
     if to_date:
         try:
-            to_date = to_date.replace('Z', '+00:00')
+            # Handle ISO format with timezone
+            if 'Z' in to_date:
+                to_date = to_date.replace('Z', '+00:00')
             to_datetime = datetime.fromisoformat(to_date)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
+            # Log the error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error parsing to_date '{to_date}': {str(e)}")
             # Set a default to_date (1 week from now)
             to_datetime = datetime.now(timezone.utc) + timedelta(days=7)
+    
+    # Convert status string to enum if provided
+    status_enum = None
+    if status:
+        try:
+            status_enum = MatchStatus(status)
+        except (ValueError, TypeError):
+            # Invalid status, ignore it
+            pass
     
     # Build cache key from query parameters
     cache_params = f"{league}:{season}:{status}:{from_date}:{to_date}:{team_id}"
@@ -139,7 +160,7 @@ async def get_fixtures_endpoint(
             db,
             league=league,
             season=season,
-            status=status,
+            status=status_enum,
             from_date=from_datetime,
             to_date=to_datetime,
             team_id=team_id

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Union
 from sqlalchemy.orm import Session
 
 from ..models import (
@@ -31,7 +31,7 @@ async def get_user_predictions(
     db: Session, 
     user_id: int,
     fixture_id: Optional[int] = None,
-    status: Optional[PredictionStatus] = None,
+    status: Optional[Union[PredictionStatus, str]] = None,
     season: Optional[str] = None,
     week: Optional[int] = None
 ) -> List[UserPrediction]:
@@ -44,7 +44,16 @@ async def get_user_predictions(
         query = query.filter(UserPrediction.fixture_id == fixture_id)
     
     if status:
-        query = query.filter(UserPrediction.prediction_status == status)
+        # Convert string to enum if needed
+        if isinstance(status, str):
+            try:
+                status = PredictionStatus(status)
+            except (ValueError, KeyError):
+                # Invalid status, ignore
+                pass
+                
+        if isinstance(status, PredictionStatus):
+            query = query.filter(UserPrediction.prediction_status == status)
     
     if season:
         query = query.filter(UserPrediction.season == season)

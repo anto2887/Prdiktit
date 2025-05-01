@@ -32,15 +32,25 @@ export const getMatchById = async (matchId) => {
 export const getFixtures = async (params = {}) => {
   try {
     // Make sure all date parameters are properly formatted as strings
-    if (params.from && params.from instanceof Date) {
-      params.from = params.from.toISOString();
+    if (params.from) {
+      if (params.from instanceof Date) {
+        // Only send the date part without time and timezone
+        params.from = params.from.toISOString().split('T')[0];
+      } else if (typeof params.from === 'string' && params.from.includes('T')) {
+        // Parse out just the date part
+        params.from = params.from.split('T')[0];
+      }
     }
     
-    if (params.to && params.to instanceof Date) {
-      params.to = params.to.toISOString();
+    if (params.to) {
+      if (params.to instanceof Date) {
+        params.to = params.to.toISOString().split('T')[0];
+      } else if (typeof params.to === 'string' && params.to.includes('T')) {
+        params.to = params.to.split('T')[0];
+      }
     }
     
-    // Convert status to string if it's not already
+    // Ensure status is a string
     if (params.status && typeof params.status !== 'string') {
       params.status = String(params.status);
     }
