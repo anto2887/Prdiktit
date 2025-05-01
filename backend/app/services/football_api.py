@@ -229,6 +229,7 @@ class FootballApiService:
             'season': current_year
         }
         
+        logger.info(f"Fetching teams for league: {league_name} (ID: {league_id}, Season: {current_year})")
         teams_data = await self.make_api_request('teams', params)
         
         if not teams_data:
@@ -238,13 +239,20 @@ class FootballApiService:
         # Transform the data to match our expected format
         teams = []
         for team_info in teams_data:
-            teams.append({
+            team = {
                 "id": team_info['team']['id'],
                 "name": team_info['team']['name'],
                 "logo": team_info['team']['logo']
-            })
-            
+            }
+            teams.append(team)
+            logger.debug(f"Processed team: {team['name']} (ID: {team['id']})")
+        
         logger.info(f"Found {len(teams)} teams for league: {league_name}")
+        
+        # Log the first team as an example of the structure
+        if teams:
+            logger.info(f"Example team structure: {json.dumps(teams[0])}")
+        
         return teams
 
 # Create a singleton instance
