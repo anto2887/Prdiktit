@@ -7,12 +7,18 @@ import { formatMatchResult, formatPredictionStatus } from '../../utils/formatter
 const RecentPredictions = () => {
   const { userPredictions } = usePredictions();
 
-  // Get only the latest 5 predictions
-  const recentPredictions = userPredictions
-    .sort((a, b) => new Date(b.fixture?.date || 0) - new Date(a.fixture?.date || 0))
-    .slice(0, 5);
+  // Add safety check to prevent sorting undefined
+  const recentPredictions = userPredictions && userPredictions.length > 0
+    ? [...userPredictions]
+        .sort((a, b) => {
+          const dateA = a.fixture?.date ? new Date(a.fixture.date) : new Date(0);
+          const dateB = b.fixture?.date ? new Date(b.fixture.date) : new Date(0);
+          return dateB - dateA;
+        })
+        .slice(0, 5)
+    : [];
 
-  if (recentPredictions.length === 0) {
+  if (!userPredictions || userPredictions.length === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
         <p>You haven't made any predictions yet.</p>
@@ -35,8 +41,8 @@ const RecentPredictions = () => {
         
         return (
           <Link 
-            key={prediction.id} 
-            to={`/predictions/edit/${prediction.id}`} 
+            key={prediction.id || Math.random().toString()} 
+            to={prediction.id ? `/predictions/edit/${prediction.id}` : '/predictions'}
             className={`block p-4 rounded-lg border ${
               isPredictionCorrect 
                 ? 'border-green-200 bg-green-50' 
@@ -48,11 +54,14 @@ const RecentPredictions = () => {
             <div className="flex justify-between items-center">
               <div className="flex items-center space-x-3">
                 <div className="flex-shrink-0">
-                  <img src={fixture.home_team_logo} alt="" className="h-8 w-8 object-contain" />
+                  <img src={fixture.home_team_logo || '/placeholder-logo.svg'} 
+                       alt="" 
+                       className="h-8 w-8 object-contain"
+                       onError={(e) => { e.target.src = '/placeholder-logo.svg'; }} />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">
-                    {fixture.home_team} vs {fixture.away_team}
+                    {fixture.home_team || 'Home Team'} vs {fixture.away_team || 'Away Team'}
                   </p>
                   <p className="text-xs text-gray-500">
                     {fixture.date ? formatDate(fixture.date, 'PPP') : 'Date not available'}
@@ -61,7 +70,8 @@ const RecentPredictions = () => {
               </div>
               <div className="text-right">
                 <p className="text-sm font-medium">
-                  {prediction.score1}-{prediction.score2}
+                  {prediction.score1 !== undefined ? prediction.score1 : '-'}-
+                  {prediction.score2 !== undefined ? prediction.score2 : '-'}
                 </p>
                 <p className="text-xs text-gray-500">
                   {fixture.status === 'FINISHED' 

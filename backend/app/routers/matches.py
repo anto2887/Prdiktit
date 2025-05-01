@@ -111,10 +111,15 @@ async def get_fixtures_endpoint(
     
     if from_date:
         try:
-            # Handle ISO format with timezone (e.g. 2025-05-01T06:19:16.968Z)
-            if 'Z' in from_date:
-                from_date = from_date.replace('Z', '+00:00')
-            from_datetime = datetime.fromisoformat(from_date)
+            # First check if it's a date-only string (YYYY-MM-DD)
+            if len(from_date) == 10 and from_date[4] == '-' and from_date[7] == '-':
+                # Add time component for date-only strings
+                from_datetime = datetime.fromisoformat(f"{from_date}T00:00:00+00:00")
+            else:
+                # Handle ISO format with timezone
+                if 'Z' in from_date:
+                    from_date = from_date.replace('Z', '+00:00')
+                from_datetime = datetime.fromisoformat(from_date)
         except (ValueError, TypeError) as e:
             # Log the error for debugging
             import logging
@@ -125,10 +130,15 @@ async def get_fixtures_endpoint(
     
     if to_date:
         try:
-            # Handle ISO format with timezone
-            if 'Z' in to_date:
-                to_date = to_date.replace('Z', '+00:00')
-            to_datetime = datetime.fromisoformat(to_date)
+            # First check if it's a date-only string (YYYY-MM-DD)
+            if len(to_date) == 10 and to_date[4] == '-' and to_date[7] == '-':
+                # Add time component for date-only strings - use end of day for to_date
+                to_datetime = datetime.fromisoformat(f"{to_date}T23:59:59+00:00")
+            else:
+                # Handle ISO format with timezone
+                if 'Z' in to_date:
+                    to_date = to_date.replace('Z', '+00:00')
+                to_datetime = datetime.fromisoformat(to_date)
         except (ValueError, TypeError) as e:
             # Log the error for debugging
             import logging

@@ -17,7 +17,10 @@ export const MatchProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   const fetchFixtures = useCallback(async (params = {}) => {
-    if (!isAuthenticated) return [];
+    if (!isAuthenticated) {
+      setFixtures([]);
+      return [];
+    }
     
     try {
       setLoading(true);
@@ -25,15 +28,19 @@ export const MatchProvider = ({ children }) => {
       
       const response = await matchesApi.getFixtures(params);
       
-      if (response.status === 'success') {
-        setFixtures(response.data);
-        return response.data;
+      if (response && response.status === 'success') {
+        // Check for both response.data and response.matches formats
+        const fixtureData = response.matches || response.data || [];
+        setFixtures(fixtureData);
+        return fixtureData;
       } else {
-        throw new Error(response.message || 'Failed to fetch fixtures');
+        throw new Error(response?.message || 'Failed to fetch fixtures');
       }
     } catch (err) {
       setError(err.message || 'Failed to fetch fixtures');
       showError(err.message || 'Failed to fetch fixtures');
+      // Set empty array to prevent undefined issues
+      setFixtures([]);
       return [];
     } finally {
       setLoading(false);

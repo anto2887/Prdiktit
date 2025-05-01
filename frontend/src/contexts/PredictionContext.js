@@ -16,7 +16,10 @@ export const PredictionProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   const fetchUserPredictions = useCallback(async (params = {}) => {
-    if (!isAuthenticated) return [];
+    if (!isAuthenticated) {
+      setUserPredictions([]);
+      return [];
+    }
     
     try {
       setLoading(true);
@@ -25,14 +28,18 @@ export const PredictionProvider = ({ children }) => {
       const response = await predictionsApi.getUserPredictions(params);
       
       if (response.status === 'success') {
-        setUserPredictions(response.data);
-        return response.data;
+        // Ensure we have an array, even if response.data is falsy
+        const predictionData = response.matches || response.data || [];
+        setUserPredictions(predictionData);
+        return predictionData;
       } else {
         throw new Error(response.message || 'Failed to fetch predictions');
       }
     } catch (err) {
       setError(err.message || 'Failed to fetch predictions');
       showError(err.message || 'Failed to fetch predictions');
+      // Set empty array to prevent undefined issues
+      setUserPredictions([]);
       return [];
     } finally {
       setLoading(false);

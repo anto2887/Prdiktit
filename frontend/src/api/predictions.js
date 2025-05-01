@@ -66,11 +66,36 @@ export const resetPrediction = async (predictionId) => {
  * @param {Object} params - Query parameters
  * @param {number} [params.fixture_id] - Filter by fixture
  * @param {string} [params.status] - Filter by prediction status
+ * @param {string} [params.season] - Filter by season
+ * @param {number} [params.week] - Filter by week
  * @returns {Promise<Object>} User predictions data
  */
 export const getUserPredictions = async (params = {}) => {
   try {
-    const response = await api.get('/predictions/user', { params });
+    // Make a deep copy of params to avoid modifying the original
+    const queryParams = { ...params };
+    
+    // Make sure all parameters are properly formatted
+    if (queryParams.fixture_id && typeof queryParams.fixture_id !== 'number') {
+      queryParams.fixture_id = parseInt(queryParams.fixture_id, 10);
+      if (isNaN(queryParams.fixture_id)) {
+        delete queryParams.fixture_id;
+      }
+    }
+    
+    if (queryParams.week && typeof queryParams.week !== 'number') {
+      queryParams.week = parseInt(queryParams.week, 10);
+      if (isNaN(queryParams.week)) {
+        delete queryParams.week;
+      }
+    }
+    
+    // Log params for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('getUserPredictions params:', queryParams);
+    }
+    
+    const response = await api.get('/predictions/user', { params: queryParams });
     return response;
   } catch (error) {
     console.error('Error fetching user predictions:', error);
