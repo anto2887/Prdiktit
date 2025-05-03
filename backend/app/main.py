@@ -34,11 +34,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Add rate limiting middleware here, before the app starts
+# Add rate limiting middleware here, but with higher limit and more exclusions 
 app.add_middleware(
     RateLimitMiddleware,
-    requests_per_minute=settings.API_RATE_LIMIT,
-    exclude_paths=["/docs", "/redoc", "/openapi.json", "/static"]
+    requests_per_minute=240,  # Increased from default
+    exclude_paths=[
+        "/docs", 
+        "/redoc", 
+        "/openapi.json", 
+        "/static",
+        "/api/health",
+        "/api/auth"  # Exclude auth endpoints from rate limiting
+    ]
 )
 
 # Include routers

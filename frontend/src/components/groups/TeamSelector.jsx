@@ -1,6 +1,7 @@
 // TeamSelector.jsx - Fixed version
 import React, { useState, useEffect } from 'react';
 import { useGroups } from '../../contexts/GroupContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) => {
@@ -8,29 +9,46 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { fetchTeamsForLeague } = useGroups();
+  const { showError } = useNotifications();
 
   useEffect(() => {
     if (selectedLeague) {
       loadTeams();
+    } else {
+      // Clear teams if no league is selected
+      setTeams([]);
     }
   }, [selectedLeague]);
 
   const loadTeams = async () => {
+    if (!selectedLeague) return;
+    
     setLoading(true);
     setError(null);
+    
     try {
+      console.log(`Loading teams for league: ${selectedLeague}`);
+      
       // Call the API function
       const response = await fetchTeamsForLeague(selectedLeague);
       
       // Check if response is successful
-      if (response && response.status === 'success' && response.data) {
-        setTeams(response.data);
+      if (response && response.status === 'success') {
+        if (Array.isArray(response.data)) {
+          console.log(`Successfully loaded ${response.data.length} teams`);
+          setTeams(response.data);
+        } else {
+          console.error("Invalid teams data format:", response.data);
+          setTeams([]);
+          setError("No teams available. Please try again later.");
+        }
       } else {
-        throw new Error("Invalid response format");
+        throw new Error(response?.message || "Failed to load teams");
       }
     } catch (err) {
-      setError('Failed to load teams');
       console.error('Error loading teams:', err);
+      setError('Failed to load teams. Please try refreshing the page.');
+      showError('Failed to load teams. Please try refreshing the page.');
     } finally {
       setLoading(false);
     }
@@ -48,12 +66,26 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
   }
 
   if (error) {
-    return <div className="text-red-500 py-4">{error}</div>;
+    return (
+      <div className="text-red-500 py-4">
+        {error}
+        <button
+          onClick={loadTeams}
+          className="ml-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Try Again
+        </button>
+      </div>
+    );
   }
 
   // Check if teams is an array before rendering
   if (!Array.isArray(teams) || teams.length === 0) {
-    return <div className="text-gray-500 py-4">No teams available for this league.</div>;
+    return (
+      <div className="text-gray-500 py-4">
+        No teams available for this league. Please try selecting a different league.
+      </div>
+    );
   }
 
   return (
