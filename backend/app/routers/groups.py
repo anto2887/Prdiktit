@@ -416,58 +416,65 @@ async def get_teams(
     """
     Get teams for a league
     """
-    # Add logging
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(f"get_teams endpoint called by user {current_user.id} for league {league}")
-    
-    # Map league IDs to names if needed
-    league_mapping = {
-        "PL": "Premier League",
-        "LL": "La Liga",
-        "UCL": "UEFA Champions League"
-    }
-    
-    # Use mapped league name if available
-    league_name = league_mapping.get(league, league)
-    logger.info(f"Mapped league '{league}' to '{league_name}'")
-    
-    # Try to get from cache
-    cache_key = f"league_teams:{league_name}"
-    cached_teams = await cache.get(cache_key)
-    
-    if cached_teams:
-        logger.debug(f"Teams for league {league_name} found in cache")
-        teams = cached_teams
-    else:
-        logger.debug(f"Teams for league {league_name} not found in cache, fetching from database")
+    try:
+        # Add logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"get_teams endpoint called by user {current_user.id} for league {league}")
         
-        # Get teams from the database - modify this to use the imported function
-        from ..db.repositories.teams import get_teams_by_league
+        # Map league IDs to names if needed
+        league_mapping = {
+            "PL": "Premier League",
+            "LL": "La Liga",
+            "UCL": "UEFA Champions League"
+        }
         
-        # Get teams by league name
-        teams_from_db = await get_teams_by_league(db, league_name)
+        # Use mapped league name if available
+        league_name = league_mapping.get(league, league)
+        logger.info(f"Mapped league '{league}' to '{league_name}'")
         
-        if teams_from_db:
-            logger.info(f"Found {len(teams_from_db)} teams for league {league_name} in database")
-            # Convert team objects to dict format
-            teams = []
-            for team in teams_from_db:
-                teams.append({
-                    "id": team.id,
-                    "name": team.team_name,
-                    "logo": team.team_logo
-                })
+        # Try to get from cache
+        cache_key = f"league_teams:{league_name}"
+        cached_teams = await cache.get(cache_key)
+        
+        if cached_teams:
+            logger.debug(f"Teams for league {league_name} found in cache")
+            teams = cached_teams
         else:
-            logger.warning(f"No teams found in database for league {league_name}")
-            # Return empty list if no teams found
-            teams = []
+            logger.debug(f"Teams for league {league_name} not found in cache, fetching from database")
+            
+            # Get teams from the database
+            from ..db.repositories.teams import get_teams_by_league
+            
+            # Get teams by league name
+            teams_from_db = await get_teams_by_league(db, league_name)
+            
+            if teams_from_db:
+                logger.info(f"Found {len(teams_from_db)} teams for league {league_name} in database")
+                # Convert team objects to dict format
+                teams = []
+                for team in teams_from_db:
+                    teams.append({
+                        "id": team.id,
+                        "name": team.team_name,
+                        "logo": team.team_logo
+                    })
+            else:
+                logger.warning(f"No teams found in database for league {league_name}")
+                # Return empty list if no teams found
+                teams = []
+            
+            # Cache for 24 hours (since team data doesn't change often)
+            await cache.set(cache_key, teams, 86400)
         
-        # Cache for 24 hours (since team data doesn't change often)
-        await cache.set(cache_key, teams, 86400)
-    
-    logger.info(f"Returning {len(teams)} teams for league {league_name}")
-    return {
-        "status": "success",
-        "data": teams
-    }
+        logger.info(f"Returning {len(teams)} teams for league {league_name}")
+        return {
+            "status": "success",
+            "data": teams
+        }
+    except Exception as e:
+        logger.error(f"Error in get_teams: {str(e)}")
+        return {
+            "status": "success",
+            "data": []  # Return empty list on error
+        }

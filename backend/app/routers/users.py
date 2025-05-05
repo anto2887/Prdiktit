@@ -27,25 +27,46 @@ async def get_profile(
     """
     Get current user profile and stats
     """
-    # Try to get stats from cache first
-    cache_key = f"user_stats:{current_user.id}"
-    cached_stats = await cache.get(cache_key)
-    
-    if not cached_stats:
-        # Get stats from database
-        stats = await get_user_stats(db, current_user.id)
-        # Cache for 30 minutes
-        await cache.set(cache_key, stats, 1800)
-    else:
-        stats = cached_stats
-    
-    return {
-        "status": "success",
-        "data": {
-            "user": current_user,
-            "stats": UserStats(**stats)
+    try:
+        # Try to get stats from cache first
+        cache_key = f"user_stats:{current_user.id}"
+        cached_stats = await cache.get(cache_key)
+        
+        if not cached_stats:
+            # Get stats from database
+            stats = await get_user_stats(db, current_user.id)
+            # Cache for 30 minutes
+            await cache.set(cache_key, stats, 1800)
+        else:
+            stats = cached_stats
+        
+        # Ensure stats has the expected structure
+        if not stats:
+            stats = {
+                "total_points": 0,
+                "total_predictions": 0,
+                "perfect_predictions": 0,
+                "average_points": 0.0
+            }
+        
+        return {
+            "status": "success",
+            "data": {
+                "user": current_user,
+                "stats": UserStats(**stats)
+            }
         }
-    }
+    except Exception as e:
+        # Log the exception
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in get_profile: {str(e)}")
+        
+        # Return a graceful error response instead of 500
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch profile: {str(e)}"
+        )
 
 @router.put("/profile", response_model=dict)
 async def update_profile(

@@ -35,57 +35,84 @@ const DashboardPage = () => {
   const errors = [userError, predictionsError, matchesError, groupsError].filter(Boolean);
   
   useEffect(() => {
-    // Fetch data with delays to avoid rate limiting
+    // Fetch data with more robust error handling
     const fetchData = async () => {
       try {
         // Fetch user data first
         if (!dataFetchStatus.profile) {
-          await fetchProfile();
-          setDataFetchStatus(prev => ({ ...prev, profile: true }));
+          try {
+            await fetchProfile();
+            setDataFetchStatus(prev => ({ ...prev, profile: true }));
+          } catch (error) {
+            console.error("Failed to fetch profile:", error);
+          }
+          
           // Wait to prevent rate limiting
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
 
         // Fetch groups data
         if (!dataFetchStatus.groups) {
-          await fetchUserGroups();
-          setDataFetchStatus(prev => ({ ...prev, groups: true }));
+          try {
+            await fetchUserGroups();
+            setDataFetchStatus(prev => ({ ...prev, groups: true }));
+          } catch (error) {
+            console.error("Failed to fetch groups:", error);
+          }
+          
           // Wait to prevent rate limiting
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         // Fetch predictions
         if (!dataFetchStatus.predictions) {
-          await fetchUserPredictions();
-          setDataFetchStatus(prev => ({ ...prev, predictions: true }));
+          try {
+            await fetchUserPredictions();
+            setDataFetchStatus(prev => ({ ...prev, predictions: true }));
+          } catch (error) {
+            console.error("Failed to fetch predictions:", error);
+          }
+          
           // Wait to prevent rate limiting
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         // Get live matches
         if (!dataFetchStatus.matches) {
-          await refreshLiveMatches();
-          setDataFetchStatus(prev => ({ ...prev, matches: true }));
+          try {
+            await refreshLiveMatches();
+            setDataFetchStatus(prev => ({ ...prev, matches: true }));
+          } catch (error) {
+            console.error("Failed to fetch live matches:", error);
+          }
+          
           // Wait to prevent rate limiting
-          await new Promise(resolve => setTimeout(resolve, 300));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
         
         // Get upcoming fixtures for next 7 days
         if (!dataFetchStatus.fixtures) {
-          const today = new Date();
-          const nextWeek = new Date(today);
-          nextWeek.setDate(today.getDate() + 7);
-          
-          await fetchFixtures({
-            from: today.toISOString(),
-            to: nextWeek.toISOString(),
-            status: 'NOT_STARTED'
-          });
-          setDataFetchStatus(prev => ({ ...prev, fixtures: true }));
+          try {
+            const today = new Date();
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 7);
+            
+            // Format dates as YYYY-MM-DD for backend compatibility
+            const fromStr = today.toISOString().split('T')[0];
+            const toStr = nextWeek.toISOString().split('T')[0];
+            
+            await fetchFixtures({
+              from: fromStr,
+              to: toStr,
+              status: 'NOT_STARTED'
+            });
+            setDataFetchStatus(prev => ({ ...prev, fixtures: true }));
+          } catch (error) {
+            console.error("Failed to fetch fixtures:", error);
+          }
         }
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-        // If we hit a 429, we'll retry with the retry button
+        console.error('Error in data fetching sequence:', error);
       }
     };
 

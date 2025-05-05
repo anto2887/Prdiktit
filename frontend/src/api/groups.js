@@ -131,7 +131,6 @@ export const fetchTeamsForLeague = async (leagueId) => {
     console.log('Fetching teams for league:', leagueId);
     
     // Map the frontend league IDs to the backend expected values
-    // This is the key fix - the API expects different league identifiers
     const leagueMap = {
       'PL': 'Premier League',
       'LL': 'La Liga',
@@ -140,16 +139,17 @@ export const fetchTeamsForLeague = async (leagueId) => {
     
     const mappedLeague = leagueMap[leagueId] || leagueId;
     
-    // Use the mapped league name for the API call
-    const response = await api.get(`/groups/teams`, { 
-      params: { league: mappedLeague }
-    });
+    // Use query parameter encoding for special characters
+    const encodedLeague = encodeURIComponent(mappedLeague);
     
-    if (response.status === 'success') {
+    // Use the mapped league name for the API call
+    const response = await api.get(`/groups/teams?league=${encodedLeague}`);
+    
+    if (response && response.status === 'success') {
       console.log(`Successfully fetched ${response.data?.length || 0} teams for ${mappedLeague}`);
       return response;
     } else {
-      console.error('Error fetching teams:', response.message);
+      console.error('Error fetching teams:', response?.message);
       return { 
         status: 'success', 
         data: [] 

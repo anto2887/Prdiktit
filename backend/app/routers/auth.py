@@ -1,6 +1,6 @@
 # app/routers/auth.py
 from datetime import timedelta
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
@@ -11,7 +11,8 @@ from ..core.security import (
     create_access_token, 
     get_password_hash, 
     verify_password,
-    get_current_active_user
+    get_current_active_user,
+    get_current_active_user_optional
 )
 from ..db.session import get_db
 from ..db.repositories import get_user_by_username, create_user
@@ -124,18 +125,43 @@ async def register_user(
 
 @router.get("/status", response_model=dict)
 async def auth_status(
-    current_user: UserInDB = Depends(get_current_active_user)
-) -> Any:
+    current_user: Optional[UserInDB] = Depends(get_current_active_user_optional)
+):
     """
     Get current user authentication status
     """
-    return {
-        "status": "success",
-        "data": {
-            "authenticated": True,
-            "user": {
-                "id": current_user.id,
-                "username": current_user.username
+    try:
+        if current_user:
+            return {
+                "status": "success",
+                "data": {
+                    "authenticated": True,
+                    "user": {
+                        "id": current_user.id,
+                        "username": current_user.username
+                    }
+                }
+            }
+        else:
+            return {
+                "status": "success",
+                "data": {
+                    "authenticated": False,
+                    "user": None
+                }
+            }
+    except Exception as e:
+        # Log the exception
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in auth_status: {str(e)}")
+        
+        # Return authentication status with appropriate error info
+        return {
+            "status": "error",
+            "message": "Authentication check failed",
+            "data": {
+                "authenticated": False,
+                "user": None
             }
         }
-    }

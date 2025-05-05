@@ -105,47 +105,43 @@ async def get_fixtures_endpoint(
     """
     Get fixtures with filters
     """
+    # Import logging
+    import logging
+    logger = logging.getLogger(__name__)
+    
     # Convert date strings to datetime if provided
     from_datetime = None
     to_datetime = None
     
     if from_date:
         try:
-            # First check if it's a date-only string (YYYY-MM-DD)
-            if len(from_date) == 10 and from_date[4] == '-' and from_date[7] == '-':
-                # Add time component for date-only strings
-                from_datetime = datetime.fromisoformat(f"{from_date}T00:00:00+00:00")
-            else:
-                # Handle ISO format with timezone
-                if 'Z' in from_date:
-                    from_date = from_date.replace('Z', '+00:00')
+            # Handle different date formats
+            if 'T' in from_date:
+                # ISO format with time
+                from_date = from_date.replace('Z', '+00:00') if 'Z' in from_date else from_date
                 from_datetime = datetime.fromisoformat(from_date)
-        except (ValueError, TypeError) as e:
-            # Log the error for debugging
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error parsing from_date '{from_date}': {str(e)}")
-            # Use current time as fallback
-            from_datetime = datetime.now(timezone.utc)
+            else:
+                # Date only format (YYYY-MM-DD)
+                from_datetime = datetime.fromisoformat(f"{from_date}T00:00:00+00:00")
+        except Exception as e:
+            logger.warning(f"Invalid from_date format: {from_date}. Error: {str(e)}")
+            # Default to current day
+            from_datetime = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     
     if to_date:
         try:
-            # First check if it's a date-only string (YYYY-MM-DD)
-            if len(to_date) == 10 and to_date[4] == '-' and to_date[7] == '-':
-                # Add time component for date-only strings - use end of day for to_date
-                to_datetime = datetime.fromisoformat(f"{to_date}T23:59:59+00:00")
-            else:
-                # Handle ISO format with timezone
-                if 'Z' in to_date:
-                    to_date = to_date.replace('Z', '+00:00')
+            # Handle different date formats
+            if 'T' in to_date:
+                # ISO format with time
+                to_date = to_date.replace('Z', '+00:00') if 'Z' in to_date else to_date
                 to_datetime = datetime.fromisoformat(to_date)
-        except (ValueError, TypeError) as e:
-            # Log the error for debugging
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error parsing to_date '{to_date}': {str(e)}")
-            # Set a default to_date (1 week from now)
-            to_datetime = datetime.now(timezone.utc) + timedelta(days=7)
+            else:
+                # Date only format (YYYY-MM-DD)
+                to_datetime = datetime.fromisoformat(f"{to_date}T23:59:59+00:00")
+        except Exception as e:
+            logger.warning(f"Invalid to_date format: {to_date}. Error: {str(e)}")
+            # Default to 7 days from now
+            to_datetime = (datetime.now(timezone.utc) + timedelta(days=7)).replace(hour=23, minute=59, second=59, microsecond=0)
     
     # Convert status string to enum if provided
     status_enum = None

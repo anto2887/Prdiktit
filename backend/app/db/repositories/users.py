@@ -64,31 +64,50 @@ async def get_user_stats(db: Session, user_id: int) -> dict:
     """
     Get user statistics
     """
-    # Get total points
-    total_points = db.query(
-        func.sum(UserPrediction.points)
-    ).filter(
-        UserPrediction.user_id == user_id
-    ).scalar() or 0
+    try:
+        # Get total points
+        total_points_query = db.query(
+            func.sum(UserPrediction.points)
+        ).filter(
+            UserPrediction.user_id == user_id
+        )
+        
+        total_points = total_points_query.scalar() or 0
 
-    # Get prediction stats
-    prediction_stats = db.query(
-        func.count(UserPrediction.id).label('total_predictions'),
-        func.sum(
-            func.case(
-                [(UserPrediction.points == 3, 1)],
-                else_=0
-            )
-        ).label('perfect_predictions'),
-        func.avg(UserPrediction.points).label('average_points')
-    ).filter(
-        UserPrediction.user_id == user_id,
-        UserPrediction.prediction_status == PredictionStatus.PROCESSED
-    ).first()
+        # Get prediction stats
+        prediction_stats_query = db.query(
+            func.count(UserPrediction.id).label('total_predictions'),
+            func.sum(
+                func.case(
+                    [(UserPrediction.points == 3, 1)],
+                    else_=0
+                )
+            ).label('perfect_predictions'),
+            func.avg(UserPrediction.points).label('average_points')
+        ).filter(
+            UserPrediction.user_id == user_id,
+            UserPrediction.prediction_status == PredictionStatus.PROCESSED
+        )
+        
+        prediction_stats = prediction_stats_query.first()
 
-    return {
-        "total_points": int(total_points),
-        "total_predictions": int(prediction_stats.total_predictions or 0),
-        "perfect_predictions": int(prediction_stats.perfect_predictions or 0),
-        "average_points": float(prediction_stats.average_points or 0)
-    }
+        # Handle None values to avoid NoneType errors
+        return {
+            "total_points": int(total_points),
+            "total_predictions": int(prediction_stats.total_predictions or 0),
+            "perfect_predictions": int(prediction_stats.perfect_predictions or 0),
+            "average_points": float(prediction_stats.average_points or 0)
+        }
+    except Exception as e:
+        # Log the error and return default values
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error fetching user stats for user {user_id}: {str(e)}")
+        
+        # Return default values instead of raising the exception
+        return {
+            "total_points": 0,
+            "total_predictions": 0,
+            "perfect_predictions": 0,
+            "average_points": 0.0
+        }

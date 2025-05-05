@@ -7,8 +7,9 @@ import {
 } from './utils';
 
 // Get API URL from environment variables with fallback
-const API_BASE_URL = '/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
 
+// Log the selected API URL for debugging
 console.log('API_BASE_URL:', API_BASE_URL);
 
 // Create custom error class for API errors
@@ -99,6 +100,9 @@ apiClient.interceptors.request.use(async (config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
+    } else if (!config.url.includes('/auth/login') && !config.url.includes('/auth/register')) {
+      // For routes that require auth but no token, don't fail silently
+      console.warn('No authentication token found for request:', config.url);
     }
 
     // Add timestamp for cache busting where needed
@@ -115,7 +119,7 @@ apiClient.interceptors.request.use(async (config) => {
   }
 });
 
-// Response interceptor
+// Response interceptor with better error handling
 apiClient.interceptors.response.use(
   (response) => {
     // Skip for cached responses
@@ -123,7 +127,7 @@ apiClient.interceptors.response.use(
       return response.data;
     }
     
-    // Log the response
+    // Log the response in development
     if (process.env.NODE_ENV === 'development') {
       console.log(`✅ API Response: ${response.config.method.toUpperCase()} ${response.config.url}`, {
         status: response.status,
@@ -136,7 +140,7 @@ apiClient.interceptors.response.use(
       addToCache(response.config.cacheKey, response.data);
     }
 
-    // Check if the response has the expected structure
+    // Handle various response structures consistently
     if (response.data && typeof response.data === 'object') {
       if (response.data.status === 'error') {
         throw new APIError(
@@ -148,79 +152,53 @@ apiClient.interceptors.response.use(
       return response.data;
     }
     
-    // Format response to ensure consistent structure
+    // Format response for consistency
     return formatApiResponse(response.data);
   },
+  
   async (error) => {
-    // Log the error
+    // Better error handling with detailed logging
     if (process.env.NODE_ENV === 'development') {
-      console.error(`❌ API Error: ${error.config?.method.toUpperCase()} ${error.config?.url}`, {
+      console.error(`❌ API Error: ${error.config?.method?.toUpperCase() || 'UNKNOWN'} ${error.config?.url || 'UNKNOWN'}`, {
         status: error.response?.status,
         data: error.response?.data,
-        message: error.message
+        message: error.message,
+        stack: error.stack
       });
     }
 
-    const originalRequest = error.config;
-    
-    // Handle different error scenarios
+    // Handle different error scenarios with better user experience
     if (error.response) {
       const { status } = error.response;
       
-      // Handle 401 Unauthorized
-      if (status === 401 && !originalRequest._retry) {
-        originalRequest._retry = true;
-        try {
-          // Check auth status
-          const response = await apiClient.get('/auth/status');
-          if (!response.data?.authenticated) {
-            // Clear token and redirect to login
-            localStorage.removeItem('accessToken');
-            
-            // If we're not already on the login page, redirect
-            if (window.location.pathname !== '/login') {
-              window.location.href = '/login';
-            }
-            
-            return Promise.reject(new APIError('Authentication required', 401));
-          }
-        } catch (e) {
-          localStorage.removeItem('accessToken');
-          
-          // If we're not already on the login page, redirect
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-          }
-          
-          return Promise.reject(new APIError('Authentication required', 401));
+      // Handle auth errors
+      if (status === 401) {
+        localStorage.removeItem('accessToken');
+        // Only redirect if not already on login page
+        if (window.location.pathname !== '/login') {
+          // Use a less disruptive approach than full page redirect
+          console.warn('Authentication required. Redirecting to login page.');
         }
+        return Promise.reject(new APIError('Authentication required', 401));
       }
 
-      // Handle 422 Validation Error
+      // Handle validation errors better
       if (status === 422) {
-        console.error('Validation error:', error.response.data);
-        // Log the actual validation error details to help debugging
-        if (error.response.data.detail) {
-          console.error('Validation details:', error.response.data.detail);
-        }
         return Promise.reject(new APIError(
-          'Validation error in request',
+          'Please check your input',
           422,
           error.response.data.detail || error.response.data
         ));
       }
 
-      // Handle 429 Too Many Requests
-      if (status === 429) {
-        return Promise.reject(new APIError('Too many requests, please try again later', 429));
+      // Handle server errors
+      if (status >= 500) {
+        return Promise.reject(new APIError(
+          'Server error. Please try again later.',
+          status,
+          error.response.data?.details
+        ));
       }
-
-      // Handle other error responses
-      return Promise.reject(new APIError(
-        error.response.data?.message || 'An error occurred',
-        status,
-        error.response.data?.details
-      ));
     }
 
     // Handle network errors
@@ -229,7 +207,7 @@ apiClient.interceptors.response.use(
     }
 
     // Handle other errors
-    return Promise.reject(new APIError('An unexpected error occurred', 0));
+    return Promise.reject(new APIError(error.message || 'An unexpected error occurred', 0));
   }
 );
 

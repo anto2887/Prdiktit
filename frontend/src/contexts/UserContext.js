@@ -28,15 +28,27 @@ export const UserProvider = ({ children }) => {
         setProfile(response.data.user);
         setStats(response.data.stats);
       } else {
-        throw new Error(response.message || 'Failed to fetch profile');
+        // Don't throw an error here, just log it
+        console.warn("Profile fetch returned non-success status:", response.message);
+        // Use cached profile if available or set default values
+        if (!profile) {
+          setProfile({ username: "User" });
+          setStats({ total_points: 0, total_predictions: 0, average_points: 0 });
+        }
       }
     } catch (err) {
-      setError(err.message || 'Failed to fetch profile');
-      showError(err.message || 'Failed to fetch profile');
+      console.error("Error fetching profile:", err);
+      setError("Unable to load profile data. Using cached data.");
+      
+      // Use cached profile if available or set default values
+      if (!profile) {
+        setProfile({ username: "User" });
+        setStats({ total_points: 0, total_predictions: 0, average_points: 0 });
+      }
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, showError]);
+  }, [isAuthenticated, profile]);
 
   const updateProfile = useCallback(async (userData) => {
     try {

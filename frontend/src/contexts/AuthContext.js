@@ -21,8 +21,8 @@ export const AuthProvider = ({ children }) => {
             console.log("Checking authentication...");
             
             // First check if we have a token
-            const hasToken = authApi.isAuthenticated();
-            console.log("Has token:", hasToken);
+            const hasToken = localStorage.getItem('accessToken');
+            console.log("Has token:", !!hasToken);
             
             if (!hasToken) {
                 console.log("No token found, setting unauthenticated");
@@ -53,16 +53,16 @@ export const AuthProvider = ({ children }) => {
                 console.error("Error checking auth status:", checkErr);
                 setUser(null);
                 setIsAuthenticated(false);
-                // Clear invalid token
-                localStorage.removeItem('accessToken');
+                // Don't clear token on network errors, only on auth failures
+                if (checkErr.code === 401) {
+                    localStorage.removeItem('accessToken');
+                }
             }
         } catch (err) {
             console.error('Auth check failed:', err);
             setUser(null);
             setIsAuthenticated(false);
             setError(err.message || 'Authentication check failed');
-            // Clear invalid token
-            localStorage.removeItem('accessToken');
         } finally {
             setLoading(false);
         }

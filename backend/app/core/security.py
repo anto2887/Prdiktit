@@ -18,6 +18,12 @@ from ..db.session import get_db
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
+# Optional OAuth2 scheme that doesn't raise errors
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_STR}/auth/login", 
+    auto_error=False
+)
+
 def create_access_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """
     Create JWT access token
@@ -83,3 +89,32 @@ async def get_current_active_user(current_user: UserInDB = Depends(get_current_u
         raise HTTPException(status_code=400, detail="Inactive user")
         
     return current_user
+
+async def get_current_active_user_optional(
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current user from JWT token, return None if not authenticated
+    """
+    if not token:
+        return None
+        
+    try:
+        payload = jwt.decode(
+            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+        )
+        token_data = TokenPayload(**payload)
+        
+        if datetime.fromtimestamp(token_data.exp) < datetime.now():
+            return None
+            
+    except (JWTError, ValidationError):
+        return None
+        
+    user = await get_user_by_username(db=db, username=token_data.sub)
+    
+    if not user or not user.is_active:
+        return None
+        
+    return user
