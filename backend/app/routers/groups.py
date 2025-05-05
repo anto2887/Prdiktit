@@ -468,13 +468,17 @@ async def get_teams(
             await cache.set(cache_key, teams, 86400)
         
         logger.info(f"Returning {len(teams)} teams for league {league_name}")
-        return {
-            "status": "success",
-            "data": teams
-        }
+        
+        # Construct the response using the TeamList model format
+        response_data = []
+        for team in teams:
+            response_data.append(TeamInfo(
+                id=team["id"],
+                name=team["name"],
+                logo=team.get("logo")
+            ))
+            
+        return TeamList(status="success", data=response_data)
     except Exception as e:
         logger.error(f"Error in get_teams: {str(e)}")
-        return {
-            "status": "success",
-            "data": []  # Return empty list on error
-        }
+        return TeamList(status="success", data=[])  # Return empty list on error

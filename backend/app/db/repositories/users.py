@@ -1,7 +1,7 @@
 # app/db/repositories/users.py
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case
 
 from ..models import User, UserPrediction, PredictionStatus
 
@@ -78,7 +78,7 @@ async def get_user_stats(db: Session, user_id: int) -> dict:
         prediction_stats_query = db.query(
             func.count(UserPrediction.id).label('total_predictions'),
             func.sum(
-                func.case(
+                case(
                     [(UserPrediction.points == 3, 1)],
                     else_=0
                 )

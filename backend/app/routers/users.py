@@ -49,13 +49,13 @@ async def get_profile(
                 "average_points": 0.0
             }
         
-        return {
-            "status": "success",
-            "data": {
-                "user": current_user,
-                "stats": UserStats(**stats)
-            }
+        # Create a proper response
+        response_data = {
+            "user": current_user,
+            "stats": UserStats(**stats)
         }
+        
+        return response_data
     except Exception as e:
         # Log the exception
         import logging
