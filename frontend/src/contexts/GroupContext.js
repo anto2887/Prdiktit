@@ -275,11 +275,17 @@ export const GroupProvider = ({ children }) => {
   const isAdmin = useCallback((groupId, userId) => {
     if (!groupId || !userId) return false;
     
-    const group = userGroups.find(g => g.id === groupId);
+    // First check the current group if it's loaded
+    if (currentGroup && currentGroup.id === parseInt(groupId)) {
+      return currentGroup.admin_id === userId;
+    }
+    
+    // Otherwise check userGroups
+    const group = userGroups.find(g => g.id === parseInt(groupId));
     if (!group) return false;
     
     return group.admin_id === userId;
-  }, [userGroups]);
+  }, [currentGroup, userGroups]);
 
   const isMember = useCallback((groupId) => {
     if (!groupId) return false;

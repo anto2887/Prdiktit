@@ -16,9 +16,9 @@ const GroupDetailsPage = () => {
     currentGroup, 
     fetchGroupDetails, 
     fetchGroupMembers, 
-    isAdmin,
     loading, 
-    error 
+    error,
+    userGroups
   } = useGroups();
   const { profile } = useUser();
   const [activeTab, setActiveTab] = useState('standings');
@@ -60,7 +60,21 @@ const GroupDetailsPage = () => {
     return <ErrorMessage message="League not found" />;
   }
 
-  const group = currentGroup || { name: groupName, invite_code: inviteCode };
+  // Safe implementation of isAdmin function
+  const isAdmin = (groupId, userId) => {
+    if (!groupId || !userId || !userGroups) return false;
+    
+    const group = userGroups.find(g => g.id === parseInt(groupId));
+    if (!group) return false;
+    
+    return group.admin_id === userId;
+  };
+
+  const group = currentGroup || { 
+    name: groupName, 
+    invite_code: inviteCode,
+    id: parseInt(groupId)
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -77,7 +91,7 @@ const GroupDetailsPage = () => {
             )}
           </div>
           <div className="space-y-2">
-            {isAdmin(group.id, profile?.id) && (
+            {profile && isAdmin(group.id, profile.id) && (
               <Link
                 to={`/groups/${groupId}/manage`}
                 className="inline-block px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
@@ -154,7 +168,13 @@ const GroupDetailsPage = () => {
         {activeTab === 'standings' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Standings</h2>
-            <LeagueTable group={currentGroup} />
+            {currentGroup ? (
+              <LeagueTable group={currentGroup} />
+            ) : (
+              <p className="text-gray-500 text-center py-12">
+                League standings will appear here once processed
+              </p>
+            )}
           </div>
         )}
         
