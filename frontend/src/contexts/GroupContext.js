@@ -47,6 +47,14 @@ export const GroupProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
+      // Check if we already have this group loaded
+      if (currentGroup && currentGroup.id === groupId) {
+        console.log('Using cached group details for', groupId);
+        setLoading(false);
+        return currentGroup;
+      }
+      
+      console.log('Fetching group details for', groupId);
       const response = await groupsApi.getGroupById(groupId);
       
       if (response.status === 'success') {
@@ -62,7 +70,7 @@ export const GroupProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, showError]);
+  }, [isAuthenticated, currentGroup, showError]);
 
   const fetchGroupMembers = useCallback(async (groupId) => {
     if (!isAuthenticated || !groupId) return [];
@@ -71,6 +79,16 @@ export const GroupProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
+      // Check if we already have members for this group
+      if (groupMembers.length > 0 && 
+          currentGroup && 
+          currentGroup.id === groupId) {
+        console.log('Using cached group members for', groupId);
+        setLoading(false);
+        return groupMembers;
+      }
+      
+      console.log('Fetching group members for', groupId);
       const response = await groupsApi.getGroupMembers(groupId);
       
       if (response.status === 'success') {
@@ -86,7 +104,7 @@ export const GroupProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, showError]);
+  }, [isAuthenticated, currentGroup, groupMembers, showError]);
 
   const fetchTeamsForLeague = useCallback(async (leagueId) => {
     if (!isAuthenticated || !leagueId) {

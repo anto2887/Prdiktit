@@ -14,7 +14,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self, 
         app, 
-        requests_per_minute: int = 240,  # Increased from default of 120
+        requests_per_minute: int = 300,  # Increased from 240 to 300
         exclude_paths: Optional[list] = None
     ):
         super().__init__(app)

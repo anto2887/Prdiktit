@@ -37,7 +37,7 @@ app.add_middleware(
 # Add rate limiting middleware here, but with higher limit and more exclusions 
 app.add_middleware(
     RateLimitMiddleware,
-    requests_per_minute=240,  # Increased from default
+    requests_per_minute=300,  # Increased from default
     exclude_paths=[
         "/docs", 
         "/redoc", 

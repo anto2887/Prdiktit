@@ -1,5 +1,5 @@
 // src/pages/GroupDetailsPage.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useGroups } from '../contexts/GroupContext';
 import { useUser } from '../contexts/UserContext';
@@ -28,14 +28,27 @@ const GroupDetailsPage = () => {
   const inviteCode = location.state?.inviteCode || '';
   const groupName = location.state?.groupName || '';
 
+  // Use refs to prevent multiple fetch calls
+  const hasFetched = useRef(false);
+
   useEffect(() => {
-    if (groupId) {
+    // Only fetch if we haven't already and have a valid groupId
+    if (!hasFetched.current && groupId) {
+      console.log('Fetching group details for', groupId);
       fetchGroupDetails(parseInt(groupId));
       fetchGroupMembers(parseInt(groupId));
+      hasFetched.current = true;
     }
+    
+    // Reset the fetch flag when groupId changes
+    return () => {
+      if (groupId !== useParams().groupId) {
+        hasFetched.current = false;
+      }
+    };
   }, [groupId, fetchGroupDetails, fetchGroupMembers]);
 
-  if (loading) {
+  if (loading && !currentGroup) {
     return <LoadingSpinner />;
   }
 
@@ -89,7 +102,7 @@ const GroupDetailsPage = () => {
               <button 
                 onClick={() => {
                   navigator.clipboard.writeText(inviteCode);
-                  // You could add a notification for successful copy here
+                  alert('Invite code copied to clipboard!');
                 }}
                 className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
