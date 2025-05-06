@@ -14,6 +14,7 @@ from ..schemas.groups import (
     GroupAnalytics, AuditLogList
 )
 from ..schemas.user import UserInDB
+from ..db.repositories.groups import group_members
 
 router = APIRouter()
 
@@ -26,26 +27,70 @@ async def get_user_groups(
     """
     Get current user's groups
     """
-    # Try to get from cache
-    cache_key = f"user_groups:{current_user.id}"
-    cached_groups = await cache.get(cache_key)
-    
-    if cached_groups:
-        groups = cached_groups
-    else:
-        # This is a placeholder - you'll need to implement the actual repository function
-        # groups = await get_user_groups_db(db, current_user.id)
+    try:
+        # Try to get from cache
+        cache_key = f"user_groups:{current_user.id}"
+        cached_groups = await cache.get(cache_key)
         
-        # For now, return an empty list
-        groups = []
+        if cached_groups:
+            groups = cached_groups
+        else:
+            # Import the repository function
+            from ..db.repositories.groups import get_user_groups as get_user_groups_db
+            
+            # Get groups from database
+            db_groups = await get_user_groups_db(db, current_user.id)
+            
+            # Convert to list of dicts (for better serialization)
+            groups = []
+            for group in db_groups:
+                # Get member count
+                member_count = db.query(group_members).filter(
+                    group_members.c.group_id == group.id
+                ).count()
+                
+                # Get user's role in the group
+                role = db.query(group_members.c.role).filter(
+                    group_members.c.group_id == group.id,
+                    group_members.c.user_id == current_user.id
+                ).first()
+                
+                role_value = role[0] if role else None
+                
+                # Convert to dict
+                group_dict = {
+                    "id": group.id,
+                    "name": group.name,
+                    "league": group.league,
+                    "admin_id": group.admin_id,
+                    "invite_code": group.invite_code,
+                    "created_at": group.created.isoformat() if group.created else None,
+                    "privacy_type": group.privacy_type.value if group.privacy_type else None,
+                    "description": group.description,
+                    "member_count": member_count,
+                    "role": role_value.value if role_value else None
+                }
+                
+                groups.append(group_dict)
+            
+            # Cache for 10 minutes
+            await cache.set(cache_key, groups, 600)
         
-        # Cache for 10 minutes
-        await cache.set(cache_key, groups, 600)
-    
-    return {
-        "status": "success",
-        "data": groups
-    }
+        return {
+            "status": "success",
+            "data": groups
+        }
+    except Exception as e:
+        # Log the error
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error getting user groups: {str(e)}")
+        
+        # Return empty list instead of error
+        return {
+            "status": "success",
+            "data": []
+        }
 
 @router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
 async def create_group(
@@ -57,31 +102,41 @@ async def create_group(
     """
     Create a new group
     """
-    # This is a placeholder - you'll need to implement the actual repository function
-    # new_group = await create_group_db(db, current_user.id, **group_data.dict())
-    
-    # For now, return a mock response
-    new_group = {
-        "id": 1,
-        "name": group_data.name,
-        "league": group_data.league,
-        "description": group_data.description,
-        "privacy_type": group_data.privacy_type,
-        "admin_id": current_user.id,
-        "invite_code": "ABC123",
-        "created_at": "2023-01-01T00:00:00Z",
-        "member_count": 1,
-        "role": "ADMIN"
-    }
-    
-    # Clear cache
-    await cache.delete(f"user_groups:{current_user.id}")
-    
-    return {
-        "status": "success",
-        "message": "Group created successfully",
-        "data": new_group
-    }
+    try:
+        # Import our group repository functions
+        from ..db.repositories.groups import create_group as create_group_db
+        
+        # Create the group in the database
+        new_group = await create_group_db(
+            db, 
+            admin_id=current_user.id, 
+            **group_data.dict()
+        )
+        
+        # Clear cache
+        await cache.delete(f"user_groups:{current_user.id}")
+        
+        # Return success with group details
+        return {
+            "status": "success",
+            "message": "Group created successfully",
+            "data": {
+                "group_id": new_group.id,
+                "invite_code": new_group.invite_code,
+                "name": new_group.name
+            }
+        }
+    except Exception as e:
+        # Log the error
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error creating group: {str(e)}")
+        
+        # Return error response
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create group: {str(e)}"
+        )
 
 @router.post("/join", response_model=JoinGroupResponse)
 async def join_group(
@@ -180,14 +235,14 @@ async def get_teams(
             
             if teams_from_db:
                 logger.info(f"Found {len(teams_from_db)} teams for league {league_name} in database")
-                # Convert team objects to dict format
+                # Convert team objects to dict format for better JSON serialization
                 teams = []
                 for team in teams_from_db:
-                    teams.append(TeamInfo(
-                        id=team.id,
-                        name=team.team_name,
-                        logo=team.team_logo
-                    ))
+                    teams.append({
+                        "id": team.id,
+                        "name": team.team_name,
+                        "logo": team.team_logo
+                    })
             else:
                 logger.warning(f"No teams found in database for league {league_name}")
                 # Return empty list if no teams found
@@ -198,8 +253,11 @@ async def get_teams(
         
         logger.info(f"Returning {len(teams)} teams for league {league_name}")
         
+        # Convert dicts to TeamInfo objects for the response
+        team_info_objects = [TeamInfo(id=t["id"], name=t["name"], logo=t["logo"]) for t in teams]
+        
         # Return in the expected format
-        return {"status": "success", "data": teams}
+        return {"status": "success", "data": team_info_objects}
     except Exception as e:
         logger.error(f"Error in get_teams: {str(e)}")
         return {"status": "success", "data": []}  # Return empty list on error

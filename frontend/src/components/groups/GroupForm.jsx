@@ -49,13 +49,32 @@ const GroupForm = () => {
 
     setLoading(true);
     try {
+      console.log('Creating group with data:', formData);
       const response = await createGroup(formData);
-      if (response.status === 'success') {
-        showSuccess('Group created successfully');
-        navigate(`/groups/${response.data.group_id}/invite`);
+      console.log('Create group response:', response);
+      
+      if (response && response.status === 'success') {
+        showSuccess('League created successfully');
+        
+        // Navigate to the group details page with invite code
+        if (response.data && response.data.group_id) {
+          navigate(`/groups/${response.data.group_id}`, { 
+            state: { 
+              newGroup: true,
+              inviteCode: response.data.invite_code,
+              groupName: response.data.name
+            } 
+          });
+        } else {
+          // Fallback to groups list if missing data
+          navigate('/groups');
+        }
+      } else {
+        throw new Error(response?.message || 'Failed to create league');
       }
     } catch (error) {
-      showError(error.message || 'Failed to create group');
+      showError(error.message || 'Failed to create league');
+      console.error('Error creating league:', error);
     } finally {
       setLoading(false);
     }
@@ -84,6 +103,7 @@ const GroupForm = () => {
           <button
             onClick={() => formData.name && setStep(2)}
             className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+            disabled={!formData.name}
           >
             Next
           </button>

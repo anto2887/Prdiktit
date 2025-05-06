@@ -1,6 +1,6 @@
 // src/pages/GroupDetailsPage.jsx
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { useGroups } from '../contexts/GroupContext';
 import { useUser } from '../contexts/UserContext';
 
@@ -11,6 +11,7 @@ import ErrorMessage from '../components/common/ErrorMessage';
 
 const GroupDetailsPage = () => {
   const { groupId } = useParams();
+  const location = useLocation();
   const { 
     currentGroup, 
     fetchGroupDetails, 
@@ -21,6 +22,11 @@ const GroupDetailsPage = () => {
   } = useGroups();
   const { profile } = useUser();
   const [activeTab, setActiveTab] = useState('standings');
+  
+  // Get new group info from navigation state
+  const isNewGroup = location.state?.newGroup || false;
+  const inviteCode = location.state?.inviteCode || '';
+  const groupName = location.state?.groupName || '';
 
   useEffect(() => {
     if (groupId) {
@@ -37,9 +43,11 @@ const GroupDetailsPage = () => {
     return <ErrorMessage message={error} />;
   }
 
-  if (!currentGroup) {
+  if (!currentGroup && !isNewGroup) {
     return <ErrorMessage message="League not found" />;
   }
+
+  const group = currentGroup || { name: groupName, invite_code: inviteCode };
 
   return (
     <div className="p-6 space-y-6">
@@ -48,15 +56,15 @@ const GroupDetailsPage = () => {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              {currentGroup.name}
+              {group.name}
             </h1>
-            <p className="text-gray-600">{currentGroup.league}</p>
-            {currentGroup.description && (
-              <p className="text-gray-600 mt-2">{currentGroup.description}</p>
+            <p className="text-gray-600">{group.league}</p>
+            {group.description && (
+              <p className="text-gray-600 mt-2">{group.description}</p>
             )}
           </div>
           <div className="space-y-2">
-            {isAdmin(currentGroup.id, profile?.id) && (
+            {isAdmin(group.id, profile?.id) && (
               <Link
                 to={`/groups/${groupId}/manage`}
                 className="inline-block px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
@@ -65,11 +73,31 @@ const GroupDetailsPage = () => {
               </Link>
             )}
             <div className="text-sm text-gray-500 text-right">
-              <p>Created: {new Date(currentGroup.created_at).toLocaleDateString()}</p>
-              <p>Members: {currentGroup.member_count}</p>
+              <p>Created: {new Date(group.created_at || Date.now()).toLocaleDateString()}</p>
+              <p>Members: {group.member_count || 1}</p>
             </div>
           </div>
         </div>
+        
+        {/* Show Invite Code Banner for new groups */}
+        {isNewGroup && inviteCode && (
+          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <h3 className="font-semibold text-green-800 text-lg mb-2">League Created Successfully!</h3>
+            <p className="text-green-700 mb-3">Share this invite code with friends to join your league:</p>
+            <div className="bg-white p-3 rounded border flex justify-between items-center">
+              <span className="font-mono text-lg font-bold tracking-wider">{inviteCode}</span>
+              <button 
+                onClick={() => {
+                  navigator.clipboard.writeText(inviteCode);
+                  // You could add a notification for successful copy here
+                }}
+                className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Tabs Navigation */}
@@ -129,7 +157,7 @@ const GroupDetailsPage = () => {
         {activeTab === 'members' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Members</h2>
-            {currentGroup.members && currentGroup.members.length > 0 ? (
+            {currentGroup && currentGroup.members && currentGroup.members.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -168,7 +196,7 @@ const GroupDetailsPage = () => {
               </div>
             ) : (
               <p className="text-gray-500 text-center py-12">
-                No members found
+                Only you are in this league right now. Share the invite code to add members!
               </p>
             )}
           </div>

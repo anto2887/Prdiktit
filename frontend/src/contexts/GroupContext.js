@@ -126,13 +126,15 @@ export const GroupProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
+      console.log('Creating group with data:', groupData);
       const response = await groupsApi.createGroup(groupData);
+      console.log('Group creation API response:', response);
       
       if (response.status === 'success') {
         // Refresh groups list
         await fetchUserGroups();
         showSuccess('Group created successfully');
-        return response.data;
+        return response;
       } else {
         throw new Error(response.message || 'Failed to create group');
       }
