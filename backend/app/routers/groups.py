@@ -83,6 +83,127 @@ async def create_group(
         "data": new_group
     }
 
+@router.post("/join", response_model=JoinGroupResponse)
+async def join_group(
+    join_data: JoinGroupRequest,
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Join a group using invite code
+    """
+    # This is a placeholder - you'll need to implement the actual repository function
+    # group = await get_group_by_invite_code(db, join_data.invite_code)
+    
+    # For now, assume group exists
+    group = {
+        "id": 1,
+        "name": "Mock Group",
+        "privacy_type": "PRIVATE"
+    }
+    
+    # This is a placeholder - you'll need to implement the actual repository function
+    # is_member = await check_group_membership(db, group["id"], current_user.id)
+    
+    # For now, assume user is not a member
+    is_member = False
+    
+    if is_member:
+        return {
+            "status": "success",
+            "message": "You are already a member of this group"
+        }
+    
+    # This is a placeholder - you'll need to implement the actual repository function
+    # If group is private, create pending membership
+    # if group["privacy_type"] == "PRIVATE":
+    #     await create_pending_membership(db, group["id"], current_user.id)
+    #     message = "Membership request sent. Waiting for admin approval."
+    # else:
+    #     await add_group_member(db, group["id"], current_user.id)
+    #     message = f"You have joined {group['name']}!"
+    
+    # For now, use a mock message
+    message = "Membership request sent. Waiting for admin approval."
+    
+    # Clear cache
+    await cache.delete(f"user_groups:{current_user.id}")
+    
+    return {
+        "status": "success",
+        "message": message
+    }
+
+@router.get("/teams", response_model=TeamList)
+async def get_teams(
+    league: str = Query(..., description="League name or ID"),
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Get teams for a league
+    """
+    try:
+        # Add logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"get_teams endpoint called by user {current_user.id} for league {league}")
+        
+        # Map league IDs to names if needed
+        league_mapping = {
+            "PL": "Premier League",
+            "LL": "La Liga",
+            "UCL": "UEFA Champions League"
+        }
+        
+        # Use mapped league name if available
+        league_name = league_mapping.get(league, league)
+        logger.info(f"Mapped league '{league}' to '{league_name}'")
+        
+        # Try to get from cache
+        cache_key = f"league_teams:{league_name}"
+        cached_teams = await cache.get(cache_key)
+        
+        if cached_teams:
+            logger.debug(f"Teams for league {league_name} found in cache")
+            teams = cached_teams
+        else:
+            logger.debug(f"Teams for league {league_name} not found in cache, fetching from database")
+            
+            # Get teams from the database
+            from ..db.repositories.teams import get_teams_by_league
+            
+            # Get teams by league name
+            teams_from_db = await get_teams_by_league(db, league_name)
+            
+            if teams_from_db:
+                logger.info(f"Found {len(teams_from_db)} teams for league {league_name} in database")
+                # Convert team objects to dict format
+                teams = []
+                for team in teams_from_db:
+                    teams.append(TeamInfo(
+                        id=team.id,
+                        name=team.team_name,
+                        logo=team.team_logo
+                    ))
+            else:
+                logger.warning(f"No teams found in database for league {league_name}")
+                # Return empty list if no teams found
+                teams = []
+            
+            # Cache for 24 hours (since team data doesn't change often)
+            await cache.set(cache_key, teams, 86400)
+        
+        logger.info(f"Returning {len(teams)} teams for league {league_name}")
+        
+        # Return in the expected format
+        return {"status": "success", "data": teams}
+    except Exception as e:
+        logger.error(f"Error in get_teams: {str(e)}")
+        return {"status": "success", "data": []}  # Return empty list on error
+
 @router.get("/{group_id}", response_model=dict)
 async def get_group_details(
     group_id: int = Path(...),
@@ -174,58 +295,6 @@ async def update_group(
     return {
         "status": "success",
         "message": "Group updated successfully"
-    }
-
-@router.post("/join", response_model=JoinGroupResponse)
-async def join_group(
-    join_data: JoinGroupRequest,
-    current_user: UserInDB = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-    cache: RedisCache = Depends(get_cache)
-):
-    """
-    Join a group using invite code
-    """
-    # This is a placeholder - you'll need to implement the actual repository function
-    # group = await get_group_by_invite_code(db, join_data.invite_code)
-    
-    # For now, assume group exists
-    group = {
-        "id": 1,
-        "name": "Mock Group",
-        "privacy_type": "PRIVATE"
-    }
-    
-    # This is a placeholder - you'll need to implement the actual repository function
-    # is_member = await check_group_membership(db, group["id"], current_user.id)
-    
-    # For now, assume user is not a member
-    is_member = False
-    
-    if is_member:
-        return {
-            "status": "success",
-            "message": "You are already a member of this group"
-        }
-    
-    # This is a placeholder - you'll need to implement the actual repository function
-    # If group is private, create pending membership
-    # if group["privacy_type"] == "PRIVATE":
-    #     await create_pending_membership(db, group["id"], current_user.id)
-    #     message = "Membership request sent. Waiting for admin approval."
-    # else:
-    #     await add_group_member(db, group["id"], current_user.id)
-    #     message = f"You have joined {group['name']}!"
-    
-    # For now, use a mock message
-    message = "Membership request sent. Waiting for admin approval."
-    
-    # Clear cache
-    await cache.delete(f"user_groups:{current_user.id}")
-    
-    return {
-        "status": "success",
-        "message": message
     }
 
 @router.get("/{group_id}/members", response_model=GroupMemberList)
@@ -405,72 +474,3 @@ async def get_group_audit_log(
         "status": "success",
         "data": logs
     }
-
-@router.get("/teams", response_model=TeamList)
-async def get_teams(
-    league: str = Query(..., description="League name or ID"),
-    current_user: UserInDB = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-    cache: RedisCache = Depends(get_cache)
-):
-    """
-    Get teams for a league
-    """
-    try:
-        # Add logging
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"get_teams endpoint called by user {current_user.id} for league {league}")
-        
-        # Map league IDs to names if needed
-        league_mapping = {
-            "PL": "Premier League",
-            "LL": "La Liga",
-            "UCL": "UEFA Champions League"
-        }
-        
-        # Use mapped league name if available
-        league_name = league_mapping.get(league, league)
-        logger.info(f"Mapped league '{league}' to '{league_name}'")
-        
-        # Try to get from cache
-        cache_key = f"league_teams:{league_name}"
-        cached_teams = await cache.get(cache_key)
-        
-        if cached_teams:
-            logger.debug(f"Teams for league {league_name} found in cache")
-            teams = cached_teams
-        else:
-            logger.debug(f"Teams for league {league_name} not found in cache, fetching from database")
-            
-            # Get teams from the database
-            from ..db.repositories.teams import get_teams_by_league
-            
-            # Get teams by league name
-            teams_from_db = await get_teams_by_league(db, league_name)
-            
-            if teams_from_db:
-                logger.info(f"Found {len(teams_from_db)} teams for league {league_name} in database")
-                # Convert team objects to dict format
-                teams = []
-                for team in teams_from_db:
-                    teams.append(TeamInfo(
-                        id=team.id,
-                        name=team.team_name,
-                        logo=team.team_logo
-                    ))
-            else:
-                logger.warning(f"No teams found in database for league {league_name}")
-                # Return empty list if no teams found
-                teams = []
-            
-            # Cache for 24 hours (since team data doesn't change often)
-            await cache.set(cache_key, teams, 86400)
-        
-        logger.info(f"Returning {len(teams)} teams for league {league_name}")
-        
-        # Return in the expected format
-        return {"status": "success", "data": teams}
-    except Exception as e:
-        logger.error(f"Error in get_teams: {str(e)}")
-        return {"status": "success", "data": []}  # Return empty list on error
