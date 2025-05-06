@@ -18,9 +18,34 @@ async def get_team_by_external_id(db: Session, external_id: int) -> Optional[Tea
 
 async def get_teams_by_league(db: Session, league: str) -> List[Team]:
     """
-    Get teams for a specific league name
+    Get teams for a specific league name or league ID
     """
-    return db.query(Team).filter(Team.country == league).all()
+    try:
+        # Try to convert to an integer (in case we have a league ID)
+        league_id = int(league)
+        return db.query(Team).filter(Team.league_id == league_id).all()
+    except (ValueError, TypeError):
+        # If not a number, it's probably a league name
+        # First, handle potential mapping from frontend to DB values
+        league_mapping = {
+            "Premier League": 39,
+            "La Liga": 140,
+            "UEFA Champions League": 2
+        }
+        
+        # If the league is in our mapping, filter by league_id
+        if league in league_mapping:
+            league_id = league_mapping[league]
+            return db.query(Team).filter(Team.league_id == league_id).all()
+        else:
+            # Try to match by country, which might be storing the league name in some cases
+            return db.query(Team).filter(Team.country == league).all()
+    except Exception as e:
+        # Log any other errors
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in get_teams_by_league: {str(e)}")
+        return []
 
 async def get_teams_by_league_id(db: Session, league_id: int) -> List[Team]:
     """

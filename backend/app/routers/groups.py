@@ -454,11 +454,11 @@ async def get_teams(
                 # Convert team objects to dict format
                 teams = []
                 for team in teams_from_db:
-                    teams.append({
-                        "id": team.id,
-                        "name": team.team_name,
-                        "logo": team.team_logo
-                    })
+                    teams.append(TeamInfo(
+                        id=team.id,
+                        name=team.team_name,
+                        logo=team.team_logo
+                    ))
             else:
                 logger.warning(f"No teams found in database for league {league_name}")
                 # Return empty list if no teams found
@@ -469,16 +469,8 @@ async def get_teams(
         
         logger.info(f"Returning {len(teams)} teams for league {league_name}")
         
-        # Construct the response using the TeamList model format
-        response_data = []
-        for team in teams:
-            response_data.append(TeamInfo(
-                id=team["id"],
-                name=team["name"],
-                logo=team.get("logo")
-            ))
-            
-        return TeamList(status="success", data=response_data)
+        # Return in the expected format
+        return {"status": "success", "data": teams}
     except Exception as e:
         logger.error(f"Error in get_teams: {str(e)}")
-        return TeamList(status="success", data=[])  # Return empty list on error
+        return {"status": "success", "data": []}  # Return empty list on error
