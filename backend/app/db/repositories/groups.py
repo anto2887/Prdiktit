@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+from ..models import GroupAuditLog, MembershipStatus, PendingMembership
 
 from ..models import (
     Group, GroupPrivacyType, MemberRole, MembershipStatus,
