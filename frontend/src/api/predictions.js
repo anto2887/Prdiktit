@@ -13,20 +13,22 @@ export const getPredictionById = async (predictionId) => {
 /**
  * Create a new prediction
  * @param {Object} predictionData - Prediction data
- * @param {number} predictionData.match_id - Match ID (note: match_id vs fixture_id!)
+ * @param {number} predictionData.match_id - Match ID (fixture_id)
  * @param {number} predictionData.home_score - Home team score
  * @param {number} predictionData.away_score - Away team score
  * @returns {Promise<Object>} Created prediction
  */
 export const createPrediction = async (predictionData) => {
-  // Make sure we're using the right field names
-  const dataToSend = {
+  // Map our frontend data to match the backend expectations
+  const payload = {
     match_id: predictionData.match_id || predictionData.fixture_id,
     home_score: predictionData.home_score || predictionData.score1,
     away_score: predictionData.away_score || predictionData.score2
   };
   
-  return await api.post('/predictions', dataToSend);
+  console.log('Sending prediction data:', payload);
+  
+  return await api.post('/predictions', payload);
 };
 
 /**
@@ -38,18 +40,18 @@ export const createPrediction = async (predictionData) => {
  * @returns {Promise<Object>} Updated prediction
  */
 export const updatePrediction = async (predictionId, predictionData) => {
-  // Make sure we're using the right field names
-  const dataToSend = {};
+  // Map our frontend data to match the backend expectations
+  const payload = {};
   
   if ('home_score' in predictionData || 'score1' in predictionData) {
-    dataToSend.home_score = predictionData.home_score || predictionData.score1;
+    payload.home_score = predictionData.home_score || predictionData.score1;
   }
   
   if ('away_score' in predictionData || 'score2' in predictionData) {
-    dataToSend.away_score = predictionData.away_score || predictionData.score2;
+    payload.away_score = predictionData.away_score || predictionData.score2;
   }
   
-  return await api.put(`/predictions/${predictionId}`, dataToSend);
+  return await api.put(`/predictions/${predictionId}`, payload);
 };
 
 /**
@@ -72,22 +74,27 @@ export const resetPrediction = async (predictionId) => {
  */
 export const getUserPredictions = async (params = {}) => {
   try {
-    // Make a deep copy of params to avoid modifying the original
-    const queryParams = { ...params };
+    // Ensure all params are properly formatted
+    const queryParams = {};
     
-    // Make sure all parameters are properly formatted
-    if (queryParams.fixture_id && typeof queryParams.fixture_id !== 'number') {
-      queryParams.fixture_id = parseInt(queryParams.fixture_id, 10);
-      if (isNaN(queryParams.fixture_id)) {
-        delete queryParams.fixture_id;
-      }
+    // Handle fixture_id parameter
+    if (params.fixture_id !== undefined && params.fixture_id !== null) {
+      queryParams.fixture_id = Number(params.fixture_id);
     }
     
-    if (queryParams.week && typeof queryParams.week !== 'number') {
-      queryParams.week = parseInt(queryParams.week, 10);
-      if (isNaN(queryParams.week)) {
-        delete queryParams.week;
-      }
+    // Handle status parameter
+    if (params.status) {
+      queryParams.status = params.status;
+    }
+    
+    // Handle season parameter
+    if (params.season) {
+      queryParams.season = params.season;
+    }
+    
+    // Handle week parameter
+    if (params.week !== undefined && params.week !== null) {
+      queryParams.week = Number(params.week);
     }
     
     // Log params for debugging
@@ -116,7 +123,20 @@ export const getUserPredictions = async (params = {}) => {
  * @returns {Promise<Object>} Created predictions
  */
 export const createBatchPredictions = async (predictionsData) => {
-  return await api.post('/predictions/batch', predictionsData);
+  // Make sure we have the right structure
+  // Convert score1/score2 to home/away if needed
+  const formattedData = {
+    predictions: {}
+  };
+  
+  Object.entries(predictionsData.predictions || predictionsData).forEach(([fixtureId, scores]) => {
+    formattedData.predictions[fixtureId] = {
+      home: scores.home !== undefined ? scores.home : scores.score1,
+      away: scores.away !== undefined ? scores.away : scores.score2
+    };
+  });
+  
+  return await api.post('/predictions/batch', formattedData);
 };
 
 /**
@@ -136,18 +156,13 @@ export const getPredictionStats = async () => {
  * @returns {Promise<Object>} Group leaderboard
  */
 export const getGroupLeaderboard = async (groupId, params = {}) => {
-  // Convert params object to query string
-  const queryParams = new URLSearchParams();
+  // Convert all params to strings
+  const queryParams = {};
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
-      queryParams.append(key, value);
+      queryParams[key] = String(value);
     }
   });
   
-  const queryString = queryParams.toString();
-  const endpoint = queryString 
-    ? `/predictions/leaderboard/${groupId}?${queryString}` 
-    : `/predictions/leaderboard/${groupId}`;
-  
-  return await api.get(endpoint);
+  return await api.get(`/predictions/leaderboard/${groupId}`, { params: queryParams });
 };

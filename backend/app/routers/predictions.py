@@ -1,6 +1,6 @@
 # app/routers/predictions.py
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
@@ -15,7 +15,6 @@ from ..db.repositories import (
     update_prediction,
     reset_prediction,
     get_prediction_by_id,
-    get_user_predictions,
     get_user_predictions as get_user_predictions_db
 )
 from ..schemas.prediction import (
@@ -39,7 +38,7 @@ async def submit_prediction(
     Submit a new prediction
     """
     # Get the fixture
-    fixture = await get_fixture_by_id(db, prediction_data.fixture_id)
+    fixture = await get_fixture_by_id(db, prediction_data.match_id)
     
     if not fixture:
         raise HTTPException(
@@ -58,7 +57,7 @@ async def submit_prediction(
     existing_prediction = await get_user_prediction(
         db, 
         current_user.id, 
-        prediction_data.fixture_id
+        prediction_data.match_id
     )
     
     if existing_prediction:
@@ -66,8 +65,8 @@ async def submit_prediction(
         updated_prediction = await update_prediction(
             db,
             existing_prediction.id,
-            score1=prediction_data.score1,
-            score2=prediction_data.score2
+            score1=prediction_data.home_score,
+            score2=prediction_data.away_score
         )
         
         if not updated_prediction:
@@ -81,7 +80,8 @@ async def submit_prediction(
         
         return {
             "status": "success",
-            "matches": updated_prediction
+            "data": updated_prediction,
+            "message": "Prediction updated successfully"
         }
     
     # Create new prediction
@@ -90,9 +90,9 @@ async def submit_prediction(
     new_prediction = await create_prediction(
         db,
         current_user.id,
-        prediction_data.fixture_id,
-        prediction_data.score1,
-        prediction_data.score2,
+        prediction_data.match_id,
+        prediction_data.home_score,
+        prediction_data.away_score,
         fixture.season,
         week
     )
@@ -102,7 +102,8 @@ async def submit_prediction(
     
     return {
         "status": "success",
-        "matches": new_prediction
+        "data": new_prediction,
+        "message": "Prediction created successfully"
     }
 
 @router.get("/{prediction_id}", response_model=PredictionResponse)
@@ -131,7 +132,8 @@ async def get_prediction(
     
     return {
         "status": "success",
-        "matches": prediction
+        "data": prediction,
+        "message": "Prediction retrieved successfully"
     }
 
 @router.post("/reset/{prediction_id}", response_model=dict)
@@ -182,19 +184,31 @@ async def reset_prediction_endpoint(
         "message": "Prediction reset successfully"
     }
 
-@router.get("/user", response_model=UserPredictionListResponse)
-async def get_user_predictions(
+@router.get("/user", response_model=PredictionList)
+async def get_user_predictions_endpoint(
     fixture_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
     week: Optional[int] = Query(None),
     current_user: UserInDB = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-) -> Any:
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
     """
     Get current user's predictions
     """
     try:
+        # Try to get from cache first
+        cache_key = f"user_predictions:{current_user.id}"
+        if not fixture_id and not status and not season and not week:
+            cached_predictions = await cache.get(cache_key)
+            if cached_predictions:
+                return {
+                    "status": "success",
+                    "matches": cached_predictions,
+                    "total": len(cached_predictions)
+                }
+        
         # Convert status string to enum if provided
         status_enum = None
         if status:
@@ -212,6 +226,10 @@ async def get_user_predictions(
             season=season,
             week=week
         )
+        
+        # Cache only the complete list
+        if not fixture_id and not status and not season and not week:
+            await cache.set(cache_key, predictions, 300)  # Cache for 5 minutes
         
         # Return the correct format
         return {
@@ -303,5 +321,5 @@ async def create_batch_predictions(
     return {
         "status": "success",
         "message": "Predictions saved successfully",
-        "matches": results
+        "data": results
     }

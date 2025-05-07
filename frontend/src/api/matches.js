@@ -31,33 +31,40 @@ export const getMatchById = async (matchId) => {
  */
 export const getFixtures = async (params = {}) => {
   try {
-    // Format dates correctly for backend compatibility
+    // Handle date formatting issue - convert to YYYY-MM-DD format
     if (params.from) {
       if (params.from instanceof Date) {
-        // Format as YYYY-MM-DD for backend compatibility
-        const fromDate = params.from;
-        params.from = fromDate.toISOString().split('T')[0];
+        params.from = params.from.toISOString().split('T')[0];
       } else if (typeof params.from === 'string' && params.from.includes('T')) {
-        // Extract just the date part if it's an ISO string
         params.from = params.from.split('T')[0];
       }
     }
     
     if (params.to) {
       if (params.to instanceof Date) {
-        const toDate = params.to;
-        params.to = toDate.toISOString().split('T')[0];
+        params.to = params.to.toISOString().split('T')[0];
       } else if (typeof params.to === 'string' && params.to.includes('T')) {
-        // Extract just the date part if it's an ISO string
         params.to = params.to.split('T')[0];
       }
     }
+    
+    // Ensure all params are strings for consistency
+    Object.keys(params).forEach(key => {
+      if (params[key] !== null && params[key] !== undefined) {
+        params[key] = String(params[key]);
+      }
+    });
     
     const response = await api.get('/matches/fixtures', { params });
     return response;
   } catch (error) {
     console.error('Error fetching fixtures:', error);
-    return { status: 'success', matches: [], total: 0 };
+    // Return a structured response even on error
+    return { 
+      status: 'success', 
+      matches: [], 
+      total: 0 
+    };
   }
 };
 

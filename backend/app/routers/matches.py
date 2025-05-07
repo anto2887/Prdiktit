@@ -122,7 +122,7 @@ async def get_fixtures_endpoint(
                 from_datetime = datetime.fromisoformat(from_date)
             else:
                 # Date only format (YYYY-MM-DD)
-                from_datetime = datetime.fromisoformat(f"{from_date}T00:00:00+00:00")
+                from_datetime = datetime.strptime(from_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         except Exception as e:
             logger.warning(f"Invalid from_date format: {from_date}. Error: {str(e)}")
             # Default to current day
@@ -137,7 +137,7 @@ async def get_fixtures_endpoint(
                 to_datetime = datetime.fromisoformat(to_date)
             else:
                 # Date only format (YYYY-MM-DD)
-                to_datetime = datetime.fromisoformat(f"{to_date}T23:59:59+00:00")
+                to_datetime = datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
         except Exception as e:
             logger.warning(f"Invalid to_date format: {to_date}. Error: {str(e)}")
             # Default to 7 days from now
@@ -215,7 +215,7 @@ async def get_upcoming_matches(
         matches = cached_matches
     else:
         now = datetime.now(timezone.utc)
-        next_week = now + datetime.timedelta(days=7)
+        next_week = now + timedelta(days=7)
         
         matches = await get_fixtures(
             db,

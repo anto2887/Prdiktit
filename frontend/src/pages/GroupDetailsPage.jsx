@@ -16,11 +16,13 @@ const GroupDetailsPage = () => {
     currentGroup, 
     fetchGroupDetails, 
     fetchGroupMembers, 
+    isAdmin,
     loading, 
     error,
     userGroups
   } = useGroups();
   const { profile } = useUser();
+  const [groupMembers, setGroupMembers] = useState([]);
   const [activeTab, setActiveTab] = useState('standings');
   
   // Get new group info from navigation state
@@ -32,13 +34,26 @@ const GroupDetailsPage = () => {
   const hasFetched = useRef(false);
 
   useEffect(() => {
-    // Only fetch if we haven't already and have a valid groupId
-    if (!hasFetched.current && groupId) {
-      console.log('Fetching group details for', groupId);
-      fetchGroupDetails(parseInt(groupId));
-      fetchGroupMembers(parseInt(groupId));
-      hasFetched.current = true;
-    }
+    const loadGroupData = async () => {
+      try {
+        if (!hasFetched.current && groupId) {
+          console.log('Fetching group details for', groupId);
+          
+          await fetchGroupDetails(parseInt(groupId));
+          const members = await fetchGroupMembers(parseInt(groupId));
+          
+          if (Array.isArray(members)) {
+            setGroupMembers(members);
+          }
+          
+          hasFetched.current = true;
+        }
+      } catch (err) {
+        console.error('Error loading group data:', err);
+      }
+    };
+    
+    loadGroupData();
     
     // Reset the fetch flag when groupId changes
     return () => {
@@ -60,16 +75,7 @@ const GroupDetailsPage = () => {
     return <ErrorMessage message="League not found" />;
   }
 
-  // Safe implementation of isAdmin function
-  const isAdmin = (groupId, userId) => {
-    if (!groupId || !userId || !userGroups) return false;
-    
-    const group = userGroups.find(g => g.id === parseInt(groupId));
-    if (!group) return false;
-    
-    return group.admin_id === userId;
-  };
-
+  // Use provided group data or new group data from navigation state
   const group = currentGroup || { 
     name: groupName, 
     invite_code: inviteCode,
@@ -91,7 +97,7 @@ const GroupDetailsPage = () => {
             )}
           </div>
           <div className="space-y-2">
-            {profile && isAdmin(group.id, profile.id) && (
+            {profile && isAdmin && isAdmin(group.id, profile.id) && (
               <Link
                 to={`/groups/${groupId}/manage`}
                 className="inline-block px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
@@ -101,7 +107,7 @@ const GroupDetailsPage = () => {
             )}
             <div className="text-sm text-gray-500 text-right">
               <p>Created: {new Date(group.created_at || Date.now()).toLocaleDateString()}</p>
-              <p>Members: {group.member_count || 1}</p>
+              <p>Members: {group.member_count || groupMembers.length || 1}</p>
             </div>
           </div>
         </div>
@@ -168,13 +174,7 @@ const GroupDetailsPage = () => {
         {activeTab === 'standings' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Standings</h2>
-            {currentGroup ? (
-              <LeagueTable group={currentGroup} />
-            ) : (
-              <p className="text-gray-500 text-center py-12">
-                League standings will appear here once processed
-              </p>
-            )}
+            <LeagueTable group={group} />
           </div>
         )}
         
@@ -190,7 +190,7 @@ const GroupDetailsPage = () => {
         {activeTab === 'members' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Members</h2>
-            {currentGroup && currentGroup.members && currentGroup.members.length > 0 ? (
+            {groupMembers.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -207,7 +207,7 @@ const GroupDetailsPage = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {currentGroup.members.map(member => (
+                    {groupMembers.map(member => (
                       <tr key={member.user_id}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
