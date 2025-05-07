@@ -52,6 +52,13 @@ class MembershipStatus(enum.Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
 
+class MemberAction(str, enum.Enum):
+    APPROVE = "APPROVE"
+    REJECT = "REJECT"
+    PROMOTE = "PROMOTE"
+    DEMOTE = "DEMOTE"
+    REMOVE = "REMOVE"
+
 # Association tables
 group_members = Table(
     "group_members",

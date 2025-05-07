@@ -243,17 +243,14 @@ export const GroupProvider = ({ children }) => {
     }
   }, [isAuthenticated, fetchUserGroups, showSuccess, showError]);
 
-  const manageMember = useCallback(async (groupId, action, userIds) => {
+  const manageMember = useCallback(async (groupId, userId, action) => {
     if (!isAuthenticated || !groupId) return false;
     
     try {
       setLoading(true);
       setError(null);
       
-      const response = await groupsApi.manageMember(groupId, {
-        action,
-        user_ids: userIds
-      });
+      const response = await groupsApi.manageMember(groupId, userId, action);
       
       if (response.status === 'success') {
         // Refresh group members
@@ -271,6 +268,32 @@ export const GroupProvider = ({ children }) => {
       setLoading(false);
     }
   }, [isAuthenticated, fetchGroupMembers, showSuccess, showError]);
+
+  const regenerateInviteCode = useCallback(async (groupId) => {
+    if (!isAuthenticated || !groupId) return null;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await groupsApi.regenerateInviteCode(groupId);
+      
+      if (response.status === 'success') {
+        // Refresh group details
+        await fetchGroupDetails(groupId);
+        showSuccess('Invite code regenerated successfully');
+        return response;
+      } else {
+        throw new Error(response.message || 'Failed to regenerate invite code');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to regenerate invite code');
+      showError(err.message || 'Failed to regenerate invite code');
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, fetchGroupDetails, showSuccess, showError]);
 
   const isAdmin = useCallback((groupId, userId) => {
     if (!groupId || !userId) return false;
@@ -318,7 +341,9 @@ export const GroupProvider = ({ children }) => {
         isAdmin,
         isMember,
         clearGroupData,
-        fetchTeamsForLeague
+        fetchTeamsForLeague,
+        regenerateInviteCode,
+        setCurrentGroup
       }}
     >
       {children}

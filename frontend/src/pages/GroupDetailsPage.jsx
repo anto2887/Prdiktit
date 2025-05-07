@@ -79,8 +79,14 @@ const GroupDetailsPage = () => {
   const group = currentGroup || { 
     name: groupName, 
     invite_code: inviteCode,
-    id: parseInt(groupId)
+    id: parseInt(groupId),
+    tracked_teams: []
   };
+
+  // Safe check for isAdmin function to prevent React hook errors
+  const userIsAdmin = profile && isAdmin && typeof isAdmin === 'function' ? 
+    isAdmin(parseInt(groupId), profile.id) : 
+    group.admin_id === profile?.id;
 
   return (
     <div className="p-6 space-y-6">
@@ -97,7 +103,7 @@ const GroupDetailsPage = () => {
             )}
           </div>
           <div className="space-y-2">
-            {profile && isAdmin && isAdmin(group.id, profile.id) && (
+            {userIsAdmin && (
               <Link
                 to={`/groups/${groupId}/manage`}
                 className="inline-block px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"

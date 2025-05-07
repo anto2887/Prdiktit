@@ -11,11 +11,13 @@ const GroupManagement = () => {
   const { showSuccess, showError } = useNotifications();
   const { 
     currentGroup,
+    setCurrentGroup,
     fetchGroupDetails,
     fetchGroupMembers,
     manageMember,
     regenerateInviteCode,
     loading,
+    setLoading,
     error 
   } = useGroups();
 
@@ -45,25 +47,42 @@ const GroupManagement = () => {
 
   const handleMemberAction = async (userId, action) => {
     try {
+      setLoading(true);
       const success = await manageMember(groupId, userId, action);
       if (success) {
         showSuccess(`Successfully ${action.toLowerCase()}ed member`);
         loadGroupData(); // Refresh member list
       }
     } catch (err) {
-      showError(`Failed to ${action.toLowerCase()} member`);
+      showError(`Failed to ${action.toLowerCase()} member: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleRegenerateCode = async () => {
     try {
-      const newCode = await regenerateInviteCode(groupId);
-      if (newCode) {
+      setLoading(true);
+      const response = await regenerateInviteCode(groupId);
+      if (response && response.status === 'success') {
         showSuccess('Successfully regenerated invite code');
         setShowRegenerateConfirm(false);
+        // Update the current group's invite code
+        if (response.data && response.data.new_code) {
+          setCurrentGroup(prev => ({
+            ...prev,
+            invite_code: response.data.new_code
+          }));
+        }
+        // Reload group data to get the latest details
+        await fetchGroupDetails(groupId);
+      } else {
+        throw new Error(response?.message || 'Failed to regenerate invite code');
       }
     } catch (err) {
-      showError('Failed to regenerate invite code');
+      showError(`Failed to regenerate invite code: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 

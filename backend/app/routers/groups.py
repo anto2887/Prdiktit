@@ -1,5 +1,5 @@
 from typing import Any, List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
@@ -11,10 +11,19 @@ from ..schemas.groups import (
     Group, GroupCreate, GroupDetail, GroupList, GroupUpdate,
     GroupMember, GroupMemberList, JoinGroupRequest, JoinGroupResponse,
     MemberActionRequest, MemberActionResponse, TeamInfo, TeamList,
-    GroupAnalytics, AuditLogList
+    GroupAnalytics, AuditLogList, MemberRole, MemberAction
 )
 from ..schemas.user import UserInDB
-from ..db.repositories.groups import group_members
+from ..db.repositories.groups import (
+    group_members, 
+    get_group_by_id, 
+    check_group_membership, 
+    get_user_role_in_group, 
+    get_group_tracked_teams,
+    get_group_members,
+    regenerate_invite_code
+)
+from ..db.repositories.groups import PendingMembership, MembershipStatus, GroupAuditLog
 
 router = APIRouter()
 
@@ -279,37 +288,48 @@ async def get_group_details(
     if cached_group:
         group = cached_group
     else:
-        # This is a placeholder - you'll need to implement the actual repository function
-        # group = await get_group_by_id(db, group_id)
+        # Get the actual group from the database
+        group_obj = await get_group_by_id(db, group_id)
         
-        # For now, return a mock response
+        if not group_obj:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Group not found"
+            )
+            
+        # Check if user is a member of the group
+        is_member = await check_group_membership(db, group_id, current_user.id)
+        
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a member of this group"
+            )
+        
+        # Get user's role in the group
+        role = await get_user_role_in_group(db, group_id, current_user.id)
+        
+        # Get tracked teams
+        tracked_teams = await get_group_tracked_teams(db, group_id)
+        
+        # Convert to dict
         group = {
-            "id": group_id,
-            "name": "Mock Group",
-            "league": "Premier League",
-            "description": "This is a mock group",
-            "privacy_type": "PRIVATE",
-            "admin_id": current_user.id,
-            "invite_code": "ABC123",
-            "created_at": "2023-01-01T00:00:00Z",
-            "member_count": 1,
-            "role": "ADMIN",
-            "analytics": None,
-            "tracked_teams": []
+            "id": group_obj.id,
+            "name": group_obj.name,
+            "league": group_obj.league,
+            "description": group_obj.description,
+            "privacy_type": group_obj.privacy_type.value if group_obj.privacy_type else None,
+            "admin_id": group_obj.admin_id,
+            "invite_code": group_obj.invite_code,
+            "created_at": group_obj.created.isoformat() if group_obj.created else None,
+            "member_count": db.query(group_members).filter(group_members.c.group_id == group_id).count(),
+            "role": role.value if role else None,
+            "analytics": None,  # To be implemented later
+            "tracked_teams": tracked_teams
         }
         
         # Cache for 10 minutes
         await cache.set(cache_key, group, 600)
-    
-    # Check if user is a member of the group
-    # This is a placeholder - you'll need to implement the actual check
-    is_member = True
-    
-    if not is_member:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not a member of this group"
-        )
     
     return {
         "status": "success",
@@ -366,8 +386,7 @@ async def get_group_members(
     Get group members
     """
     # Check if user is a member of the group
-    # This is a placeholder - you'll need to implement the actual check
-    is_member = True
+    is_member = await check_group_membership(db, group_id, current_user.id)
     
     if not is_member:
         raise HTTPException(
@@ -382,19 +401,8 @@ async def get_group_members(
     if cached_members:
         members = cached_members
     else:
-        # This is a placeholder - you'll need to implement the actual repository function
-        # members = await get_group_members_db(db, group_id)
-        
-        # For now, return a mock response
-        members = [
-            {
-                "user_id": current_user.id,
-                "username": current_user.username,
-                "role": "ADMIN",
-                "joined_at": "2023-01-01T00:00:00Z",
-                "last_active": "2023-01-01T00:00:00Z"
-            }
-        ]
+        # Get the actual members from the database
+        members = await get_group_members(db, group_id)
         
         # Cache for 5 minutes
         await cache.set(cache_key, members, 300)
@@ -415,29 +423,283 @@ async def manage_group_members(
     """
     Manage group members (approve, reject, promote, demote, remove)
     """
-    # Check if user is admin or moderator
-    # This is a placeholder - you'll need to implement the actual check
-    user_role = "ADMIN"
+    # First check if group exists
+    group = await get_group_by_id(db, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group not found"
+        )
     
-    if user_role not in ["ADMIN", "MODERATOR"]:
+    # Check if user has permission to manage members
+    user_role = await get_user_role_in_group(db, group_id, current_user.id)
+    if not user_role or user_role not in [MemberRole.ADMIN, MemberRole.MODERATOR]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have permission to manage members"
         )
     
-    # This is a placeholder - you'll need to implement the actual repository function
-    # results = await process_member_action(
-    #     db, group_id, current_user.id, action_data.user_ids, action_data.action
-    # )
+    # Only admins can perform certain actions
+    admin_only_actions = [MemberAction.PROMOTE, MemberAction.DEMOTE]
+    if action_data.action in admin_only_actions and user_role != MemberRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Only admins can {action_data.action.lower()} members"
+        )
     
-    # For now, return a mock response
-    results = [
-        {
-            "user_id": user_id,
-            "status": "success"
-        }
-        for user_id in action_data.user_ids
-    ]
+    results = []
+    for user_id in action_data.user_ids:
+        try:
+            # Skip if trying to perform action on self
+            if user_id == current_user.id and action_data.action == MemberAction.REMOVE:
+                results.append({
+                    "user_id": user_id,
+                    "status": "error",
+                    "message": "Cannot remove yourself from the group"
+                })
+                continue
+                
+            # Skip if trying to perform action on the admin
+            if group.admin_id == user_id and action_data.action in [MemberAction.REMOVE, MemberAction.DEMOTE]:
+                results.append({
+                    "user_id": user_id,
+                    "status": "error",
+                    "message": "Cannot perform this action on the group admin"
+                })
+                continue
+                
+            # Perform the actual action based on the type
+            if action_data.action == MemberAction.APPROVE:
+                # Check if there's a pending membership request
+                pending_request = db.query(PendingMembership).filter(
+                    PendingMembership.group_id == group_id,
+                    PendingMembership.user_id == user_id,
+                    PendingMembership.status == MembershipStatus.PENDING
+                ).first()
+                
+                if not pending_request:
+                    results.append({
+                        "user_id": user_id,
+                        "status": "error",
+                        "message": "No pending request found"
+                    })
+                    continue
+                    
+                # Add user to group members
+                db.execute(
+                    group_members.insert().values(
+                        user_id=user_id,
+                        group_id=group_id,
+                        role=MemberRole.MEMBER,
+                        joined_at=datetime.now(timezone.utc),
+                        last_active=datetime.now(timezone.utc)
+                    )
+                )
+                
+                # Update pending request
+                pending_request.status = MembershipStatus.APPROVED
+                pending_request.processed_at = datetime.now(timezone.utc)
+                pending_request.processed_by = current_user.id
+                
+                # Add audit log
+                log_entry = GroupAuditLog(
+                    group_id=group_id,
+                    user_id=current_user.id,
+                    action=f"Approved membership for user {user_id}",
+                    details={"target_user_id": user_id},
+                    created_at=datetime.now(timezone.utc)
+                )
+                db.add(log_entry)
+                
+                results.append({
+                    "user_id": user_id,
+                    "status": "success",
+                    "message": "Member approved successfully"
+                })
+                
+            elif action_data.action == MemberAction.REJECT:
+                # Check if there's a pending membership request
+                pending_request = db.query(PendingMembership).filter(
+                    PendingMembership.group_id == group_id,
+                    PendingMembership.user_id == user_id,
+                    PendingMembership.status == MembershipStatus.PENDING
+                ).first()
+                
+                if not pending_request:
+                    results.append({
+                        "user_id": user_id,
+                        "status": "error",
+                        "message": "No pending request found"
+                    })
+                    continue
+                    
+                # Update pending request
+                pending_request.status = MembershipStatus.REJECTED
+                pending_request.processed_at = datetime.now(timezone.utc)
+                pending_request.processed_by = current_user.id
+                
+                # Add audit log
+                log_entry = GroupAuditLog(
+                    group_id=group_id,
+                    user_id=current_user.id,
+                    action=f"Rejected membership for user {user_id}",
+                    details={"target_user_id": user_id},
+                    created_at=datetime.now(timezone.utc)
+                )
+                db.add(log_entry)
+                
+                results.append({
+                    "user_id": user_id,
+                    "status": "success",
+                    "message": "Membership request rejected"
+                })
+                
+            elif action_data.action == MemberAction.PROMOTE:
+                # Check if user is a member
+                member = db.query(group_members).filter(
+                    group_members.c.group_id == group_id,
+                    group_members.c.user_id == user_id
+                ).first()
+                
+                if not member:
+                    results.append({
+                        "user_id": user_id,
+                        "status": "error",
+                        "message": "User is not a member of this group"
+                    })
+                    continue
+                    
+                # Update member role to moderator
+                db.execute(
+                    group_members.update().
+                    where(
+                        group_members.c.group_id == group_id,
+                        group_members.c.user_id == user_id
+                    ).
+                    values(role=MemberRole.MODERATOR)
+                )
+                
+                # Add audit log
+                log_entry = GroupAuditLog(
+                    group_id=group_id,
+                    user_id=current_user.id,
+                    action=f"Promoted user {user_id} to moderator",
+                    details={"target_user_id": user_id},
+                    created_at=datetime.now(timezone.utc)
+                )
+                db.add(log_entry)
+                
+                results.append({
+                    "user_id": user_id,
+                    "status": "success",
+                    "message": "Member promoted to moderator"
+                })
+                
+            elif action_data.action == MemberAction.DEMOTE:
+                # Check if user is a moderator
+                member = db.query(group_members).filter(
+                    group_members.c.group_id == group_id,
+                    group_members.c.user_id == user_id,
+                    group_members.c.role == MemberRole.MODERATOR
+                ).first()
+                
+                if not member:
+                    results.append({
+                        "user_id": user_id,
+                        "status": "error",
+                        "message": "User is not a moderator of this group"
+                    })
+                    continue
+                    
+                # Update member role to regular member
+                db.execute(
+                    group_members.update().
+                    where(
+                        group_members.c.group_id == group_id,
+                        group_members.c.user_id == user_id
+                    ).
+                    values(role=MemberRole.MEMBER)
+                )
+                
+                # Add audit log
+                log_entry = GroupAuditLog(
+                    group_id=group_id,
+                    user_id=current_user.id,
+                    action=f"Demoted user {user_id} from moderator",
+                    details={"target_user_id": user_id},
+                    created_at=datetime.now(timezone.utc)
+                )
+                db.add(log_entry)
+                
+                results.append({
+                    "user_id": user_id,
+                    "status": "success",
+                    "message": "Moderator demoted to member"
+                })
+                
+            elif action_data.action == MemberAction.REMOVE:
+                # Check if user is a member
+                member = db.query(group_members).filter(
+                    group_members.c.group_id == group_id,
+                    group_members.c.user_id == user_id
+                ).first()
+                
+                if not member:
+                    results.append({
+                        "user_id": user_id,
+                        "status": "error",
+                        "message": "User is not a member of this group"
+                    })
+                    continue
+                    
+                # Remove user from group
+                db.execute(
+                    group_members.delete().
+                    where(
+                        group_members.c.group_id == group_id,
+                        group_members.c.user_id == user_id
+                    )
+                )
+                
+                # Add audit log
+                log_entry = GroupAuditLog(
+                    group_id=group_id,
+                    user_id=current_user.id,
+                    action=f"Removed user {user_id} from group",
+                    details={"target_user_id": user_id},
+                    created_at=datetime.now(timezone.utc)
+                )
+                db.add(log_entry)
+                
+                results.append({
+                    "user_id": user_id,
+                    "status": "success",
+                    "message": "Member removed from group"
+                })
+                
+            else:
+                # Unknown action
+                results.append({
+                    "user_id": user_id,
+                    "status": "error",
+                    "message": f"Unknown action: {action_data.action}"
+                })
+        
+        except Exception as e:
+            # Log the error
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error processing member action: {str(e)}")
+            
+            # Add to results
+            results.append({
+                "user_id": user_id,
+                "status": "error",
+                "message": str(e)
+            })
+    
+    # Commit all changes
+    db.commit()
     
     # Clear cache
     await cache.delete(f"group_members:{group_id}")
@@ -531,4 +793,58 @@ async def get_group_audit_log(
     return {
         "status": "success",
         "data": logs
+    }
+
+@router.post("/{group_id}/regenerate-code", response_model=dict)
+async def regenerate_group_code(
+    group_id: int = Path(...),
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Regenerate group invite code
+    """
+    # Check if group exists
+    group = await get_group_by_id(db, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group not found"
+        )
+    
+    # Check if user is the admin
+    if group.admin_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group admin can regenerate the invite code"
+        )
+    
+    # Generate a new invite code
+    new_code = await regenerate_invite_code(db, group_id)
+    if not new_code:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to regenerate invite code"
+        )
+    
+    # Clear cache
+    await cache.delete(f"group:{group_id}")
+    
+    # Add audit log
+    log_entry = GroupAuditLog(
+        group_id=group_id,
+        user_id=current_user.id,
+        action="Regenerated invite code",
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(log_entry)
+    db.commit()
+    
+    return {
+        "status": "success",
+        "message": "Invite code regenerated successfully",
+        "data": {
+            "new_code": new_code
+        }
     }
