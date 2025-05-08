@@ -376,7 +376,7 @@ async def update_group(
     }
 
 @router.get("/{group_id}/members", response_model=GroupMemberList)
-async def get_group_members(
+async def get_group_members_endpoint(
     group_id: int = Path(...),
     current_user: UserInDB = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -401,8 +401,11 @@ async def get_group_members(
     if cached_members:
         members = cached_members
     else:
-        # Get the actual members from the database
-        members = await get_group_members(db, group_id)
+        # Import the function from the repository to avoid name conflict
+        from ..db.repositories.groups import get_group_members as get_group_members_db
+        
+        # Call the repository function
+        members = await get_group_members_db(db, group_id)
         
         # Cache for 5 minutes
         await cache.set(cache_key, members, 300)

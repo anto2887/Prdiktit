@@ -106,84 +106,6 @@ async def submit_prediction(
         "message": "Prediction created successfully"
     }
 
-@router.get("/{prediction_id}", response_model=PredictionResponse)
-async def get_prediction(
-    prediction_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Get prediction by ID
-    """
-    prediction = await get_prediction_by_id(db, prediction_id)
-    
-    if not prediction:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Prediction not found"
-        )
-    
-    # Check if prediction belongs to current user
-    if prediction.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
-    
-    return {
-        "status": "success",
-        "data": prediction,
-        "message": "Prediction retrieved successfully"
-    }
-
-@router.post("/reset/{prediction_id}", response_model=dict)
-async def reset_prediction_endpoint(
-    prediction_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-    cache: RedisCache = Depends(get_cache)
-):
-    """
-    Reset a prediction to editable state
-    """
-    prediction = await get_prediction_by_id(db, prediction_id)
-    
-    if not prediction:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Prediction not found"
-        )
-    
-    # Check if prediction belongs to current user
-    if prediction.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
-        )
-    
-    # Check if match has already started
-    if prediction.fixture.status != MatchStatus.NOT_STARTED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot reset prediction after match has started"
-        )
-    
-    reset_pred = await reset_prediction(db, prediction_id)
-    
-    if not reset_pred:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to reset prediction"
-        )
-    
-    # Clear cache
-    await cache.delete(f"user_predictions:{current_user.id}")
-    
-    return {
-        "status": "success",
-        "message": "Prediction reset successfully"
-    }
-
 @router.get("/user", response_model=PredictionList)
 async def get_user_predictions_endpoint(
     fixture_id: Optional[int] = Query(None),
@@ -322,4 +244,82 @@ async def create_batch_predictions(
         "status": "success",
         "message": "Predictions saved successfully",
         "data": results
+    }
+
+@router.get("/{prediction_id}", response_model=PredictionResponse)
+async def get_prediction(
+    prediction_id: int = Path(...),
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get prediction by ID
+    """
+    prediction = await get_prediction_by_id(db, prediction_id)
+    
+    if not prediction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prediction not found"
+        )
+    
+    # Check if prediction belongs to current user
+    if prediction.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+    
+    return {
+        "status": "success",
+        "data": prediction,
+        "message": "Prediction retrieved successfully"
+    }
+
+@router.post("/reset/{prediction_id}", response_model=dict)
+async def reset_prediction_endpoint(
+    prediction_id: int = Path(...),
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Reset a prediction to editable state
+    """
+    prediction = await get_prediction_by_id(db, prediction_id)
+    
+    if not prediction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prediction not found"
+        )
+    
+    # Check if prediction belongs to current user
+    if prediction.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+    
+    # Check if match has already started
+    if prediction.fixture.status != MatchStatus.NOT_STARTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot reset prediction after match has started"
+        )
+    
+    reset_pred = await reset_prediction(db, prediction_id)
+    
+    if not reset_pred:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Failed to reset prediction"
+        )
+    
+    # Clear cache
+    await cache.delete(f"user_predictions:{current_user.id}")
+    
+    return {
+        "status": "success",
+        "message": "Prediction reset successfully"
     }

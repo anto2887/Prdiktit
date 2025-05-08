@@ -45,51 +45,6 @@ async def get_live_matches_endpoint(
         "total": len(matches)
     }
 
-@router.get("/{match_id}", response_model=dict)
-async def get_match(
-    match_id: int,
-    current_user: UserInDB = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-    cache: RedisCache = Depends(get_cache)
-):
-    """
-    Get match details by ID
-    """
-    # Try to get from cache
-    cache_key = f"match:{match_id}"
-    cached_match = await cache.get(cache_key)
-    
-    if cached_match:
-        match = cached_match
-    else:
-        match = await get_fixture_by_id(db, match_id)
-        
-        if not match:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Match not found"
-            )
-            
-        # Cache completed matches longer than upcoming ones
-        if match.status in [MatchStatus.FINISHED, MatchStatus.FINISHED_AET, MatchStatus.FINISHED_PEN]:
-            # Cache for 24 hours
-            await cache.set(cache_key, match, 86400)
-        else:
-            # Cache for 5 minutes
-            await cache.set(cache_key, match, 300)
-    
-    # Get prediction deadlines
-    deadlines = await get_prediction_deadlines()
-    
-    # Convert match to MatchDetail
-    match_detail = MatchDetail.from_orm(match)
-    match_detail.prediction_deadline = deadlines.get(str(match.fixture_id))
-    
-    return {
-        "status": "success",
-        "matches": match_detail
-    }
-
 @router.get("/fixtures", response_model=MatchListResponse)
 async def get_fixtures_endpoint(
     league: Optional[str] = Query(None),
@@ -245,4 +200,49 @@ async def get_upcoming_matches(
     return {
         "status": "success",
         "matches": formatted_matches
+    }
+
+@router.get("/{match_id}", response_model=dict)
+async def get_match(
+    match_id: int,
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Get match details by ID
+    """
+    # Try to get from cache
+    cache_key = f"match:{match_id}"
+    cached_match = await cache.get(cache_key)
+    
+    if cached_match:
+        match = cached_match
+    else:
+        match = await get_fixture_by_id(db, match_id)
+        
+        if not match:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Match not found"
+            )
+            
+        # Cache completed matches longer than upcoming ones
+        if match.status in [MatchStatus.FINISHED, MatchStatus.FINISHED_AET, MatchStatus.FINISHED_PEN]:
+            # Cache for 24 hours
+            await cache.set(cache_key, match, 86400)
+        else:
+            # Cache for 5 minutes
+            await cache.set(cache_key, match, 300)
+    
+    # Get prediction deadlines
+    deadlines = await get_prediction_deadlines()
+    
+    # Convert match to MatchDetail
+    match_detail = MatchDetail.from_orm(match)
+    match_detail.prediction_deadline = deadlines.get(str(match.fixture_id))
+    
+    return {
+        "status": "success",
+        "matches": match_detail
     }

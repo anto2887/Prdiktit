@@ -24,6 +24,8 @@ const GroupDetailsPage = () => {
   const { profile } = useUser();
   const [groupMembers, setGroupMembers] = useState([]);
   const [activeTab, setActiveTab] = useState('standings');
+  const [selectedSeason, setSelectedSeason] = useState('2024-2025');
+  const [selectedWeek, setSelectedWeek] = useState(null);
   
   // Get new group info from navigation state
   const isNewGroup = location.state?.newGroup || false;
@@ -180,7 +182,13 @@ const GroupDetailsPage = () => {
         {activeTab === 'standings' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Standings</h2>
-            <LeagueTable group={group} />
+            <LeagueTable 
+              group={group}
+              selectedSeason={selectedSeason}
+              selectedWeek={selectedWeek}
+              setSelectedSeason={setSelectedSeason}
+              setSelectedWeek={setSelectedWeek}
+            />
           </div>
         )}
         

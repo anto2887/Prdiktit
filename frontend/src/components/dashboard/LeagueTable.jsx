@@ -4,10 +4,14 @@ import { useNotifications } from '../../contexts/NotificationContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 
-const LeagueTable = ({ group }) => {
+const LeagueTable = ({ 
+  group, 
+  selectedSeason = '2024-2025',
+  selectedWeek = null,
+  setSelectedSeason = () => {},
+  setSelectedWeek = () => {}
+}) => {
   const [members, setMembers] = useState([]);
-  const [selectedSeason, setSelectedSeason] = useState('2024-2025');
-  const [selectedWeek, setSelectedWeek] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { fetchGroupMembers } = useGroups();
