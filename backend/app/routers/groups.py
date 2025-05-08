@@ -410,6 +410,13 @@ async def get_group_members_endpoint(
         # Cache for 5 minutes
         await cache.set(cache_key, members, 300)
     
+    # Process members to ensure enum values are converted to strings
+    for member in members:
+        if 'role' in member and hasattr(member['role'], 'value'):
+            member['role'] = member['role'].value
+        if 'status' in member and hasattr(member['status'], 'value'):
+            member['status'] = member['status'].value
+    
     return {
         "status": "success",
         "data": members

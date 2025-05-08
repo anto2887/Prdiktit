@@ -1,6 +1,7 @@
 # app/services/cache_service.py
 import json
 import logging
+import enum
 from datetime import timedelta
 from typing import Any, Optional, Union
 
@@ -10,6 +11,13 @@ from fastapi import Depends, FastAPI
 from ..core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Add this encoder class at the module level
+class EnumEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, enum.Enum):
+            return obj.value
+        return super().default(obj)
 
 class RedisCache:
     def __init__(self):
@@ -66,7 +74,7 @@ class RedisCache:
             return self.redis_client.setex(
                 key,
                 expiry,
-                json.dumps(value)
+                json.dumps(value, cls=EnumEncoder)
             )
         except Exception as e:
             logger.error(f"Error setting cache: {str(e)}")

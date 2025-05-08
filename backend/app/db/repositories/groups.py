@@ -160,7 +160,7 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
         members.append({
             'user_id': row.user_id,
             'username': row.username,
-            'role': row.role,
+            'role': row.role.value if hasattr(row.role, 'value') else str(row.role),
             'joined_at': row.joined_at,
             'last_active': row.last_active
         })
@@ -181,8 +181,8 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
         members.append({
             'user_id': row.PendingMembership.user_id,
             'username': row.username,
-            'role': MemberRole.MEMBER,
-            'status': MembershipStatus.PENDING,
+            'role': MemberRole.MEMBER.value,
+            'status': MembershipStatus.PENDING.value,
             'requested_at': row.PendingMembership.requested_at
         })
     
