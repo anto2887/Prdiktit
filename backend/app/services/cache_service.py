@@ -2,6 +2,7 @@
 import json
 import logging
 import enum
+import datetime  # Added import for datetime
 from datetime import timedelta
 from typing import Any, Optional, Union
 
@@ -12,11 +13,13 @@ from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Add this encoder class at the module level
+# Updated encoder class to handle datetime objects
 class EnumEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, enum.Enum):
             return obj.value
+        elif isinstance(obj, datetime.datetime):
+            return obj.isoformat()  # Convert datetime to ISO format string
         return super().default(obj)
 
 class RedisCache:
@@ -71,6 +74,7 @@ class RedisCache:
             if isinstance(expiry, timedelta):
                 expiry = int(expiry.total_seconds())
                 
+            # Use the enhanced encoder that handles both Enum and datetime
             return self.redis_client.setex(
                 key,
                 expiry,

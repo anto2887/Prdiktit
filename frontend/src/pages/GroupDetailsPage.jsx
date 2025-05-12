@@ -85,10 +85,12 @@ const GroupDetailsPage = () => {
     tracked_teams: []
   };
 
-  // Safe check for isAdmin function to prevent React hook errors
-  const userIsAdmin = profile && isAdmin && typeof isAdmin === 'function' ? 
+  // Safe check for isAdmin function - avoid direct function call if not defined
+  // This was potentially causing your React error
+  const userIsAdmin = profile && group && profile.id && 
+    typeof isAdmin === 'function' ? 
     isAdmin(parseInt(groupId), profile.id) : 
-    group.admin_id === profile?.id;
+    (group.admin_id === profile?.id);
 
   return (
     <div className="p-6 space-y-6">
@@ -204,7 +206,7 @@ const GroupDetailsPage = () => {
         {activeTab === 'members' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Members</h2>
-            {groupMembers.length > 0 ? (
+            {groupMembers && groupMembers.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
@@ -234,7 +236,7 @@ const GroupDetailsPage = () => {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(member.joined_at).toLocaleDateString()}
+                          {member.joined_at ? new Date(member.joined_at).toLocaleDateString() : 'Unknown'}
                         </td>
                       </tr>
                     ))}

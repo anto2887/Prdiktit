@@ -92,7 +92,7 @@ const LeagueTable = ({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {members.length > 0 ? (
+            {members && members.length > 0 ? (
               members.map((member, index) => (
                 <tr key={member.user_id} className={index === 0 ? 'bg-yellow-50' : ''}>
                   <td className="py-3 px-4">
