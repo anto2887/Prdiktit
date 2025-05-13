@@ -18,7 +18,7 @@ const GroupDetailsPage = () => {
     fetchGroupMembers, 
     isAdmin,
     loading, 
-    error,
+    error 
   } = useGroups();
   const { profile } = useUser();
   const [groupMembers, setGroupMembers] = useState([]);
@@ -84,11 +84,15 @@ const GroupDetailsPage = () => {
     tracked_teams: []
   };
 
-  // Make sure we safely check for the admin status without causing errors
-  const userIsAdmin = profile && group ? 
-    (typeof isAdmin === 'function' && isAdmin(parseInt(groupId), profile.id)) || 
-    group.admin_id === profile?.id : 
-    false;
+  // Make sure we safely check for the admin status
+  let userIsAdmin = false;
+  if (profile && group) {
+    if (typeof isAdmin === 'function') {
+      userIsAdmin = isAdmin(parseInt(groupId), profile.id);
+    } else if (group.admin_id === profile.id) {
+      userIsAdmin = true;
+    }
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -188,6 +192,7 @@ const GroupDetailsPage = () => {
               selectedWeek={selectedWeek}
               setSelectedSeason={setSelectedSeason}
               setSelectedWeek={setSelectedWeek}
+              fetchGroupMembers={fetchGroupMembers}
             />
           </div>
         )}

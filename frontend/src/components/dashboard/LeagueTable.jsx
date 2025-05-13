@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useGroups } from '../../contexts/GroupContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
@@ -9,22 +8,22 @@ const LeagueTable = ({
   selectedSeason = '2024-2025',
   selectedWeek = null,
   setSelectedSeason = () => {},
-  setSelectedWeek = () => {}
+  setSelectedWeek = () => {},
+  fetchGroupMembers // Pass this as a prop instead of using context
 }) => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { fetchGroupMembers } = useGroups();
   const { showError } = useNotifications();
 
   useEffect(() => {
-    if (group && group.id) {
+    if (group && group.id && fetchGroupMembers) {
       loadMemberData();
     }
   }, [group, selectedSeason, selectedWeek]);
 
   const loadMemberData = async () => {
-    if (!group || !group.id) return;
+    if (!group || !group.id || !fetchGroupMembers) return;
     
     setLoading(true);
     setError(null);
@@ -41,7 +40,7 @@ const LeagueTable = ({
     } catch (err) {
       console.error('Error loading group members', err);
       setError('Failed to load league members. Please try refreshing the page.');
-      showError('Failed to load league members');
+      if (showError) showError('Failed to load league members');
     } finally {
       setLoading(false);
     }

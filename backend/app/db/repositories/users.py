@@ -74,15 +74,18 @@ async def get_user_stats(db: Session, user_id: int) -> dict:
         
         total_points = total_points_query.scalar() or 0
 
-        # Get prediction stats - fixed with correct case syntax
+        # For the newer SQLAlchemy versions, use individual case statements correctly
+        perfect_predictions_expr = func.sum(
+            case(
+                (UserPrediction.points == 3, 1),
+                else_=0
+            )
+        )
+        
+        # Get prediction stats with the fixed case expression
         prediction_stats_query = db.query(
             func.count(UserPrediction.id).label('total_predictions'),
-            func.sum(
-                case(
-                    (UserPrediction.points == 3, 1),
-                    else_=0
-                )
-            ).label('perfect_predictions'),
+            perfect_predictions_expr.label('perfect_predictions'),
             func.avg(UserPrediction.points).label('average_points')
         ).filter(
             UserPrediction.user_id == user_id,
@@ -94,9 +97,9 @@ async def get_user_stats(db: Session, user_id: int) -> dict:
         # Handle None values to avoid NoneType errors
         return {
             "total_points": int(total_points),
-            "total_predictions": int(prediction_stats.total_predictions or 0),
-            "perfect_predictions": int(prediction_stats.perfect_predictions or 0),
-            "average_points": float(prediction_stats.average_points or 0)
+            "total_predictions": int(prediction_stats.total_predictions or 0) if prediction_stats else 0,
+            "perfect_predictions": int(prediction_stats.perfect_predictions or 0) if prediction_stats else 0,
+            "average_points": float(prediction_stats.average_points or 0) if prediction_stats else 0.0
         }
     except Exception as e:
         # Log the error and return default values
