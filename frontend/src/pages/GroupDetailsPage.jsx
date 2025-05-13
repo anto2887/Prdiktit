@@ -19,7 +19,6 @@ const GroupDetailsPage = () => {
     isAdmin,
     loading, 
     error,
-    userGroups
   } = useGroups();
   const { profile } = useUser();
   const [groupMembers, setGroupMembers] = useState([]);
