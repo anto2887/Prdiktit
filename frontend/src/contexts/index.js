@@ -7,3 +7,4 @@ export { default as MatchContext, MatchProvider, useMatches } from './MatchConte
 export { default as PredictionContext, PredictionProvider, usePredictions } from './PredictionContext';
 export { default as GroupContext, GroupProvider, useGroups } from './GroupContext';
 export { default as NotificationContext, NotificationProvider, useNotifications } from './NotificationContext';
+export { default as LeagueContext, LeagueProvider, useLeagueContext } from './LeagueContext';

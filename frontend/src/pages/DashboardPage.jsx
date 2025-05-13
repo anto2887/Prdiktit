@@ -4,6 +4,7 @@ import { useUser } from '../contexts/UserContext';
 import { usePredictions } from '../contexts/PredictionContext';
 import { useGroups } from '../contexts/GroupContext';
 import { useMatches } from '../contexts/MatchContext';
+import { useLeagueContext } from '../contexts/LeagueContext';
 
 // Components
 import Dashboard from '../components/dashboard/Dashboard';
@@ -20,6 +21,7 @@ const DashboardPage = () => {
   const { userPredictions, fetchUserPredictions, loading: predictionsLoading, error: predictionsError } = usePredictions();
   const { liveMatches, fixtures, refreshLiveMatches, fetchFixtures, loading: matchesLoading, error: matchesError } = useMatches();
   const { userGroups, fetchUserGroups, loading: groupsLoading, error: groupsError } = useGroups();
+  const { selectedGroup, setSelectedGroup } = useLeagueContext();
 
   const [retryCount, setRetryCount] = useState(0);
   const [dataFetchStatus, setDataFetchStatus] = useState({
@@ -54,8 +56,13 @@ const DashboardPage = () => {
         // Fetch groups data
         if (!dataFetchStatus.groups) {
           try {
-            await fetchUserGroups();
+            const groups = await fetchUserGroups();
             setDataFetchStatus(prev => ({ ...prev, groups: true }));
+            
+            // Set the selected group if not already set
+            if (groups && groups.length > 0 && !selectedGroup) {
+              setSelectedGroup(groups[0]);
+            }
           } catch (error) {
             console.error("Failed to fetch groups:", error);
           }
@@ -124,7 +131,17 @@ const DashboardPage = () => {
     }, 60000);
     
     return () => clearInterval(interval);
-  }, [fetchUserPredictions, fetchUserGroups, refreshLiveMatches, fetchFixtures, fetchProfile, retryCount, dataFetchStatus]);
+  }, [
+    fetchUserPredictions, 
+    fetchUserGroups, 
+    refreshLiveMatches, 
+    fetchFixtures, 
+    fetchProfile, 
+    retryCount, 
+    dataFetchStatus,
+    selectedGroup,
+    setSelectedGroup
+  ]);
 
   const handleRetry = () => {
     // Reset data fetch status for failed fetches

@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useGroups } from '../contexts/GroupContext';
 import { useUser } from '../contexts/UserContext';
+import { useLeagueContext } from '../contexts/LeagueContext';
 
 // Components
 import LeagueTable from '../components/dashboard/LeagueTable';
@@ -21,10 +22,15 @@ const GroupDetailsPage = () => {
     error 
   } = useGroups();
   const { profile } = useUser();
+  const {
+    selectedSeason,
+    selectedWeek,
+    setSelectedSeason,
+    setSelectedWeek
+  } = useLeagueContext();
+  
   const [groupMembers, setGroupMembers] = useState([]);
   const [activeTab, setActiveTab] = useState('standings');
-  const [selectedSeason, setSelectedSeason] = useState('2024-2025');
-  const [selectedWeek, setSelectedWeek] = useState(null);
   
   // Get new group info from navigation state
   const isNewGroup = location.state?.newGroup || false;

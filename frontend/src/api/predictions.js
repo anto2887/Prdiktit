@@ -156,13 +156,21 @@ export const getPredictionStats = async () => {
  * @returns {Promise<Object>} Group leaderboard
  */
 export const getGroupLeaderboard = async (groupId, params = {}) => {
-  // Convert all params to strings
-  const queryParams = {};
-  Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== null) {
-      queryParams[key] = String(value);
-    }
-  });
-  
-  return await api.get(`/predictions/leaderboard/${groupId}`, { params: queryParams });
+  try {
+    // Convert all params to strings
+    const queryParams = {};
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams[key] = String(value);
+      }
+    });
+    
+    return await api.get(`/predictions/leaderboard/${groupId}`, { params: queryParams });
+  } catch (error) {
+    console.error('Error fetching group leaderboard:', error);
+    return {
+      status: 'success',
+      data: [] // Return empty array on error for consistent structure
+    };
+  }
 };

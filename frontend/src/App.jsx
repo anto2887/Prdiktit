@@ -7,6 +7,7 @@ import { UserProvider } from './contexts/UserContext';
 import { GroupProvider } from './contexts/GroupContext';
 import { MatchProvider } from './contexts/MatchContext';
 import { PredictionProvider } from './contexts/PredictionContext';
+import { LeagueProvider } from './contexts/LeagueContext';
 import Routes from './Routes';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import NotificationContainer from './components/common/NotificationContainer';
@@ -22,10 +23,12 @@ const App = () => {
               <GroupProvider>
                 <MatchProvider>
                   <PredictionProvider>
-                    <div className="app">
-                      <Routes />
-                      <NotificationContainer />
-                    </div>
+                    <LeagueProvider>
+                      <div className="app">
+                        <Routes />
+                        <NotificationContainer />
+                      </div>
+                    </LeagueProvider>
                   </PredictionProvider>
                 </MatchProvider>
               </GroupProvider>
