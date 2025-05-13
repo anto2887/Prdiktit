@@ -74,13 +74,13 @@ async def get_user_stats(db: Session, user_id: int) -> dict:
         
         total_points = total_points_query.scalar() or 0
 
-        # Get prediction stats - fixed with individual case statements
+        # Get prediction stats - fixed with correct case syntax
         prediction_stats_query = db.query(
             func.count(UserPrediction.id).label('total_predictions'),
             func.sum(
                 case(
-                    [(UserPrediction.points == 3, literal(1))],
-                    else_=literal(0)
+                    (UserPrediction.points == 3, 1),
+                    else_=0
                 )
             ).label('perfect_predictions'),
             func.avg(UserPrediction.points).label('average_points')

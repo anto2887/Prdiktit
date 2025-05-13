@@ -84,12 +84,11 @@ const GroupDetailsPage = () => {
     tracked_teams: []
   };
 
-  // Safe check for isAdmin function - avoid direct function call if not defined
-  // This was potentially causing your React error
-  const userIsAdmin = profile && group && profile.id && 
-    typeof isAdmin === 'function' ? 
-    isAdmin(parseInt(groupId), profile.id) : 
-    (group.admin_id === profile?.id);
+  // Make sure we safely check for the admin status without causing errors
+  const userIsAdmin = profile && group ? 
+    (typeof isAdmin === 'function' && isAdmin(parseInt(groupId), profile.id)) || 
+    group.admin_id === profile?.id : 
+    false;
 
   return (
     <div className="p-6 space-y-6">
