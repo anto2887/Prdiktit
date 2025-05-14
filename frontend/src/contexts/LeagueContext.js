@@ -90,8 +90,20 @@ export const LeagueProvider = ({ children }) => {
 
 export const useLeagueContext = () => {
   const context = useContext(LeagueContext);
-  if (!context) {
-    throw new Error('useLeagueContext must be used within a LeagueProvider');
+  if (context === undefined) {
+    // Return a default value instead of throwing an error
+    return {
+      selectedGroup: null,
+      selectedSeason: '2024-2025',
+      selectedWeek: null,
+      leaderboard: [],
+      loading: false,
+      error: null,
+      setSelectedGroup: () => {},
+      setSelectedSeason: () => {},
+      setSelectedWeek: () => {},
+      fetchLeaderboard: async () => []
+    };
   }
   return context;
 };
