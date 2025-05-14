@@ -6,6 +6,8 @@ import { useNotifications } from './NotificationContext';
 const LeagueContext = createContext(null);
 
 export const LeagueProvider = ({ children }) => {
+  console.log("Initializing LeagueProvider");
+  
   const { showError } = useNotifications();
   
   const [selectedGroup, setSelectedGroup] = useState(null);
@@ -56,6 +58,15 @@ export const LeagueProvider = ({ children }) => {
       setLoading(false);
     }
   }, [selectedSeason, selectedWeek, showError]);
+
+  console.log("LeagueProvider value:", {
+    selectedGroup,
+    selectedSeason,
+    selectedWeek,
+    leaderboard,
+    loading,
+    error,
+  });
 
   return (
     <LeagueContext.Provider

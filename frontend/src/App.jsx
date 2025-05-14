@@ -14,6 +14,18 @@ import NotificationContainer from './components/common/NotificationContainer';
 import './styles.css';
 
 const App = () => {
+  console.log("Rendering App with providers:", {
+    providersPresent: {
+      AuthProvider: true,
+      NotificationProvider: true,
+      UserProvider: true,
+      GroupProvider: true,
+      MatchProvider: true,
+      PredictionProvider: true,
+      LeagueProvider: true,
+    }
+  });
+
   return (
     <ErrorBoundary>
       <Router>

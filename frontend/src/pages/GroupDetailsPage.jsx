@@ -12,6 +12,14 @@ import ErrorMessage from '../components/common/ErrorMessage';
 
 const GroupDetailsPage = () => {
   const { groupId } = useParams();
+  
+  // Add at the beginning of the component
+  console.log("Rendering GroupDetailsPage");
+  console.log("leagueContext params:", {
+    groupId,
+    useLeagueContextExists: typeof useLeagueContext === 'function',
+  });
+  
   const location = useLocation();
   const { 
     currentGroup, 
@@ -22,12 +30,18 @@ const GroupDetailsPage = () => {
     error 
   } = useGroups();
   const { profile } = useUser();
+  
+  // Around line 67 (where the error occurs)
+  const leagueContextValue = useLeagueContext();
+  console.log("leagueContextValue:", leagueContextValue);
+
+  // Then proceed with the destructuring
   const {
     selectedSeason,
     selectedWeek,
     setSelectedSeason,
     setSelectedWeek
-  } = useLeagueContext();
+  } = leagueContextValue || {};
   
   const [groupMembers, setGroupMembers] = useState([]);
   const [activeTab, setActiveTab] = useState('standings');
