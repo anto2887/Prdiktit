@@ -3,7 +3,19 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import { predictionsApi } from '../api';
 import { useNotifications } from './NotificationContext';
 
-const LeagueContext = createContext(null);
+// Initialize context with default values
+const LeagueContext = createContext({
+  selectedGroup: null,
+  selectedSeason: '2024-2025',
+  selectedWeek: null,
+  leaderboard: [],
+  loading: false,
+  error: null,
+  setSelectedGroup: () => {},
+  setSelectedSeason: () => {},
+  setSelectedWeek: () => {},
+  fetchLeaderboard: async () => []
+});
 
 export const LeagueProvider = ({ children }) => {
   console.log("Initializing LeagueProvider");
@@ -59,53 +71,28 @@ export const LeagueProvider = ({ children }) => {
     }
   }, [selectedSeason, selectedWeek, showError]);
 
-  console.log("LeagueProvider value:", {
+  const contextValue = {
     selectedGroup,
     selectedSeason,
     selectedWeek,
     leaderboard,
     loading,
     error,
-  });
+    setSelectedGroup,
+    setSelectedSeason,
+    setSelectedWeek,
+    fetchLeaderboard
+  };
 
   return (
-    <LeagueContext.Provider
-      value={{
-        selectedGroup,
-        selectedSeason,
-        selectedWeek,
-        leaderboard,
-        loading,
-        error,
-        setSelectedGroup,
-        setSelectedSeason,
-        setSelectedWeek,
-        fetchLeaderboard
-      }}
-    >
+    <LeagueContext.Provider value={contextValue}>
       {children}
     </LeagueContext.Provider>
   );
 };
 
 export const useLeagueContext = () => {
-  const context = useContext(LeagueContext);
-  if (context === undefined) {
-    // Return a default value instead of throwing an error
-    return {
-      selectedGroup: null,
-      selectedSeason: '2024-2025',
-      selectedWeek: null,
-      leaderboard: [],
-      loading: false,
-      error: null,
-      setSelectedGroup: () => {},
-      setSelectedSeason: () => {},
-      setSelectedWeek: () => {},
-      fetchLeaderboard: async () => []
-    };
-  }
-  return context;
+  return useContext(LeagueContext);
 };
 
 export default LeagueContext;

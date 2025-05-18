@@ -31,17 +31,13 @@ const GroupDetailsPage = () => {
   } = useGroups();
   const { profile } = useUser();
   
-  // Around line 67 (where the error occurs)
-  const leagueContextValue = useLeagueContext();
-  console.log("leagueContextValue:", leagueContextValue);
-
-  // Then proceed with the destructuring
-  const {
+  // Always call the hook at the top level, unconditionally
+  const { 
     selectedSeason,
     selectedWeek,
     setSelectedSeason,
     setSelectedWeek
-  } = leagueContextValue || {};
+  } = useLeagueContext();
   
   const [groupMembers, setGroupMembers] = useState([]);
   const [activeTab, setActiveTab] = useState('standings');
