@@ -84,6 +84,8 @@ module.exports = (env, argv) => {
       extensions: ['.js', '.jsx', '.json'],
       alias: {
         '@': path.resolve(__dirname, 'src'),
+        'react': isProduction ? 'react' : 'react/umd/react.development.js',
+        'react-dom': isProduction ? 'react-dom' : 'react-dom/umd/react-dom.development.js',
       }
     },
     
