@@ -12,8 +12,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# # Build the application
+# RUN npm run build
+
+# CHANGE THIS LINE to explicitly build in development mode
+RUN NODE_ENV=development npm run build
 
 # Production stage
 FROM nginx:alpine

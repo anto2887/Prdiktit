@@ -59,7 +59,9 @@ services:
     depends_on:
       - backend
     environment:
+      - NODE_ENV=development
       - REACT_APP_API_URL=http://backend:8000/api
+      - REACT_APP_ENV=development
     networks:
       - app-network
 
