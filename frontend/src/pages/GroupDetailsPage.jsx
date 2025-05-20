@@ -14,58 +14,32 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 
 const GroupDetailsPage = () => {
+  // 1. All hooks first
   const { groupId } = useParams();
-  
-  // Add at the beginning of the component
-  console.log("Rendering GroupDetailsPage");
-  console.log("leagueContext params:", {
-    groupId,
-    useLeagueContextExists: typeof useLeagueContext === 'function',
-  });
-  
   const location = useLocation();
-  const { 
-    currentGroup, 
-    fetchGroupDetails, 
-    fetchGroupMembers, 
-    isAdmin,
-    loading, 
-    error 
-  } = useGroups();
+  const { currentGroup, fetchGroupDetails, fetchGroupMembers, isAdmin, loading, error } = useGroups();
   const { profile } = useUser();
-  
-  // Always call the hook at the top level, unconditionally
-  const { 
-    selectedSeason,
-    selectedWeek,
-    setSelectedSeason,
-    setSelectedWeek
-  } = useLeagueContext();
-  
+  const { selectedSeason, selectedWeek, setSelectedSeason, setSelectedWeek } = useLeagueContext();
   const [groupMembers, setGroupMembers] = useState([]);
   const [activeTab, setActiveTab] = useState('standings');
-  
-  // Get new group info from navigation state
+  const hasFetched = useRef(false);
+
+  // 2. All derived state
   const isNewGroup = location.state?.newGroup || false;
   const inviteCode = location.state?.inviteCode || '';
   const groupName = location.state?.groupName || '';
 
-  // Use refs to prevent multiple fetch calls
-  const hasFetched = useRef(false);
-
+  // 3. All useEffects
   useEffect(() => {
     const loadGroupData = async () => {
       try {
         if (!hasFetched.current && groupId) {
           console.log('Fetching group details for', groupId);
-          
           await fetchGroupDetails(parseInt(groupId));
           const members = await fetchGroupMembers(parseInt(groupId));
-          
           if (Array.isArray(members)) {
             setGroupMembers(members);
           }
-          
           hasFetched.current = true;
         }
       } catch (err) {
@@ -75,14 +49,32 @@ const GroupDetailsPage = () => {
     
     loadGroupData();
     
-    // Reset the fetch flag when groupId changes
+    // Cleanup function
     return () => {
       if (groupId !== useParams().groupId) {
         hasFetched.current = false;
       }
     };
   }, [groupId, fetchGroupDetails, fetchGroupMembers]);
+  
+  // 5. Prepare render variables
+  const group = currentGroup || {
+    name: groupName,
+    invite_code: inviteCode,
+    id: parseInt(groupId),
+    tracked_teams: []
+  };
+  
+  let userIsAdmin = false;
+  if (profile && group) {
+    if (typeof isAdmin === 'function') {
+      userIsAdmin = isAdmin(parseInt(groupId), profile.id);
+    } else if (group.admin_id === profile.id) {
+      userIsAdmin = true;
+    }
+  }
 
+  // 6. Conditional returns
   if (loading && !currentGroup) {
     return <LoadingSpinner />;
   }
@@ -95,24 +87,7 @@ const GroupDetailsPage = () => {
     return <ErrorMessage message="League not found" />;
   }
 
-  // Use provided group data or new group data from navigation state
-  const group = currentGroup || { 
-    name: groupName, 
-    invite_code: inviteCode,
-    id: parseInt(groupId),
-    tracked_teams: []
-  };
-
-  // Make sure we safely check for the admin status
-  let userIsAdmin = false;
-  if (profile && group) {
-    if (typeof isAdmin === 'function') {
-      userIsAdmin = isAdmin(parseInt(groupId), profile.id);
-    } else if (group.admin_id === profile.id) {
-      userIsAdmin = true;
-    }
-  }
-
+  // 7. Main render
   return (
     <div className="p-6 space-y-6">
       {/* Group Header */}
@@ -205,6 +180,7 @@ const GroupDetailsPage = () => {
         {activeTab === 'standings' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Standings</h2>
+            {/* Wrap the league table with the new context provider */}
             <GroupDetailsProvider groupId={parseInt(groupId)}>
               <LeagueTableContainer />
             </GroupDetailsProvider>
