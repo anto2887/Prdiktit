@@ -1,12 +1,15 @@
 // src/pages/GroupDetailsPage.jsx
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useGroups } from '../contexts/GroupContext';
 import { useUser } from '../contexts/UserContext';
 import { useLeagueContext } from '../contexts/LeagueContext';
 
+// Import the new context provider
+import { GroupDetailsProvider } from '../contexts/GroupDetailsContext';
+
 // Components
-import LeagueTable from '../components/dashboard/LeagueTable';
+import LeagueTableContainer from '../components/dashboard/LeagueTableContainer';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 
@@ -202,14 +205,9 @@ const GroupDetailsPage = () => {
         {activeTab === 'standings' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Standings</h2>
-            <LeagueTable 
-              group={group}
-              selectedSeason={selectedSeason}
-              selectedWeek={selectedWeek}
-              setSelectedSeason={setSelectedSeason}
-              setSelectedWeek={setSelectedWeek}
-              fetchGroupMembers={fetchGroupMembers}
-            />
+            <GroupDetailsProvider groupId={parseInt(groupId)}>
+              <LeagueTableContainer />
+            </GroupDetailsProvider>
           </div>
         )}
         
