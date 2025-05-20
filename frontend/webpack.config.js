@@ -84,8 +84,6 @@ module.exports = (env, argv) => {
       extensions: ['.js', '.jsx', '.json'],
       alias: {
         '@': path.resolve(__dirname, 'src'),
-        'react': isProduction ? 'react' : 'react/umd/react.development.js',
-        'react-dom': isProduction ? 'react-dom' : 'react-dom/umd/react-dom.development.js',
       }
     },
     
@@ -195,7 +193,7 @@ module.exports = (env, argv) => {
       },
     },
     
-    devtool: isProduction ? 'source-map' : 'cheap-module-source-map',
+    devtool: isProduction ? 'source-map' : 'eval-source-map',
     
     // Don't add stats section in production build as it includes a lot of details
     stats: isProduction ? 'normal' : 'summary',
