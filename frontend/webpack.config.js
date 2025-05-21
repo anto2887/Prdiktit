@@ -152,15 +152,8 @@ module.exports = (env, argv) => {
               ascii_only: true,
             },
           },
-          // This ensures source maps work with minified code
-          sourceMap: true,
         }),
-        new CssMinimizerPlugin({
-          // Enable source maps for CSS
-          minimizerOptions: {
-            sourceMap: true,
-          },
-        }),
+        new CssMinimizerPlugin(),
       ],
       splitChunks: {
         chunks: 'all',
@@ -200,8 +193,7 @@ module.exports = (env, argv) => {
       },
     },
     
-    // Change this line to ensure source maps are generated in all environments
-    devtool: isProduction ? 'source-map' : 'eval-source-map',
+    devtool: isProduction ? 'source-map' : 'cheap-module-source-map',
     
     // Don't add stats section in production build as it includes a lot of details
     stats: isProduction ? 'normal' : 'summary',
