@@ -12,11 +12,8 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# # Build the application
-# RUN npm run build
-
-# CHANGE THIS LINE to explicitly build in development mode
-RUN NODE_ENV=development npm run build
+# Build the application with source maps enabled
+RUN NODE_ENV=development GENERATE_SOURCEMAP=true npm run build
 
 # Production stage
 FROM nginx:alpine
@@ -26,6 +23,9 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Copy built files from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
+
+# Also copy the source maps
+COPY --from=build /app/dist/*.map /usr/share/nginx/html/
 
 # Copy custom entrypoint script
 COPY entrypoint.sh /
