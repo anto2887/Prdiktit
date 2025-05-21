@@ -152,8 +152,15 @@ module.exports = (env, argv) => {
               ascii_only: true,
             },
           },
+          // This ensures source maps work with minified code
+          sourceMap: true,
         }),
-        new CssMinimizerPlugin(),
+        new CssMinimizerPlugin({
+          // Enable source maps for CSS
+          minimizerOptions: {
+            sourceMap: true,
+          },
+        }),
       ],
       splitChunks: {
         chunks: 'all',
