@@ -10,6 +10,7 @@ const Dotenv = require('dotenv-webpack');
 
 module.exports = (env, argv) => {
   const isProduction = argv.mode === 'production';
+  console.log(env.environment+ "hello balls");
   
   return {
     entry: './src/index.js',
