@@ -1,5 +1,5 @@
 // src/components/layout/Navigation.jsx
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -8,15 +8,39 @@ const Navigation = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const { showSuccess } = useNotifications();
   const navigate = useNavigate();
+  
+  // Add state and ref for dropdown
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   const handleLogout = async () => {
     try {
       await logout();
       showSuccess('Successfully logged out');
+      setIsDropdownOpen(false); // Close dropdown
       navigate('/login');
     } catch (error) {
       console.error('Logout failed:', error);
     }
+  };
+
+  // Add click outside handler
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Add toggle function
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
   };
 
   return (
@@ -42,13 +66,14 @@ const Navigation = () => {
                 <span className="text-gray-700">
                   {user?.username}
                 </span>
-                <div className="relative ml-3">
+                <div className="relative ml-3" ref={dropdownRef}>
                   <div>
                     <button
                       type="button"
+                      onClick={toggleDropdown}
                       className="bg-white rounded-full flex text-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                       id="user-menu-button"
-                      aria-expanded="false"
+                      aria-expanded={isDropdownOpen}
                       aria-haspopup="true"
                     >
                       <span className="sr-only">Open user menu</span>
@@ -60,36 +85,48 @@ const Navigation = () => {
                     </button>
                   </div>
 
-                  {/* Dropdown menu, show/hide based on menu state */}
-                  <div
-                    className="hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none"
-                    role="menu"
-                    aria-orientation="vertical"
-                    aria-labelledby="user-menu-button"
-                    tabIndex="-1"
-                  >
-                    <Link
-                      to="/profile"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      role="menuitem"
+                  {/* Update dropdown menu */}
+                  {isDropdownOpen && (
+                    <div
+                      className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50"
+                      role="menu"
+                      aria-orientation="vertical"
+                      aria-labelledby="user-menu-button"
+                      tabIndex="-1"
                     >
-                      Your Profile
-                    </Link>
-                    <Link
-                      to="/settings"
-                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      role="menuitem"
-                    >
-                      Settings
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      role="menuitem"
-                    >
-                      Sign out
-                    </button>
-                  </div>
+                      <Link
+                        to="/profile"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                      >
+                        Your Profile
+                      </Link>
+                      <Link
+                        to="/settings"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                      >
+                        Settings
+                      </Link>
+                      <Link
+                        to="/groups"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                      >
+                        My Leagues
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        role="menuitem"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
