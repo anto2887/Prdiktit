@@ -25,6 +25,7 @@ const GroupDetailsPage = () => {
   const hasFetched = useRef(false);
 
   // 2. All derived state
+  const id = groupId 
   const isNewGroup = location.state?.newGroup || false;
   const inviteCode = location.state?.inviteCode || '';
   const groupName = location.state?.groupName || '';
@@ -32,19 +33,19 @@ const GroupDetailsPage = () => {
   // 3. All useEffects
   useEffect(() => {
     const loadGroupData = async () => {
-      // try {
-      //   if (!hasFetched.current && groupId) {
-      //     console.log('Fetching group details for', groupId);
-      //     await fetchGroupDetails(parseInt(groupId));
-      //     const members = await fetchGroupMembers(parseInt(groupId));
-      //     if (Array.isArray(members)) {
-      //       setGroupMembers(members);
-      //     }
-      //     hasFetched.current = true;
-      //   }
-      // } catch (err) {
-      //   console.error('Error loading group data:', err);
-      // }
+      try {
+        if (!hasFetched.current && groupId) {
+          console.log('Fetching group details for', groupId);
+          await fetchGroupDetails(parseInt(groupId));
+          const members = await fetchGroupMembers(parseInt(groupId));
+          if (Array.isArray(members)) {
+            setGroupMembers(members);
+          }
+          hasFetched.current = true;
+        }
+      } catch (err) {
+        console.error('Error loading group data:', err);
+      }
       console.log("Hello")
     };
     
@@ -52,7 +53,7 @@ const GroupDetailsPage = () => {
     
     // Cleanup function
     return () => {
-      if (groupId !== useParams().groupId) {
+      if (id !== groupId) {
         hasFetched.current = false;
       }
     };
