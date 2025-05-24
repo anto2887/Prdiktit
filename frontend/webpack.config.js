@@ -180,12 +180,13 @@ module.exports = (env, argv) => {
       historyApiFallback: true,
       hot: true,
       port: 3000,
+      host: '0.0.0.0',
       static: {
         directory: path.join(__dirname, 'public'),
       },
       proxy: {
         '/api': {
-          target: process.env.API_PROXY || 'http://localhost:8000',
+          target: process.env.API_PROXY || 'http://backend:8000',
           changeOrigin: true,
         },
       },
@@ -194,7 +195,20 @@ module.exports = (env, argv) => {
           errors: true,
           warnings: false,
         },
+        webSocketURL: {
+          hostname: '0.0.0.0',
+          pathname: '/ws',
+          port: 3000,
+        },
       },
+      watchFiles: {
+        paths: ['src/**/*', 'public/**/*'],
+        options: {
+          usePolling: true,
+          interval: 1000,
+        },
+      },
+      allowedHosts: 'all',
     },
 
     // Change this line to ensure source maps are generated in all environments

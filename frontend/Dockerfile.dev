@@ -1,0 +1,16 @@
+# frontend/Dockerfile.dev
+FROM node:23-alpine
+
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm ci
+
+# Don't copy source code - it will be mounted as volume
+# This allows for hot reload
+
+EXPOSE 3000
+
+# Use npm start for development with hot reload
+CMD ["npm", "start"]

@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=football_predictions
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile.dev  # We'll create this
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__  # Exclude Python cache
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - DATABASE_URI=postgresql://postgres:postgres@db:5432/football_predictions
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SECRET_KEY=developmentsecretkey
+      - JWT_SECRET_KEY=developmentjwtsecretkey
+      - CREATE_TABLES_ON_STARTUP=True
+      - CORS_ORIGINS=["http://localhost:3000"]
+      - FOOTBALL_API_KEY=2e229688fb1a199c6243f07a2b6e4b54
+      - PYTHONPATH=/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev  # We'll create this
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules  # Exclude node_modules from host
+      - /app/dist          # Exclude dist folder
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_ENV=development
+      - CHOKIDAR_USEPOLLING=true  # For file watching in Docker
+      - WATCHPACK_POLLING=true
+    command: npm start
+    stdin_open: true  # Keep STDIN open for React
+    tty: true        # Allocate a pseudo-TTY
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+
+networks:
+  app-network:
+    driver: bridge

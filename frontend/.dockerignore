@@ -5,14 +5,14 @@ yarn-debug.log
 yarn-error.log
 .pnpm-debug.log
 
-# Build files
+# Build files (we'll mount source instead)
 /build
 /dist
 /.next
 /.nuxt
 /.output
 
-# Environment variables
+# Environment variables (we'll set these in docker-compose)
 .env
 .env.local
 .env.development.local
@@ -46,9 +46,14 @@ Thumbs.db
 logs
 *.log
 
-# Misc
+# Git
 .git
-.github
 .gitignore
 README.md
 LICENSE
+
+# Docker
+Dockerfile
+Dockerfile.*
+docker-compose.yml
+docker-compose.*.yml
