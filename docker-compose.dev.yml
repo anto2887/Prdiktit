@@ -70,8 +70,11 @@ services:
       - NODE_ENV=development
       - REACT_APP_API_URL=http://localhost:8000/api
       - REACT_APP_ENV=development
+      - API_PROXY=http://backend:8000
       - CHOKIDAR_USEPOLLING=true  # For file watching in Docker
       - WATCHPACK_POLLING=true
+      - WDS_SOCKET_HOST=localhost  # Important for hot reload
+      - WDS_SOCKET_PORT=3000
     command: npm start
     stdin_open: true  # Keep STDIN open for React
     tty: true        # Allocate a pseudo-TTY
