@@ -1,5 +1,6 @@
 // src/pages/DashboardPage.jsx
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { usePredictions } from '../contexts/PredictionContext';
 import { useGroups } from '../contexts/GroupContext';
@@ -201,12 +202,39 @@ const DashboardPage = () => {
       </section>
       
       {/* League table section */}
-      {userGroups && userGroups.length > 0 && (
+      {userGroups && (userGroups.length > 0 ? (
         <section className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Your Groups</h2>
           <LeagueTable groups={userGroups} />
         </section>
-      )}
+      ) : (
+        <section className="mb-8">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="text-center py-12">
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                You're not in any leagues yet
+              </h3>
+              <p className="text-gray-500 mb-6">
+                Join a league to start making predictions and competing with friends
+              </p>
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <Link
+                  to="/groups/join"
+                  className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Join League
+                </Link>
+                <Link
+                  to="/groups/create"
+                  className="inline-flex items-center px-6 py-3 border border-blue-600 rounded-md shadow-sm text-base font-medium text-blue-600 bg-white hover:bg-blue-50"
+                >
+                  Create League
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      ))}
     </div>
   );
 };
