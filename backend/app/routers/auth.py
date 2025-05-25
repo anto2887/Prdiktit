@@ -165,3 +165,18 @@ async def auth_status(
                 "user": None
             }
         }
+
+
+@router.post("/logout", response_model=dict)
+async def logout(
+    current_user: Optional[UserInDB] = Depends(get_current_active_user_optional)
+):
+    """
+    Logout user (client-side token invalidation)
+    """
+    # Since we're using JWT tokens, logout is handled client-side by removing the token
+    # We could add token blacklisting here if needed, but for now just return success
+    return {
+        "status": "success",
+        "message": "Logged out successfully"
+    }

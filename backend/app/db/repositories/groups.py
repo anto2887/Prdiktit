@@ -183,7 +183,9 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
             'username': row.username,
             'role': MemberRole.MEMBER.value,
             'status': MembershipStatus.PENDING.value,
-            'requested_at': row.PendingMembership.requested_at
+            'requested_at': row.PendingMembership.requested_at,
+            'joined_at': None,  # Pending members haven't joined yet
+            'last_active': None  # Also add this for consistency
         })
     
     return members

@@ -399,7 +399,7 @@ async def update_group(
         "message": "Group updated successfully"
     }
 
-@router.get("/{group_id}/members", response_model=GroupMemberList)
+@router.get("/{group_id}/members", response_model=dict)
 async def get_group_members_endpoint(
     group_id: int = Path(...),
     current_user: UserInDB = Depends(get_current_active_user),
@@ -434,16 +434,28 @@ async def get_group_members_endpoint(
         # Cache for 5 minutes
         await cache.set(cache_key, members, 300)
     
-    # Process members to ensure enum values are converted to strings
+    # Process members to ensure enum values are converted to strings and handle missing fields
+    processed_members = []
     for member in members:
-        if 'role' in member and hasattr(member['role'], 'value'):
-            member['role'] = member['role'].value
-        if 'status' in member and hasattr(member['status'], 'value'):
-            member['status'] = member['status'].value
+        processed_member = {
+            'user_id': member.get('user_id'),
+            'username': member.get('username'),
+            'role': member.get('role'),
+            'joined_at': member.get('joined_at').isoformat() if member.get('joined_at') else None,
+            'last_active': member.get('last_active').isoformat() if member.get('last_active') else None,
+        }
+        
+        # Add status and requested_at for pending members
+        if 'status' in member:
+            processed_member['status'] = member['status']
+        if 'requested_at' in member:
+            processed_member['requested_at'] = member['requested_at'].isoformat() if member['requested_at'] else None
+            
+        processed_members.append(processed_member)
     
     return {
         "status": "success",
-        "data": members
+        "data": processed_members
     }
 
 @router.post("/{group_id}/members", response_model=MemberActionResponse)

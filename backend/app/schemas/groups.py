@@ -39,8 +39,10 @@ class GroupMember(BaseModel):
     user_id: int
     username: str
     role: MemberRole
-    joined_at: datetime
+    joined_at: Optional[datetime] = None
     last_active: Optional[datetime] = None
+    status: Optional[MembershipStatus] = None
+    requested_at: Optional[datetime] = None
     
     class Config:
         orm_mode = True
