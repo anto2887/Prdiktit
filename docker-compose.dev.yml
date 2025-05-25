@@ -29,10 +29,10 @@ services:
   backend:
     build: 
       context: ./backend
-      dockerfile: Dockerfile.dev  # We'll create this
+      dockerfile: Dockerfile.dev
     volumes:
       - ./backend:/app
-      - /app/__pycache__  # Exclude Python cache
+      - /app/__pycache__
     ports:
       - "8000:8000"
     depends_on:
@@ -47,7 +47,7 @@ services:
       - SECRET_KEY=developmentsecretkey
       - JWT_SECRET_KEY=developmentjwtsecretkey
       - CREATE_TABLES_ON_STARTUP=True
-      - CORS_ORIGINS=["http://localhost:3000"]
+      - CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000","http://localhost:3001"]
       - FOOTBALL_API_KEY=2e229688fb1a199c6243f07a2b6e4b54
       - PYTHONPATH=/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
@@ -57,7 +57,7 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev  # We'll create this
+      dockerfile: Dockerfile.dev
     volumes:
       - ./frontend:/app
       - /app/node_modules  # Exclude node_modules from host
@@ -71,9 +71,9 @@ services:
       - REACT_APP_API_URL=http://localhost:8000/api
       - REACT_APP_ENV=development
       - API_PROXY=http://backend:8000
-      - CHOKIDAR_USEPOLLING=true  # For file watching in Docker
+      - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - WDS_SOCKET_HOST=localhost  # Important for hot reload
+      - WDS_SOCKET_HOST=localhost
       - WDS_SOCKET_PORT=3000
     command: npm start
     stdin_open: true  # Keep STDIN open for React
@@ -86,4 +86,4 @@ volumes:
 
 networks:
   app-network:
-    driver: bridge
+    driver: bridge 
