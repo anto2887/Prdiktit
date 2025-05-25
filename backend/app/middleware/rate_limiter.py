@@ -27,8 +27,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Extract path for better logging
         path = request.url.path
         
-        # Skip rate limiting for excluded paths
-        if any(path.startswith(excluded) for excluded in self.exclude_paths):
+        # Skip rate limiting for excluded paths AND OPTIONS requests
+        if (any(path.startswith(excluded) for excluded in self.exclude_paths) or 
+            request.method == "OPTIONS"):
             return await call_next(request)
         
         # Get client IP
