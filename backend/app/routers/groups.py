@@ -157,21 +157,20 @@ async def join_group(
     """
     Join a group using invite code
     """
-    # This is a placeholder - you'll need to implement the actual repository function
-    # group = await get_group_by_invite_code(db, join_data.invite_code)
+    # Import the repository function
+    from ..db.repositories.groups import get_group_by_invite_code
     
-    # For now, assume group exists
-    group = {
-        "id": 1,
-        "name": "Mock Group",
-        "privacy_type": "PRIVATE"
-    }
+    # Get group by invite code
+    group = await get_group_by_invite_code(db, join_data.invite_code)
     
-    # This is a placeholder - you'll need to implement the actual repository function
-    # is_member = await check_group_membership(db, group["id"], current_user.id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid invite code"
+        )
     
-    # For now, assume user is not a member
-    is_member = False
+    # Check if user is already a member
+    is_member = await check_group_membership(db, group.id, current_user.id)
     
     if is_member:
         return {
@@ -179,24 +178,49 @@ async def join_group(
             "message": "You are already a member of this group"
         }
     
-    # This is a placeholder - you'll need to implement the actual repository function
-    # If group is private, create pending membership
-    # if group["privacy_type"] == "PRIVATE":
-    #     await create_pending_membership(db, group["id"], current_user.id)
-    #     message = "Membership request sent. Waiting for admin approval."
-    # else:
-    #     await add_group_member(db, group["id"], current_user.id)
-    #     message = f"You have joined {group['name']}!"
+    # Check if there's already a pending request
+    existing_request = db.query(PendingMembership).filter(
+        PendingMembership.group_id == group.id,
+        PendingMembership.user_id == current_user.id,
+        PendingMembership.status == MembershipStatus.PENDING
+    ).first()
     
-    # For now, use a mock message
-    message = "Membership request sent. Waiting for admin approval."
+    if existing_request:
+        return {
+            "status": "success",
+            "message": "You already have a pending request for this group"
+        }
     
-    # Clear cache
+    # Create pending membership request
+    pending_membership = PendingMembership(
+        group_id=group.id,
+        user_id=current_user.id,
+        status=MembershipStatus.PENDING,
+        requested_at=datetime.now(timezone.utc)
+    )
+    
+    db.add(pending_membership)
+    
+    # Add audit log entry
+    log_entry = GroupAuditLog(
+        group_id=group.id,
+        user_id=current_user.id,
+        action=f"User {current_user.username} requested to join group",
+        details={"user_id": current_user.id, "username": current_user.username},
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(log_entry)
+    
+    # Commit the changes
+    db.commit()
+    
+    # Clear relevant caches
     await cache.delete(f"user_groups:{current_user.id}")
+    await cache.delete(f"group_members:{group.id}")
     
     return {
         "status": "success",
-        "message": message
+        "message": "Membership request sent. Waiting for admin approval."
     }
 
 @router.get("/teams", response_model=TeamList)
