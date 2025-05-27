@@ -138,5 +138,28 @@ class API {
 }
 
 export const api = new API();
+
+export const authApi = {
+  login: async (username, password) => {
+    const response = await api.client.post('/auth/login', { username, password });
+    if (response.status === 'success' && response.data?.access_token) {
+      localStorage.setItem('accessToken', response.data.access_token);
+    }
+    return response;
+  },
+  register: (userData) => api.client.post('/auth/register', userData),
+  logout: async () => {
+    try {
+      const response = await api.client.post('/auth/logout');
+      localStorage.removeItem('accessToken');
+      return response;
+    } catch (error) {
+      localStorage.removeItem('accessToken');
+      throw error;
+    }
+  },
+  checkAuthStatus: () => api.client.get('/auth/status')
+};
+
 export { APIError };
 export default api;

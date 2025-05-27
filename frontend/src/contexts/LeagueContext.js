@@ -1,91 +1,73 @@
 // src/contexts/LeagueContext.js
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { predictionsApi } from '../api';
+import { predictionsApi, groupsApi } from '../api';
 import { useNotifications } from './NotificationContext';
 
 // Initialize context with default values
 const LeagueContext = createContext({
-  selectedGroup: null,
-  selectedSeason: '2024-2025',
+  selectedSeason: null,
   selectedWeek: null,
   leaderboard: [],
   loading: false,
   error: null,
-  setSelectedGroup: () => {},
   setSelectedSeason: () => {},
   setSelectedWeek: () => {},
-  fetchLeaderboard: async () => []
+  fetchLeaderboard: () => Promise.resolve([])
 });
 
 export const LeagueProvider = ({ children }) => {
-  console.log("Initializing LeagueProvider");
-  
-  const { showError } = useNotifications();
-  
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [selectedSeason, setSelectedSeason] = useState('2024-2025');
+  const [selectedSeason, setSelectedSeason] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { showError } = useNotifications();
 
-  const fetchLeaderboard = useCallback(async (groupId, params = {}) => {
-    if (!groupId) return [];
-    
+  const fetchLeaderboard = useCallback(async (groupId, queryParams = {}) => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      
-      const season = params.season || selectedSeason;
-      const week = params.week || selectedWeek;
-      
-      const queryParams = {
-        season: season
-      };
-      
-      if (week) {
-        queryParams.week = week;
-      }
-      
-      // Call the API if it's implemented
-      if (predictionsApi.getGroupLeaderboard) {
-        const response = await predictionsApi.getGroupLeaderboard(groupId, queryParams);
-        
-        if (response.status === 'success') {
-          setLeaderboard(response.data || []);
-          return response.data;
-        } else {
-          throw new Error(response.message || 'Failed to fetch leaderboard');
-        }
-      } else {
-        // Return empty array if API not implemented yet
-        setLeaderboard([]);
-        return [];
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to fetch leaderboard');
-      showError(err.message || 'Failed to fetch leaderboard');
+      // Use the predictionsApi for leaderboard
+      const response = await predictionsApi.getGroupLeaderboard(groupId, queryParams);
+      setLeaderboard(response.data || []);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching leaderboard:', error);
+      setError(error.message);
+      showError(error.message);
+      setLeaderboard([]);
       return [];
     } finally {
       setLoading(false);
     }
-  }, [selectedSeason, selectedWeek, showError]);
+  }, [showError]);
 
-  const contextValue = {
-    selectedGroup,
+  const fetchTeams = useCallback(async (leagueId) => {
+    try {
+      // Use the groupsApi for fetching teams
+      const response = await groupsApi.fetchTeamsForLeague(leagueId);
+      return response.data || [];
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+      showError(error.message);
+      return [];
+    }
+  }, [showError]);
+
+  const value = {
     selectedSeason,
     selectedWeek,
     leaderboard,
     loading,
     error,
-    setSelectedGroup,
     setSelectedSeason,
     setSelectedWeek,
-    fetchLeaderboard
+    fetchLeaderboard,
+    fetchTeams
   };
 
   return (
-    <LeagueContext.Provider value={contextValue}>
+    <LeagueContext.Provider value={value}>
       {children}
     </LeagueContext.Provider>
   );
