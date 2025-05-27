@@ -407,12 +407,20 @@ async def get_group_members_endpoint(
     cache: RedisCache = Depends(get_cache)
 ):
     """
-    Get group members
+    Get group members including pending members for admin view
     """
-    # Check if user is a member of the group
-    is_member = await check_group_membership(db, group_id, current_user.id)
+    # Check if user is a member of the group OR is the admin
+    group = await get_group_by_id(db, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group not found"
+        )
     
-    if not is_member:
+    is_member = await check_group_membership(db, group_id, current_user.id)
+    is_admin = group.admin_id == current_user.id
+    
+    if not is_member and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this group"
@@ -425,31 +433,34 @@ async def get_group_members_endpoint(
     if cached_members:
         members = cached_members
     else:
-        # Import the function from the repository to avoid name conflict
         from ..db.repositories.groups import get_group_members as get_group_members_db
-        
-        # Call the repository function
         members = await get_group_members_db(db, group_id)
-        
-        # Cache for 5 minutes
         await cache.set(cache_key, members, 300)
     
-    # Process members to ensure enum values are converted to strings and handle missing fields
+    # Process members with safe datetime handling
     processed_members = []
     for member in members:
+        def safe_isoformat(value):
+            """Safely convert datetime to ISO format string"""
+            if not value:
+                return None
+            if hasattr(value, 'isoformat'):
+                return value.isoformat()
+            return str(value)
+        
         processed_member = {
             'user_id': member.get('user_id'),
             'username': member.get('username'),
             'role': member.get('role'),
-            'joined_at': member.get('joined_at').isoformat() if member.get('joined_at') else None,
-            'last_active': member.get('last_active').isoformat() if member.get('last_active') else None,
+            'joined_at': safe_isoformat(member.get('joined_at')),
+            'last_active': safe_isoformat(member.get('last_active')),
         }
         
         # Add status and requested_at for pending members
         if 'status' in member:
             processed_member['status'] = member['status']
         if 'requested_at' in member:
-            processed_member['requested_at'] = member['requested_at'].isoformat() if member['requested_at'] else None
+            processed_member['requested_at'] = safe_isoformat(member['requested_at'])
             
         processed_members.append(processed_member)
     

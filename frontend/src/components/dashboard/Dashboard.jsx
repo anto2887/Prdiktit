@@ -1,9 +1,10 @@
 // src/components/dashboard/Dashboard.jsx
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import { usePredictions } from '../../contexts/PredictionContext';
 import { useGroups } from '../../contexts/GroupContext';
+import { useLeagueContext } from '../../contexts/LeagueContext';
 import DashboardStats from './DashboardStats';
 import RecentPredictions from './RecentPredictions';
 import LeagueTable from './LeagueTable';
@@ -13,10 +14,29 @@ import ErrorMessage from '../common/ErrorMessage';
 const Dashboard = () => {
   const { profile, stats, loading: userLoading, error: userError } = useUser();
   const { loading: predictionsLoading, error: predictionsError } = usePredictions();
-  const { userGroups } = useGroups();
+  const { userGroups, fetchUserGroups } = useGroups();
+  const { selectedGroup, selectedSeason, selectedWeek, setSelectedGroup, setSelectedSeason, setSelectedWeek } = useLeagueContext();
 
   const isLoading = userLoading || predictionsLoading;
   const error = userError || predictionsError;
+
+  // FIXED: Ensure groups are fetched when component mounts
+  useEffect(() => {
+    if (!userGroups || userGroups.length === 0) {
+      console.log('Dashboard: Fetching user groups...');
+      fetchUserGroups();
+    }
+  }, [fetchUserGroups, userGroups]);
+
+  // FIXED: Debug logging
+  useEffect(() => {
+    console.log('Dashboard component state:', {
+      profile: !!profile,
+      profileId: profile?.id,
+      userGroups: userGroups?.length || 0,
+      selectedGroup: selectedGroup?.name || 'None'
+    });
+  }, [profile, userGroups, selectedGroup]);
 
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
@@ -82,7 +102,8 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {userGroups.length === 0 ? (
+          {/* FIXED: Better group display logic */}
+          {!userGroups || userGroups.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 rounded-lg">
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 You're not in any leagues yet
@@ -106,27 +127,66 @@ const Dashboard = () => {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
-              <h2 className="text-lg font-medium text-gray-900">League Table</h2>
-              <LeagueFilters />
+            <div>
+              {/* FIXED: League Filters */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0 mb-6">
+                <h3 className="text-lg font-medium text-gray-900">League Table</h3>
+                <LeagueFilters />
+              </div>
+              
+              {/* Display groups as cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {userGroups.map(group => (
+                  <div key={group.id} className="bg-white border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="text-lg font-medium text-gray-900">{group.name}</h4>
+                        {group.role === 'ADMIN' && (
+                          <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                            Admin
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3">{group.league}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500">
+                          {group.member_count || 1} members
+                        </span>
+                        <Link
+                          to={`/groups/${group.id}`}
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          View League →
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
-        {userGroups.length > 0 && (
-          <div className="p-6">
-            <LeagueTable />
-          </div>
-        )}
       </section>
     </div>
   );
 };
 
-// Separate component for league filters
+// FIXED: Separate component for league filters
 const LeagueFilters = () => {
   const { userGroups } = useGroups();
   const { selectedGroup, selectedSeason, selectedWeek, 
           setSelectedGroup, setSelectedSeason, setSelectedWeek } = useLeagueContext();
+
+  // FIXED: Set default selected group if none is selected
+  React.useEffect(() => {
+    if (userGroups && userGroups.length > 0 && !selectedGroup) {
+      setSelectedGroup(userGroups[0]);
+    }
+  }, [userGroups, selectedGroup, setSelectedGroup]);
+
+  if (!userGroups || userGroups.length === 0) {
+    return null;
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-4">
@@ -134,7 +194,11 @@ const LeagueFilters = () => {
       <select
         className="block w-48 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
         value={selectedGroup?.id || ''}
-        onChange={(e) => setSelectedGroup(userGroups.find(g => g.id === e.target.value))}
+        onChange={(e) => {
+          const groupId = parseInt(e.target.value);
+          const group = userGroups.find(g => g.id === groupId);
+          setSelectedGroup(group);
+        }}
       >
         {userGroups.map(group => (
           <option key={group.id} value={group.id}>
@@ -146,19 +210,19 @@ const LeagueFilters = () => {
       {/* Season Selector */}
       <select
         className="block w-36 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
-        value={selectedSeason || ''}
+        value={selectedSeason || '2024-2025'}
         onChange={(e) => setSelectedSeason(e.target.value)}
       >
-        {['2023-2024', '2022-2023', '2021-2022'].map(season => (
-          <option key={season} value={season}>{season}</option>
-        ))}
+        <option value="2024-2025">2024-2025</option>
+        <option value="2023-2024">2023-2024</option>
+        <option value="2022-2023">2022-2023</option>
       </select>
 
       {/* Week Selector */}
       <select
         className="block w-32 pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
         value={selectedWeek || ''}
-        onChange={(e) => setSelectedWeek(e.target.value)}
+        onChange={(e) => setSelectedWeek(e.target.value ? parseInt(e.target.value) : null)}
       >
         <option value="">All Weeks</option>
         {Array.from({ length: 38 }, (_, i) => (

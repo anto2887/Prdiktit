@@ -33,14 +33,11 @@ async def get_profile(
         cached_stats = await cache.get(cache_key)
         
         if not cached_stats:
-            # Get stats from database
             stats = await get_user_stats(db, current_user.id)
-            # Cache for 30 minutes
             await cache.set(cache_key, stats, 1800)
         else:
             stats = cached_stats
         
-        # Ensure stats has the expected structure
         if not stats:
             stats = {
                 "total_points": 0,
@@ -49,20 +46,24 @@ async def get_profile(
                 "average_points": 0.0
             }
         
-        # Create a proper response
-        response_data = {
-            "user": current_user,
-            "stats": UserStats(**stats)
+        # FIX: Return the correct structure that matches frontend expectations
+        return {
+            "status": "success",
+            "data": {
+                "user": {
+                    "id": current_user.id,
+                    "username": current_user.username,
+                    "email": current_user.email,
+                    "created_at": current_user.created_at.isoformat() if current_user.created_at else None
+                },
+                "stats": stats
+            }
         }
-        
-        return response_data
     except Exception as e:
-        # Log the exception
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Error in get_profile: {str(e)}")
         
-        # Return a graceful error response instead of 500
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch profile: {str(e)}"

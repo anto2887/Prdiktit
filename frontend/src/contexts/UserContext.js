@@ -25,30 +25,42 @@ export const UserProvider = ({ children }) => {
       const response = await usersApi.getUserProfile();
       
       if (response.status === 'success') {
-        setProfile(response.data.user);
-        setStats(response.data.stats);
-      } else {
-        // Don't throw an error here, just log it
-        console.warn("Profile fetch returned non-success status:", response.message);
-        // Use cached profile if available or set default values
-        if (!profile) {
-          setProfile({ username: "User" });
-          setStats({ total_points: 0, total_predictions: 0, average_points: 0 });
+        if (response.data && response.data.user) {
+          setProfile(response.data.user);
+          setStats(response.data.stats || {
+            total_points: 0,
+            total_predictions: 0,
+            perfect_predictions: 0,
+            average_points: 0.0
+          });
+        } else {
+          setProfile({
+            id: response.data.id,
+            username: response.data.username,
+            email: response.data.email,
+            created_at: response.data.created_at
+          });
+          setStats(response.data.stats || {
+            total_points: 0,
+            total_predictions: 0,
+            perfect_predictions: 0,
+            average_points: 0.0
+          });
         }
-      }
-    } catch (err) {
-      console.error("Error fetching profile:", err);
-      setError("Unable to load profile data. Using cached data.");
-      
-      // Use cached profile if available or set default values
-      if (!profile) {
+      } else {
+        console.warn("Profile fetch returned non-success status:", response.message);
         setProfile({ username: "User" });
         setStats({ total_points: 0, total_predictions: 0, average_points: 0 });
       }
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      setError("Unable to load profile data");
+      setProfile({ username: "User" });
+      setStats({ total_points: 0, total_predictions: 0, average_points: 0 });
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, profile]);
+  }, [isAuthenticated]);
 
   const updateProfile = useCallback(async (userData) => {
     try {

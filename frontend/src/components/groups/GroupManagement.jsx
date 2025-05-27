@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGroups } from '../../contexts/GroupContext';
+import { useUser } from '../../contexts/UserContext';
 import { useNotifications } from '../../contexts/NotificationContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
@@ -9,6 +10,7 @@ const GroupManagement = () => {
   const { groupId } = useParams();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotifications();
+  const { profile } = useUser();
   const { 
     currentGroup,
     setCurrentGroup,
@@ -25,48 +27,110 @@ const GroupManagement = () => {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(null);
+  const [localLoading, setLocalLoading] = useState(false);
 
   useEffect(() => {
-    if (groupId) {
+    if (groupId && profile) {
       loadGroupData();
     }
-  }, [groupId]);
+  }, [groupId, profile]);
 
   const loadGroupData = async () => {
+    if (!profile) {
+      console.log('No profile loaded, cannot load group data');
+      return;
+    }
+    
     try {
-      await fetchGroupDetails(groupId);
+      setLocalLoading(true);
+      console.log('Loading group details for:', groupId);
+      
+      // Fetch group details first
+      const groupDetails = await fetchGroupDetails(groupId);
+      if (!groupDetails) {
+        showError('Failed to load group details');
+        return;
+      }
+      
+      // Check if user is admin
+      if (groupDetails.admin_id !== profile.id) {
+        showError('You are not authorized to manage this group');
+        navigate(`/groups/${groupId}`);
+        return;
+      }
+      
+      console.log('Fetching group members for:', groupId);
+      
+      // Fetch members
       const membersData = await fetchGroupMembers(groupId);
-      if (membersData) {
-        setMembers(membersData.filter(m => m.status === 'APPROVED' || !m.status));
-        setPendingRequests(membersData.filter(m => m.status === 'PENDING'));
+      console.log('Received members data:', membersData);
+      
+      if (Array.isArray(membersData)) {
+        // Separate approved and pending members
+        const approvedMembers = membersData.filter(m => 
+          !m.status || m.status === 'APPROVED'
+        );
+        const pendingMembers = membersData.filter(m => 
+          m.status === 'PENDING'
+        );
+        
+        console.log('Approved members:', approvedMembers.length);
+        console.log('Pending members:', pendingMembers.length);
+        
+        setMembers(approvedMembers);
+        setPendingRequests(pendingMembers);
+      } else {
+        console.warn('Members data is not an array:', membersData);
+        setMembers([]);
+        setPendingRequests([]);
       }
     } catch (err) {
-      showError('Failed to load group data');
+      console.error('Error loading group data:', err);
+      showError('Failed to load group data: ' + err.message);
+    } finally {
+      setLocalLoading(false);
     }
   };
 
   const handleMemberAction = async (userId, action) => {
+    if (!profile) {
+      showError('Profile not loaded');
+      return;
+    }
+    
     try {
-      setLoading(true);
+      setLocalLoading(true);
+      console.log(`Performing action ${action} on user ${userId}`);
+      
       const success = await manageMember(groupId, userId, action);
       if (success) {
         showSuccess(`Successfully ${action.toLowerCase()}ed member`);
-        loadGroupData(); // Refresh member list
+        // Reload the data after successful action
+        await loadGroupData();
+      } else {
+        showError(`Failed to ${action.toLowerCase()} member`);
       }
     } catch (err) {
+      console.error('Error managing member:', err);
       showError(`Failed to ${action.toLowerCase()} member: ${err.message}`);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 
   const handleRegenerateCode = async () => {
+    if (!profile) {
+      showError('Profile not loaded');
+      return;
+    }
+    
     try {
-      setLoading(true);
+      setLocalLoading(true);
       const response = await regenerateInviteCode(groupId);
       if (response && response.status === 'success') {
         showSuccess('Successfully regenerated invite code');
         setShowRegenerateConfirm(false);
+        
         // Update the current group's invite code
         if (response.data && response.data.new_code) {
           setCurrentGroup(prev => ({
@@ -74,21 +138,34 @@ const GroupManagement = () => {
             invite_code: response.data.new_code
           }));
         }
-        // Reload group data to get the latest details
+        
+        // Reload group data
         await fetchGroupDetails(groupId);
       } else {
         throw new Error(response?.message || 'Failed to regenerate invite code');
       }
     } catch (err) {
+      console.error('Error regenerating code:', err);
       showError(`Failed to regenerate invite code: ${err.message}`);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  // Check if user has admin permissions
+  const isUserAdmin = profile && currentGroup && (currentGroup.admin_id === profile.id);
+
+  if (!profile) {
+    return <ErrorMessage message="Profile not loaded. Please refresh the page." />;
+  }
+
+  if (loading || localLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
   if (!currentGroup) return <ErrorMessage message="Group not found" />;
+  
+  if (!isUserAdmin) {
+    return <ErrorMessage message="You are not authorized to manage this group" />;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -108,6 +185,11 @@ const GroupManagement = () => {
             <p className="text-sm text-gray-500">
               Members: {members.length}
             </p>
+            {pendingRequests.length > 0 && (
+              <p className="text-sm text-yellow-600 font-medium">
+                Pending: {pendingRequests.length}
+              </p>
+            )}
           </div>
         </div>
 
@@ -120,7 +202,8 @@ const GroupManagement = () => {
             </div>
             <button
               onClick={() => setShowRegenerateConfirm(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              disabled={localLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
             >
               Regenerate Code
             </button>
@@ -137,23 +220,27 @@ const GroupManagement = () => {
           <div className="space-y-4">
             {pendingRequests.map(request => (
               <div key={request.user_id} 
-                   className="flex justify-between items-center p-4 bg-yellow-50 rounded-lg">
+                   className="flex justify-between items-center p-4 bg-yellow-50 rounded-lg border border-yellow-200">
                 <div>
-                  <p className="font-medium">{request.username}</p>
+                  <p className="font-medium text-gray-900">{request.username}</p>
                   <p className="text-sm text-gray-500">
-                    Requested: {new Date(request.requested_at).toLocaleDateString()}
+                    Requested: {request.requested_at ? 
+                      new Date(request.requested_at).toLocaleDateString() : 
+                      'Unknown'}
                   </p>
                 </div>
                 <div className="space-x-2">
                   <button
                     onClick={() => handleMemberAction(request.user_id, 'APPROVE')}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    disabled={localLoading}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
                   >
                     Approve
                   </button>
                   <button
                     onClick={() => handleMemberAction(request.user_id, 'REJECT')}
-                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                    disabled={localLoading}
+                    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
                   >
                     Reject
                   </button>
@@ -174,16 +261,22 @@ const GroupManagement = () => {
             <div key={member.user_id} 
                  className="flex justify-between items-center p-4 border-b">
               <div>
-                <p className="font-medium">{member.username}</p>
+                <p className="font-medium text-gray-900">{member.username}</p>
                 <p className="text-sm text-gray-500">
-                  Joined: {new Date(member.joined_at).toLocaleDateString()}
+                  Role: {member.role || 'MEMBER'}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Joined: {member.joined_at ? 
+                    new Date(member.joined_at).toLocaleDateString() : 
+                    'Unknown'}
                 </p>
               </div>
-              {member.role !== 'ADMIN' && (
+              {member.role !== 'ADMIN' && member.user_id !== currentGroup.admin_id && (
                 <div className="space-x-2">
                   <button
                     onClick={() => setShowRemoveConfirm(member.user_id)}
-                    className="px-4 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200"
+                    disabled={localLoading}
+                    className="px-4 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 disabled:opacity-50"
                   >
                     Remove
                   </button>
@@ -211,7 +304,8 @@ const GroupManagement = () => {
               </button>
               <button
                 onClick={handleRegenerateCode}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                disabled={localLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
               >
                 Regenerate
               </button>
@@ -240,7 +334,8 @@ const GroupManagement = () => {
                   handleMemberAction(showRemoveConfirm, 'REMOVE');
                   setShowRemoveConfirm(null);
                 }}
-                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                disabled={localLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
               >
                 Remove
               </button>

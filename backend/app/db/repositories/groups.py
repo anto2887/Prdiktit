@@ -139,10 +139,10 @@ async def regenerate_invite_code(db: Session, group_id: int) -> Optional[str]:
 
 async def get_group_members(db: Session, group_id: int) -> List[Dict]:
     """
-    Get all members of a group
+    Get all members of a group including pending members
     """
-    # Query the group_members association table with user details
-    query = db.query(
+    # Get approved members
+    approved_query = db.query(
         User.id.label('user_id'),
         User.username.label('username'),
         group_members.c.role.label('role'),
@@ -156,19 +156,21 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
     )
     
     members = []
-    for row in query:
+    for row in approved_query:
         members.append({
             'user_id': row.user_id,
             'username': row.username,
             'role': row.role.value if hasattr(row.role, 'value') else str(row.role),
             'joined_at': row.joined_at,
-            'last_active': row.last_active
+            'last_active': row.last_active,
+            'status': 'APPROVED'  # Explicitly set status for approved members
         })
     
-    # Also get pending membership requests
+    # Get pending membership requests
     pending_query = db.query(
-        PendingMembership,
-        User.username.label('username')
+        PendingMembership.user_id,
+        PendingMembership.requested_at,
+        User.username
     ).join(
         User,
         PendingMembership.user_id == User.id
@@ -179,13 +181,13 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
     
     for row in pending_query:
         members.append({
-            'user_id': row.PendingMembership.user_id,
+            'user_id': row.user_id,
             'username': row.username,
             'role': MemberRole.MEMBER.value,
             'status': MembershipStatus.PENDING.value,
-            'requested_at': row.PendingMembership.requested_at,
-            'joined_at': None,  # Pending members haven't joined yet
-            'last_active': None  # Also add this for consistency
+            'requested_at': row.requested_at,
+            'joined_at': None,
+            'last_active': None
         })
     
     return members
