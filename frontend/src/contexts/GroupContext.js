@@ -23,22 +23,38 @@ export const GroupProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
+      console.log('GroupContext: Calling groupsApi.getUserGroups...');
       const response = await groupsApi.getUserGroups();
+      console.log('GroupContext: getUserGroups response:', response);
       
-      if (response.status === 'success') {
-        setUserGroups(response.data);
-        return response.data;
+      if (response && response.status === 'success') {
+        // Handle both response.data as array and response.data.data as array
+        const groups = response.data || [];
+        console.log('GroupContext: Setting groups to:', groups);
+        setUserGroups(groups);
+        return groups;
       } else {
-        throw new Error(response.message || 'Failed to fetch groups');
+        console.warn('GroupContext: Non-success response:', response);
+        setUserGroups([]);
+        return [];
       }
     } catch (err) {
+      console.error('GroupContext: Error in fetchUserGroups:', err);
       setError(err.message || 'Failed to fetch groups');
-      showError(err.message || 'Failed to fetch groups');
+      
+      // Don't show error immediately on page load - let DashboardPage handle it
+      if (userGroups.length === 0) {
+        console.log('GroupContext: Suppressing error notification on initial load');
+      } else {
+        showError(err.message || 'Failed to fetch groups');
+      }
+      
+      setUserGroups([]);
       return [];
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, showError]);
+  }, [isAuthenticated, showError, userGroups.length]);
 
   const fetchGroupDetails = useCallback(async (groupId) => {
     if (!isAuthenticated || !groupId) return null;

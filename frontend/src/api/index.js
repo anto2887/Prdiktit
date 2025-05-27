@@ -96,8 +96,8 @@ const clearCache = () => {
   responseCache.clear();
 };
 
-// Update APIError class with additional functionality
-class APIError extends Error {
+// API Error class
+export class APIError extends Error {
   constructor(message, status, details = null) {
     super(message);
     this.name = 'APIError';
@@ -106,7 +106,7 @@ class APIError extends Error {
   }
 }
 
-// Update API class with cache and interceptors
+// Main API class
 class API {
   constructor() {
     this.client = axios.create({
@@ -114,88 +114,27 @@ class API {
       headers: { 'Content-Type': 'application/json' },
       withCredentials: true
     });
-
+    
     this.setupInterceptors();
   }
 
   setupInterceptors() {
-    // Request interceptor with caching
-    this.client.interceptors.request.use(async (config) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🌐 API Request: ${config.method.toUpperCase()} ${config.url}`, {
-          headers: config.headers,
-          data: config.data,
-          params: config.params
-        });
-      }
-
-      if (config.method === 'get' && !config.headers['Cache-Control']) {
-        const endpoint = config.url;
-        if (shouldCacheResponse(endpoint)) {
-          const cacheKey = createCacheKey(endpoint, config.params);
-          config.cacheKey = cacheKey;
-          
-          const cachedResponse = getFromCache(cacheKey);
-          if (cachedResponse) {
-            return {
-              ...config,
-              adapter: () => Promise.resolve({
-                data: cachedResponse,
-                status: 200,
-                statusText: 'OK',
-                headers: {},
-                config,
-                cached: true
-              })
-            };
-          }
-        }
-      }
-
+    // Request interceptor
+    this.client.interceptors.request.use(config => {
       const token = localStorage.getItem('accessToken');
       if (token) {
-        config.headers['Authorization'] = `Bearer ${token}`;
+        config.headers.Authorization = `Bearer ${token}`;
       }
-
       return config;
     });
 
-    // Response interceptor with improved error handling
+    // Response interceptor
     this.client.interceptors.response.use(
-      (response) => {
-        if (response.cached) {
-          return response.data;
-        }
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`✅ API Response: ${response.config.method.toUpperCase()} ${response.config.url}`, {
-            status: response.status,
-            data: response.data
-          });
-        }
-
-        if (response.config.cacheKey) {
-          addToCache(response.config.cacheKey, response.data);
-        }
-
-        return this.formatApiResponse(response.data);
-      },
-      async (error) => {
-        if (process.env.NODE_ENV === 'development') {
-          console.error(`❌ API Error: ${error.config?.method?.toUpperCase() || 'UNKNOWN'} ${error.config?.url || 'UNKNOWN'}`, {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message
-          });
-        }
-
+      response => this.formatApiResponse(response.data),
+      error => {
         if (error.response?.status === 401) {
           localStorage.removeItem('accessToken');
-          if (window.location.pathname !== '/login') {
-            window.location.href = '/login';
-          }
         }
-
         throw new APIError(
           error.response?.data?.message || error.message,
           error.response?.status || 0,
@@ -206,13 +145,20 @@ class API {
   }
 
   formatApiResponse(data) {
-    return formatApiResponse(data);
+    if (data && data.status) {
+      return data;
+    }
+    return {
+      status: 'success',
+      data: data
+    };
   }
 }
 
+// Create API instance
 const api = new API();
 
-// Update authApi with additional methods from auth.js
+// Export API namespaces
 export const authApi = {
   login: async (username, password) => {
     const response = await api.client.post('/auth/login', { username, password });
@@ -221,9 +167,7 @@ export const authApi = {
     }
     return response;
   },
-
   register: (userData) => api.client.post('/auth/register', userData),
-
   logout: async () => {
     try {
       const response = await api.client.post('/auth/logout');
@@ -234,141 +178,152 @@ export const authApi = {
       throw error;
     }
   },
-
-  checkAuthStatus: () => api.client.get('/auth/status'),
-
-  isAuthenticated: () => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) return false;
-    
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const expiry = payload.exp * 1000;
-      
-      if (Date.now() >= expiry) {
-        localStorage.removeItem('accessToken');
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error checking token:', error);
-      localStorage.removeItem('accessToken');
-      return false;
-    }
-  },
-
-  getAuthToken: () => localStorage.getItem('accessToken')
-};
-
-// Update usersApi with additional methods from users.js
-export const usersApi = {
-  getUserProfile: () => api.client.get('/users/profile'),
-  
-  updateUserProfile: (data) => api.client.put('/users/profile', data),
-  
-  getUserStats: (userId) => api.client.get(`/users/stats${userId ? `?user_id=${userId}` : ''}`),
-  
-  getPredictionHistory: async (params = {}) => {
-    const queryParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryParams.append(key, value);
-      }
-    });
-    
-    const queryString = queryParams.toString();
-    const endpoint = queryString ? `/users/predictions?${queryString}` : '/users/predictions';
-    
-    return await api.client.get(endpoint);
-  }
+  checkAuthStatus: () => api.client.get('/auth/status')
 };
 
 export const groupsApi = {
   getUserGroups: async () => {
     try {
-      console.log('Fetching user groups...');
+      console.log('API: Fetching user groups...');
       const response = await api.client.get('/groups');
-      console.log('Groups response:', response);
+      console.log('API: getUserGroups response:', response);
       
-      // Ensure we're returning the data in the expected format
+      // Ensure consistent response format
       if (response && response.status === 'success') {
-        return response.data || [];
+        return {
+          status: 'success',
+          data: response.data || []
+        };
       }
-      
       return response;
     } catch (error) {
-      console.error('Error fetching user groups:', error);
-      // Return a consistent error structure
+      console.error('API: Error fetching user groups:', error);
+      throw error;
+    }
+  },
+
+  getGroupById: async (groupId) => {
+    try {
+      const response = await api.client.get(`/groups/${groupId}`);
+      return {
+        status: 'success',
+        data: response.data
+      };
+    } catch (error) {
       throw new APIError(
-        error.message || 'Failed to fetch groups',
-        error.status || 500
+        error.message || 'Failed to fetch group details',
+        error.response?.status || 500
       );
     }
   },
 
-  getGroupById: (groupId) => api.client.get(`/groups/${groupId}`),
-  
-  createGroup: (groupData) => api.client.post('/groups', groupData),
-  
-  updateGroup: (groupId, groupData) => api.client.put(`/groups/${groupId}`, groupData),
-  
-  joinGroup: (inviteCode) => api.client.post('/groups/join', { invite_code: inviteCode }),
-  
-  leaveGroup: (groupId) => api.client.post(`/groups/${groupId}/leave`),
-  
-  getGroupMembers: (groupId) => api.client.get(`/groups/${groupId}/members`),
-  
-  manageMember: (groupId, userId, action) => 
-    api.client.post(`/groups/${groupId}/members`, { user_ids: [userId], action }),
-  
-  regenerateInviteCode: (groupId) => api.client.post(`/groups/${groupId}/regenerate-code`),
-  
-  getGroupAnalytics: async (groupId, params = {}) => {
-    const queryParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryParams.append(key, value);
-      }
-    });
-    
-    const queryString = queryParams.toString();
-    const endpoint = queryString 
-      ? `/groups/${groupId}/analytics?${queryString}` 
-      : `/groups/${groupId}/analytics`;
-    
-    return await api.client.get(endpoint);
+  getGroupMembers: async (groupId) => {
+    try {
+      const response = await api.client.get(`/groups/${groupId}/members`);
+      return {
+        status: 'success',
+        data: response.data || []
+      };
+    } catch (error) {
+      throw new APIError(
+        error.message || 'Failed to fetch group members',
+        error.response?.status || 500
+      );
+    }
   },
-  
-  getGroupAuditLogs: (groupId, limit = 20) => api.client.get(`/groups/${groupId}/audit-logs?limit=${limit}`),
+
+  createGroup: async (groupData) => {
+    try {
+      console.log('API: Creating group with data:', groupData);
+      const response = await api.client.post('/groups', groupData);
+      console.log('API: Group creation response:', response);
+      return {
+        status: 'success',
+        data: response.data
+      };
+    } catch (error) {
+      throw new APIError(
+        error.message || 'Failed to create group',
+        error.response?.status || 500
+      );
+    }
+  },
+
+  updateGroup: async (groupId, groupData) => {
+    try {
+      const response = await api.client.put(`/groups/${groupId}`, groupData);
+      return {
+        status: 'success',
+        data: response.data
+      };
+    } catch (error) {
+      throw new APIError(
+        error.message || 'Failed to update group',
+        error.response?.status || 500
+      );
+    }
+  },
+
+  joinGroup: async (inviteCode) => {
+    try {
+      const response = await api.client.post('/groups/join', { invite_code: inviteCode });
+      return {
+        status: 'success',
+        data: response.data
+      };
+    } catch (error) {
+      throw new APIError(
+        error.message || 'Failed to join group',
+        error.response?.status || 500
+      );
+    }
+  },
+
+  leaveGroup: async (groupId) => {
+    try {
+      const response = await api.client.post(`/groups/${groupId}/leave`);
+      return {
+        status: 'success',
+        data: response.data
+      };
+    } catch (error) {
+      throw new APIError(
+        error.message || 'Failed to leave group',
+        error.response?.status || 500
+      );
+    }
+  },
+
+  manageMember: async (groupId, userId, action) => {
+    try {
+      const response = await api.client.post(`/groups/${groupId}/members`, {
+        user_ids: [userId],
+        action
+      });
+      return {
+        status: 'success',
+        data: response.data
+      };
+    } catch (error) {
+      throw new APIError(
+        error.message || 'Failed to perform member action',
+        error.response?.status || 500
+      );
+    }
+  },
 
   fetchTeamsForLeague: async (leagueId) => {
     try {
-      console.log('Fetching teams for league:', leagueId);
-      
-      const leagueMap = {
-        'PL': 'Premier League',
-        'LL': 'La Liga',
-        'UCL': 'UEFA Champions League'
+      console.log('API: Fetching teams for league:', leagueId);
+      const response = await api.client.get(`/groups/teams?league=${encodeURIComponent(leagueId)}`);
+      return {
+        status: 'success',
+        data: response.data || []
       };
-      
-      const mappedLeague = leagueMap[leagueId] || leagueId;
-      const encodedLeague = encodeURIComponent(mappedLeague);
-      
-      const response = await api.client.get(`/groups/teams?league=${encodedLeague}`);
-      
-      if (response && response.status === 'success') {
-        console.log(`Successfully fetched ${response.data?.length || 0} teams for ${mappedLeague}`);
-        return response;
-      } else {
-        console.error('Error fetching teams:', response?.message);
-        return { status: 'success', data: [] };
-      }
     } catch (error) {
-      console.error('Error fetching teams:', error);
       throw new APIError(
         error.message || 'Failed to fetch teams',
-        error.status || 500
+        error.response?.status || 500
       );
     }
   }
