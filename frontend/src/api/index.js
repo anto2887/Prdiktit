@@ -326,6 +326,21 @@ export const groupsApi = {
         error.response?.status || 500
       );
     }
+  },
+
+  regenerateInviteCode: async (groupId) => {
+    try {
+      const response = await api.client.post(`/groups/${groupId}/regenerate-code`);
+      return {
+        status: 'success',
+        data: response.data
+      };
+    } catch (error) {
+      throw new APIError(
+        error.message || 'Failed to regenerate invite code',
+        error.response?.status || 500
+      );
+    }
   }
 };
 
@@ -529,6 +544,13 @@ export const predictionsApi = {
   }
 };
 
+export const usersApi = {
+  getUserProfile: () => api.client.get('/users/profile'),
+  updateUserProfile: (userData) => api.client.put('/users/profile', userData),
+  getUserStats: (userId) => api.client.get(`/users/stats${userId ? `?user_id=${userId}` : ''}`),
+  getUserPredictions: (userId, params = {}) => api.client.get(`/users/predictions${userId ? `?user_id=${userId}` : ''}`, { params })
+};
+
 // Add debug logging
 console.log('API module loaded, predictionsApi methods:', Object.keys(predictionsApi));
 console.log('API module loaded, groupsApi methods:', Object.keys(groupsApi));
@@ -544,5 +566,4 @@ export {
   clearCache
 };
 
-export { APIError };
 export default api;
