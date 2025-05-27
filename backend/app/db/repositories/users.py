@@ -65,42 +65,49 @@ async def get_user_stats(db: Session, user_id: int) -> dict:
     Get user statistics
     """
     try:
-        # Get total points
-        total_points_query = db.query(
+        # Get total points - simple sum
+        total_points_result = db.query(
             func.sum(UserPrediction.points)
-        ).filter(
-            UserPrediction.user_id == user_id
-        )
-        
-        total_points = total_points_query.scalar() or 0
-
-        # For the newer SQLAlchemy versions, use individual case statements correctly
-        perfect_predictions_expr = func.sum(
-            case(
-                (UserPrediction.points == 3, 1),
-                else_=0
-            )
-        )
-        
-        # Get prediction stats with the fixed case expression
-        prediction_stats_query = db.query(
-            func.count(UserPrediction.id).label('total_predictions'),
-            perfect_predictions_expr.label('perfect_predictions'),
-            func.avg(UserPrediction.points).label('average_points')
         ).filter(
             UserPrediction.user_id == user_id,
             UserPrediction.prediction_status == PredictionStatus.PROCESSED
-        )
+        ).scalar()
         
-        prediction_stats = prediction_stats_query.first()
+        total_points = int(total_points_result or 0)
 
-        # Handle None values to avoid NoneType errors
+        # Get basic prediction stats using separate queries for better compatibility
+        total_predictions_result = db.query(
+            func.count(UserPrediction.id)
+        ).filter(
+            UserPrediction.user_id == user_id,
+            UserPrediction.prediction_status == PredictionStatus.PROCESSED
+        ).scalar()
+        
+        total_predictions = int(total_predictions_result or 0)
+        
+        # Get perfect predictions (3 points) count
+        perfect_predictions_result = db.query(
+            func.count(UserPrediction.id)
+        ).filter(
+            UserPrediction.user_id == user_id,
+            UserPrediction.prediction_status == PredictionStatus.PROCESSED,
+            UserPrediction.points == 3
+        ).scalar()
+        
+        perfect_predictions = int(perfect_predictions_result or 0)
+        
+        # Calculate average points
+        average_points = 0.0
+        if total_predictions > 0:
+            average_points = total_points / total_predictions
+
         return {
-            "total_points": int(total_points),
-            "total_predictions": int(prediction_stats.total_predictions or 0) if prediction_stats else 0,
-            "perfect_predictions": int(prediction_stats.perfect_predictions or 0) if prediction_stats else 0,
-            "average_points": float(prediction_stats.average_points or 0) if prediction_stats else 0.0
+            "total_points": total_points,
+            "total_predictions": total_predictions,
+            "perfect_predictions": perfect_predictions,
+            "average_points": round(average_points, 2)
         }
+        
     except Exception as e:
         # Log the error and return default values
         import logging

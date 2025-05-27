@@ -46,19 +46,22 @@ async def get_profile(
                 "average_points": 0.0
             }
         
-        # FIX: Return the correct structure that matches frontend expectations
-        return {
-            "status": "success",
-            "data": {
-                "user": {
-                    "id": current_user.id,
-                    "username": current_user.username,
-                    "email": current_user.email,
-                    "created_at": current_user.created_at.isoformat() if current_user.created_at else None
-                },
-                "stats": stats
-            }
-        }
+        # FIXED: Return the correct structure that matches UserProfileResponse schema
+        return UserProfileResponse(
+            user={
+                "id": current_user.id,
+                "username": current_user.username,
+                "email": current_user.email,
+                "is_active": current_user.is_active,
+                "created_at": current_user.created_at
+            },
+            stats=UserStats(
+                total_points=stats["total_points"],
+                total_predictions=stats["total_predictions"],
+                perfect_predictions=stats["perfect_predictions"],
+                average_points=stats["average_points"]
+            )
+        )
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
