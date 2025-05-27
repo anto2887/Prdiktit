@@ -22,7 +22,9 @@ export const UserProvider = ({ children }) => {
       setLoading(true);
       setError(null);
       
+      console.log('UserContext: Calling usersApi.getUserProfile...');
       const response = await usersApi.getUserProfile();
+      console.log('UserContext: getUserProfile response:', response);
       
       if (response.status === 'success') {
         if (response.data && response.data.user) {
