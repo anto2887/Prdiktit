@@ -24,14 +24,9 @@ export const buildUrl = (baseUrl, params = {}) => {
    * @returns {Object} Formatted error response
    */
   export const formatErrorResponse = (error) => {
-    // API errors with expected structure
-    if (error.code && error.message) {
-      return {
-        status: 'error',
-        code: error.code,
-        message: error.message,
-        details: error.details || null,
-      };
+    // API errors with our standard structure
+    if (error.status === 'error' && error.code) {
+      return error; // Already in correct format
     }
     
     // Axios errors with response

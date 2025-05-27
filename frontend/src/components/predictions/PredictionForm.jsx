@@ -4,6 +4,8 @@ import { useUser } from '../../contexts/UserContext';
 import { useGroups } from '../../contexts/GroupContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import { useMatches } from '../../contexts/MatchContext';
+import { usePredictions } from '../../contexts/PredictionContext';
 
 const PredictionForm = () => {
   const navigate = useNavigate();
@@ -13,6 +15,8 @@ const PredictionForm = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [predictions, setPredictions] = useState({});
+  const { fetchUpcomingMatches } = useMatches();
+  const { createBatchPredictions } = usePredictions();
 
   useEffect(() => {
     if (userGroups.length === 0) {
@@ -22,19 +26,6 @@ const PredictionForm = () => {
     
     fetchUpcomingMatches();
   }, [userGroups]);
-
-  const fetchUpcomingMatches = async () => {
-    try {
-      const response = await fetch('/api/matches/upcoming');
-      if (!response.ok) throw new Error('Failed to fetch matches');
-      const data = await response.json();
-      setMatches(data.matches);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePredictionChange = (matchId, team, score) => {
     setPredictions(prev => ({
@@ -49,15 +40,7 @@ const PredictionForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await fetch('/api/predictions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ predictions }),
-      });
-      
-      if (!response.ok) throw new Error('Failed to submit predictions');
+      await createBatchPredictions(predictions);
       navigate('/dashboard');
     } catch (err) {
       setError(err.message);

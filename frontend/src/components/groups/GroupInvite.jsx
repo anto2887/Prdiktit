@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useGroups } from '../../contexts/GroupsContext';
 
 const GroupInvite = () => {
     const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ const GroupInvite = () => {
     const { groupId } = useParams();
     const navigate = useNavigate();
     const { token } = useAuth();
+    const { inviteToGroup } = useGroups();
 
     const handleInvite = async (e) => {
         e.preventDefault();
@@ -16,21 +18,7 @@ const GroupInvite = () => {
         setMessage('');
 
         try {
-            const response = await fetch(`/api/groups/${groupId}/invite`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ email })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to send invitation');
-            }
-
+            await inviteToGroup(groupId, email);
             setMessage('Invitation sent successfully!');
             setEmail('');
         } catch (err) {
