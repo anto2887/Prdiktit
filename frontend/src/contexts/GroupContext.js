@@ -296,18 +296,43 @@ export const GroupProvider = ({ children }) => {
   }, [isAuthenticated, fetchGroupDetails, showSuccess, showError]);
 
   const isAdmin = useCallback((groupId, userId) => {
-    if (!groupId || !userId) return false;
+    if (!groupId || !userId) {
+      console.log('isAdmin: Missing groupId or userId', { groupId, userId });
+      return false;
+    }
+    
+    // Convert to numbers for comparison
+    const numericGroupId = parseInt(groupId);
+    const numericUserId = parseInt(userId);
+    
+    console.log('isAdmin check:', { numericGroupId, numericUserId });
     
     // First check the current group if it's loaded
-    if (currentGroup && currentGroup.id === parseInt(groupId)) {
-      return currentGroup.admin_id === userId;
+    if (currentGroup && currentGroup.id === numericGroupId) {
+      const isCurrentGroupAdmin = currentGroup.admin_id === numericUserId;
+      console.log('isAdmin (currentGroup):', { 
+        currentGroupAdmin: currentGroup.admin_id, 
+        userId: numericUserId, 
+        isAdmin: isCurrentGroupAdmin 
+      });
+      return isCurrentGroupAdmin;
     }
     
     // Otherwise check userGroups
-    const group = userGroups.find(g => g.id === parseInt(groupId));
-    if (!group) return false;
+    const group = userGroups.find(g => g.id === numericGroupId);
+    if (!group) {
+      console.log('isAdmin: Group not found in userGroups', { numericGroupId, userGroups });
+      return false;
+    }
     
-    return group.admin_id === userId;
+    const isGroupAdmin = group.admin_id === numericUserId;
+    console.log('isAdmin (userGroups):', { 
+      groupAdmin: group.admin_id, 
+      userId: numericUserId, 
+      isAdmin: isGroupAdmin 
+    });
+    
+    return isGroupAdmin;
   }, [currentGroup, userGroups]);
 
   const isMember = useCallback((groupId) => {

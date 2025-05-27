@@ -73,6 +73,68 @@ async def import_teams_on_startup(app: FastAPI) -> None:
     finally:
         db.close()
 
+async def verify_admin_assignments(app: FastAPI) -> None:
+    """Verify and fix admin assignments in groups"""
+    from sqlalchemy.orm import Session
+    from ..db.session import SessionLocal
+    from ..db.models import Group, User, group_members, MemberRole
+    from datetime import datetime, timezone
+    
+    db = SessionLocal()
+    try:
+        logger.info("Verifying admin assignments...")
+        
+        # Get all groups
+        groups = db.query(Group).all()
+        fixes_applied = 0
+        
+        for group in groups:
+            # Check if admin is in group_members table
+            admin_member = db.query(group_members).filter(
+                group_members.c.group_id == group.id,
+                group_members.c.user_id == group.admin_id
+            ).first()
+            
+            if not admin_member:
+                logger.warning(f"Admin user {group.admin_id} not in group_members for group {group.name} - fixing")
+                
+                # Add admin to group_members table
+                stmt = group_members.insert().values(
+                    user_id=group.admin_id,
+                    group_id=group.id,
+                    role=MemberRole.ADMIN,
+                    joined_at=datetime.now(timezone.utc),
+                    last_active=datetime.now(timezone.utc)
+                )
+                db.execute(stmt)
+                fixes_applied += 1
+                
+            elif admin_member.role != MemberRole.ADMIN:
+                logger.warning(f"Admin user {group.admin_id} has incorrect role in group {group.name} - fixing")
+                
+                # Update admin role
+                db.execute(
+                    group_members.update().
+                    where(
+                        group_members.c.group_id == group.id,
+                        group_members.c.user_id == group.admin_id
+                    ).
+                    values(role=MemberRole.ADMIN)
+                )
+                fixes_applied += 1
+        
+        if fixes_applied > 0:
+            db.commit()
+            logger.info(f"Applied {fixes_applied} admin assignment fixes")
+        else:
+            logger.info("All admin assignments are correct")
+            
+    except Exception as e:
+        logger.error(f"Error verifying admin assignments: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
 async def init_services(app: FastAPI) -> None:
     """
     Initialize all application services
@@ -91,6 +153,9 @@ async def init_services(app: FastAPI) -> None:
     
     # Import teams at startup
     await import_teams_on_startup(app)
+    
+    # Verify admin assignments
+    await verify_admin_assignments(app)
     
     # Add any other service initializations here
     

@@ -80,6 +80,16 @@ async def create_group(db: Session, admin_id: int, **group_data) -> Group:
                 )
                 db.add(team_tracker)
     
+    # FIXED: Add audit log for group creation
+    log_entry = GroupAuditLog(
+        group_id=group.id,
+        user_id=admin_id,
+        action="Group created",
+        details={"group_name": group.name, "league": group.league},
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(log_entry)
+    
     # Commit the transaction
     db.commit()
     db.refresh(group)

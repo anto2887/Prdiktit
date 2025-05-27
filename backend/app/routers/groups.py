@@ -59,25 +59,34 @@ async def get_user_groups(
                 ).count()
                 
                 # Get user's role in the group
-                role = db.query(group_members.c.role).filter(
+                role_result = db.query(group_members.c.role).filter(
                     group_members.c.group_id == group.id,
                     group_members.c.user_id == current_user.id
                 ).first()
                 
-                role_value = role[0] if role else None
+                # FIXED: Properly determine if user is admin
+                is_group_admin = group.admin_id == current_user.id
+                user_role = None
+                
+                if role_result:
+                    user_role = role_result[0].value if hasattr(role_result[0], 'value') else str(role_result[0])
+                elif is_group_admin:
+                    # If user is admin but not in group_members table, they should be admin
+                    user_role = MemberRole.ADMIN.value
                 
                 # Convert to dict
                 group_dict = {
                     "id": group.id,
                     "name": group.name,
                     "league": group.league,
-                    "admin_id": group.admin_id,
+                    "admin_id": group.admin_id,  # CRITICAL: Include admin_id
                     "invite_code": group.invite_code,
                     "created_at": group.created.isoformat() if group.created else None,
                     "privacy_type": group.privacy_type.value if group.privacy_type else None,
                     "description": group.description,
                     "member_count": member_count,
-                    "role": role_value.value if role_value else None
+                    "role": user_role,
+                    "is_admin": is_group_admin  # ADDED: Explicit admin flag
                 }
                 
                 groups.append(group_dict)

@@ -30,67 +30,81 @@ const GroupManagement = () => {
   const [localLoading, setLocalLoading] = useState(false);
 
   useEffect(() => {
+    const loadGroupData = async () => {
+      if (!profile) {
+        console.log('No profile loaded, cannot load group data');
+        return;
+      }
+      
+      try {
+        setLocalLoading(true);
+        console.log('Loading group details for:', groupId);
+        console.log('Current user profile:', profile);
+        
+        // Fetch group details first
+        const groupDetails = await fetchGroupDetails(groupId);
+        if (!groupDetails) {
+          showError('Failed to load group details');
+          return;
+        }
+        
+        console.log('Group details loaded:', groupDetails);
+        console.log('Group admin_id:', groupDetails.admin_id);
+        console.log('Current user id:', profile.id);
+        
+        // FIXED: Better admin check with type conversion
+        const isUserAdmin = parseInt(groupDetails.admin_id) === parseInt(profile.id);
+        console.log('Is user admin?', isUserAdmin);
+        
+        if (!isUserAdmin) {
+          // FIXED: Also check if user has admin role in the group
+          const userRole = groupDetails.role;
+          console.log('User role in group:', userRole);
+          
+          if (userRole !== 'ADMIN') {
+            showError('You are not authorized to manage this group');
+            navigate(`/groups/${groupId}`);
+            return;
+          }
+        }
+        
+        console.log('Fetching group members for:', groupId);
+        
+        // Fetch members
+        const membersData = await fetchGroupMembers(groupId);
+        console.log('Received members data:', membersData);
+        
+        if (Array.isArray(membersData)) {
+          // Separate approved and pending members
+          const approvedMembers = membersData.filter(m => 
+            !m.status || m.status === 'APPROVED'
+          );
+          const pendingMembers = membersData.filter(m => 
+            m.status === 'PENDING'
+          );
+          
+          console.log('Approved members:', approvedMembers.length);
+          console.log('Pending members:', pendingMembers.length);
+          
+          setMembers(approvedMembers);
+          setPendingRequests(pendingMembers);
+        } else {
+          console.warn('Members data is not an array:', membersData);
+          setMembers([]);
+          setPendingRequests([]);
+        }
+      } catch (err) {
+        console.error('Error loading group data:', err);
+        showError('Failed to load group data: ' + err.message);
+      } finally {
+        setLocalLoading(false);
+      }
+    };
+    
     if (groupId && profile) {
       loadGroupData();
     }
-  }, [groupId, profile]);
-
-  const loadGroupData = async () => {
-    if (!profile) {
-      console.log('No profile loaded, cannot load group data');
-      return;
-    }
-    
-    try {
-      setLocalLoading(true);
-      console.log('Loading group details for:', groupId);
-      
-      // Fetch group details first
-      const groupDetails = await fetchGroupDetails(groupId);
-      if (!groupDetails) {
-        showError('Failed to load group details');
-        return;
-      }
-      
-      // Check if user is admin
-      if (groupDetails.admin_id !== profile.id) {
-        showError('You are not authorized to manage this group');
-        navigate(`/groups/${groupId}`);
-        return;
-      }
-      
-      console.log('Fetching group members for:', groupId);
-      
-      // Fetch members
-      const membersData = await fetchGroupMembers(groupId);
-      console.log('Received members data:', membersData);
-      
-      if (Array.isArray(membersData)) {
-        // Separate approved and pending members
-        const approvedMembers = membersData.filter(m => 
-          !m.status || m.status === 'APPROVED'
-        );
-        const pendingMembers = membersData.filter(m => 
-          m.status === 'PENDING'
-        );
-        
-        console.log('Approved members:', approvedMembers.length);
-        console.log('Pending members:', pendingMembers.length);
-        
-        setMembers(approvedMembers);
-        setPendingRequests(pendingMembers);
-      } else {
-        console.warn('Members data is not an array:', membersData);
-        setMembers([]);
-        setPendingRequests([]);
-      }
-    } catch (err) {
-      console.error('Error loading group data:', err);
-      showError('Failed to load group data: ' + err.message);
-    } finally {
-      setLocalLoading(false);
-    }
-  };
+  }, [groupId, profile, fetchGroupDetails, fetchGroupMembers, showError, navigate]);
 
   const handleMemberAction = async (userId, action) => {
     if (!profile) {
@@ -152,9 +166,6 @@ const GroupManagement = () => {
     }
   };
 
-  // Check if user has admin permissions
-  const isUserAdmin = profile && currentGroup && (currentGroup.admin_id === profile.id);
-
   if (!profile) {
     return <ErrorMessage message="Profile not loaded. Please refresh the page." />;
   }
@@ -163,10 +174,6 @@ const GroupManagement = () => {
   if (error) return <ErrorMessage message={error} />;
   if (!currentGroup) return <ErrorMessage message="Group not found" />;
   
-  if (!isUserAdmin) {
-    return <ErrorMessage message="You are not authorized to manage this group" />;
-  }
-
   return (
     <div className="container mx-auto px-4 py-8">
       {/* Group Info Section */}
