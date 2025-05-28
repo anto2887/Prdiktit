@@ -11,6 +11,7 @@ export {
   useNotifications,
   useLeagueContext,
   useGroupDetails,
+  GroupDetailsProvider,
   default as AppContext
 } from './AppContext';
 

@@ -3,9 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import { useGroups, useUser, useLeagueContext } from '../contexts/AppContext';
 
-// Import the new context provider
-import { GroupDetailsProvider } from '../contexts/AppContext';
-
 // Components
 import LeagueTableContainer from '../components/dashboard/LeagueTableContainer';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -180,10 +177,7 @@ const GroupDetailsPage = () => {
         {activeTab === 'standings' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Standings</h2>
-            {/* Wrap the league table with the new context provider */}
-            <GroupDetailsProvider groupId={parseInt(groupId)}>
-              <LeagueTableContainer />
-            </GroupDetailsProvider>
+            <LeagueTableContainer />
           </div>
         )}
         

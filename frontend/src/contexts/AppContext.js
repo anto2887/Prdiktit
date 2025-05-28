@@ -1259,16 +1259,20 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // Move the component here, before the export statements
+  // Replace the existing GroupDetailsProvider component
   const GroupDetailsProvider = ({ groupId, children }) => {
-    const context = useContext(AppContext);
+    const {
+      fetchGroupDetails,
+      fetchGroupMembers,
+      profile
+    } = useContext(AppContext);
     
     useEffect(() => {
-      if (groupId && context.profile) {
-        context.fetchGroupDetails(parseInt(groupId));
-        context.fetchGroupMembers(parseInt(groupId));
+      if (groupId && profile) {
+        fetchGroupDetails(parseInt(groupId));
+        fetchGroupMembers(parseInt(groupId));
       }
-    }, [groupId, context.profile]);
+    }, [groupId, profile, fetchGroupDetails, fetchGroupMembers]);
 
     return children;
   };
