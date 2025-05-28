@@ -1,9 +1,7 @@
 // src/pages/PredictionFormPage.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { usePredictions } from '../contexts/PredictionContext';
-import { useMatches } from '../contexts/MatchContext';
-import { useNotifications } from '../contexts/NotificationContext';
+import { usePredictions, useMatches, useNotifications } from '../contexts/AppContext';
 
 // Components
 import PredictionForm from '../components/predictions/PredictionForm';

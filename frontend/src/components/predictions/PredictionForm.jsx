@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useUser } from '../../contexts/UserContext';
-import { useGroups } from '../../contexts/GroupContext';
+import { useUser, useGroups, useMatches, usePredictions } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import { useMatches } from '../../contexts/MatchContext';
-import { usePredictions } from '../../contexts/PredictionContext';
 
 const PredictionForm = () => {
   const navigate = useNavigate();

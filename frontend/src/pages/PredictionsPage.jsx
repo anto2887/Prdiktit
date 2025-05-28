@@ -1,8 +1,6 @@
 // src/pages/PredictionsPage.jsx
 import React, { useEffect } from 'react';
-import { usePredictions } from '../contexts/PredictionContext';
-import { useMatches } from '../contexts/MatchContext';
-import { useGroups } from '../contexts/GroupContext';
+import { usePredictions, useMatches, useGroups } from '../contexts/AppContext';
 
 // Components
 import PredictionList from '../components/predictions/PredictionList';

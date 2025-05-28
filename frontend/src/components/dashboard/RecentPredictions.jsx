@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { usePredictions } from '../../contexts/PredictionContext';
+import { usePredictions } from '../../contexts/AppContext';
 import { formatDate } from '../../utils/dateUtils';
 import { formatMatchResult, formatPredictionStatus } from '../../utils/formatters';
 

@@ -1,6 +1,6 @@
 // src/pages/PredictionHistoryPage.jsx
 import React, { useEffect } from 'react';
-import { usePredictions } from '../contexts/PredictionContext';
+import { usePredictions } from '../contexts/AppContext';
 
 // Components
 import PredictionHistory from '../components/predictions/PredictionHistory';

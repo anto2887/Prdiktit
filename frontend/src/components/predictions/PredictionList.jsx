@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { usePredictions } from '../../contexts/PredictionContext';
-import { useMatches } from '../../contexts/MatchContext';
+import { usePredictions, useMatches } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import MatchAvailabilityCheck from './MatchAvailabilityCheck';
