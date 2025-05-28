@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useAuth, useNotifications } from '../../contexts';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 export const Register = () => {
