@@ -1,6 +1,6 @@
 // src/components/common/NotificationContainer.jsx
 import React from 'react';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useNotifications } from '../../contexts/AppContext';
 import { X } from 'lucide-react';
 
 const NotificationContainer = () => {

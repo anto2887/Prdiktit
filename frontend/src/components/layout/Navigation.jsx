@@ -1,8 +1,7 @@
 // src/components/layout/Navigation.jsx
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useAuth, useNotifications } from '../../contexts/AppContext';
 
 const Navigation = () => {
   const { user, logout, isAuthenticated } = useAuth();

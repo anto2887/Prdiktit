@@ -1238,20 +1238,6 @@ export const AppProvider = ({ children }) => {
     return state.groups.userGroups.some(g => g.id === groupId);
   }, [state.groups.userGroups]);
 
-  // Move the component here, before the export statements
-  const GroupDetailsProvider = ({ groupId, children }) => {
-    const context = useContext(AppContext);
-    
-    useEffect(() => {
-      if (groupId && context.profile) {
-        context.fetchGroupDetails(parseInt(groupId));
-        context.fetchGroupMembers(parseInt(groupId));
-      }
-    }, [groupId, context.profile]);
-
-    return children;
-  };
-
   // Add getUserStats to the AppProvider component
   const getUserStats = useCallback(async (userId) => {
     try {
@@ -1272,6 +1258,20 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_USER_STATS_LOADING, payload: false });
     }
   }, []);
+
+  // Move the component here, before the export statements
+  const GroupDetailsProvider = ({ groupId, children }) => {
+    const context = useContext(AppContext);
+    
+    useEffect(() => {
+      if (groupId && context.profile) {
+        context.fetchGroupDetails(parseInt(groupId));
+        context.fetchGroupMembers(parseInt(groupId));
+      }
+    }, [groupId, context.profile]);
+
+    return children;
+  };
 
   // Context value
   const contextValue = {
@@ -1555,7 +1555,5 @@ export const useGroupDetails = () => {
     group: context.currentGroup
   };
 };
-
-export { GroupDetailsProvider };
 
 export default AppContext;

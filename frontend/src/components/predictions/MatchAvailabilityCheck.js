@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGroups } from '../../contexts/GroupContext';
+import { useGroups } from '../../contexts/AppContext';
 
 const MatchAvailabilityCheck = ({ children }) => {
   const navigate = useNavigate();

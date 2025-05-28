@@ -4,7 +4,7 @@ import { Outlet } from 'react-router-dom';
 import Navigation from './Navigation';
 import Sidebar from './Sidebar';
 import Footer from './Footer';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const MainLayout = () => {
