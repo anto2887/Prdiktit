@@ -1,8 +1,7 @@
 // src/pages/GroupManagementPage.jsx
 import React, { useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useGroups } from '../contexts/GroupContext';
-import { useUser } from '../contexts/UserContext';
+import { useGroups, useUser } from '../contexts/AppContext';
 
 // Components
 import GroupManagement from '../components/groups/GroupManagement';

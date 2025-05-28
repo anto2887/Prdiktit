@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useGroups } from '../../contexts/GroupContext';
-import { useUser } from '../../contexts/UserContext';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useGroups, useUser, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 

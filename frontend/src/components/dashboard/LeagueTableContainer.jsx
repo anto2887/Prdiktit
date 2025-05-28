@@ -1,6 +1,6 @@
 // src/components/dashboard/LeagueTableContainer.jsx
 import React from 'react';
-import { useGroupDetails } from '../../contexts/GroupDetailsContext';
+import { useGroupDetails } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 

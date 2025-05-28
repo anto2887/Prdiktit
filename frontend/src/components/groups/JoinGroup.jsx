@@ -1,8 +1,7 @@
 // JoinGroup.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGroups } from '../../contexts/GroupContext';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const JoinGroup = () => {

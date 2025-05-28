@@ -1,10 +1,12 @@
 // src/components/dashboard/Dashboard.jsx
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useUser } from '../../contexts/UserContext';
-import { usePredictions } from '../../contexts/PredictionContext';
-import { useGroups } from '../../contexts/GroupContext';
-import { useLeagueContext } from '../../contexts/LeagueContext';
+import { 
+  useUser, 
+  usePredictions, 
+  useGroups, 
+  useLeagueContext 
+} from '../../contexts/AppContext';
 import DashboardStats from './DashboardStats';
 import RecentPredictions from './RecentPredictions';
 import LeagueTable from './LeagueTable';

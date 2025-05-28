@@ -1,7 +1,6 @@
 // TeamSelector.jsx - Fixed version
 import React, { useState, useEffect } from 'react';
-import { useGroups } from '../../contexts/GroupContext';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) => {

@@ -1,6 +1,6 @@
 // src/pages/SettingsPage.jsx
 import React, { useEffect } from 'react';
-import { useUser } from '../contexts/UserContext';
+import { useUser } from '../contexts/AppContext';
 
 // Components
 import Settings from '../components/dashboard/Settings';

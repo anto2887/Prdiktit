@@ -1,7 +1,6 @@
 // src/pages/ProfilePage.jsx
 import React, { useEffect } from 'react';
-import { useUser } from '../contexts/UserContext';
-import { usePredictions } from '../contexts/PredictionContext';
+import { useUser, usePredictions } from '../contexts/AppContext';
 
 // Components
 import Profile from '../components/dashboard/Profile';

@@ -1,12 +1,10 @@
 // src/pages/GroupDetailsPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { useGroups } from '../contexts/GroupContext';
-import { useUser } from '../contexts/UserContext';
-import { useLeagueContext } from '../contexts/LeagueContext';
+import { useGroups, useUser, useLeagueContext } from '../contexts/AppContext';
 
 // Import the new context provider
-import { GroupDetailsProvider } from '../contexts/GroupDetailsContext';
+import { GroupDetailsProvider } from '../contexts/AppContext';
 
 // Components
 import LeagueTableContainer from '../components/dashboard/LeagueTableContainer';

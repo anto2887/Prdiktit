@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useUser } from '../../contexts/UserContext';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useUser, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 

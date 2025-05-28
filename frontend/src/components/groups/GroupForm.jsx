@@ -1,8 +1,7 @@
 // GroupForm.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGroups } from '../../contexts/GroupContext';
-import { useNotifications } from '../../contexts/NotificationContext';
+import { useGroups, useNotifications } from '../../contexts/AppContext';
 import TeamSelector from './TeamSelector';
 import LoadingSpinner from '../common/LoadingSpinner';
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { useGroups } from '../../contexts/GroupContext';
+import { useGroups } from '../../contexts/AppContext';
 
 const Sidebar = () => {
   const { userGroups } = useGroups();

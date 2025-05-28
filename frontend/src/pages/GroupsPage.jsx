@@ -1,7 +1,7 @@
 // src/pages/GroupsPage.jsx
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useGroups } from '../contexts/GroupContext';
+import { useGroups } from '../contexts/AppContext';
 
 // Components
 import LoadingSpinner from '../components/common/LoadingSpinner';
