@@ -497,14 +497,19 @@ async def manage_group_members(
             detail="Group not found"
         )
     
-    # Check if user has permission to manage members
-    user_role = await get_user_role_in_group(db, group_id, current_user.id)
-    if not user_role or user_role not in [MemberRole.ADMIN, MemberRole.MODERATOR]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to manage members"
-        )
-    
+    # FIXED: Check if user is admin of the group FIRST
+    if group.admin_id == current_user.id:
+        # User is the group admin, they have permission
+        user_role = MemberRole.ADMIN
+    else:
+        # Check if user has permission to manage members through group membership
+        user_role = await get_user_role_in_group(db, group_id, current_user.id)
+        if not user_role or user_role not in [MemberRole.ADMIN, MemberRole.MODERATOR]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to manage members"
+            )
+
     # Only admins can perform certain actions
     admin_only_actions = [MemberAction.PROMOTE, MemberAction.DEMOTE]
     if action_data.action in admin_only_actions and user_role != MemberRole.ADMIN:

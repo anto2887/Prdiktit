@@ -204,8 +204,14 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
 
 async def check_group_membership(db: Session, group_id: int, user_id: int) -> bool:
     """
-    Check if a user is a member of a group
+    Check if a user is a member of a group (including admin)
     """
+    # Check if user is admin
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if group and group.admin_id == user_id:
+        return True
+    
+    # Check group_members table
     result = db.query(group_members).filter(
         group_members.c.group_id == group_id,
         group_members.c.user_id == user_id
@@ -217,12 +223,21 @@ async def get_user_role_in_group(db: Session, group_id: int, user_id: int) -> Op
     """
     Get a user's role in a group
     """
+    # First check if user is the group admin
+    group = db.query(Group).filter(Group.id == group_id).first()
+    if group and group.admin_id == user_id:
+        return MemberRole.ADMIN
+    
+    # Then check group_members table
     result = db.query(group_members.c.role).filter(
         group_members.c.group_id == group_id,
         group_members.c.user_id == user_id
     ).first()
     
-    return result[0] if result else None
+    if result:
+        return result[0]
+    
+    return None
 
 async def get_group_tracked_teams(db: Session, group_id: int) -> List[int]:
     """

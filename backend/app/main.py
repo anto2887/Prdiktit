@@ -39,8 +39,7 @@ app.add_middleware(
         "http://172.18.0.5:3000",
         "http://172.17.0.1:3000",
         "http://172.16.0.1:3000",
-        # Add wildcard for development (remove in production)
-        "*"  # WARNING: Only for development
+        # Removed wildcard "*" - cannot use with credentials
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
