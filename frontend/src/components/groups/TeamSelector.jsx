@@ -1,12 +1,58 @@
 // TeamSelector.jsx - Fixed version
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
+
+// Optimized team card component
+const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadStates, handleImageLoad }) => (
+  <div
+    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors
+      ${isSelected 
+        ? 'border-blue-500 bg-blue-50' 
+        : 'border-gray-200 hover:border-blue-300'}`}
+    onClick={() => onToggle(team.id)}
+    style={{ 
+      animationDelay: `${index * 50}ms` 
+    }}
+  >
+    <input
+      type="checkbox"
+      checked={isSelected}
+      onChange={() => onToggle(team.id)}
+      className="mr-3 flex-shrink-0"
+    />
+    <div className="w-8 h-8 mr-2 flex-shrink-0 flex items-center justify-center">
+      {imageLoadStates[team.id] === 'loading' && (
+        <div className="w-6 h-6 bg-gray-200 rounded animate-pulse"></div>
+      )}
+      <img
+        src={team.logo || '/placeholder-team-logo.svg'}
+        alt={`${team.name} logo`}
+        className={`w-8 h-8 object-contain transition-opacity duration-200 ${
+          imageLoadStates[team.id] === 'loaded' ? 'opacity-100' : 'opacity-0'
+        }`}
+        onLoad={() => handleImageLoad(team.id, true)}
+        onError={(e) => { 
+          e.target.src = '/placeholder-team-logo.svg';
+          handleImageLoad(team.id, false);
+        }}
+        loading="lazy"
+        style={{ 
+          transitionDelay: `${index * 25}ms`
+        }}
+      />
+    </div>
+    <span className="font-medium text-gray-700 text-sm truncate">{team.name}</span>
+  </div>
+));
 
 const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) => {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [imageLoadStates, setImageLoadStates] = useState({});
+  
   const { fetchTeamsForLeague } = useGroups();
   const { showError } = useNotifications();
 
@@ -14,10 +60,23 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
     if (selectedLeague) {
       loadTeams();
     } else {
-      // Clear teams if no league is selected
       setTeams([]);
+      setImageLoadStates({});
     }
   }, [selectedLeague]);
+
+  // Staggered image loading to prevent browser freeze
+  const handleImageLoad = useCallback((teamId, success = true) => {
+    setImageLoadStates(prev => ({
+      ...prev,
+      [teamId]: success ? 'loaded' : 'error'
+    }));
+  }, []);
+
+  // Filter teams based on search
+  const filteredTeams = searchTerm.trim() 
+    ? teams.filter(team => team.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    : teams;
 
   const loadTeams = async () => {
     if (!selectedLeague) return;
@@ -28,14 +87,18 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
     try {
       console.log(`Loading teams for league: ${selectedLeague}`);
       
-      // Call the API function
       const response = await fetchTeamsForLeague(selectedLeague);
       
-      // Check if response is successful
       if (response && response.status === 'success') {
         if (Array.isArray(response.data)) {
           console.log(`Successfully loaded ${response.data.length} teams`);
           setTeams(response.data);
+          // Initialize image load states
+          const initialLoadStates = response.data.reduce((acc, team) => ({
+            ...acc,
+            [team.id]: 'loading'
+          }), {});
+          setImageLoadStates(initialLoadStates);
         } else {
           console.error("Invalid teams data format:", response.data);
           setTeams([]);
@@ -53,11 +116,21 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
     }
   };
 
-  const handleTeamToggle = (teamId) => {
+  const handleTeamToggle = useCallback((teamId) => {
     const updatedSelection = selectedTeams.includes(teamId)
       ? selectedTeams.filter(id => id !== teamId)
       : [...selectedTeams, teamId];
     onTeamsSelected(updatedSelection);
+  }, [selectedTeams, onTeamsSelected]);
+
+  const handleSelectAll = () => {
+    const allTeamIds = teams.map(team => team.id);
+    const allSelected = allTeamIds.every(id => selectedTeams.includes(id));
+    onTeamsSelected(allSelected ? [] : allTeamIds);
+  };
+
+  const handleClearSelection = () => {
+    onTeamsSelected([]);
   };
 
   if (loading) {
@@ -78,7 +151,6 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
     );
   }
 
-  // Check if teams is an array before rendering
   if (!Array.isArray(teams) || teams.length === 0) {
     return (
       <div className="text-gray-500 py-4">
@@ -88,31 +160,61 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-      {teams.map(team => (
-        <div
-          key={team.id}
-          className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors
-            ${selectedTeams.includes(team.id) 
-              ? 'border-blue-500 bg-blue-50' 
-              : 'border-gray-200 hover:border-blue-300'}`}
-          onClick={() => handleTeamToggle(team.id)}
-        >
+    <div className="space-y-4">
+      {/* Search and Controls */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex-1 max-w-md">
           <input
-            type="checkbox"
-            checked={selectedTeams.includes(team.id)}
-            onChange={() => handleTeamToggle(team.id)}
-            className="mr-3"
+            type="text"
+            placeholder="Search teams..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          <img
-            src={team.logo || '/placeholder-team-logo.svg'}
-            alt={`${team.name} logo`}
-            className="w-8 h-8 object-contain mr-2"
-            onError={(e) => { e.target.src = '/placeholder-team-logo.svg'; }}
-          />
-          <span className="font-medium text-gray-700">{team.name}</span>
         </div>
-      ))}
+        
+        <div className="flex gap-2">
+          <button
+            onClick={handleSelectAll}
+            className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+          >
+            {teams.every(team => selectedTeams.includes(team.id)) ? 'Deselect All' : 'Select All'}
+          </button>
+          {selectedTeams.length > 0 && (
+            <button
+              onClick={handleClearSelection}
+              className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+            >
+              Clear ({selectedTeams.length})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Teams Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        {filteredTeams.map((team, index) => (
+          <TeamCard
+            key={team.id}
+            team={team}
+            isSelected={selectedTeams.includes(team.id)}
+            onToggle={handleTeamToggle}
+            index={index}
+            imageLoadStates={imageLoadStates}
+            handleImageLoad={handleImageLoad}
+          />
+        ))}
+      </div>
+
+      {/* Selection Summary */}
+      {selectedTeams.length > 0 && (
+        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+          <p className="text-sm text-blue-700">
+            {selectedTeams.length} team{selectedTeams.length !== 1 ? 's' : ''} selected
+            {searchTerm && ` (filtered from ${teams.length} total teams)`}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
