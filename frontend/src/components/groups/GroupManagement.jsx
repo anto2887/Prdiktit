@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useGroups, useUser, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -27,15 +27,27 @@ const GroupManagement = () => {
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(null);
   const [localLoading, setLocalLoading] = useState(false);
 
+  const loadingRef = useRef(false);
+  const mountedRef = useRef(false);
+  const dataLoadedRef = useRef(false);
+
   useEffect(() => {
+    mountedRef.current = true;
+    
     const loadGroupData = async () => {
-      if (!profile) {
-        console.log('No profile loaded, cannot load group data');
+      if (loadingRef.current || dataLoadedRef.current) {
+        console.log('GroupManagement: Skipping load - already loading or loaded');
+        return;
+      }
+
+      if (!profile || !groupId) {
+        console.log('GroupManagement: Missing profile or groupId', { profile: !!profile, groupId });
         return;
       }
       
+      loadingRef.current = true;
+      
       try {
-        setLocalLoading(true);
         console.log('Loading group details for:', groupId);
         console.log('Current user profile:', profile);
         
@@ -91,76 +103,115 @@ const GroupManagement = () => {
           setMembers([]);
           setPendingRequests([]);
         }
+        dataLoadedRef.current = true;
       } catch (err) {
-        console.error('Error loading group data:', err);
-        showError('Failed to load group data: ' + err.message);
+        console.error('GroupManagement: Error loading group data:', err);
+        if (mountedRef.current) {
+          showError('Failed to load group data');
+        }
       } finally {
-        setLocalLoading(false);
+        if (mountedRef.current) {
+          setLocalLoading(false);
+        }
+        loadingRef.current = false;
       }
     };
-    
-    if (groupId && profile) {
+
+    if (!dataLoadedRef.current) {
       loadGroupData();
     }
-  }, [groupId, profile, fetchGroupDetails, fetchGroupMembers, showError, navigate]);
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [groupId, profile?.id]);
+
+  const reloadGroupData = async () => {
+    if (loadingRef.current) return;
+    
+    loadingRef.current = true;
+    setLocalLoading(true);
+    
+    try {
+      const membersData = await fetchGroupMembers(parseInt(groupId));
+      
+      if (mountedRef.current && Array.isArray(membersData)) {
+        const approvedMembers = membersData.filter(m => 
+          !m.status || m.status === 'APPROVED'
+        );
+        const pendingMembers = membersData.filter(m => 
+          m.status === 'PENDING'
+        );
+        
+        setMembers(approvedMembers);
+        setPendingRequests(pendingMembers);
+      }
+    } catch (err) {
+      console.error('Error reloading group data:', err);
+      showError('Failed to reload group data');
+    } finally {
+      if (mountedRef.current) {
+        setLocalLoading(false);
+      }
+      loadingRef.current = false;
+    }
+  };
 
   const handleMemberAction = async (userId, action) => {
-    if (!profile) {
-      showError('Profile not loaded');
+    if (!profile || localLoading) {
       return;
     }
     
     try {
       setLocalLoading(true);
-      console.log(`Performing action ${action} on user ${userId}`);
+      console.log(`GroupManagement: Performing action ${action} on user ${userId}`);
       
       const success = await manageMember(groupId, userId, action);
       if (success) {
         showSuccess(`Successfully ${action.toLowerCase()}ed member`);
-        // Reload the data after successful action
-        await loadGroupData();
+        await reloadGroupData();
       } else {
         showError(`Failed to ${action.toLowerCase()} member`);
       }
     } catch (err) {
-      console.error('Error managing member:', err);
-      showError(`Failed to ${action.toLowerCase()} member: ${err.message}`);
+      console.error('GroupManagement: Error managing member:', err);
+      showError(`Failed to ${action.toLowerCase()} member`);
     } finally {
-      setLocalLoading(false);
+      if (mountedRef.current) {
+        setLocalLoading(false);
+      }
     }
   };
 
   const handleRegenerateCode = async () => {
-    if (!profile) {
-      showError('Profile not loaded');
+    if (!profile || localLoading) {
       return;
     }
     
     try {
       setLocalLoading(true);
       const response = await regenerateInviteCode(groupId);
+      
       if (response && response.status === 'success') {
         showSuccess('Successfully regenerated invite code');
         setShowRegenerateConfirm(false);
         
-        // Update the current group's invite code
         if (response.data && response.data.new_code) {
           setCurrentGroup(prev => ({
             ...prev,
             invite_code: response.data.new_code
           }));
         }
-        
-        // Reload group data
-        await fetchGroupDetails(groupId);
       } else {
         throw new Error(response?.message || 'Failed to regenerate invite code');
       }
     } catch (err) {
-      console.error('Error regenerating code:', err);
-      showError(`Failed to regenerate invite code: ${err.message}`);
+      console.error('GroupManagement: Error regenerating code:', err);
+      showError('Failed to regenerate invite code');
     } finally {
-      setLocalLoading(false);
+      if (mountedRef.current) {
+        setLocalLoading(false);
+      }
     }
   };
 

@@ -25,7 +25,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# FIXED: Add CORS middleware with proper configuration
+# CRITICAL FIX: Enhanced CORS middleware with comprehensive configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -33,25 +33,58 @@ app.add_middleware(
         "http://127.0.0.1:3000", 
         "http://0.0.0.0:3000",
         "http://frontend:3000",
-        "http://172.18.0.5:3000"  # Docker network IP
+        "https://localhost:3000",  # HTTPS variants
+        "https://127.0.0.1:3000",
+        # Docker network variations
+        "http://172.18.0.5:3000",
+        "http://172.17.0.1:3000",
+        "http://172.16.0.1:3000",
+        # Add wildcard for development (remove in production)
+        "*"  # WARNING: Only for development
     ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH", "HEAD"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-CSRFToken",
+        "Origin",
+        "Referer",
+        "User-Agent",
+        "Cache-Control",
+        "Pragma",
+        "Expires",
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Headers",
+        "Access-Control-Allow-Methods",
+        "*"  # Allow all headers for development
+    ],
+    expose_headers=[
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining", 
+        "X-RateLimit-Reset",
+        "Content-Type",
+        "Authorization",
+        "*"  # Expose all headers for development
+    ]
 )
 
-# Add rate limiting middleware here, but with higher limit and more exclusions 
+# Add rate limiting middleware AFTER CORS
 app.add_middleware(
     RateLimitMiddleware,
-    requests_per_minute=300,  # Increased from default
+    requests_per_minute=600,  # Increased from 300
     exclude_paths=[
         "/docs", 
         "/redoc", 
         "/openapi.json", 
         "/static",
         "/api/health",
-        "/api/auth"  # Exclude auth endpoints from rate limiting
+        "/api/auth",  # Exclude auth endpoints
+        "/favicon.ico"
     ]
 )
 
@@ -96,6 +129,12 @@ async def health_check():
     Health check endpoint
     """
     return {"status": "healthy"}
+
+# Add OPTIONS handler for preflight requests
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    """Handle preflight OPTIONS requests"""
+    return {"message": "OK"}
 
 # For local development
 if __name__ == "__main__":

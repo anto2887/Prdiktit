@@ -14,7 +14,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self, 
         app, 
-        requests_per_minute: int = 300,  # Increased from 240 to 300
+        requests_per_minute: int = 600,  # Increased from 300 to 600
         exclude_paths: Optional[list] = None
     ):
         super().__init__(app)
@@ -27,13 +27,31 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Extract path for better logging
         path = request.url.path
         
+        # Expanded exclusions for development
+        development_exclusions = [
+            "/api/health",
+            "/docs", 
+            "/redoc", 
+            "/openapi.json", 
+            "/static",
+            "/api/auth",  # Auth endpoints
+            "/api/groups/teams",  # Team data (relatively static)
+            "/favicon.ico"
+        ]
+        
         # Skip rate limiting for excluded paths AND OPTIONS requests
-        if (any(path.startswith(excluded) for excluded in self.exclude_paths) or 
+        if (any(path.startswith(excluded) for excluded in self.exclude_paths + development_exclusions) or 
             request.method == "OPTIONS"):
             return await call_next(request)
         
         # Get client IP
         client_ip = request.client.host
+        
+        # Relaxed rate limiting for development
+        if request.headers.get("host", "").startswith("localhost") or client_ip == "127.0.0.1":
+            effective_limit = self.requests_per_minute * 2
+        else:
+            effective_limit = self.requests_per_minute
         
         # Check if rate limit is exceeded
         async with self.lock:
@@ -61,39 +79,43 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             self.request_records[client_ip] = (count, timestamp)
             
             # Check if rate limit is exceeded
-            if count > self.requests_per_minute:
+            if count > effective_limit:
                 # Calculate time until reset
                 reset_time = 60 - (current_time - timestamp)
                 
                 # Log rate limit hit for debugging
-                logger.warning(f"Rate limit exceeded for {client_ip} on {path}. Count: {count}/{self.requests_per_minute}")
+                logger.warning(f"Rate limit exceeded for {client_ip} on {path}. Count: {count}/{effective_limit}")
                 
-                # Return 429 Too Many Requests
+                # Return 429 Too Many Requests with CORS headers
                 return Response(
                     content=json.dumps({
-                        "detail": "Rate limit exceeded. Try again later.",
+                        "detail": "Rate limit exceeded. Please slow down your requests.",
                         "path": path,
                         "count": count,
-                        "limit": self.requests_per_minute,
+                        "limit": effective_limit,
                         "reset_in": int(reset_time)
                     }),
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     headers={
                         "Retry-After": str(int(reset_time)), 
                         "Content-Type": "application/json",
-                        "X-RateLimit-Limit": str(self.requests_per_minute),
-                        "X-RateLimit-Remaining": "0",
-                        "X-RateLimit-Reset": str(int(timestamp + 60))
+                        "X-RateLimit-Limit": str(effective_limit),
+                        "X-RateLimit-Remaining": str(max(0, effective_limit - count)),
+                        "X-RateLimit-Reset": str(int(timestamp + 60)),
+                        # Critical: Add CORS headers to error responses
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                        "Access-Control-Allow-Headers": "*"
                     }
                 )
         
         # Process the request
         response = await call_next(request)
         
-        # Add rate limit headers to response
-        remaining = self.requests_per_minute - count
-        response.headers["X-RateLimit-Limit"] = str(self.requests_per_minute)
-        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        # Add rate limit headers to response using effective_limit
+        remaining = effective_limit - count
+        response.headers["X-RateLimit-Limit"] = str(effective_limit)
+        response.headers["X-RateLimit-Remaining"] = str(max(0, remaining))
         response.headers["X-RateLimit-Reset"] = str(int(timestamp + 60))
         
         return response
