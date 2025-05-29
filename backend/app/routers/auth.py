@@ -16,7 +16,7 @@ from ..core.security import (
 )
 from ..db.session import get_db
 from ..db.repositories import get_user_by_username, create_user
-from ..schemas.token import LoginRequest, LoginResponse, Token, RegistrationResponse
+from ..schemas.token import LoginRequest, LoginResponse, Token, RegistrationResponse, UserData, LoginResponseData
 from ..schemas.user import UserCreate, User, UserInDB
 
 router = APIRouter()
@@ -29,39 +29,59 @@ async def login_access_token(
     """
     OAuth2 compatible token login, get an access token for future requests
     """
-    user = await get_user_by_username(db, username=form_data.username)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+    try:
+        user = await get_user_by_username(db, username=form_data.username)
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        if not verify_password(form_data.password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+            
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            subject=user.username, expires_delta=access_token_expires
         )
         
-    if not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+        # Create the response data structure using Pydantic models
+        user_data = UserData(
+            id=user.id,
+            username=user.username,
+            email=user.email
         )
         
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        subject=user.username, expires_delta=access_token_expires
-    )
-    
-    return {
-        "status": "success",
-        "data": {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "user": {
-                "id": user.id,
-                "username": user.username,
-                "email": user.email
-            }
-        }
-    }
+        response_data = LoginResponseData(
+            access_token=access_token,
+            token_type="bearer",
+            user=user_data
+        )
+        
+        return LoginResponse(
+            status="success",
+            data=response_data
+        )
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Log the actual error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Login error: {str(e)}")
+        
+        # Return a generic error to the client
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error during login"
+        )
 
 
 @router.post("/login/token", response_model=Token)

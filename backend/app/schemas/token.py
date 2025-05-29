@@ -20,7 +20,7 @@ class LoginRequest(BaseModel):
 class UserData(BaseModel):
     id: int
     username: str
-    email: str
+    email: Optional[str] = None
 
 class LoginResponseData(BaseModel):
     access_token: str
