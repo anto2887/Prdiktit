@@ -54,7 +54,12 @@ async def login_access_token(
         "status": "success",
         "data": {
             "access_token": access_token,
-            "token_type": "bearer"
+            "token_type": "bearer",
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email
+            }
         }
     }
 

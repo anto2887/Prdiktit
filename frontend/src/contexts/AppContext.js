@@ -460,7 +460,15 @@ export const AppProvider = ({ children }) => {
       
       if (response && response.status === 'success' && response.data?.authenticated) {
         console.log("Token valid, setting authenticated");
-        dispatch({ type: ActionTypes.SET_AUTH_USER, payload: response.data.user });
+        // Extract user data from response
+        const userData = response.data.user;
+        if (userData) {
+          dispatch({ type: ActionTypes.SET_AUTH_USER, payload: userData });
+        } else {
+          // If no user data, set minimal authenticated state
+          console.log("No user data in auth check, will fetch profile after login");
+          dispatch({ type: ActionTypes.SET_AUTH_USER, payload: { authenticated: true }});
+        }
       } else {
         console.log("Token invalid, clearing");
         dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
@@ -468,9 +476,12 @@ export const AppProvider = ({ children }) => {
       }
     } catch (err) {
       console.error('Auth check failed:', err);
-      dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message || 'Authentication check failed' });
-      if (err.code === 401) {
+      // Handle 401 errors differently
+      if (err.status === 401 || err.message?.includes('401')) {
         localStorage.removeItem('accessToken');
+        dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
+      } else {
+        dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message || 'Authentication check failed' });
       }
     }
   }, []);
@@ -480,15 +491,27 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: null });
       
+      console.log('Login: Attempting to log in user:', username);
       const response = await authApi.login(username, password);
+      console.log('Login: API response:', response);
       
       if (response.status === 'success') {
-        dispatch({ type: ActionTypes.SET_AUTH_USER, payload: response.data.user });
-        return response;
+        // Extract user data from response
+        const userData = response.data?.user;
+        console.log('Login: Setting user data:', userData);
+        
+        if (userData) {
+          dispatch({ type: ActionTypes.SET_AUTH_USER, payload: userData });
+          console.log('Login: User authenticated successfully');
+          return response;
+        } else {
+          throw new Error('User data not found in response');
+        }
       }
       
       throw new Error(response.message || 'Login failed');
     } catch (err) {
+      console.error('Login: Error occurred:', err);
       dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message || 'Login failed' });
       throw err;
     }

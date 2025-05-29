@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, useNotifications } from '../../contexts';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -10,30 +10,44 @@ export const Login = () => {
   });
   const [loading, setLoading] = useState(false);
   
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const { showSuccess, showError } = useNotifications();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/dashboard';
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('Login: User is authenticated, redirecting to:', from);
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, from]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
+      console.log('Login: Submitting form for user:', formData.username);
       const response = await login(formData.username, formData.password);
+      console.log('Login: Response received:', response);
+      
       if (response.status === 'success') {
         showSuccess('Successfully logged in');
-        navigate(from, { replace: true });
+        console.log('Login: Success, authentication state should update soon');
       }
     } catch (error) {
+      console.error('Login: Error during login:', error);
       showError(error.message || 'Login failed');
-      console.error('Login failed:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  if (isAuthenticated) {
+    return <LoadingSpinner />;
+  }
 
   if (loading) {
     return <LoadingSpinner />;

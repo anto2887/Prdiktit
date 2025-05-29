@@ -17,16 +17,23 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+class UserData(BaseModel):
+    id: int
+    username: str
+    email: str
+
+class LoginResponseData(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserData
+
 class LoginResponse(BaseModel):
-    status: str = "success"
-    data: Token
-    
-    class Config:
-        orm_mode = True
+    status: str
+    data: LoginResponseData
 
 class RegistrationResponse(BaseModel):
-    status: str = "success"
-    message: str = "Registration successful"
+    status: str
+    message: str
     
     class Config:
         orm_mode = True
