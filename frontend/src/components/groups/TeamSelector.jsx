@@ -6,7 +6,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 // Optimized team card component
 const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadStates, handleImageLoad }) => (
   <div
-    className={`flex items-center p-3 border rounded-lg cursor-pointer transition-colors
+    className={`relative flex items-center p-3 border rounded-lg cursor-pointer transition-colors group
       ${isSelected 
         ? 'border-blue-500 bg-blue-50' 
         : 'border-gray-200 hover:border-blue-300'}`}
@@ -14,6 +14,7 @@ const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadState
     style={{ 
       animationDelay: `${index * 50}ms` 
     }}
+    title={team.name}
   >
     <input
       type="checkbox"
@@ -43,6 +44,12 @@ const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadState
       />
     </div>
     <span className="font-medium text-gray-700 text-sm truncate">{team.name}</span>
+    
+    {/* Custom Tooltip */}
+    <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10 pointer-events-none">
+      {team.name}
+      <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+    </div>
   </div>
 ));
 
