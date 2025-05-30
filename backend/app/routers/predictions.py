@@ -17,20 +17,17 @@ from ..db.repositories import (
     get_prediction_by_id,
     get_user_predictions as get_user_predictions_db
 )
-from ..schemas.prediction import (
-    Prediction, PredictionCreate, PredictionWithMatch, 
-    PredictionResponse, PredictionListResponse,
-    BatchPredictionCreate, BatchPredictionResponse,
-    PredictionStatus, MatchStatus, PredictionList, UserPredictionListResponse
+from ..schemas import (
+    Prediction, PredictionCreate, PredictionStatus, 
+    MatchStatus, ListResponse, DataResponse, User
 )
-from ..schemas.user import UserInDB
 
 router = APIRouter()
 
-@router.post("", response_model=PredictionResponse)
+@router.post("", response_model=DataResponse)
 async def submit_prediction(
     prediction_data: PredictionCreate,
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -93,11 +90,10 @@ async def submit_prediction(
         # Clear cache
         await cache.delete(f"user_predictions:{current_user.id}")
         
-        return {
-            "status": "success",
-            "data": updated_prediction,
-            "message": "Prediction updated successfully"
-        }
+        return DataResponse(
+            data=updated_prediction,
+            message="Prediction updated successfully"
+        )
     
     # Create new prediction
     week = int(fixture.round.split(' ')[-1]) if 'round' in fixture.round.lower() else 0
@@ -115,19 +111,18 @@ async def submit_prediction(
     # Clear cache
     await cache.delete(f"user_predictions:{current_user.id}")
     
-    return {
-        "status": "success",
-        "data": new_prediction,
-        "message": "Prediction created successfully"
-    }
+    return DataResponse(
+        data=new_prediction,
+        message="Prediction created successfully"
+    )
 
-@router.get("/user", response_model=PredictionList)
+@router.get("/user", response_model=ListResponse)
 async def get_user_predictions_endpoint(
     fixture_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
     week: Optional[int] = Query(None),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -140,11 +135,10 @@ async def get_user_predictions_endpoint(
         if not fixture_id and not status and not season and not week:
             cached_predictions = await cache.get(cache_key)
             if cached_predictions:
-                return {
-                    "status": "success",
-                    "matches": cached_predictions,
-                    "total": len(cached_predictions)
-                }
+                return ListResponse(
+                    data=cached_predictions,
+                    total=len(cached_predictions)
+                )
         
         # Convert status string to enum if provided
         status_enum = None
@@ -168,29 +162,25 @@ async def get_user_predictions_endpoint(
         if not fixture_id and not status and not season and not week:
             await cache.set(cache_key, predictions, 300)  # Cache for 5 minutes
         
-        # Return the correct format
-        return {
-            "status": "success",
-            "matches": predictions,
-            "total": len(predictions)
-        }
+        return ListResponse(
+            data=predictions,
+            total=len(predictions)
+        )
     except Exception as e:
         # Log the error for debugging
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Error in get_user_predictions: {str(e)}")
         
-        # Return an empty result rather than error
-        return {
-            "status": "success",
-            "matches": [],
-            "total": 0
-        }
+        return ListResponse(
+            data=[],
+            total=0
+        )
 
-@router.post("/batch", response_model=BatchPredictionResponse)
+@router.post("/batch", response_model=DataResponse)
 async def create_batch_predictions(
-    predictions_data: BatchPredictionCreate,
-    current_user: UserInDB = Depends(get_current_active_user),
+    predictions_data: Dict[str, Dict[str, int]],
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -199,7 +189,7 @@ async def create_batch_predictions(
     """
     results = []
     
-    for fixture_id, scores in predictions_data.predictions.items():
+    for fixture_id, scores in predictions_data.items():
         try:
             # Get the fixture
             fixture = await get_fixture_by_id(db, int(fixture_id))
@@ -255,16 +245,15 @@ async def create_batch_predictions(
     # Clear cache
     await cache.delete(f"user_predictions:{current_user.id}")
     
-    return {
-        "status": "success",
-        "message": "Predictions saved successfully",
-        "data": results
-    }
+    return DataResponse(
+        data=results,
+        message="Predictions saved successfully"
+    )
 
-@router.get("/{prediction_id}", response_model=PredictionResponse)
+@router.get("/{prediction_id}", response_model=DataResponse)
 async def get_prediction(
     prediction_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -285,16 +274,15 @@ async def get_prediction(
             detail="Access denied"
         )
     
-    return {
-        "status": "success",
-        "data": prediction,
-        "message": "Prediction retrieved successfully"
-    }
+    return DataResponse(
+        data=prediction,
+        message="Prediction retrieved successfully"
+    )
 
-@router.post("/reset/{prediction_id}", response_model=dict)
+@router.post("/reset/{prediction_id}", response_model=DataResponse)
 async def reset_prediction_endpoint(
     prediction_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -334,7 +322,6 @@ async def reset_prediction_endpoint(
     # Clear cache
     await cache.delete(f"user_predictions:{current_user.id}")
     
-    return {
-        "status": "success",
-        "message": "Prediction reset successfully"
-    }
+    return DataResponse(
+        message="Prediction reset successfully"
+    )

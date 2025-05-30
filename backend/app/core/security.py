@@ -6,14 +6,13 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from .config import settings
-from ..schemas.token import TokenPayload
-from ..schemas.user import UserInDB
 from ..db.repositories.users import get_user_by_username
 from ..db.session import get_db
+from ..schemas import Token, User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
@@ -23,6 +22,11 @@ oauth2_scheme_optional = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login", 
     auto_error=False
 )
+
+# Define TokenPayload model locally since it's only used here
+class TokenPayload(BaseModel):
+    exp: int
+    sub: str
 
 def create_access_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
     """
@@ -52,7 +56,7 @@ def get_password_hash(password: str) -> str:
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
-):
+) -> User:
     """
     Get current user from JWT token
     """
@@ -81,7 +85,7 @@ async def get_current_user(
         
     return user
 
-async def get_current_active_user(current_user: UserInDB = Depends(get_current_user)) -> UserInDB:
+async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
     Get current active user
     """
@@ -93,7 +97,7 @@ async def get_current_active_user(current_user: UserInDB = Depends(get_current_u
 async def get_current_active_user_optional(
     token: Optional[str] = Depends(oauth2_scheme_optional),
     db: Session = Depends(get_db)
-):
+) -> Optional[User]:
     """
     Get current user from JWT token, return None if not authenticated
     """

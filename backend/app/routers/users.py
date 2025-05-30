@@ -13,14 +13,21 @@ from ..db.repositories import (
     get_user_predictions
 )
 from ..services.cache_service import get_cache, RedisCache
-from ..schemas.user import User, UserUpdate, UserInDB, UserProfileResponse, UserStats
-from ..schemas.prediction import PredictionList, PredictionStatus
+from ..schemas import (
+    User, 
+    UserCreate, 
+    UserStats, 
+    BaseResponse, 
+    DataResponse, 
+    ListResponse,
+    PredictionStatus
+)
 
 router = APIRouter()
 
-@router.get("/profile", response_model=UserProfileResponse)
+@router.get("/profile", response_model=DataResponse)
 async def get_profile(
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -46,21 +53,22 @@ async def get_profile(
                 "average_points": 0.0
             }
         
-        # FIXED: Return the correct structure that matches UserProfileResponse schema
-        return UserProfileResponse(
-            user={
-                "id": current_user.id,
-                "username": current_user.username,
-                "email": current_user.email,
-                "is_active": current_user.is_active,
-                "created_at": current_user.created_at
-            },
-            stats=UserStats(
-                total_points=stats["total_points"],
-                total_predictions=stats["total_predictions"],
-                perfect_predictions=stats["perfect_predictions"],
-                average_points=stats["average_points"]
-            )
+        return DataResponse(
+            data={
+                "user": {
+                    "id": current_user.id,
+                    "username": current_user.username,
+                    "email": current_user.email,
+                    "is_active": current_user.is_active,
+                    "created_at": current_user.created_at
+                },
+                "stats": UserStats(
+                    total_points=stats["total_points"],
+                    total_predictions=stats["total_predictions"],
+                    perfect_predictions=stats["perfect_predictions"],
+                    average_points=stats["average_points"]
+                )
+            }
         )
     except Exception as e:
         import logging
@@ -72,10 +80,10 @@ async def get_profile(
             detail=f"Failed to fetch profile: {str(e)}"
         )
 
-@router.put("/profile", response_model=dict)
+@router.put("/profile", response_model=BaseResponse)
 async def update_profile(
-    profile_update: UserUpdate,
-    current_user: UserInDB = Depends(get_current_active_user),
+    profile_update: UserCreate,
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -99,15 +107,15 @@ async def update_profile(
     # Clear user cache
     await cache.delete(f"user_stats:{current_user.id}")
     
-    return {
-        "status": "success",
-        "message": "Profile updated successfully"
-    }
+    return BaseResponse(
+        status="success",
+        message="Profile updated successfully"
+    )
 
-@router.get("/stats", response_model=dict)
+@router.get("/stats", response_model=DataResponse)
 async def get_user_statistics(
     user_id: int = Query(None),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -141,15 +149,14 @@ async def get_user_statistics(
             detail="User not found"
         )
     
-    return {
-        "status": "success",
-        "data": {
+    return DataResponse(
+        data={
             "username": target_user.username,
             "stats": stats
         }
-    }
+    )
 
-@router.get("/predictions", response_model=PredictionList)
+@router.get("/predictions", response_model=ListResponse)
 async def get_prediction_history(
     user_id: int = Query(None),
     season: str = Query(None),
@@ -157,7 +164,7 @@ async def get_prediction_history(
     status: PredictionStatus = Query(None),
     fixture_id: int = Query(None),
     group_id: int = Query(None),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -179,8 +186,7 @@ async def get_prediction_history(
         week=week
     )
     
-    return {
-        "status": "success",
-        "matches": predictions,
-        "total": len(predictions)
-    }
+    return ListResponse(
+        data=predictions,
+        total=len(predictions)
+    )

@@ -7,13 +7,6 @@ from sqlalchemy.orm import Session
 from ..core.security import get_current_active_user
 from ..db.session import get_db
 from ..services.cache_service import get_cache, RedisCache
-from ..schemas.groups import (
-    Group, GroupCreate, GroupDetail, GroupList, GroupUpdate,
-    GroupMember, GroupMemberList, JoinGroupRequest, JoinGroupResponse,
-    MemberActionRequest, MemberActionResponse, TeamInfo, TeamList,
-    GroupAnalytics, AuditLogList, MemberRole, MemberAction
-)
-from ..schemas.user import UserInDB
 from ..db.repositories.groups import (
     group_members, 
     get_group_by_id, 
@@ -24,12 +17,27 @@ from ..db.repositories.groups import (
     regenerate_invite_code
 )
 from ..db.repositories.groups import PendingMembership, MembershipStatus, GroupAuditLog
+from ..schemas import (
+    Group, GroupCreate, GroupBase, GroupMember, 
+    GroupPrivacyType, MemberRole, LoginRequest,
+    ListResponse, DataResponse, User, MemberAction
+)
+from pydantic import BaseModel
+
+# Define TeamInfo model since it's only used here
+class TeamInfo(BaseModel):
+    id: int
+    name: str
+    logo: Optional[str] = None
+
+    class Config:
+        orm_mode = True
 
 router = APIRouter()
 
-@router.get("", response_model=GroupList)
+@router.get("", response_model=ListResponse)
 async def get_user_groups(
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -94,10 +102,9 @@ async def get_user_groups(
             # Cache for 10 minutes
             await cache.set(cache_key, groups, 600)
         
-        return {
-            "status": "success",
-            "data": groups
-        }
+        return ListResponse(
+            data=groups
+        )
     except Exception as e:
         # Log the error
         import logging
@@ -105,15 +112,14 @@ async def get_user_groups(
         logger.error(f"Error getting user groups: {str(e)}")
         
         # Return empty list instead of error
-        return {
-            "status": "success",
-            "data": []
-        }
+        return ListResponse(
+            data=[]
+        )
 
-@router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=DataResponse)
 async def create_group(
     group_data: GroupCreate,
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -135,15 +141,14 @@ async def create_group(
         await cache.delete(f"user_groups:{current_user.id}")
         
         # Return success with group details
-        return {
-            "status": "success",
-            "message": "Group created successfully",
-            "data": {
+        return DataResponse(
+            message="Group created successfully",
+            data={
                 "group_id": new_group.id,
                 "invite_code": new_group.invite_code,
                 "name": new_group.name
             }
-        }
+        )
     except Exception as e:
         # Log the error
         import logging
@@ -156,10 +161,10 @@ async def create_group(
             detail=f"Failed to create group: {str(e)}"
         )
 
-@router.post("/join", response_model=JoinGroupResponse)
+@router.post("/join", response_model=DataResponse)
 async def join_group(
-    join_data: JoinGroupRequest,
-    current_user: UserInDB = Depends(get_current_active_user),
+    join_data: LoginRequest,  # Using LoginRequest for invite_code field
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -182,10 +187,9 @@ async def join_group(
     is_member = await check_group_membership(db, group.id, current_user.id)
     
     if is_member:
-        return {
-            "status": "success",
-            "message": "You are already a member of this group"
-        }
+        return DataResponse(
+            message="You are already a member of this group"
+        )
     
     # Check if there's already a pending request
     existing_request = db.query(PendingMembership).filter(
@@ -195,10 +199,9 @@ async def join_group(
     ).first()
     
     if existing_request:
-        return {
-            "status": "success",
-            "message": "You already have a pending request for this group"
-        }
+        return DataResponse(
+            message="You already have a pending request for this group"
+        )
     
     # Create pending membership request
     pending_membership = PendingMembership(
@@ -227,15 +230,14 @@ async def join_group(
     await cache.delete(f"user_groups:{current_user.id}")
     await cache.delete(f"group_members:{group.id}")
     
-    return {
-        "status": "success",
-        "message": "Membership request sent. Waiting for admin approval."
-    }
+    return DataResponse(
+        message="Membership request sent. Waiting for admin approval."
+    )
 
-@router.get("/teams", response_model=TeamList)
+@router.get("/teams", response_model=ListResponse)
 async def get_teams(
     league: str = Query(..., description="League name or ID"),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -299,15 +301,19 @@ async def get_teams(
         team_info_objects = [TeamInfo(id=t["id"], name=t["name"], logo=t["logo"]) for t in teams]
         
         # Return in the expected format
-        return {"status": "success", "data": team_info_objects}
+        return ListResponse(
+            data=team_info_objects
+        )
     except Exception as e:
         logger.error(f"Error in get_teams: {str(e)}")
-        return {"status": "success", "data": []}  # Return empty list on error
+        return ListResponse(
+            data=[]
+        )  # Return empty list on error
 
-@router.get("/{group_id}", response_model=dict)
+@router.get("/{group_id}", response_model=DataResponse)
 async def get_group_details(
     group_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -364,16 +370,15 @@ async def get_group_details(
         # Cache for 10 minutes
         await cache.set(cache_key, group, 600)
     
-    return {
-        "status": "success",
-        "data": group
-    }
+    return DataResponse(
+        data=group
+    )
 
-@router.put("/{group_id}", response_model=dict)
+@router.put("/{group_id}", response_model=DataResponse)
 async def update_group(
-    group_data: GroupUpdate,
+    group_data: GroupBase,  # Using GroupBase instead of GroupUpdate
     group_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -403,15 +408,14 @@ async def update_group(
     await cache.delete(f"group:{group_id}")
     await cache.delete(f"user_groups:{current_user.id}")
     
-    return {
-        "status": "success",
-        "message": "Group updated successfully"
-    }
+    return DataResponse(
+        message="Group updated successfully"
+    )
 
-@router.get("/{group_id}/members", response_model=dict)
+@router.get("/{group_id}/members", response_model=ListResponse)
 async def get_group_members_endpoint(
     group_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -473,16 +477,16 @@ async def get_group_members_endpoint(
             
         processed_members.append(processed_member)
     
-    return {
-        "status": "success",
-        "data": processed_members
-    }
+    return ListResponse(
+        data=processed_members
+    )
 
-@router.post("/{group_id}/members", response_model=MemberActionResponse)
+@router.post("/{group_id}/members", response_model=DataResponse)
 async def manage_group_members(
-    action_data: MemberActionRequest,
+    action: str = Query(..., description="Action to perform: approve, reject, promote, demote, remove"),
+    user_ids: List[int] = Query(..., description="List of user IDs to perform action on"),
     group_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -512,17 +516,17 @@ async def manage_group_members(
 
     # Only admins can perform certain actions
     admin_only_actions = [MemberAction.PROMOTE, MemberAction.DEMOTE]
-    if action_data.action in admin_only_actions and user_role != MemberRole.ADMIN:
+    if action in admin_only_actions and user_role != MemberRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Only admins can {action_data.action.lower()} members"
+            detail=f"Only admins can {action.lower()} members"
         )
     
     results = []
-    for user_id in action_data.user_ids:
+    for user_id in user_ids:
         try:
             # Skip if trying to perform action on self
-            if user_id == current_user.id and action_data.action == MemberAction.REMOVE:
+            if user_id == current_user.id and action == MemberAction.REMOVE:
                 results.append({
                     "user_id": user_id,
                     "status": "error",
@@ -531,7 +535,7 @@ async def manage_group_members(
                 continue
                 
             # Skip if trying to perform action on the admin
-            if group.admin_id == user_id and action_data.action in [MemberAction.REMOVE, MemberAction.DEMOTE]:
+            if group.admin_id == user_id and action in [MemberAction.REMOVE, MemberAction.DEMOTE]:
                 results.append({
                     "user_id": user_id,
                     "status": "error",
@@ -540,7 +544,7 @@ async def manage_group_members(
                 continue
                 
             # Perform the actual action based on the type
-            if action_data.action == MemberAction.APPROVE:
+            if action == MemberAction.APPROVE:
                 # Check if there's a pending membership request
                 pending_request = db.query(PendingMembership).filter(
                     PendingMembership.group_id == group_id,
@@ -588,7 +592,7 @@ async def manage_group_members(
                     "message": "Member approved successfully"
                 })
                 
-            elif action_data.action == MemberAction.REJECT:
+            elif action == MemberAction.REJECT:
                 # Check if there's a pending membership request
                 pending_request = db.query(PendingMembership).filter(
                     PendingMembership.group_id == group_id,
@@ -625,7 +629,7 @@ async def manage_group_members(
                     "message": "Membership request rejected"
                 })
                 
-            elif action_data.action == MemberAction.PROMOTE:
+            elif action == MemberAction.PROMOTE:
                 # Check if user is a member
                 member = db.query(group_members).filter(
                     group_members.c.group_id == group_id,
@@ -666,7 +670,7 @@ async def manage_group_members(
                     "message": "Member promoted to moderator"
                 })
                 
-            elif action_data.action == MemberAction.DEMOTE:
+            elif action == MemberAction.DEMOTE:
                 # Check if user is a moderator
                 member = db.query(group_members).filter(
                     group_members.c.group_id == group_id,
@@ -708,7 +712,7 @@ async def manage_group_members(
                     "message": "Moderator demoted to member"
                 })
                 
-            elif action_data.action == MemberAction.REMOVE:
+            elif action == MemberAction.REMOVE:
                 # Check if user is a member
                 member = db.query(group_members).filter(
                     group_members.c.group_id == group_id,
@@ -753,7 +757,7 @@ async def manage_group_members(
                 results.append({
                     "user_id": user_id,
                     "status": "error",
-                    "message": f"Unknown action: {action_data.action}"
+                    "message": f"Unknown action: {action}"
                 })
         
         except Exception as e:
@@ -775,16 +779,15 @@ async def manage_group_members(
     # Clear cache
     await cache.delete(f"group_members:{group_id}")
     
-    return {
-        "status": "success",
-        "message": f"{action_data.action} action completed",
-        "data": results
-    }
+    return DataResponse(
+        message=f"{action} action completed",
+        data=results
+    )
 
-@router.get("/{group_id}/analytics", response_model=dict)
+@router.get("/{group_id}/analytics", response_model=DataResponse)
 async def get_group_analytics(
     group_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -831,15 +834,14 @@ async def get_group_analytics(
         # Cache for 1 hour
         await cache.set(cache_key, analytics, 3600)
     
-    return {
-        "status": "success",
-        "data": analytics
-    }
+    return DataResponse(
+        data=analytics
+    )
 
-@router.get("/{group_id}/audit", response_model=AuditLogList)
+@router.get("/{group_id}/audit", response_model=ListResponse)
 async def get_group_audit_log(
     group_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
     """
@@ -861,15 +863,14 @@ async def get_group_audit_log(
     # For now, return a mock response
     logs = []
     
-    return {
-        "status": "success",
-        "data": logs
-    }
+    return ListResponse(
+        data=logs
+    )
 
-@router.post("/{group_id}/regenerate-code", response_model=dict)
+@router.post("/{group_id}/regenerate-code", response_model=DataResponse)
 async def regenerate_group_code(
     group_id: int = Path(...),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -912,10 +913,9 @@ async def regenerate_group_code(
     db.add(log_entry)
     db.commit()
     
-    return {
-        "status": "success",
-        "message": "Invite code regenerated successfully",
-        "data": {
+    return DataResponse(
+        message="Invite code regenerated successfully",
+        data={
             "new_code": new_code
         }
-    }
+    )

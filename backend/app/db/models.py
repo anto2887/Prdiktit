@@ -9,44 +9,11 @@ from datetime import datetime
 import enum
 import uuid
 
+from ..schemas import MatchStatus, PredictionStatus, GroupPrivacyType, MemberRole
+
 Base = declarative_base()
 
-# Enums
-class MatchStatus(enum.Enum):
-    NOT_STARTED = "NOT_STARTED"
-    FIRST_HALF = "FIRST_HALF"
-    HALFTIME = "HALFTIME"
-    SECOND_HALF = "SECOND_HALF"
-    EXTRA_TIME = "EXTRA_TIME"
-    PENALTY = "PENALTY"
-    FINISHED = "FINISHED"
-    FINISHED_AET = "FINISHED_AET"
-    FINISHED_PEN = "FINISHED_PEN"
-    BREAK_TIME = "BREAK_TIME"
-    SUSPENDED = "SUSPENDED"
-    INTERRUPTED = "INTERRUPTED"
-    POSTPONED = "POSTPONED"
-    CANCELLED = "CANCELLED"
-    ABANDONED = "ABANDONED"
-    TECHNICAL_LOSS = "TECHNICAL_LOSS"
-    WALKOVER = "WALKOVER"
-    LIVE = "LIVE"
-
-class PredictionStatus(enum.Enum):
-    EDITABLE = "EDITABLE"
-    SUBMITTED = "SUBMITTED"
-    LOCKED = "LOCKED"
-    PROCESSED = "PROCESSED"
-
-class GroupPrivacyType(enum.Enum):
-    PRIVATE = "PRIVATE"
-    SEMI_PRIVATE = "SEMI_PRIVATE"
-
-class MemberRole(enum.Enum):
-    ADMIN = "ADMIN"
-    MODERATOR = "MODERATOR"
-    MEMBER = "MEMBER"
-
+# Local enums that aren't in schemas
 class MembershipStatus(enum.Enum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"

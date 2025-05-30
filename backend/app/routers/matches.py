@@ -14,14 +14,13 @@ from ..db.repositories import (
     get_live_matches,
     get_prediction_deadlines
 )
-from ..schemas.prediction import Match, MatchDetail, MatchList, MatchStatus, MatchListResponse
-from ..schemas.user import UserInDB
+from ..schemas import Match, MatchStatus, ListResponse, DataResponse, User
 
 router = APIRouter()
 
-@router.get("/live", response_model=MatchListResponse)
+@router.get("/live", response_model=ListResponse)
 async def get_live_matches_endpoint(
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -39,13 +38,12 @@ async def get_live_matches_endpoint(
         # Cache for 1 minute
         await cache.set(cache_key, matches, 60)
     
-    return {
-        "status": "success",
-        "matches": matches,
-        "total": len(matches)
-    }
+    return ListResponse(
+        data=matches,
+        total=len(matches)
+    )
 
-@router.get("/fixtures", response_model=MatchListResponse)
+@router.get("/fixtures", response_model=ListResponse)
 async def get_fixtures_endpoint(
     league: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
@@ -53,7 +51,7 @@ async def get_fixtures_endpoint(
     from_date: Optional[str] = Query(None),
     to_date: Optional[str] = Query(None),
     team_id: Optional[int] = Query(None),
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -137,29 +135,27 @@ async def get_fixtures_endpoint(
                 detail=f"Failed to fetch fixtures: {str(e)}"
             )
     
-    return {
-        "status": "success",
-        "matches": fixtures,
-        "total": len(fixtures)
-    }
+    return ListResponse(
+        data=fixtures,
+        total=len(fixtures)
+    )
 
-@router.get("/statuses", response_model=dict)
+@router.get("/statuses", response_model=DataResponse)
 async def get_match_statuses(
-    current_user: UserInDB = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user)
 ):
     """
     Get all possible match statuses
     """
     statuses = [status.value for status in MatchStatus]
     
-    return {
-        "status": "success",
-        "matches": statuses
-    }
+    return DataResponse(
+        data=statuses
+    )
 
-@router.get("/upcoming", response_model=dict)
+@router.get("/upcoming", response_model=DataResponse)
 async def get_upcoming_matches(
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -204,15 +200,14 @@ async def get_upcoming_matches(
             "kickoff": m.date.isoformat()
         })
     
-    return {
-        "status": "success",
-        "matches": formatted_matches
-    }
+    return DataResponse(
+        data=formatted_matches
+    )
 
-@router.get("/{match_id}", response_model=dict)
+@router.get("/{match_id}", response_model=DataResponse)
 async def get_match(
     match_id: int,
-    current_user: UserInDB = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -245,11 +240,10 @@ async def get_match(
     # Get prediction deadlines
     deadlines = await get_prediction_deadlines()
     
-    # Convert match to MatchDetail
-    match_detail = MatchDetail.from_orm(match)
-    match_detail.prediction_deadline = deadlines.get(str(match.fixture_id))
+    # Add prediction deadline to match data
+    match_data = match.dict()
+    match_data["prediction_deadline"] = deadlines.get(str(match.fixture_id))
     
-    return {
-        "status": "success",
-        "matches": match_detail
-    }
+    return DataResponse(
+        data=match_data
+    )

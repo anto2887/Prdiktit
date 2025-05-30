@@ -16,8 +16,11 @@ from ..core.security import (
 )
 from ..db.session import get_db
 from ..db.repositories import get_user_by_username, create_user
-from ..schemas.token import LoginRequest, LoginResponse, Token, RegistrationResponse, UserData, LoginResponseData
-from ..schemas.user import UserCreate, User, UserInDB
+from ..schemas import (
+    LoginRequest, LoginResponse, Token, UserCreate, User, BaseResponse
+)
+from ..schemas.token import LoginResponseData, UserData
+from ..schemas.user import UserInDB
 
 router = APIRouter()
 
@@ -51,22 +54,17 @@ async def login_access_token(
             subject=user.username, expires_delta=access_token_expires
         )
         
-        # Create the response data structure using Pydantic models
-        user_data = UserData(
-            id=user.id,
-            username=user.username,
-            email=user.email
-        )
-        
-        response_data = LoginResponseData(
-            access_token=access_token,
-            token_type="bearer",
-            user=user_data
-        )
-        
         return LoginResponse(
             status="success",
-            data=response_data
+            data={
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user": {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email
+                }
+            }
         )
     except HTTPException:
         # Re-raise HTTP exceptions as-is
@@ -118,7 +116,7 @@ async def login_for_access_token(
     }
 
 
-@router.post("/register", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=BaseResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(
     new_user: UserCreate,
     db: Session = Depends(get_db)
@@ -150,7 +148,7 @@ async def register_user(
 
 @router.get("/status", response_model=dict)
 async def auth_status(
-    current_user: Optional[UserInDB] = Depends(get_current_active_user_optional)
+    current_user: Optional[User] = Depends(get_current_active_user_optional)
 ):
     """
     Get current user authentication status
@@ -194,7 +192,7 @@ async def auth_status(
 
 @router.post("/logout", response_model=dict)
 async def logout(
-    current_user: Optional[UserInDB] = Depends(get_current_active_user_optional)
+    current_user: Optional[User] = Depends(get_current_active_user_optional)
 ):
     """
     Logout user (client-side token invalidation)
