@@ -512,7 +512,7 @@ export const AppProvider = ({ children }) => {
       throw new Error(response.message || 'Login failed');
     } catch (err) {
       console.error('Login: Error occurred:', err);
-      dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message || 'Login failed' });
+      dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message });
       throw err;
     }
   }, []);

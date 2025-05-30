@@ -10,6 +10,10 @@ from ..models import (
     User, group_members, TeamTracker, PendingMembership, Team
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 async def get_user_groups(db: Session, user_id: int) -> List[Group]:
     """
     Get all groups a user is a member of
@@ -40,61 +44,65 @@ async def create_group(db: Session, admin_id: int, **group_data) -> Group:
     """
     Create a new group
     """
-    # Extract tracked_teams if present
-    tracked_teams = group_data.pop('tracked_teams', None)
-    
-    # Generate a random invite code if not provided
-    if 'invite_code' not in group_data:
-        group_data['invite_code'] = str(uuid.uuid4())[:8].upper()
-    
-    # Create the group
-    group = Group(
-        admin_id=admin_id,
-        created=datetime.now(timezone.utc),
-        **group_data
-    )
-    
-    db.add(group)
-    db.flush()  # Flush to get the group ID without committing transaction
-    
-    # Add admin as a member with ADMIN role
-    stmt = group_members.insert().values(
-        user_id=admin_id,
-        group_id=group.id,
-        role=MemberRole.ADMIN,
-        joined_at=datetime.now(timezone.utc),
-        last_active=datetime.now(timezone.utc)
-    )
-    db.execute(stmt)
-    
-    # Add tracked teams if provided
-    if tracked_teams and isinstance(tracked_teams, list):
-        for team_id in tracked_teams:
-            # Verify team exists
-            team = db.query(Team).filter(Team.id == team_id).first()
-            if team:
-                team_tracker = TeamTracker(
-                    group_id=group.id,
-                    team_id=team_id,
-                    added_at=datetime.now(timezone.utc)
-                )
-                db.add(team_tracker)
-    
-    # FIXED: Add audit log for group creation
-    log_entry = GroupAuditLog(
-        group_id=group.id,
-        user_id=admin_id,
-        action="Group created",
-        details={"group_name": group.name, "league": group.league},
-        created_at=datetime.now(timezone.utc)
-    )
-    db.add(log_entry)
-    
-    # Commit the transaction
-    db.commit()
-    db.refresh(group)
-    
-    return group
+    try:
+        # Extract tracked_teams if present
+        tracked_teams = group_data.pop('tracked_teams', None)
+        
+        # Generate a random invite code if not provided
+        if 'invite_code' not in group_data:
+            group_data['invite_code'] = str(uuid.uuid4())[:8].upper()
+        
+        # Create the group
+        group = Group(
+            admin_id=admin_id,
+            created=datetime.now(timezone.utc),
+            **group_data
+        )
+        
+        db.add(group)
+        db.flush()  # Flush to get the group ID without committing transaction
+        
+        # Add admin as a member with ADMIN role
+        stmt = group_members.insert().values(
+            user_id=admin_id,
+            group_id=group.id,
+            role=MemberRole.ADMIN,
+            joined_at=datetime.now(timezone.utc),
+            last_active=datetime.now(timezone.utc)
+        )
+        db.execute(stmt)
+        
+        # Add tracked teams if provided
+        if tracked_teams and isinstance(tracked_teams, list):
+            for team_id in tracked_teams:
+                # Verify team exists
+                team = db.query(Team).filter(Team.id == team_id).first()
+                if team:
+                    team_tracker = TeamTracker(
+                        group_id=group.id,
+                        team_id=team_id,
+                        added_at=datetime.now(timezone.utc)
+                    )
+                    db.add(team_tracker)
+        
+        # FIXED: Add audit log for group creation
+        log_entry = GroupAuditLog(
+            group_id=group.id,
+            user_id=admin_id,
+            action="Group created",
+            details={"group_name": group.name, "league": group.league},
+            created_at=datetime.now(timezone.utc)
+        )
+        db.add(log_entry)
+        
+        db.commit()
+        db.refresh(group)
+        return group
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating group: {e}")
+        raise
 
 async def update_group(db: Session, group_id: int, **group_data) -> Optional[Group]:
     """

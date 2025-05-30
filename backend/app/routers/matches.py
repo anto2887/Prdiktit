@@ -117,18 +117,25 @@ async def get_fixtures_endpoint(
     if cached_fixtures:
         fixtures = cached_fixtures
     else:
-        fixtures = await get_fixtures(
-            db,
-            league=league,
-            season=season,
-            status=status_enum,
-            from_date=from_datetime,
-            to_date=to_datetime,
-            team_id=team_id
-        )
-        
-        # Cache for 5 minutes
-        await cache.set(cache_key, fixtures, 300)
+        try:
+            fixtures = await get_fixtures(
+                db,
+                league=league,
+                season=season,
+                status=status_enum,
+                from_date=from_datetime,
+                to_date=to_datetime,
+                team_id=team_id
+            )
+            
+            # Cache for 5 minutes
+            await cache.set(cache_key, fixtures, 300)
+        except Exception as e:
+            logger.error(f"Error fetching fixtures: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to fetch fixtures: {str(e)}"
+            )
     
     return {
         "status": "success",

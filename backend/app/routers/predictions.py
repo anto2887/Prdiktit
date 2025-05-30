@@ -1,5 +1,5 @@
 # app/routers/predictions.py
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
@@ -51,6 +51,21 @@ async def submit_prediction(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot predict after match has started"
+        )
+    
+    # Validate deadline
+    match_deadline = fixture.date - timedelta(hours=1)
+    if datetime.now(timezone.utc) > match_deadline:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prediction deadline has passed"
+        )
+
+    # Validate scores
+    if not (0 <= prediction_data.home_score <= 20 and 0 <= prediction_data.away_score <= 20):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Scores must be between 0 and 20"
         )
     
     # Check if user already has a prediction for this fixture
