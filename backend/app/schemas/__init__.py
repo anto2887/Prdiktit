@@ -3,31 +3,44 @@ from typing import Dict, List, Optional, Any, Union
 from pydantic import BaseModel, Field, EmailStr
 from enum import Enum
 
-# Import enums from models to avoid circular imports
-try:
-    from ..db.models import MatchStatus, PredictionStatus, GroupPrivacyType, MemberRole
-except ImportError:
-    # Fallback definitions in case of import issues
-    from enum import Enum
-    
-    class MatchStatus(str, Enum):
-        NOT_STARTED = "NOT_STARTED"
-        LIVE = "LIVE" 
-        FINISHED = "FINISHED"
-        CANCELLED = "CANCELLED"
+# === ENUMS (Define here to avoid circular imports) ===
+# IMPORTANT: DO NOT import from models - define all enums here
 
-    class PredictionStatus(str, Enum):
-        PENDING = "PENDING"
-        CORRECT = "CORRECT"
-        INCORRECT = "INCORRECT"
+class MatchStatus(str, Enum):
+    NOT_STARTED = "NOT_STARTED"
+    FIRST_HALF = "FIRST_HALF"
+    HALFTIME = "HALFTIME"
+    SECOND_HALF = "SECOND_HALF"
+    EXTRA_TIME = "EXTRA_TIME"
+    PENALTY = "PENALTY"
+    FINISHED = "FINISHED"
+    FINISHED_AET = "FINISHED_AET"
+    FINISHED_PEN = "FINISHED_PEN"
+    BREAK_TIME = "BREAK_TIME"
+    SUSPENDED = "SUSPENDED"
+    INTERRUPTED = "INTERRUPTED"
+    POSTPONED = "POSTPONED"
+    CANCELLED = "CANCELLED"
+    ABANDONED = "ABANDONED"
+    TECHNICAL_LOSS = "TECHNICAL_LOSS"
+    WALKOVER = "WALKOVER"
+    LIVE = "LIVE"
 
-    class GroupPrivacyType(str, Enum):
-        PRIVATE = "PRIVATE"
-        SEMI_PRIVATE = "SEMI_PRIVATE"
+class PredictionStatus(str, Enum):
+    EDITABLE = "EDITABLE"
+    SUBMITTED = "SUBMITTED"
+    LOCKED = "LOCKED"
+    PROCESSED = "PROCESSED"
 
-    class MemberRole(str, Enum):
-        ADMIN = "ADMIN"
-        MEMBER = "MEMBER"
+class GroupPrivacyType(str, Enum):
+    PRIVATE = "PRIVATE"
+    SEMI_PRIVATE = "SEMI_PRIVATE"
+    PUBLIC = "PUBLIC"
+
+class MemberRole(str, Enum):
+    ADMIN = "ADMIN"
+    MODERATOR = "MODERATOR"
+    MEMBER = "MEMBER"
 
 # === ENUMS ===
 class MemberAction(str, Enum):
@@ -67,6 +80,7 @@ class UserStats(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+    invite_code: Optional[str] = None  # For join group endpoint
 
 class Token(BaseModel):
     access_token: str
@@ -79,17 +93,19 @@ class LoginResponse(BaseResponse):
 class MatchBase(BaseModel):
     home_team: str
     away_team: str
-    match_date: datetime
-    competition: str
+    date: datetime
+    league: str
     status: MatchStatus = MatchStatus.NOT_STARTED
     home_score: Optional[int] = None
     away_score: Optional[int] = None
 
 class Match(MatchBase):
-    id: int
+    fixture_id: int
+    season: str
+    round: str
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # === PREDICTION SCHEMAS ===
 class PredictionCreate(BaseModel):
@@ -104,11 +120,11 @@ class Prediction(BaseModel):
     home_score: int
     away_score: int
     points: Optional[int] = None
-    status: PredictionStatus = PredictionStatus.PENDING
-    created_at: datetime
+    prediction_status: PredictionStatus = PredictionStatus.EDITABLE
+    created: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # === GROUP SCHEMAS ===
 class GroupBase(BaseModel):
@@ -125,9 +141,10 @@ class Group(GroupBase):
     invite_code: str
     created_at: datetime
     member_count: Optional[int] = None
+    privacy_type: Optional[GroupPrivacyType] = GroupPrivacyType.PRIVATE
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class GroupMember(BaseModel):
     user_id: int
