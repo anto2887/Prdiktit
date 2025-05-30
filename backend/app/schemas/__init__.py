@@ -23,6 +23,13 @@ class MemberRole(str, Enum):
     ADMIN = "ADMIN"
     MEMBER = "MEMBER"
 
+class MemberAction(str, Enum):
+    APPROVE = "APPROVE"
+    REJECT = "REJECT"
+    PROMOTE = "PROMOTE"
+    DEMOTE = "DEMOTE"
+    REMOVE = "REMOVE"
+
 # === BASE MODELS ===
 class BaseResponse(BaseModel):
     status: str = "success"
@@ -131,3 +138,12 @@ class ListResponse(BaseResponse):
 
 class DataResponse(BaseResponse):
     data: Any
+
+# === TEAM INFO SCHEMAS ===
+class TeamInfo(BaseModel):
+    id: int
+    name: str
+    logo: Optional[str] = None
+
+    class Config:
+        orm_mode = True

@@ -19,8 +19,6 @@ from ..db.repositories import get_user_by_username, create_user
 from ..schemas import (
     LoginRequest, LoginResponse, Token, UserCreate, User, BaseResponse
 )
-from ..schemas.token import LoginResponseData, UserData
-from ..schemas.user import UserInDB
 
 router = APIRouter()
 

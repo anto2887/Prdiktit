@@ -20,18 +20,10 @@ from ..db.repositories.groups import PendingMembership, MembershipStatus, GroupA
 from ..schemas import (
     Group, GroupCreate, GroupBase, GroupMember, 
     GroupPrivacyType, MemberRole, LoginRequest,
-    ListResponse, DataResponse, User, MemberAction
+    ListResponse, DataResponse, User, MemberAction,
+    TeamInfo
 )
 from pydantic import BaseModel
-
-# Define TeamInfo model since it's only used here
-class TeamInfo(BaseModel):
-    id: int
-    name: str
-    logo: Optional[str] = None
-
-    class Config:
-        orm_mode = True
 
 router = APIRouter()
 
