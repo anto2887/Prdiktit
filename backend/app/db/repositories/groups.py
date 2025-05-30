@@ -227,7 +227,7 @@ async def check_group_membership(db: Session, group_id: int, user_id: int) -> bo
     
     return result is not None
 
-async def get_user_role_in_group(db: Session, group_id: int, user_id: int) -> Optional[MemberRole.Value]:
+async def get_user_role_in_group(db: Session, group_id: int, user_id: int) -> Optional[MemberRole]:
     """
     Get a user's role in a group
     """
