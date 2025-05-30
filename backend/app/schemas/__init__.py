@@ -4,7 +4,30 @@ from pydantic import BaseModel, Field, EmailStr
 from enum import Enum
 
 # Import enums from models to avoid circular imports
-from ..db.models import MatchStatus, PredictionStatus, GroupPrivacyType, MemberRole
+try:
+    from ..db.models import MatchStatus, PredictionStatus, GroupPrivacyType, MemberRole
+except ImportError:
+    # Fallback definitions in case of import issues
+    from enum import Enum
+    
+    class MatchStatus(str, Enum):
+        NOT_STARTED = "NOT_STARTED"
+        LIVE = "LIVE" 
+        FINISHED = "FINISHED"
+        CANCELLED = "CANCELLED"
+
+    class PredictionStatus(str, Enum):
+        PENDING = "PENDING"
+        CORRECT = "CORRECT"
+        INCORRECT = "INCORRECT"
+
+    class GroupPrivacyType(str, Enum):
+        PRIVATE = "PRIVATE"
+        SEMI_PRIVATE = "SEMI_PRIVATE"
+
+    class MemberRole(str, Enum):
+        ADMIN = "ADMIN"
+        MEMBER = "MEMBER"
 
 # === ENUMS ===
 class MemberAction(str, Enum):
@@ -123,7 +146,7 @@ class ListResponse(BaseResponse):
 class DataResponse(BaseResponse):
     data: Any
 
-# === TEAM INFO SCHEMAS ===
+# === TEAM SCHEMAS ===
 class TeamInfo(BaseModel):
     id: int
     name: str

@@ -3,18 +3,11 @@ from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
-from ..models import GroupAuditLog, MembershipStatus, PendingMembership
 
 from ..models import (
     Group, GroupPrivacyType, MemberRole, MembershipStatus,
-    User, group_members, TeamTracker, PendingMembership, Team
-)
-
-from app.db.models import MemberAction
-
-from app.schemas import (
-    Group, GroupCreate, GroupBase, GroupMember,
-    ListResponse, DataResponse, User, TeamInfo
+    User, group_members, TeamTracker, PendingMembership, Team,
+    GroupAuditLog, MemberAction
 )
 
 import logging

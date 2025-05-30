@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from ..core.security import get_current_active_user
 from ..db.session import get_db
@@ -16,14 +17,17 @@ from ..db.repositories.groups import (
     get_group_members,
     regenerate_invite_code
 )
-from ..db.repositories.groups import PendingMembership, MembershipStatus, GroupAuditLog
+from ..db.models import (
+    PendingMembership,
+    MembershipStatus,
+    GroupAuditLog
+)
 from ..schemas import (
     Group, GroupCreate, GroupBase, GroupMember, 
     GroupPrivacyType, MemberRole, LoginRequest,
-    ListResponse, DataResponse, User, MemberAction,
-    TeamInfo
+    ListResponse, DataResponse, User, TeamInfo,
+    MemberAction
 )
-from pydantic import BaseModel
 
 router = APIRouter()
 
