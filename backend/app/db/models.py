@@ -9,7 +9,10 @@ from datetime import datetime
 import enum
 import uuid
 
-from ..schemas import MatchStatus, PredictionStatus, GroupPrivacyType, MemberRole
+from ..schemas import (
+    MatchStatus, PredictionStatus, GroupPrivacyType, 
+    MemberRole, MemberAction
+)
 
 Base = declarative_base()
 
@@ -18,13 +21,6 @@ class MembershipStatus(enum.Enum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
-
-class MemberAction(str, enum.Enum):
-    APPROVE = "APPROVE"
-    REJECT = "REJECT"
-    PROMOTE = "PROMOTE"
-    DEMOTE = "DEMOTE"
-    REMOVE = "REMOVE"
 
 # Association tables
 group_members = Table(

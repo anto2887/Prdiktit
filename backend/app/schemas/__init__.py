@@ -3,26 +3,10 @@ from typing import Dict, List, Optional, Any, Union
 from pydantic import BaseModel, Field, EmailStr
 from enum import Enum
 
+# Import enums from models to avoid circular imports
+from ..db.models import MatchStatus, PredictionStatus, GroupPrivacyType, MemberRole
+
 # === ENUMS ===
-class MatchStatus(str, Enum):
-    NOT_STARTED = "NOT_STARTED"
-    LIVE = "LIVE"
-    FINISHED = "FINISHED"
-    CANCELLED = "CANCELLED"
-
-class PredictionStatus(str, Enum):
-    PENDING = "PENDING"
-    CORRECT = "CORRECT"
-    INCORRECT = "INCORRECT"
-
-class GroupPrivacyType(str, Enum):
-    PRIVATE = "PRIVATE"
-    SEMI_PRIVATE = "SEMI_PRIVATE"
-
-class MemberRole(str, Enum):
-    ADMIN = "ADMIN"
-    MEMBER = "MEMBER"
-
 class MemberAction(str, Enum):
     APPROVE = "APPROVE"
     REJECT = "REJECT"

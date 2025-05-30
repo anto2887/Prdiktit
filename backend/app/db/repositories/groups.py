@@ -10,6 +10,13 @@ from ..models import (
     User, group_members, TeamTracker, PendingMembership, Team
 )
 
+from app.db.models import MemberAction
+
+from app.schemas import (
+    Group, GroupCreate, GroupBase, GroupMember,
+    ListResponse, DataResponse, User, TeamInfo
+)
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -227,7 +234,7 @@ async def check_group_membership(db: Session, group_id: int, user_id: int) -> bo
     
     return result is not None
 
-async def get_user_role_in_group(db: Session, group_id: int, user_id: int) -> Optional[MemberRole]:
+async def get_user_role_in_group(db: Session, group_id: int, user_id: int) -> Optional[MemberRole.Value]:
     """
     Get a user's role in a group
     """
