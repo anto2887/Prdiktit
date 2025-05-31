@@ -8,7 +8,7 @@ import asyncio
 from functools import lru_cache
 
 from ..core.config import settings
-from ..db.repositories import create_or_update_fixture
+from ..db.repository import create_or_update_fixture
 from ..schemas import Match, MatchStatus
 
 # Configure logging
