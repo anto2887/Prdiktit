@@ -10,7 +10,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from .config import settings
-from ..db.repositories.users import get_user_by_username
+from ..db import get_user_by_username
 from ..db.session import get_db
 from ..schemas import Token, User
 

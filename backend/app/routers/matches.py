@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from ..core.security import get_current_active_user
 from ..db.session import get_db
 from ..services.cache_service import get_cache, RedisCache
-from ..db.repositories import (
+from ..db import (
     get_fixtures,
     get_fixture_by_id,
     get_live_matches,

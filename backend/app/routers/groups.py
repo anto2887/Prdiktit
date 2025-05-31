@@ -8,14 +8,18 @@ from pydantic import BaseModel
 from ..core.security import get_current_active_user
 from ..db.session import get_db
 from ..services.cache_service import get_cache, RedisCache
-from ..db.repositories.groups import (
+from ..db import (
     group_members, 
     get_group_by_id, 
     check_group_membership, 
     get_user_role_in_group, 
     get_group_tracked_teams,
     get_group_members,
-    regenerate_invite_code
+    regenerate_invite_code,
+    get_user_groups,
+    create_group,
+    get_group_by_invite_code,
+    get_teams_by_league
 )
 from ..db.models import (
     PendingMembership,
@@ -48,11 +52,8 @@ async def get_user_groups(
         if cached_groups:
             groups = cached_groups
         else:
-            # Import the repository function
-            from ..db.repositories.groups import get_user_groups as get_user_groups_db
-            
             # Get groups from database
-            db_groups = await get_user_groups_db(db, current_user.id)
+            db_groups = await get_user_groups(db, current_user.id)
             
             # Convert to list of dicts (for better serialization)
             groups = []
@@ -123,11 +124,8 @@ async def create_group(
     Create a new group
     """
     try:
-        # Import our group repository functions
-        from ..db.repositories.groups import create_group as create_group_db
-        
         # Create the group in the database
-        new_group = await create_group_db(
+        new_group = await create_group(
             db, 
             admin_id=current_user.id, 
             **group_data.dict()
@@ -167,9 +165,6 @@ async def join_group(
     """
     Join a group using invite code
     """
-    # Import the repository function
-    from ..db.repositories.groups import get_group_by_invite_code
-    
     # Get group by invite code
     group = await get_group_by_invite_code(db, join_data.invite_code)
     
@@ -268,8 +263,6 @@ async def get_teams(
             logger.debug(f"Teams for league {league_name} not found in cache, fetching from database")
             
             # Get teams from the database
-            from ..db.repositories.teams import get_teams_by_league
-            
             # Get teams by league name
             teams_from_db = await get_teams_by_league(db, league_name)
             
@@ -442,8 +435,7 @@ async def get_group_members_endpoint(
     if cached_members:
         members = cached_members
     else:
-        from ..db.repositories.groups import get_group_members as get_group_members_db
-        members = await get_group_members_db(db, group_id)
+        members = await get_group_members(db, group_id)
         await cache.set(cache_key, members, 300)
     
     # Process members with safe datetime handling

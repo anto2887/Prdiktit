@@ -8,14 +8,14 @@ from sqlalchemy.orm import Session
 from ..core.security import get_current_active_user
 from ..db.session import get_db
 from ..services.cache_service import get_cache, RedisCache
-from ..db.repositories import (
+from ..db import (
     get_fixture_by_id,
     get_user_prediction,
     create_prediction,
     update_prediction,
     reset_prediction,
     get_prediction_by_id,
-    get_user_predictions as get_user_predictions_db
+    get_user_predictions
 )
 from ..schemas import (
     Prediction, PredictionCreate, PredictionStatus, 
@@ -149,7 +149,7 @@ async def get_user_predictions_endpoint(
                 # Invalid status, ignore it
                 pass
         
-        predictions = await get_user_predictions_db(
+        predictions = await get_user_predictions(
             db=db,
             user_id=current_user.id,
             fixture_id=fixture_id,

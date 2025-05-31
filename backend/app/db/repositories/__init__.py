@@ -1,23 +1,26 @@
-# Export repository functions for easier imports
-from .users import (
+"""
+Re-export repository functions from consolidated repository module.
+This maintains backward compatibility and provides a clean import API.
+"""
+
+from ..repository import (
+    # User functions
     get_user_by_id,
     get_user_by_username,
     get_user_by_email,
     create_user,
     update_user,
     delete_user,
-    get_user_stats
-)
+    get_user_stats,
 
-from .matches import (
+    # Match/Fixture functions
     get_fixture_by_id,
     get_fixtures,
     get_live_matches,
     create_or_update_fixture,
-    get_prediction_deadlines
-)
+    get_prediction_deadlines,
 
-from .predictions import (
+    # Prediction functions
     get_prediction_by_id,
     get_user_prediction,
     get_user_predictions,
@@ -26,17 +29,24 @@ from .predictions import (
     reset_prediction,
     process_match_predictions,
     lock_predictions_for_match,
-    calculate_points
-) 
+    calculate_points,
 
-from .teams import (
+    # Team functions
     get_team_by_id,
     get_team_by_external_id,
     get_teams_by_league,
-    get_teams_by_league_id
-)
+    create_team,
+    update_team,
+    create_or_update_team,
 
-from .groups import (
+    # Group functions
+    get_user_groups,
+    get_group_by_id,
+    get_group_by_invite_code,
+    create_group,
+    update_group,
+    regenerate_invite_code,
+    get_group_members,
     check_group_membership,
     get_user_role_in_group,
     get_group_tracked_teams
