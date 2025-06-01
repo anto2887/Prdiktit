@@ -531,7 +531,9 @@ async def regenerate_invite_code(db: Session, group_id: int) -> Optional[str]:
 
 async def get_group_members(db: Session, group_id: int) -> List[Dict]:
     """Get all members of a group including pending members"""
-    # Get approved members
+    logger.info(f"get_group_members called for group_id: {group_id}")
+    
+    # FIXED: Get approved members with proper query
     approved_query = db.query(
         User.id.label('user_id'),
         User.username.label('username'),
@@ -547,14 +549,16 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
     
     members = []
     for row in approved_query:
-        members.append({
+        member_data = {
             'user_id': row.user_id,
             'username': row.username,
             'role': row.role.value if hasattr(row.role, 'value') else str(row.role),
             'joined_at': row.joined_at,
             'last_active': row.last_active,
             'status': 'APPROVED'
-        })
+        }
+        members.append(member_data)
+        logger.debug(f"Added approved member: {member_data['username']} to group {group_id}")
     
     # Get pending membership requests
     pending_query = db.query(
@@ -570,7 +574,7 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
     )
     
     for row in pending_query:
-        members.append({
+        pending_data = {
             'user_id': row.user_id,
             'username': row.username,
             'role': MemberRole.MEMBER.value,
@@ -578,7 +582,11 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
             'requested_at': row.requested_at,
             'joined_at': None,
             'last_active': None
-        })
+        }
+        members.append(pending_data)
+        logger.debug(f"Added pending member: {pending_data['username']} to group {group_id}")
+    
+    logger.info(f"get_group_members returning {len(members)} members for group {group_id}")
     
     return members
 

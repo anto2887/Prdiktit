@@ -157,7 +157,7 @@ async def create_group_endpoint(
 
 @router.post("/join", response_model=DataResponse)
 async def join_group(
-    join_data: LoginRequest,  # Using LoginRequest for invite_code field
+    join_data: LoginRequest,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
@@ -217,9 +217,10 @@ async def join_group(
     # Commit the changes
     db.commit()
     
-    # Clear relevant caches
+    # FIXED: Clear relevant caches with specific keys
     await cache.delete(f"user_groups:{current_user.id}")
     await cache.delete(f"group_members:{group.id}")
+    await cache.delete(f"group:{group.id}")
     
     return DataResponse(
         message="Membership request sent. Waiting for admin approval."
@@ -428,15 +429,22 @@ async def get_group_members_endpoint(
             detail="You are not a member of this group"
         )
     
-    # Try to get from cache
+    # FIXED: Use group_id specific cache key
     cache_key = f"group_members:{group_id}"
     cached_members = await cache.get(cache_key)
     
     if cached_members:
         members = cached_members
+        print(f"DEBUG: Using cached members for group {group_id}: {len(members)} members")
     else:
+        print(f"DEBUG: Fetching fresh members for group {group_id}")
         members = await get_group_members(db, group_id)
-        await cache.set(cache_key, members, 300)
+        print(f"DEBUG: Fresh fetch returned {len(members)} members for group {group_id}")
+        
+        # FIXED: Only cache if we have valid data
+        if members:
+            await cache.set(cache_key, members, 300)  # Cache for 5 minutes
+            print(f"DEBUG: Cached {len(members)} members for group {group_id}")
     
     # Process members with safe datetime handling
     processed_members = []
@@ -465,6 +473,7 @@ async def get_group_members_endpoint(
             
         processed_members.append(processed_member)
     
+    print(f"DEBUG: Returning {len(processed_members)} processed members for group {group_id}")
     return ListResponse(
         data=processed_members
     )
@@ -764,8 +773,14 @@ async def manage_group_members(
     # Commit all changes
     db.commit()
     
-    # Clear cache
+    # FIXED: Clear cache for this specific group
     await cache.delete(f"group_members:{group_id}")
+    await cache.delete(f"group:{group_id}")
+    
+    # FIXED: Also clear user groups cache for affected users
+    affected_user_ids = user_ids + [current_user.id]  # Include current user
+    for user_id in affected_user_ids:
+        await cache.delete(f"user_groups:{user_id}")
     
     return DataResponse(
         message=f"{action} action completed",
