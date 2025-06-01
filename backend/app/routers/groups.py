@@ -16,8 +16,8 @@ from ..db import (
     get_group_tracked_teams,
     get_group_members,
     regenerate_invite_code,
-    get_user_groups,
-    create_group,
+    get_user_groups as get_user_groups_db,
+    create_group as create_group_db,
     get_group_by_invite_code,
     get_teams_by_league
 )
@@ -53,7 +53,7 @@ async def get_user_groups(
             groups = cached_groups
         else:
             # Get groups from database
-            db_groups = await get_user_groups(db, current_user.id)
+            db_groups = await get_user_groups_db(db, current_user.id)
             
             # Convert to list of dicts (for better serialization)
             groups = []
@@ -114,7 +114,7 @@ async def get_user_groups(
         )
 
 @router.post("", response_model=DataResponse)
-async def create_group(
+async def create_group_endpoint(
     group_data: GroupCreate,
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -124,8 +124,8 @@ async def create_group(
     Create a new group
     """
     try:
-        # Create the group in the database
-        new_group = await create_group(
+        # Create the group in the database using the aliased function
+        new_group = await create_group_db(
             db, 
             admin_id=current_user.id, 
             **group_data.dict()
