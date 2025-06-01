@@ -657,10 +657,11 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: null });
       
-      if (state.groups.currentGroup && state.groups.currentGroup.id === groupId) {
-        console.log('Using cached group details for', groupId);
-        dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: false });
-        return state.groups.currentGroup;
+      // Clear current group first if switching to a different group
+      if (state.groups.currentGroup && state.groups.currentGroup.id !== groupId) {
+        console.log(`Switching from group ${state.groups.currentGroup.id} to ${groupId}, clearing current group`);
+        dispatch({ type: ActionTypes.SET_CURRENT_GROUP, payload: null });
+        dispatch({ type: ActionTypes.SET_GROUP_MEMBERS, payload: [] });
       }
       
       console.log('Fetching group details for', groupId);
@@ -684,33 +685,24 @@ export const AppProvider = ({ children }) => {
     if (!state.auth.isAuthenticated || !groupId) return [];
     
     try {
-      dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: true });
-      dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: null });
-      
-      if (state.groups.groupMembers.length > 0 && 
-          state.groups.currentGroup && 
-          state.groups.currentGroup.id === groupId) {
-        console.log('Using cached group members for', groupId);
-        dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: false });
-        return state.groups.groupMembers;
-      }
-      
-      console.log('Fetching group members for', groupId);
+      // Always fetch fresh data, don't use cached members for different groups
+      console.log('Fetching fresh group members for', groupId);
       const response = await groupsApi.getGroupMembers(groupId);
       
       if (response.status === 'success') {
+        console.log(`Fetched ${response.data?.length || 0} members for group ${groupId}`);
         dispatch({ type: ActionTypes.SET_GROUP_MEMBERS, payload: response.data });
-        dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: false });
         return response.data;
       } else {
         throw new Error(response.message || 'Failed to fetch group members');
       }
     } catch (err) {
+      console.error(`Error fetching group members for group ${groupId}:`, err);
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: err.message || 'Failed to fetch group members' });
       showError(err.message || 'Failed to fetch group members');
       return [];
     }
-  }, [state.auth.isAuthenticated, state.groups.currentGroup, state.groups.groupMembers, showError]);
+  }, [state.auth.isAuthenticated, showError]);
 
   const createGroup = useCallback(async (groupData) => {
     if (!state.auth.isAuthenticated) return null;
@@ -1201,6 +1193,7 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   const clearGroupData = useCallback(() => {
+    console.log('Clearing all group data');
     dispatch({ type: ActionTypes.CLEAR_GROUPS_DATA });
   }, []);
 

@@ -12,47 +12,84 @@ const GroupDetailsPage = () => {
   // 1. All hooks first
   const { groupId } = useParams();
   const location = useLocation();
-  const { currentGroup, fetchGroupDetails, fetchGroupMembers, isAdmin, loading, error } = useGroups();
+  const { 
+    currentGroup, 
+    fetchGroupDetails, 
+    fetchGroupMembers, 
+    isAdmin, 
+    loading, 
+    error,
+    clearGroupData,
+    setCurrentGroup
+  } = useGroups();
   const { profile } = useUser();
   const { selectedSeason, selectedWeek, setSelectedSeason, setSelectedWeek } = useLeagueContext();
   const [groupMembers, setGroupMembers] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState(null);
   const [activeTab, setActiveTab] = useState('standings');
-  const hasFetched = useRef(false);
+  
+  // New refs for tracking
+  const currentGroupIdRef = useRef(null);
+  const hasFetchedRef = useRef({});
 
   // 2. All derived state
-  const id = groupId 
   const isNewGroup = location.state?.newGroup || false;
   const inviteCode = location.state?.inviteCode || '';
   const groupName = location.state?.groupName || '';
 
   // 3. All useEffects
   useEffect(() => {
+    const numericGroupId = parseInt(groupId);
+    
+    if (currentGroupIdRef.current !== null && currentGroupIdRef.current !== numericGroupId) {
+      setCurrentGroup(null);
+      setGroupMembers([]);
+      setMembersError(null);
+      hasFetchedRef.current = {};
+    }
+    
+    currentGroupIdRef.current = numericGroupId;
+  }, [groupId, setCurrentGroup]);
+
+  useEffect(() => {
     const loadGroupData = async () => {
+      const numericGroupId = parseInt(groupId);
+      
+      if (!profile || !numericGroupId) return;
+
+      const fetchKey = `${numericGroupId}_${profile.id}`;
+      if (hasFetchedRef.current[fetchKey]) return;
+
       try {
-        if (!hasFetched.current && groupId) {
-          console.log('Fetching group details for', groupId);
-          await fetchGroupDetails(parseInt(groupId));
-          const members = await fetchGroupMembers(parseInt(groupId));
-          if (Array.isArray(members)) {
-            setGroupMembers(members);
-          }
-          hasFetched.current = true;
+        const groupDetails = await fetchGroupDetails(numericGroupId);
+        if (!groupDetails) {
+          setMembersError('Failed to load group details');
+          return;
         }
+        
+        setMembersLoading(true);
+        setMembersError(null);
+        
+        const members = await fetchGroupMembers(numericGroupId);
+        
+        if (Array.isArray(members)) {
+          setGroupMembers(members);
+        } else {
+          setGroupMembers([]);
+        }
+        
+        hasFetchedRef.current[fetchKey] = true;
+        
       } catch (err) {
-        console.error('Error loading group data:', err);
+        setMembersError('Failed to load group data');
+      } finally {
+        setMembersLoading(false);
       }
-      console.log("Hello")
     };
-    
+
     loadGroupData();
-    
-    // Cleanup function
-    return () => {
-      if (id !== groupId) {
-        hasFetched.current = false;
-      }
-    };
-  }, [groupId, fetchGroupDetails, fetchGroupMembers]);
+  }, [groupId, profile?.id, fetchGroupDetails, fetchGroupMembers]);
   
   // 5. Prepare render variables
   const group = currentGroup || {
@@ -193,7 +230,13 @@ const GroupDetailsPage = () => {
         {activeTab === 'members' && (
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-4">League Members</h2>
-            {groupMembers && groupMembers.length > 0 ? (
+            {membersLoading ? (
+              <div className="flex justify-center py-8">
+                <LoadingSpinner />
+              </div>
+            ) : membersError ? (
+              <ErrorMessage message={membersError} />
+            ) : groupMembers && groupMembers.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">

@@ -204,7 +204,9 @@ export const groupsApi = {
 
   getGroupById: async (groupId) => {
     try {
-      const response = await api.client.get(`/groups/${groupId}`);
+      // Add cache-busting timestamp
+      const timestamp = Date.now();
+      const response = await api.client.get(`/groups/${groupId}?_t=${timestamp}`);
       return {
         status: 'success',
         data: response.data
@@ -219,12 +221,17 @@ export const groupsApi = {
 
   getGroupMembers: async (groupId) => {
     try {
-      const response = await api.client.get(`/groups/${groupId}/members`);
+      // Always fetch fresh member data with cache-busting
+      const timestamp = Date.now();
+      console.log(`API: Fetching members for group ${groupId} (fresh)`);
+      const response = await api.client.get(`/groups/${groupId}/members?_t=${timestamp}`);
+      console.log(`API: Got ${response.data?.length || 0} members for group ${groupId}`);
       return {
         status: 'success',
         data: response.data || []
       };
     } catch (error) {
+      console.error(`API: Error fetching group members for ${groupId}:`, error);
       throw new APIError(
         error.message || 'Failed to fetch group members',
         error.response?.status || 500
