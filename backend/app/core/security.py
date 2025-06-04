@@ -10,8 +10,8 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from .config import settings
-from ..db import get_user_by_username
-from ..db.session import get_db
+from ..db.repository import get_user_by_username
+from ..db.dependencies import get_db
 from ..schemas import Token, User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

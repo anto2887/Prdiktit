@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     
     # CORS
-    CORS_ORIGINS: List[AnyHttpUrl] = []
+    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
     
     @validator("CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     
     # Project settings
     PROJECT_NAME: str = "Football Predictions API"
+    PROJECT_DESCRIPTION: str = "API for football predictions application"
+    PROJECT_VERSION: str = "1.0.0"
     
     # Football API settings
     FOOTBALL_API_BASE_URL: str = "https://v3.football.api-sports.io"
@@ -58,13 +60,16 @@ class Settings(BaseSettings):
         return v
     
     # Add this line:
-    PROJECT_DESCRIPTION: str = "Your project description"
+    API_RATE_LIMIT: int = 600  # Default to 60 requests per minute
     
-    # Add this line:
-    PROJECT_VERSION: str = "0.1.0"  # Or whatever version you want
+    # CORS settings
+    CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+    CORS_ALLOW_HEADERS: List[str] = ["*"]  # Permissive for development
+    CORS_EXPOSE_HEADERS: List[str] = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
     
-    # Add this if it doesn't exist:
-    API_RATE_LIMIT: int = 60  # Default to 60 requests per minute
+    # Rate limiting
+    RATE_LIMIT_PER_MINUTE: int = 600  # Requests per minute
     
     class Config:
         case_sensitive = True

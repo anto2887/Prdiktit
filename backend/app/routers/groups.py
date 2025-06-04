@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from ..core.security import get_current_active_user
-from ..db.session import get_db
+from ..db.database import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..db import (
     group_members, 
@@ -16,10 +16,11 @@ from ..db import (
     get_group_tracked_teams,
     get_group_members,
     regenerate_invite_code,
-    get_user_groups as get_user_groups_db,
-    create_group as create_group_db,
+    get_user_groups,
+    create_group,
     get_group_by_invite_code,
-    get_teams_by_league
+    get_teams_by_league,
+    update_group
 )
 from ..db.models import (
     PendingMembership,
@@ -53,7 +54,7 @@ async def get_user_groups(
             groups = cached_groups
         else:
             # Get groups from database
-            db_groups = await get_user_groups_db(db, current_user.id)
+            db_groups = await get_user_groups(db, current_user.id)
             
             # Convert to list of dicts (for better serialization)
             groups = []
@@ -84,14 +85,14 @@ async def get_user_groups(
                     "id": group.id,
                     "name": group.name,
                     "league": group.league,
-                    "admin_id": group.admin_id,  # CRITICAL: Include admin_id
+                    "admin_id": group.admin_id,
                     "invite_code": group.invite_code,
                     "created_at": group.created.isoformat() if group.created else None,
                     "privacy_type": group.privacy_type.value if group.privacy_type else None,
                     "description": group.description,
                     "member_count": member_count,
                     "role": user_role,
-                    "is_admin": is_group_admin  # ADDED: Explicit admin flag
+                    "is_admin": is_group_admin
                 }
                 
                 groups.append(group_dict)
@@ -100,7 +101,10 @@ async def get_user_groups(
             await cache.set(cache_key, groups, 600)
         
         return ListResponse(
-            data=groups
+            status="success",
+            message="",
+            data=groups,
+            total=len(groups)
         )
     except Exception as e:
         # Log the error
@@ -110,7 +114,10 @@ async def get_user_groups(
         
         # Return empty list instead of error
         return ListResponse(
-            data=[]
+            status="error",
+            message=str(e),
+            data=[],
+            total=0
         )
 
 @router.post("", response_model=DataResponse)
@@ -125,7 +132,7 @@ async def create_group_endpoint(
     """
     try:
         # Create the group in the database using the aliased function
-        new_group = await create_group_db(
+        new_group = await create_group(
             db, 
             admin_id=current_user.id, 
             **group_data.dict()

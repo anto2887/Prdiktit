@@ -208,28 +208,29 @@ class FootballApiService:
     
     async def get_teams_by_league(self, league_name: str) -> List[Dict[str, Any]]:
         """Get teams by league name"""
-        # Map league names to IDs (same as the ones used in your lambdas)
+        # Map league names to IDs and seasons
         league_mapping = {
-            "Premier League": 39,
-            "La Liga": 140,
-            "UEFA Champions League": 2
+            "Premier League": {"id": 39, "season": 2024},
+            "La Liga": {"id": 140, "season": 2024},
+            "UEFA Champions League": {"id": 2, "season": 2024},
+            "MLS": {"id": 253, "season": 2025}
         }
         
-        # Try to find the league ID from the mapping
-        league_id = league_mapping.get(league_name)
-        if not league_id:
+        # Try to find the league config from the mapping
+        league_config = league_mapping.get(league_name)
+        if not league_config:
             logger.warning(f"Unknown league name: {league_name}")
             return []
         
-        # Get current season
-        current_year = datetime.now().year
+        league_id = league_config['id']
+        season = league_config['season']
         
         params = {
             'league': league_id,
-            'season': current_year
+            'season': season
         }
         
-        logger.info(f"Fetching teams for league: {league_name} (ID: {league_id}, Season: {current_year})")
+        logger.info(f"Fetching teams for league: {league_name} (ID: {league_id}, Season: {season})")
         teams_data = await self.make_api_request('teams', params)
         
         if not teams_data:

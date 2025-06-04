@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 async def import_teams_on_startup(app: FastAPI) -> None:
     """Import teams from API if not already in database"""
     from sqlalchemy.orm import Session
-    from ..db.session import SessionLocal
+    from ..db.database import SessionLocal
     from ..db.models import Team
     
     db = SessionLocal()
@@ -25,16 +25,17 @@ async def import_teams_on_startup(app: FastAPI) -> None:
             
             # Import teams using your existing script logic
             leagues = {
-                "Premier League": 39,
-                "La Liga": 140, 
-                "UEFA Champions League": 2
+                "Premier League": {"id": 39, "season": 2024},
+                "La Liga": {"id": 140, "season": 2024},
+                "UEFA Champions League": {"id": 2, "season": 2024},
+                "MLS": {"id": 253, "season": 2025}
             }
             
-            for league_name, league_id in leagues.items():
-                logger.info(f"Importing teams for {league_name} (ID: {league_id})")
+            for league_name, league_config in leagues.items():
+                logger.info(f"Importing teams for {league_name} (ID: {league_config['id']})")
                 params = {
-                    'league': league_id,
-                    'season': 2024  # Current season
+                    'league': league_config['id'],
+                    'season': league_config['season']  # Use configured season
                 }
                 
                 # Make the API request
@@ -56,7 +57,7 @@ async def import_teams_on_startup(app: FastAPI) -> None:
                             team_name=team_data['team']['name'],
                             team_logo=team_data['team']['logo'],
                             country=team_data['team']['country'],
-                            league_id=league_id
+                            league_id=league_config['id']
                         )
                         db.add(team)
                         count += 1
@@ -76,7 +77,7 @@ async def import_teams_on_startup(app: FastAPI) -> None:
 async def verify_admin_assignments(app: FastAPI) -> None:
     """Verify and fix admin assignments in groups"""
     from sqlalchemy.orm import Session
-    from ..db.session import SessionLocal
+    from ..db.database import SessionLocal
     from ..db.models import Group, User, group_members, MemberRole
     from datetime import datetime, timezone
     

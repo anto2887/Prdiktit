@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from ..core.security import get_current_active_user
-from ..db.session import get_db
+from ..db.database import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..db import (
     get_fixtures,
@@ -14,7 +14,13 @@ from ..db import (
     get_live_matches,
     get_prediction_deadlines
 )
-from ..schemas import Match, MatchStatus, ListResponse, DataResponse, User
+from ..schemas import (
+    User,
+    Fixture,
+    MatchStatus,
+    ListResponse,
+    DataResponse
+)
 
 router = APIRouter()
 

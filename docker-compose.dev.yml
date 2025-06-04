@@ -47,7 +47,12 @@ services:
       - SECRET_KEY=developmentsecretkey
       - JWT_SECRET_KEY=developmentjwtsecretkey
       - CREATE_TABLES_ON_STARTUP=True
-      - CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000","http://localhost:3001"]
+      - CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000","http://0.0.0.0:3000","http://frontend:3000"]
+      - CORS_ALLOW_CREDENTIALS=true
+      - CORS_ALLOW_METHODS=["GET","POST","PUT","DELETE","OPTIONS","PATCH"]
+      - CORS_ALLOW_HEADERS=["*"]
+      - CORS_EXPOSE_HEADERS=["X-RateLimit-Limit","X-RateLimit-Remaining","X-RateLimit-Reset"]
+      - API_RATE_LIMIT=600
       - FOOTBALL_API_KEY=2e229688fb1a199c6243f07a2b6e4b54
       - PYTHONPATH=/app
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload

@@ -18,9 +18,10 @@ const GroupForm = () => {
   const { showSuccess, showError } = useNotifications();
 
   const leagues = [
-    { id: 'PL', name: 'Premier League' },
-    { id: 'LL', name: 'La Liga' },
-    { id: 'UCL', name: 'Champions League' }
+    { id: 'PL', name: 'Premier League', season: '2024-25' },
+    { id: 'LL', name: 'La Liga', season: '2024-25' },
+    { id: 'UCL', name: 'Champions League', season: '2024-25' },
+    { id: 'MLS', name: 'MLS', season: '2025' }
   ];
 
   const handleLeagueSelect = (leagueId) => {
@@ -113,17 +114,18 @@ const GroupForm = () => {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Select League
           </label>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             {leagues.map(league => (
               <button
                 key={league.id}
                 onClick={() => handleLeagueSelect(league.id)}
-                className={`p-4 border rounded-lg transition-colors
+                className={`p-4 border rounded-lg transition-colors flex flex-col items-center justify-center
                   ${formData.league === league.id 
                     ? 'border-blue-500 bg-blue-50' 
                     : 'border-gray-200 hover:border-blue-300'}`}
               >
-                {league.name}
+                <span className="font-medium">{league.name}</span>
+                <span className="text-sm text-gray-600 mt-1">Season {league.season}</span>
               </button>
             ))}
           </div>

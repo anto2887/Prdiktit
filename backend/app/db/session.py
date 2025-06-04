@@ -1,32 +1,9 @@
 # app/db/session.py
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
 import logging
-from sqlalchemy.engine.url import URL
-
-from ..core.config import settings
 from .models import Base
+from .database import engine
 
 logger = logging.getLogger(__name__)
-
-# Create engine
-engine = create_engine(
-    str("postgresql://postgres:postgres@db:5432/football_predictions")
-)
-
-# Create session
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-def get_db():
-    """
-    Get database session
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 def create_tables():
     """

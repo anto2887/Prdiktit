@@ -68,7 +68,7 @@ class User(UserBase):
     created_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserStats(BaseModel):
     total_points: int = 0
@@ -107,11 +107,28 @@ class Match(MatchBase):
     class Config:
         from_attributes = True
 
+class Fixture(MatchBase):
+    fixture_id: int
+    season: str
+    round: str
+    home_team_logo: Optional[str] = None
+    away_team_logo: Optional[str] = None
+    venue: Optional[str] = None
+    referee: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
 # === PREDICTION SCHEMAS ===
 class PredictionCreate(BaseModel):
     match_id: int
     home_score: int
     away_score: int
+
+class PredictionUpdate(BaseModel):
+    home_score: int
+    away_score: int
+    prediction_status: Optional[PredictionStatus] = None
 
 class Prediction(BaseModel):
     id: int
@@ -153,7 +170,7 @@ class GroupMember(BaseModel):
     joined_at: Optional[datetime] = None
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # === RESPONSE SCHEMAS ===
 class ListResponse(BaseResponse):
@@ -170,4 +187,4 @@ class TeamInfo(BaseModel):
     logo: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, func, case, literal
+from sqlalchemy import or_, func, case, literal, union, select
 
 from .models import (
     User, Group, Fixture, UserPrediction, Team, TeamTracker, 
@@ -386,13 +386,15 @@ async def get_teams_by_league(db: Session, league: str) -> List[Team]:
     except (ValueError, TypeError):
         # If not a number, it's probably a league name
         league_mapping = {
-            "Premier League": 39,
-            "La Liga": 140,
-            "UEFA Champions League": 2
+            "Premier League": {"id": 39, "season": 2024},
+            "La Liga": {"id": 140, "season": 2024},
+            "UEFA Champions League": {"id": 2, "season": 2024},
+            "MLS": {"id": 253, "season": 2025}
         }
         
         if league in league_mapping:
-            league_id = league_mapping[league]
+            league_config = league_mapping[league]
+            league_id = league_config['id']
             return db.query(Team).filter(Team.league_id == league_id).all()
         else:
             return db.query(Team).filter(Team.country == league).all()
@@ -441,15 +443,28 @@ async def update_team(db: Session, team_id: int, team_data: dict) -> Optional[Te
 # =============================================================================
 
 async def get_user_groups(db: Session, user_id: int) -> List[Group]:
-    """Get all groups a user is a member of"""
-    query = db.query(Group).join(
+    """Get all groups a user is a member of or is an admin of"""
+    # Use a UNION to get both groups where user is a member and groups where user is admin
+    from sqlalchemy import union, select
+    
+    # Query for groups where user is a member
+    member_groups = select(Group).join(
         group_members,
         Group.id == group_members.c.group_id
     ).filter(
         group_members.c.user_id == user_id
     )
     
-    return query.all()
+    # Query for groups where user is admin
+    admin_groups = select(Group).filter(
+        Group.admin_id == user_id
+    )
+    
+    # Combine both queries with UNION
+    combined_query = union(member_groups, admin_groups).alias()
+    final_query = db.query(Group).select_entity_from(combined_query)
+    
+    return final_query.all()
 
 async def get_group_by_id(db: Session, group_id: int) -> Optional[Group]:
     """Get group by ID"""

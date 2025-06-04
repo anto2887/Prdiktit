@@ -1,10 +1,10 @@
 // src/api/index.js
 import axios from 'axios';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 
 // Add debug logging
-console.log('API module initializing...');
+console.log('API module initializing with base URL:', API_BASE_URL);
 
 // Add utils.js functions
 const getDefaultHeaders = () => {
@@ -112,7 +112,10 @@ class API {
     this.client = axios.create({
       baseURL: API_BASE_URL,
       headers: { 'Content-Type': 'application/json' },
-      withCredentials: true
+      withCredentials: true,
+      // Add CORS configuration
+      xsrfCookieName: 'csrftoken',
+      xsrfHeaderName: 'X-CSRFToken',
     });
     
     this.setupInterceptors();
@@ -125,13 +128,33 @@ class API {
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      // Log request for debugging
+      console.log('API Request:', {
+        method: config.method,
+        url: config.url,
+        params: config.params,
+        headers: config.headers
+      });
       return config;
     });
 
     // Response interceptor
     this.client.interceptors.response.use(
-      response => this.formatApiResponse(response.data),
+      response => {
+        // Log successful response for debugging
+        console.log('API Response:', {
+          status: response.status,
+          data: response.data
+        });
+        return this.formatApiResponse(response.data);
+      },
       error => {
+        // Log error for debugging
+        console.error('API Error:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         if (error.response?.status === 401) {
           localStorage.removeItem('accessToken');
         }
@@ -186,16 +209,18 @@ export const groupsApi = {
     try {
       console.log('API: Fetching user groups...');
       const response = await api.client.get('/groups');
-      console.log('API: getUserGroups response:', response);
+      console.log('API: getUserGroups response:', response.data);
       
-      // Ensure consistent response format
-      if (response && response.status === 'success') {
-        return {
-          status: 'success',
-          data: response.data || []
-        };
+      // Backend returns ListResponse with data array directly
+      if (response && response.data && Array.isArray(response.data.data)) {
+        return response.data;  // Return the ListResponse as is
       }
-      return response;
+      return {
+        status: 'success',
+        message: '',
+        data: [],
+        total: 0
+      };
     } catch (error) {
       console.error('API: Error fetching user groups:', error);
       throw error;

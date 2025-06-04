@@ -1,6 +1,7 @@
 # Export commonly used database components
-from .session import get_db, create_tables, engine, SessionLocal
-from .models import Base, group_members
+from .session import create_tables
+from .database import engine, SessionLocal, get_db
+from .models import *
 
 # Export all repository functions from consolidated repository
 from .repository import (
@@ -51,3 +52,5 @@ from .repository import (
     get_user_role_in_group,
     get_group_tracked_teams
 )
+
+__all__ = ['create_tables', 'engine', 'SessionLocal', 'get_db']

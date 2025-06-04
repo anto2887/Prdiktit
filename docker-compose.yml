@@ -44,8 +44,9 @@ services:
       - SECRET_KEY=developmentsecretkey
       - JWT_SECRET_KEY=developmentjwtsecretkey
       - CREATE_TABLES_ON_STARTUP=True
-      - CORS_ORIGINS=["http://localhost:3000"]
+      - CORS_ORIGINS=http://localhost:3000
       - FOOTBALL_API_KEY=2e229688fb1a199c6243f07a2b6e4b54
+      - API_V1_STR=/api/v1
     networks:
       - app-network
 
@@ -55,12 +56,12 @@ services:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "3000:80"
+      - "3000:3000"
     depends_on:
       - backend
     environment:
       - NODE_ENV=development
-      - REACT_APP_API_URL=http://backend:8000/api
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
       - REACT_APP_ENV=development
     networks:
       - app-network

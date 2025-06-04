@@ -632,13 +632,12 @@ export const AppProvider = ({ children }) => {
       const response = await groupsApi.getUserGroups();
       console.log('AppContext: getUserGroups response:', response);
       
-      if (response && response.status === 'success') {
-        const groups = response.data || [];
-        console.log('AppContext: Setting groups to:', groups);
-        dispatch({ type: ActionTypes.SET_USER_GROUPS, payload: groups });
-        return groups;
+      if (response && response.status === 'success' && Array.isArray(response.data)) {
+        console.log('AppContext: Setting groups to:', response.data);
+        dispatch({ type: ActionTypes.SET_USER_GROUPS, payload: response.data });
+        return response.data;
       } else {
-        console.warn('AppContext: Non-success response:', response);
+        console.warn('AppContext: Invalid response format:', response);
         dispatch({ type: ActionTypes.SET_USER_GROUPS, payload: [] });
         return [];
       }
@@ -647,6 +646,8 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: err.message || 'Failed to fetch groups' });
       dispatch({ type: ActionTypes.SET_USER_GROUPS, payload: [] });
       return [];
+    } finally {
+      dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: false });
     }
   }, [state.auth.isAuthenticated]);
 

@@ -175,17 +175,16 @@ def handle_daily_update(event: Dict[str, Any], context) -> Dict[str, Any]:
     """Handle daily fixtures update"""
     try:
         leagues = {
-            "Premier League": 39,
-            "La Liga": 140,
-            "UEFA Champions League": 2
+            "Premier League": {"id": 39, "season": 2024},
+            "La Liga": {"id": 140, "season": 2024},
+            "UEFA Champions League": {"id": 2, "season": 2024},
+            "MLS": {"id": 253, "season": 2025}
         }
         
-        current_year = datetime.now().year
-        
-        for league_name, league_id in leagues.items():
+        for league_name, league_config in leagues.items():
             logger.info(f"Processing fixtures for {league_name}")
             
-            fixtures = get_fixtures_by_season(league_id, current_year)
+            fixtures = get_fixtures_by_season(league_config['id'], league_config['season'])
             
             if fixtures:
                 logger.info(f"Retrieved {len(fixtures)} fixtures for {league_name}")
@@ -213,15 +212,16 @@ def handle_live_matches(event: Dict[str, Any], context) -> Dict[str, Any]:
     """Handle live matches update"""
     try:
         leagues = {
-            "Premier League": 39,
-            "La Liga": 140,
-            "UEFA Champions League": 2
+            "Premier League": {"id": 39, "season": 2024},
+            "La Liga": {"id": 140, "season": 2024},
+            "UEFA Champions League": {"id": 2, "season": 2024},
+            "MLS": {"id": 253, "season": 2025}
         }
         
-        for league_name, league_id in leagues.items():
+        for league_name, league_config in leagues.items():
             logger.info(f"Processing live matches for {league_name}")
             
-            live_matches = get_live_fixtures(league_id)
+            live_matches = get_live_fixtures(league_config['id'])
             
             if live_matches:
                 logger.info(f"Retrieved {len(live_matches)} live matches for {league_name}")
