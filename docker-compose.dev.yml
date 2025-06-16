@@ -73,7 +73,7 @@ services:
       - backend
     environment:
       - NODE_ENV=development
-      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
       - REACT_APP_ENV=development
       - API_PROXY=http://backend:8000
       - CHOKIDAR_USEPOLLING=true

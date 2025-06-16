@@ -1,8 +1,8 @@
 #!/bin/sh
 # frontend/entrypoint.sh
 
-# Set environment variables
-REACT_APP_API_URL=http://backend:8000/api
+# Set environment variables - ADD /v1 to the API URL
+REACT_APP_API_URL=http://backend:8000/api/v1
 # ADD THIS LINE to force development mode
 export NODE_ENV=development
 
