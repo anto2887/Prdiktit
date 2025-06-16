@@ -1276,24 +1276,6 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // Replace the existing GroupDetailsProvider component
-  const GroupDetailsProvider = ({ groupId, children }) => {
-    const {
-      fetchGroupDetails,
-      fetchGroupMembers,
-      profile
-    } = useContext(AppContext);
-    
-    useEffect(() => {
-      if (groupId && profile) {
-        fetchGroupDetails(parseInt(groupId));
-        fetchGroupMembers(parseInt(groupId));
-      }
-    }, [groupId, profile, fetchGroupDetails, fetchGroupMembers]);
-
-    return children;
-  };
-
   // Context value
   const contextValue = {
     // Auth
@@ -1396,6 +1378,24 @@ export const AppProvider = ({ children }) => {
       {children}
     </AppContext.Provider>
   );
+};
+
+// Export the GroupDetailsProvider component
+export const GroupDetailsProvider = ({ groupId, children }) => {
+  const {
+    fetchGroupDetails,
+    fetchGroupMembers,
+    profile
+  } = useContext(AppContext);
+  
+  useEffect(() => {
+    if (groupId && profile) {
+      fetchGroupDetails(parseInt(groupId));
+      fetchGroupMembers(parseInt(groupId));
+    }
+  }, [groupId, profile, fetchGroupDetails, fetchGroupMembers]);
+
+  return children;
 };
 
 // Custom hooks for each domain

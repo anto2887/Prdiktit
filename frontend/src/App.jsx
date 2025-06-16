@@ -1,27 +1,30 @@
 // src/App.jsx
 import React from 'react';
-import { BrowserRouter as Router } from 'react-router-dom';
-import { AppProvider } from './contexts/AppContext';
+import { BrowserRouter } from 'react-router-dom';
+import { AppProvider } from './contexts';
 import Routes from './Routes';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import NotificationContainer from './components/common/NotificationContainer';
 import './styles.css';
 
-const App = () => {
-  console.log("Rendering App with consolidated AppProvider");
-
+function App() {
+  console.log('Rendering App with consolidated AppProvider');
+  
   return (
     <ErrorBoundary>
-      <Router>
-        <AppProvider>
-          <div className="app">
-            <Routes />
-            <NotificationContainer />
-          </div>
-        </AppProvider>
-      </Router>
+      <AppProvider>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true
+          }}
+        >
+          <Routes />
+          <NotificationContainer />
+        </BrowserRouter>
+      </AppProvider>
     </ErrorBoundary>
   );
-};
+}
 
 export default App;

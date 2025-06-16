@@ -52,7 +52,7 @@ app.add_middleware(
 # Import and include routers with detailed error logging
 logger.info("Starting router registration...")
 
-# Auth router
+# Auth router - REGISTER ONLY ONCE
 try:
     logger.info("Importing auth router...")
     from .routers.auth import router as auth_router
