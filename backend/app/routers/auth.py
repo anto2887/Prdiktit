@@ -15,7 +15,7 @@ from ..core.security import (
     get_current_active_user_optional
 )
 from ..db.database import get_db
-from ..db import get_user_by_username, create_user
+from ..db.repository import get_user_by_username, create_user
 from ..schemas import (
     LoginRequest, LoginResponse, Token, UserCreate, User, BaseResponse
 )
@@ -144,7 +144,7 @@ async def register_user(
     }
 
 
-@router.get("/status", response_model=dict)
+@router.get("/status")
 async def auth_status(
     current_user: Optional[User] = Depends(get_current_active_user_optional)
 ):
@@ -188,7 +188,7 @@ async def auth_status(
         }
 
 
-@router.post("/logout", response_model=dict)
+@router.post("/logout")
 async def logout(
     current_user: Optional[User] = Depends(get_current_active_user_optional)
 ):

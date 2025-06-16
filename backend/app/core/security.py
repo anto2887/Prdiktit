@@ -10,8 +10,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from .config import settings
-from ..db.repository import get_user_by_username
-from ..db.dependencies import get_db
+from ..db.database import get_db
 from ..schemas import Token, User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -60,6 +59,8 @@ async def get_current_user(
     """
     Get current user from JWT token
     """
+    from ..db.repository import get_user_by_username
+    
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -101,6 +102,8 @@ async def get_current_active_user_optional(
     """
     Get current user from JWT token, return None if not authenticated
     """
+    from ..db.repository import get_user_by_username
+    
     if not token:
         return None
         

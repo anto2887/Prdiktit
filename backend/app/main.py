@@ -6,8 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from .core.config import settings
 from .db.session import create_tables
 from .services.init_services import init_services, shutdown_services
-from .routers import auth_router, users_router, matches_router, predictions_router
-from .routers.groups import router as groups_router
 from .middleware.rate_limiter import RateLimitMiddleware
 
 # Configure logging
@@ -51,12 +49,66 @@ app.add_middleware(
     ]
 )
 
-# Include routers with proper API version prefix
-app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
-app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
-app.include_router(matches_router, prefix=f"{settings.API_V1_STR}/matches", tags=["matches"])
-app.include_router(predictions_router, prefix=f"{settings.API_V1_STR}/predictions", tags=["predictions"])
-app.include_router(groups_router, prefix=f"{settings.API_V1_STR}/groups", tags=["groups"])
+# Import and include routers with detailed error logging
+logger.info("Starting router registration...")
+
+# Auth router
+try:
+    logger.info("Importing auth router...")
+    from .routers.auth import router as auth_router
+    logger.info("Auth router imported successfully")
+    
+    app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+    logger.info("Auth router registered successfully at /api/v1/auth")
+except Exception as e:
+    logger.error(f"FAILED to import/register auth router: {str(e)}")
+    logger.exception("Full traceback:")
+
+# Users router
+try:
+    logger.info("Importing users router...")
+    from .routers.users import router as users_router
+    logger.info("Users router imported successfully")
+    
+    app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
+    logger.info("Users router registered successfully at /api/v1/users")
+except Exception as e:
+    logger.error(f"FAILED to import/register users router: {str(e)}")
+
+# Matches router
+try:
+    logger.info("Importing matches router...")
+    from .routers.matches import router as matches_router
+    logger.info("Matches router imported successfully")
+    
+    app.include_router(matches_router, prefix=f"{settings.API_V1_STR}/matches", tags=["matches"])
+    logger.info("Matches router registered successfully at /api/v1/matches")
+except Exception as e:
+    logger.error(f"FAILED to import/register matches router: {str(e)}")
+
+# Predictions router
+try:
+    logger.info("Importing predictions router...")
+    from .routers.predictions import router as predictions_router
+    logger.info("Predictions router imported successfully")
+    
+    app.include_router(predictions_router, prefix=f"{settings.API_V1_STR}/predictions", tags=["predictions"])
+    logger.info("Predictions router registered successfully at /api/v1/predictions")
+except Exception as e:
+    logger.error(f"FAILED to import/register predictions router: {str(e)}")
+
+# Groups router
+try:
+    logger.info("Importing groups router...")
+    from .routers.groups import router as groups_router
+    logger.info("Groups router imported successfully")
+    
+    app.include_router(groups_router, prefix=f"{settings.API_V1_STR}/groups", tags=["groups"])
+    logger.info("Groups router registered successfully at /api/v1/groups")
+except Exception as e:
+    logger.error(f"FAILED to import/register groups router: {str(e)}")
+
+logger.info("Router registration complete!")
 
 @app.on_event("startup")
 async def startup_event():
@@ -80,7 +132,7 @@ async def shutdown_event():
     Clean up resources on shutdown
     """
     logger.info("Shutting down application...")
-    await shutdown_services(app)
+    await shutdown_services()
     logger.info("Application shutdown complete")
 
 # Health check endpoint
@@ -93,6 +145,20 @@ async def health_check():
 async def options_handler(path: str):
     """Handle preflight OPTIONS requests"""
     return {"message": "OK"}
+
+# Debug endpoint to check registered routes
+@app.get("/debug/routes")
+async def debug_routes():
+    """Debug endpoint to see all registered routes"""
+    routes = []
+    for route in app.routes:
+        if hasattr(route, 'methods') and hasattr(route, 'path'):
+            routes.append({
+                "path": route.path,
+                "methods": list(route.methods),
+                "name": getattr(route, 'name', 'unnamed')
+            })
+    return {"routes": routes, "total_routes": len(routes)}
 
 # For local development
 if __name__ == "__main__":
