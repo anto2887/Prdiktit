@@ -49,6 +49,9 @@ async def get_user_groups_endpoint(
     """
     Get current user's groups
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         # Try to get from cache
         cache_key = f"user_groups:{current_user.id}"
@@ -59,6 +62,7 @@ async def get_user_groups_endpoint(
         else:
             # Get groups from database using the repository function
             db_groups = await get_user_groups_from_db(db, current_user.id)
+            logger.info(f"Retrieved {len(db_groups)} groups from repository for user {current_user.id}")
             
             # Convert to list of dicts (for better serialization)
             groups = []
@@ -84,7 +88,7 @@ async def get_user_groups_endpoint(
                     # If user is admin but not in group_members table, they should be admin
                     user_role = MemberRole.ADMIN.value
                 
-                # Convert to dict
+                # Convert to dict with all fields the frontend expects
                 group_dict = {
                     "id": group.id,
                     "name": group.name,
@@ -100,21 +104,28 @@ async def get_user_groups_endpoint(
                 }
                 
                 groups.append(group_dict)
+                logger.debug(f"Processed group: {group.name} (ID: {group.id}) for user {current_user.id}")
             
             # Cache for 10 minutes
             await cache.set(cache_key, groups, 600)
+            logger.info(f"Processed and cached {len(groups)} groups for user {current_user.id}")
         
-        return ListResponse(
+        # FIXED: Return the response in the exact format the frontend expects
+        response = ListResponse(
             status="success",
             message="",
             data=groups,
             total=len(groups)
         )
+        
+        logger.info(f"Returning {len(groups)} groups to frontend for user {current_user.id}")
+        return response
+        
     except Exception as e:
         # Log the error
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Error getting user groups: {str(e)}")
+        logger.error(f"Error getting user groups for user {current_user.id}: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         
         # Return empty list instead of error
         return ListResponse(
