@@ -209,12 +209,31 @@ export const groupsApi = {
     try {
       console.log('API: Fetching user groups...');
       const response = await api.client.get('/groups');
-      console.log('API: getUserGroups response:', response.data);
+      console.log('API: getUserGroups response:', response);
+      console.log('API: response.data:', response.data);
+      console.log('API: response.data.data:', response.data.data);
       
-      // Backend returns ListResponse with data array directly
-      if (response && response.data && Array.isArray(response.data.data)) {
-        return response.data;  // Return the ListResponse as is
+      // FIXED: Check if the response has the expected structure
+      if (response && response.data) {
+        // Case 1: Backend returns ListResponse directly
+        if (response.data.status === 'success' && Array.isArray(response.data.data)) {
+          console.log('API: Returning backend ListResponse directly:', response.data);
+          return response.data;  // Return {status, data, total}
+        }
+        // Case 2: Response is already formatted by interceptor
+        else if (Array.isArray(response.data)) {
+          console.log('API: Response is array, wrapping in ListResponse format:', response.data);
+          return {
+            status: 'success',
+            message: '',
+            data: response.data,
+            total: response.data.length
+          };
+        }
       }
+      
+      // Fallback: return empty response
+      console.log('API: No valid data found, returning empty response');
       return {
         status: 'success',
         message: '',

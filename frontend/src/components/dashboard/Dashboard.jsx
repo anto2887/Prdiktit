@@ -16,7 +16,7 @@ import ErrorMessage from '../common/ErrorMessage';
 const Dashboard = () => {
   const { profile, stats, loading: userLoading, error: userError } = useUser();
   const { loading: predictionsLoading, error: predictionsError } = usePredictions();
-  const { userGroups, fetchUserGroups } = useGroups();
+  const { userGroups, fetchUserGroups, loading: groupsLoading, error: groupsError } = useGroups();
   const { selectedGroup, selectedSeason, selectedWeek, setSelectedGroup, setSelectedSeason, setSelectedWeek } = useLeagueContext();
 
   const isLoading = userLoading || predictionsLoading;
@@ -30,15 +30,28 @@ const Dashboard = () => {
     }
   }, [fetchUserGroups, userGroups]);
 
-  // FIXED: Debug logging
+  // Add this after the existing useEffect hooks (around line 30)
   useEffect(() => {
-    console.log('Dashboard component state:', {
+    console.log('=== DASHBOARD DEBUG ===');
+    console.log('Profile:', profile);
+    console.log('Profile loaded:', !!profile);
+    console.log('Profile ID:', profile?.id);
+    console.log('Username:', profile?.username);
+    console.log('Groups:', userGroups);
+    console.log('Groups loaded:', userGroups?.length || 0);
+    console.log('Groups loading:', groupsLoading);
+    console.log('Groups error:', groupsError);
+    console.log('Selected group:', selectedGroup?.name || 'None');
+    
+    const dataFetchStatus = {
       profile: !!profile,
-      profileId: profile?.id,
-      userGroups: userGroups?.length || 0,
-      selectedGroup: selectedGroup?.name || 'None'
-    });
-  }, [profile, userGroups, selectedGroup]);
+      predictions: true,
+      groups: !!userGroups && userGroups.length > 0,
+      matches: true,
+      fixtures: true
+    };
+    console.log('Data fetch status:', dataFetchStatus);
+  }, [profile, userGroups, groupsLoading, groupsError, selectedGroup]);
 
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
