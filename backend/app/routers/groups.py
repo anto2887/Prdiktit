@@ -25,10 +25,11 @@ from ..db import (
 from ..db.models import (
     PendingMembership,
     MembershipStatus,
-    GroupAuditLog
+    GroupAuditLog,
+    Group as GroupModel
 )
 from ..schemas import (
-    Group, GroupCreate, GroupBase, GroupMember, 
+    GroupCreate, GroupBase, GroupMember,
     GroupPrivacyType, MemberRole, LoginRequest,
     ListResponse, DataResponse, User, TeamInfo,
     MemberAction
@@ -306,6 +307,76 @@ async def get_teams(
         return ListResponse(
             data=[]
         )  # Return empty list on error
+
+@router.get("/debug-groups", response_model=DataResponse)
+async def debug_groups(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Debug endpoint to check what get_user_groups returns
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        logger.info(f"Starting debug for user {current_user.id}")
+        
+        # Test individual queries first
+        admin_groups = db.query(GroupModel).filter(GroupModel.admin_id == current_user.id).all()
+        logger.info(f"Admin groups query returned: {len(admin_groups)} items")
+        
+        member_groups = db.query(GroupModel).join(
+            group_members,
+            GroupModel.id == group_members.c.group_id
+        ).filter(
+            group_members.c.user_id == current_user.id
+        ).all()
+        logger.info(f"Member groups query returned: {len(member_groups)} items")
+        
+        # Test the repository function
+        db_groups = await get_user_groups(db, current_user.id)
+        
+        debug_info = {
+            "user_id": current_user.id,
+            "admin_groups_count": len(admin_groups),
+            "member_groups_count": len(member_groups),
+            "final_groups_count": len(db_groups),
+            "admin_groups_types": [str(type(group)) for group in admin_groups],
+            "member_groups_types": [str(type(group)) for group in member_groups],
+            "final_groups_types": [str(type(group)) for group in db_groups],
+            "groups_data": []
+        }
+        
+        for i, group in enumerate(db_groups):
+            group_info = {
+                "index": i,
+                "type": str(type(group)),
+                "has_id": hasattr(group, 'id'),
+                "repr": str(group)[:100],  # First 100 chars
+                "dir": [attr for attr in dir(group) if not attr.startswith('_')][:10]  # First 10 attributes
+            }
+            
+            if hasattr(group, 'id'):
+                group_info.update({
+                    "id": group.id,
+                    "name": getattr(group, 'name', 'NO_NAME'),
+                    "admin_id": getattr(group, 'admin_id', 'NO_ADMIN_ID')
+                })
+            
+            debug_info["groups_data"].append(group_info)
+        
+        return DataResponse(data=debug_info)
+        
+    except Exception as e:
+        logger.error(f"Debug error: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return DataResponse(
+            status="error",
+            message=str(e),
+            data={"traceback": traceback.format_exc()}
+        )
 
 @router.get("/{group_id}", response_model=DataResponse)
 async def get_group_details(
