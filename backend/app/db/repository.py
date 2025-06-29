@@ -444,27 +444,48 @@ async def update_team(db: Session, team_id: int, team_data: dict) -> Optional[Te
 
 async def get_user_groups(db: Session, user_id: int) -> List[Group]:
     """Get all groups a user is a member of or is an admin of"""
-    # Use a UNION to get both groups where user is a member and groups where user is admin
-    from sqlalchemy import union, select
-    
-    # Query for groups where user is a member
-    member_groups = select(Group).join(
-        group_members,
-        Group.id == group_members.c.group_id
-    ).filter(
-        group_members.c.user_id == user_id
-    )
-    
-    # Query for groups where user is admin
-    admin_groups = select(Group).filter(
-        Group.admin_id == user_id
-    )
-    
-    # Combine both queries with UNION
-    combined_query = union(member_groups, admin_groups).alias()
-    final_query = db.query(Group).select_entity_from(combined_query)
-    
-    return final_query.all()
+    try:
+        logger.info(f"Getting groups for user {user_id}")
+        
+        # Get all groups where user is admin - SIMPLE QUERY
+        admin_groups = db.query(Group).filter(Group.admin_id == user_id).all()
+        logger.info(f"Found {len(admin_groups)} admin groups for user {user_id}")
+        
+        # Get all groups where user is a member - SIMPLE QUERY  
+        member_groups = db.query(Group).join(
+            group_members,
+            Group.id == group_members.c.group_id
+        ).filter(
+            group_members.c.user_id == user_id
+        ).all()
+        logger.info(f"Found {len(member_groups)} member groups for user {user_id}")
+        
+        # Combine both lists and remove duplicates using a dict
+        all_groups = {}
+        
+        # Add admin groups
+        for group in admin_groups:
+            logger.info(f"Adding admin group: {group.id} - {group.name}")
+            all_groups[group.id] = group
+            
+        # Add member groups (won't duplicate if user is admin)
+        for group in member_groups:
+            if group.id not in all_groups:
+                logger.info(f"Adding member group: {group.id} - {group.name}")
+                all_groups[group.id] = group
+            else:
+                logger.info(f"Skipping duplicate group: {group.id} - {group.name}")
+        
+        result = list(all_groups.values())
+        logger.info(f"Final result: {len(result)} groups for user {user_id}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in get_user_groups for user {user_id}: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return []
 
 async def get_group_by_id(db: Session, group_id: int) -> Optional[Group]:
     """Get group by ID"""
