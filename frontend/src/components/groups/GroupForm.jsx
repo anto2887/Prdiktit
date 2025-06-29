@@ -21,7 +21,8 @@ const GroupForm = () => {
     { id: 'PL', name: 'Premier League', season: '2024-25' },
     { id: 'LL', name: 'La Liga', season: '2024-25' },
     { id: 'UCL', name: 'Champions League', season: '2024-25' },
-    { id: 'MLS', name: 'MLS', season: '2025' }
+    { id: 'MLS', name: 'MLS', season: '2025' },
+    { id: 'FCWC', name: 'FIFA Club World Cup', season: '2025' }
   ];
 
   const handleLeagueSelect = (leagueId) => {

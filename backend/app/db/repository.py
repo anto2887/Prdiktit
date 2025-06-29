@@ -389,7 +389,8 @@ async def get_teams_by_league(db: Session, league: str) -> List[Team]:
             "Premier League": {"id": 39, "season": 2024},
             "La Liga": {"id": 140, "season": 2024},
             "UEFA Champions League": {"id": 2, "season": 2024},
-            "MLS": {"id": 253, "season": 2025}
+            "MLS": {"id": 253, "season": 2025},
+            "FIFA Club World Cup": {"id": 15, "season": 2025}
         }
         
         if league in league_mapping:
