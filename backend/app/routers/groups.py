@@ -1,3 +1,4 @@
+# app/routers/groups.py
 from typing import Any, List, Optional
 from datetime import datetime, timezone
 
@@ -16,12 +17,14 @@ from ..db import (
     get_group_tracked_teams,
     get_group_members,
     regenerate_invite_code,
-    get_user_groups,
     create_group,
     get_group_by_invite_code,
     get_teams_by_league,
     update_group
 )
+# Import the repository function with a different name to avoid conflict
+from ..db.repository import get_user_groups as get_user_groups_from_db
+
 from ..db.models import (
     PendingMembership,
     MembershipStatus,
@@ -38,7 +41,7 @@ from ..schemas import (
 router = APIRouter()
 
 @router.get("", response_model=ListResponse)
-async def get_user_groups(
+async def get_user_groups_endpoint(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
@@ -54,8 +57,8 @@ async def get_user_groups(
         if cached_groups:
             groups = cached_groups
         else:
-            # Get groups from database
-            db_groups = await get_user_groups(db, current_user.id)
+            # Get groups from database using the repository function
+            db_groups = await get_user_groups_from_db(db, current_user.id)
             
             # Convert to list of dicts (for better serialization)
             groups = []
@@ -121,6 +124,118 @@ async def get_user_groups(
             total=0
         )
 
+@router.get("/teams", response_model=ListResponse)
+async def get_teams(
+    league: str = Query(..., description="League name"),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get teams available for tracking in a specific league
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Get teams from the database
+        teams_data = await get_teams_by_league(db, league)
+        
+        # Convert to the format expected by the frontend
+        teams = []
+        for team in teams_data:
+            teams.append({
+                "id": team.id,
+                "name": team.name,
+                "logo": team.logo,
+                "country": getattr(team, 'country', league),
+                "league": league
+            })
+        
+        logger.info(f"Returning {len(teams)} teams for league {league}")
+        
+        # Convert dicts to TeamInfo objects for the response
+        team_info_objects = [TeamInfo(id=t["id"], name=t["name"], logo=t["logo"]) for t in teams]
+        
+        # Return in the expected format
+        return ListResponse(
+            data=team_info_objects
+        )
+    except Exception as e:
+        logger.error(f"Error in get_teams: {str(e)}")
+        return ListResponse(
+            data=[]
+        )  # Return empty list on error
+
+@router.get("/debug-groups", response_model=DataResponse)
+async def debug_groups(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Debug endpoint to check what get_user_groups returns
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        logger.info(f"Starting debug for user {current_user.id}")
+        
+        # Test individual queries first
+        admin_groups = db.query(GroupModel).filter(GroupModel.admin_id == current_user.id).all()
+        logger.info(f"Admin groups query returned: {len(admin_groups)} items")
+        
+        member_groups = db.query(GroupModel).join(
+            group_members,
+            GroupModel.id == group_members.c.group_id
+        ).filter(
+            group_members.c.user_id == current_user.id
+        ).all()
+        logger.info(f"Member groups query returned: {len(member_groups)} items")
+        
+        # Test the repository function (FIXED: Use the correct function)
+        db_groups = await get_user_groups_from_db(db, current_user.id)
+        
+        debug_info = {
+            "user_id": current_user.id,
+            "admin_groups_count": len(admin_groups),
+            "member_groups_count": len(member_groups),
+            "final_groups_count": len(db_groups),  # FIXED: Now this works because db_groups is a list
+            "admin_groups_types": [str(type(group)) for group in admin_groups],
+            "member_groups_types": [str(type(group)) for group in member_groups],
+            "final_groups_types": [str(type(group)) for group in db_groups],
+            "groups_data": []
+        }
+        
+        for i, group in enumerate(db_groups):
+            group_info = {
+                "index": i,
+                "type": str(type(group)),
+                "has_id": hasattr(group, 'id'),
+                "repr": str(group)[:100],  # First 100 chars
+                "dir": [attr for attr in dir(group) if not attr.startswith('_')][:10]  # First 10 attributes
+            }
+            
+            if hasattr(group, 'id'):
+                group_info.update({
+                    "id": group.id,
+                    "name": getattr(group, 'name', 'NO_NAME'),
+                    "admin_id": getattr(group, 'admin_id', 'NO_ADMIN_ID')
+                })
+            
+            debug_info["groups_data"].append(group_info)
+        
+        return DataResponse(data=debug_info)
+        
+    except Exception as e:
+        logger.error(f"Debug error: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
+        return DataResponse(
+            status="error",
+            message=str(e),
+            data={"traceback": traceback.format_exc()}
+        )
+
 @router.post("", response_model=DataResponse)
 async def create_group_endpoint(
     group_data: GroupCreate,
@@ -173,209 +288,59 @@ async def join_group(
     """
     Join a group using invite code
     """
-    # Get group by invite code
-    group = await get_group_by_invite_code(db, join_data.invite_code)
-    
-    if not group:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invalid invite code"
-        )
-    
-    # Check if user is already a member
-    is_member = await check_group_membership(db, group.id, current_user.id)
-    
-    if is_member:
-        return DataResponse(
-            message="You are already a member of this group"
-        )
-    
-    # Check if there's already a pending request
-    existing_request = db.query(PendingMembership).filter(
-        PendingMembership.group_id == group.id,
-        PendingMembership.user_id == current_user.id,
-        PendingMembership.status == MembershipStatus.PENDING
-    ).first()
-    
-    if existing_request:
-        return DataResponse(
-            message="You already have a pending request for this group"
-        )
-    
-    # Create pending membership request
-    pending_membership = PendingMembership(
-        group_id=group.id,
-        user_id=current_user.id,
-        status=MembershipStatus.PENDING,
-        requested_at=datetime.now(timezone.utc)
-    )
-    
-    db.add(pending_membership)
-    
-    # Add audit log entry
-    log_entry = GroupAuditLog(
-        group_id=group.id,
-        user_id=current_user.id,
-        action=f"User {current_user.username} requested to join group",
-        details={"user_id": current_user.id, "username": current_user.username},
-        created_at=datetime.now(timezone.utc)
-    )
-    db.add(log_entry)
-    
-    # Commit the changes
-    db.commit()
-    
-    # FIXED: Clear relevant caches with specific keys
-    await cache.delete(f"user_groups:{current_user.id}")
-    await cache.delete(f"group_members:{group.id}")
-    await cache.delete(f"group:{group.id}")
-    
-    return DataResponse(
-        message="Membership request sent. Waiting for admin approval."
-    )
-
-@router.get("/teams", response_model=ListResponse)
-async def get_teams(
-    league: str = Query(..., description="League name or ID"),
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-    cache: RedisCache = Depends(get_cache)
-):
-    """
-    Get teams for a league
-    """
     try:
-        # Add logging
+        # Get the group by invite code
+        group = await get_group_by_invite_code(db, join_data.password)  # Using password field for invite code
+        
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Invalid invite code"
+            )
+        
+        # Check if user is already a member
+        is_member = await check_group_membership(db, group.id, current_user.id)
+        
+        if is_member:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You are already a member of this group"
+            )
+        
+        # Add user to group_members table
+        stmt = group_members.insert().values(
+            user_id=current_user.id,
+            group_id=group.id,
+            role=MemberRole.MEMBER,
+            joined_at=datetime.now(timezone.utc),
+            last_active=datetime.now(timezone.utc)
+        )
+        db.execute(stmt)
+        db.commit()
+        
+        # Clear cache
+        await cache.delete(f"user_groups:{current_user.id}")
+        await cache.delete(f"group:{group.id}")
+        
+        return DataResponse(
+            message="Successfully joined group",
+            data={
+                "group_id": group.id,
+                "group_name": group.name
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Log the error
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"get_teams endpoint called by user {current_user.id} for league {league}")
+        logger.error(f"Error joining group: {str(e)}")
         
-        # Map league IDs to names if needed
-        league_mapping = {
-            "PL": "Premier League",
-            "LL": "La Liga",
-            "UCL": "UEFA Champions League"
-        }
-        
-        # Use mapped league name if available
-        league_name = league_mapping.get(league, league)
-        logger.info(f"Mapped league '{league}' to '{league_name}'")
-        
-        # Try to get from cache
-        cache_key = f"league_teams:{league_name}"
-        cached_teams = await cache.get(cache_key)
-        
-        if cached_teams:
-            logger.debug(f"Teams for league {league_name} found in cache")
-            teams = cached_teams
-        else:
-            logger.debug(f"Teams for league {league_name} not found in cache, fetching from database")
-            
-            # Get teams from the database
-            # Get teams by league name
-            teams_from_db = await get_teams_by_league(db, league_name)
-            
-            if teams_from_db:
-                logger.info(f"Found {len(teams_from_db)} teams for league {league_name} in database")
-                # Convert team objects to dict format for better JSON serialization
-                teams = []
-                for team in teams_from_db:
-                    teams.append({
-                        "id": team.id,
-                        "name": team.team_name,
-                        "logo": team.team_logo
-                    })
-            else:
-                logger.warning(f"No teams found in database for league {league_name}")
-                # Return empty list if no teams found
-                teams = []
-            
-            # Cache for 24 hours (since team data doesn't change often)
-            await cache.set(cache_key, teams, 86400)
-        
-        logger.info(f"Returning {len(teams)} teams for league {league_name}")
-        
-        # Convert dicts to TeamInfo objects for the response
-        team_info_objects = [TeamInfo(id=t["id"], name=t["name"], logo=t["logo"]) for t in teams]
-        
-        # Return in the expected format
-        return ListResponse(
-            data=team_info_objects
-        )
-    except Exception as e:
-        logger.error(f"Error in get_teams: {str(e)}")
-        return ListResponse(
-            data=[]
-        )  # Return empty list on error
-
-@router.get("/debug-groups", response_model=DataResponse)
-async def debug_groups(
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Debug endpoint to check what get_user_groups returns
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    try:
-        logger.info(f"Starting debug for user {current_user.id}")
-        
-        # Test individual queries first
-        admin_groups = db.query(GroupModel).filter(GroupModel.admin_id == current_user.id).all()
-        logger.info(f"Admin groups query returned: {len(admin_groups)} items")
-        
-        member_groups = db.query(GroupModel).join(
-            group_members,
-            GroupModel.id == group_members.c.group_id
-        ).filter(
-            group_members.c.user_id == current_user.id
-        ).all()
-        logger.info(f"Member groups query returned: {len(member_groups)} items")
-        
-        # Test the repository function
-        db_groups = await get_user_groups(db, current_user.id)
-        
-        debug_info = {
-            "user_id": current_user.id,
-            "admin_groups_count": len(admin_groups),
-            "member_groups_count": len(member_groups),
-            "final_groups_count": len(db_groups),
-            "admin_groups_types": [str(type(group)) for group in admin_groups],
-            "member_groups_types": [str(type(group)) for group in member_groups],
-            "final_groups_types": [str(type(group)) for group in db_groups],
-            "groups_data": []
-        }
-        
-        for i, group in enumerate(db_groups):
-            group_info = {
-                "index": i,
-                "type": str(type(group)),
-                "has_id": hasattr(group, 'id'),
-                "repr": str(group)[:100],  # First 100 chars
-                "dir": [attr for attr in dir(group) if not attr.startswith('_')][:10]  # First 10 attributes
-            }
-            
-            if hasattr(group, 'id'):
-                group_info.update({
-                    "id": group.id,
-                    "name": getattr(group, 'name', 'NO_NAME'),
-                    "admin_id": getattr(group, 'admin_id', 'NO_ADMIN_ID')
-                })
-            
-            debug_info["groups_data"].append(group_info)
-        
-        return DataResponse(data=debug_info)
-        
-    except Exception as e:
-        logger.error(f"Debug error: {str(e)}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-        return DataResponse(
-            status="error",
-            message=str(e),
-            data={"traceback": traceback.format_exc()}
+        # Return error response
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to join group: {str(e)}"
         )
 
 @router.get("/{group_id}", response_model=DataResponse)
@@ -443,7 +408,7 @@ async def get_group_details(
     )
 
 @router.put("/{group_id}", response_model=DataResponse)
-async def update_group(
+async def update_group_endpoint(
     group_data: GroupBase,  # Using GroupBase instead of GroupUpdate
     group_id: int = Path(...),
     current_user: User = Depends(get_current_active_user),
@@ -453,31 +418,35 @@ async def update_group(
     """
     Update group details
     """
-    # This is a placeholder - you'll need to implement the actual repository function
-    # group = await get_group_by_id(db, group_id)
+    # Get the group from database
+    group = await get_group_by_id(db, group_id)
     
-    # For now, assume group exists
-    group = {
-        "id": group_id,
-        "admin_id": current_user.id
-    }
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group not found"
+        )
     
     # Check if user is admin
-    if group["admin_id"] != current_user.id:
+    if group.admin_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only group admin can update group details"
         )
     
-    # This is a placeholder - you'll need to implement the actual repository function
-    # updated_group = await update_group_db(db, group_id, **group_data.dict(exclude_unset=True))
+    # Update the group using repository function
+    updated_group = await update_group(db, group_id, **group_data.dict(exclude_unset=True))
     
     # Clear cache
     await cache.delete(f"group:{group_id}")
     await cache.delete(f"user_groups:{current_user.id}")
     
     return DataResponse(
-        message="Group updated successfully"
+        message="Group updated successfully",
+        data={
+            "group_id": updated_group.id,
+            "name": updated_group.name
+        }
     )
 
 @router.get("/{group_id}/members", response_model=ListResponse)
@@ -498,77 +467,35 @@ async def get_group_members_endpoint(
             detail="Group not found"
         )
     
+    # Check if user is a member of the group
     is_member = await check_group_membership(db, group_id, current_user.id)
-    is_admin = group.admin_id == current_user.id
     
-    if not is_member and not is_admin:
+    if not is_member:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this group"
         )
     
-    # FIXED: Use group_id specific cache key
-    cache_key = f"group_members:{group_id}"
-    cached_members = await cache.get(cache_key)
+    # Get members from repository
+    members = await get_group_members(db, group_id)
     
-    if cached_members:
-        members = cached_members
-        print(f"DEBUG: Using cached members for group {group_id}: {len(members)} members")
-    else:
-        print(f"DEBUG: Fetching fresh members for group {group_id}")
-        members = await get_group_members(db, group_id)
-        print(f"DEBUG: Fresh fetch returned {len(members)} members for group {group_id}")
-        
-        # FIXED: Only cache if we have valid data
-        if members:
-            await cache.set(cache_key, members, 300)  # Cache for 5 minutes
-            print(f"DEBUG: Cached {len(members)} members for group {group_id}")
-    
-    # Process members with safe datetime handling
-    processed_members = []
-    for member in members:
-        def safe_isoformat(value):
-            """Safely convert datetime to ISO format string"""
-            if not value:
-                return None
-            if hasattr(value, 'isoformat'):
-                return value.isoformat()
-            return str(value)
-        
-        processed_member = {
-            'user_id': member.get('user_id'),
-            'username': member.get('username'),
-            'role': member.get('role'),
-            'joined_at': safe_isoformat(member.get('joined_at')),
-            'last_active': safe_isoformat(member.get('last_active')),
-        }
-        
-        # Add status and requested_at for pending members
-        if 'status' in member:
-            processed_member['status'] = member['status']
-        if 'requested_at' in member:
-            processed_member['requested_at'] = safe_isoformat(member['requested_at'])
-            
-        processed_members.append(processed_member)
-    
-    print(f"DEBUG: Returning {len(processed_members)} processed members for group {group_id}")
     return ListResponse(
-        data=processed_members
+        data=members,
+        total=len(members)
     )
 
-@router.post("/{group_id}/members", response_model=DataResponse)
-async def manage_group_members(
-    action: str = Query(..., description="Action to perform: approve, reject, promote, demote, remove"),
-    user_ids: List[int] = Query(..., description="List of user IDs to perform action on"),
+@router.delete("/{group_id}/members/{user_id}", response_model=DataResponse)
+async def remove_group_member(
     group_id: int = Path(...),
+    user_id: int = Path(...),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
     """
-    Manage group members (approve, reject, promote, demote, remove)
+    Remove a member from the group (admin only)
     """
-    # First check if group exists
+    # Check if user is admin of the group
     group = await get_group_by_id(db, group_id)
     if not group:
         raise HTTPException(
@@ -576,293 +503,78 @@ async def manage_group_members(
             detail="Group not found"
         )
     
-    # FIXED: Check if user is admin of the group FIRST
-    if group.admin_id == current_user.id:
-        # User is the group admin, they have permission
-        user_role = MemberRole.ADMIN
-    else:
-        # Check if user has permission to manage members through group membership
-        user_role = await get_user_role_in_group(db, group_id, current_user.id)
-        if not user_role or user_role not in [MemberRole.ADMIN, MemberRole.MODERATOR]:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You don't have permission to manage members"
-            )
-
-    # Only admins can perform certain actions
-    admin_only_actions = [MemberAction.PROMOTE, MemberAction.DEMOTE]
-    if action in admin_only_actions and user_role != MemberRole.ADMIN:
+    if group.admin_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Only admins can {action.lower()} members"
+            detail="Only group admin can remove members"
         )
     
-    results = []
-    for user_id in user_ids:
-        try:
-            # Skip if trying to perform action on self
-            if user_id == current_user.id and action == MemberAction.REMOVE:
-                results.append({
-                    "user_id": user_id,
-                    "status": "error",
-                    "message": "Cannot remove yourself from the group"
-                })
-                continue
-                
-            # Skip if trying to perform action on the admin
-            if group.admin_id == user_id and action in [MemberAction.REMOVE, MemberAction.DEMOTE]:
-                results.append({
-                    "user_id": user_id,
-                    "status": "error",
-                    "message": "Cannot perform this action on the group admin"
-                })
-                continue
-                
-            # Perform the actual action based on the type
-            if action == MemberAction.APPROVE:
-                # Check if there's a pending membership request
-                pending_request = db.query(PendingMembership).filter(
-                    PendingMembership.group_id == group_id,
-                    PendingMembership.user_id == user_id,
-                    PendingMembership.status == MembershipStatus.PENDING
-                ).first()
-                
-                if not pending_request:
-                    results.append({
-                        "user_id": user_id,
-                        "status": "error",
-                        "message": "No pending request found"
-                    })
-                    continue
-                    
-                # Add user to group members
-                db.execute(
-                    group_members.insert().values(
-                        user_id=user_id,
-                        group_id=group_id,
-                        role=MemberRole.MEMBER,
-                        joined_at=datetime.now(timezone.utc),
-                        last_active=datetime.now(timezone.utc)
-                    )
-                )
-                
-                # Update pending request
-                pending_request.status = MembershipStatus.APPROVED
-                pending_request.processed_at = datetime.now(timezone.utc)
-                pending_request.processed_by = current_user.id
-                
-                # Add audit log
-                log_entry = GroupAuditLog(
-                    group_id=group_id,
-                    user_id=current_user.id,
-                    action=f"Approved membership for user {user_id}",
-                    details={"target_user_id": user_id},
-                    created_at=datetime.now(timezone.utc)
-                )
-                db.add(log_entry)
-                
-                results.append({
-                    "user_id": user_id,
-                    "status": "success",
-                    "message": "Member approved successfully"
-                })
-                
-            elif action == MemberAction.REJECT:
-                # Check if there's a pending membership request
-                pending_request = db.query(PendingMembership).filter(
-                    PendingMembership.group_id == group_id,
-                    PendingMembership.user_id == user_id,
-                    PendingMembership.status == MembershipStatus.PENDING
-                ).first()
-                
-                if not pending_request:
-                    results.append({
-                        "user_id": user_id,
-                        "status": "error",
-                        "message": "No pending request found"
-                    })
-                    continue
-                    
-                # Update pending request
-                pending_request.status = MembershipStatus.REJECTED
-                pending_request.processed_at = datetime.now(timezone.utc)
-                pending_request.processed_by = current_user.id
-                
-                # Add audit log
-                log_entry = GroupAuditLog(
-                    group_id=group_id,
-                    user_id=current_user.id,
-                    action=f"Rejected membership for user {user_id}",
-                    details={"target_user_id": user_id},
-                    created_at=datetime.now(timezone.utc)
-                )
-                db.add(log_entry)
-                
-                results.append({
-                    "user_id": user_id,
-                    "status": "success",
-                    "message": "Membership request rejected"
-                })
-                
-            elif action == MemberAction.PROMOTE:
-                # Check if user is a member
-                member = db.query(group_members).filter(
-                    group_members.c.group_id == group_id,
-                    group_members.c.user_id == user_id
-                ).first()
-                
-                if not member:
-                    results.append({
-                        "user_id": user_id,
-                        "status": "error",
-                        "message": "User is not a member of this group"
-                    })
-                    continue
-                    
-                # Update member role to moderator
-                db.execute(
-                    group_members.update().
-                    where(
-                        group_members.c.group_id == group_id,
-                        group_members.c.user_id == user_id
-                    ).
-                    values(role=MemberRole.MODERATOR)
-                )
-                
-                # Add audit log
-                log_entry = GroupAuditLog(
-                    group_id=group_id,
-                    user_id=current_user.id,
-                    action=f"Promoted user {user_id} to moderator",
-                    details={"target_user_id": user_id},
-                    created_at=datetime.now(timezone.utc)
-                )
-                db.add(log_entry)
-                
-                results.append({
-                    "user_id": user_id,
-                    "status": "success",
-                    "message": "Member promoted to moderator"
-                })
-                
-            elif action == MemberAction.DEMOTE:
-                # Check if user is a moderator
-                member = db.query(group_members).filter(
-                    group_members.c.group_id == group_id,
-                    group_members.c.user_id == user_id,
-                    group_members.c.role == MemberRole.MODERATOR
-                ).first()
-                
-                if not member:
-                    results.append({
-                        "user_id": user_id,
-                        "status": "error",
-                        "message": "User is not a moderator of this group"
-                    })
-                    continue
-                    
-                # Update member role to regular member
-                db.execute(
-                    group_members.update().
-                    where(
-                        group_members.c.group_id == group_id,
-                        group_members.c.user_id == user_id
-                    ).
-                    values(role=MemberRole.MEMBER)
-                )
-                
-                # Add audit log
-                log_entry = GroupAuditLog(
-                    group_id=group_id,
-                    user_id=current_user.id,
-                    action=f"Demoted user {user_id} from moderator",
-                    details={"target_user_id": user_id},
-                    created_at=datetime.now(timezone.utc)
-                )
-                db.add(log_entry)
-                
-                results.append({
-                    "user_id": user_id,
-                    "status": "success",
-                    "message": "Moderator demoted to member"
-                })
-                
-            elif action == MemberAction.REMOVE:
-                # Check if user is a member
-                member = db.query(group_members).filter(
-                    group_members.c.group_id == group_id,
-                    group_members.c.user_id == user_id
-                ).first()
-                
-                if not member:
-                    results.append({
-                        "user_id": user_id,
-                        "status": "error",
-                        "message": "User is not a member of this group"
-                    })
-                    continue
-                    
-                # Remove user from group
-                db.execute(
-                    group_members.delete().
-                    where(
-                        group_members.c.group_id == group_id,
-                        group_members.c.user_id == user_id
-                    )
-                )
-                
-                # Add audit log
-                log_entry = GroupAuditLog(
-                    group_id=group_id,
-                    user_id=current_user.id,
-                    action=f"Removed user {user_id} from group",
-                    details={"target_user_id": user_id},
-                    created_at=datetime.now(timezone.utc)
-                )
-                db.add(log_entry)
-                
-                results.append({
-                    "user_id": user_id,
-                    "status": "success",
-                    "message": "Member removed from group"
-                })
-                
-            else:
-                # Unknown action
-                results.append({
-                    "user_id": user_id,
-                    "status": "error",
-                    "message": f"Unknown action: {action}"
-                })
-        
-        except Exception as e:
-            # Log the error
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f"Error processing member action: {str(e)}")
-            
-            # Add to results
-            results.append({
-                "user_id": user_id,
-                "status": "error",
-                "message": str(e)
-            })
+    # Cannot remove the admin
+    if user_id == group.admin_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove group admin"
+        )
     
-    # Commit all changes
+    # Remove from group_members table
+    result = db.execute(
+        group_members.delete().where(
+            (group_members.c.group_id == group_id) & 
+            (group_members.c.user_id == user_id)
+        )
+    )
+    
+    if result.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User is not a member of this group"
+        )
+    
     db.commit()
     
-    # FIXED: Clear cache for this specific group
-    await cache.delete(f"group_members:{group_id}")
+    # Clear cache
+    await cache.delete(f"user_groups:{user_id}")
     await cache.delete(f"group:{group_id}")
     
-    # FIXED: Also clear user groups cache for affected users
-    affected_user_ids = user_ids + [current_user.id]  # Include current user
-    for user_id in affected_user_ids:
-        await cache.delete(f"user_groups:{user_id}")
+    return DataResponse(
+        message="Member removed successfully"
+    )
+
+@router.post("/{group_id}/regenerate-code", response_model=DataResponse)
+async def regenerate_group_invite_code(
+    group_id: int = Path(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Regenerate group invite code (admin only)
+    """
+    # Check if user is admin of the group
+    group = await get_group_by_id(db, group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Group not found"
+        )
+    
+    if group.admin_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only group admin can regenerate invite code"
+        )
+    
+    # Regenerate the invite code
+    updated_group = await regenerate_invite_code(db, group_id)
+    
+    # Clear cache
+    await cache.delete(f"group:{group_id}")
     
     return DataResponse(
-        message=f"{action} action completed",
-        data=results
+        message="Invite code regenerated successfully",
+        data={
+            "new_invite_code": updated_group.invite_code
+        }
     )
 
 @router.get("/{group_id}/analytics", response_model=DataResponse)
@@ -876,8 +588,7 @@ async def get_group_analytics(
     Get group analytics
     """
     # Check if user is a member of the group
-    # This is a placeholder - you'll need to implement the actual check
-    is_member = True
+    is_member = await check_group_membership(db, group_id, current_user.id)
     
     if not is_member:
         raise HTTPException(
@@ -929,36 +640,6 @@ async def get_group_audit_log(
     Get group audit log
     """
     # Check if user is admin
-    # This is a placeholder - you'll need to implement the actual check
-    user_role = "ADMIN"
-    
-    if user_role != "ADMIN":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only group admin can view audit log"
-        )
-    
-    # This is a placeholder - you'll need to implement the actual repository function
-    # logs = await get_group_audit_logs(db, group_id)
-    
-    # For now, return a mock response
-    logs = []
-    
-    return ListResponse(
-        data=logs
-    )
-
-@router.post("/{group_id}/regenerate-code", response_model=DataResponse)
-async def regenerate_group_code(
-    group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-    cache: RedisCache = Depends(get_cache)
-):
-    """
-    Regenerate group invite code
-    """
-    # Check if group exists
     group = await get_group_by_id(db, group_id)
     if not group:
         raise HTTPException(
@@ -966,37 +647,29 @@ async def regenerate_group_code(
             detail="Group not found"
         )
     
-    # Check if user is the admin
     if group.admin_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the group admin can regenerate the invite code"
+            detail="Only group admin can view audit log"
         )
     
-    # Generate a new invite code
-    new_code = await regenerate_invite_code(db, group_id)
-    if not new_code:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to regenerate invite code"
-        )
+    # Get audit log entries
+    audit_entries = db.query(GroupAuditLog).filter(
+        GroupAuditLog.group_id == group_id
+    ).order_by(GroupAuditLog.timestamp.desc()).limit(100).all()
     
-    # Clear cache
-    await cache.delete(f"group:{group_id}")
+    # Convert to dicts
+    audit_data = []
+    for entry in audit_entries:
+        audit_data.append({
+            "id": entry.id,
+            "action": entry.action,
+            "performed_by": entry.performed_by,
+            "timestamp": entry.timestamp.isoformat(),
+            "details": entry.details
+        })
     
-    # Add audit log
-    log_entry = GroupAuditLog(
-        group_id=group_id,
-        user_id=current_user.id,
-        action="Regenerated invite code",
-        created_at=datetime.now(timezone.utc)
-    )
-    db.add(log_entry)
-    db.commit()
-    
-    return DataResponse(
-        message="Invite code regenerated successfully",
-        data={
-            "new_code": new_code
-        }
-    )
+    return ListResponse(
+        data=audit_data,
+        total=len(audit_data)
+    ) 
