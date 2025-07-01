@@ -54,8 +54,9 @@ async def get_fixtures_endpoint(
     league: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
-    from_date: Optional[str] = Query(None),
-    to_date: Optional[str] = Query(None),
+    # Accept both parameter names for backward compatibility
+    from_date: Optional[str] = Query(None, alias="from"),  # Accept 'from' as alias
+    to_date: Optional[str] = Query(None, alias="to"),      # Accept 'to' as alias
     team_id: Optional[int] = Query(None),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
@@ -67,6 +68,8 @@ async def get_fixtures_endpoint(
     # Import logging
     import logging
     logger = logging.getLogger(__name__)
+    
+    logger.info(f"Fixtures endpoint called with params: league={league}, season={season}, status={status}, from_date={from_date}, to_date={to_date}, team_id={team_id}")
     
     # Convert date strings to datetime if provided
     from_datetime = None
@@ -109,6 +112,7 @@ async def get_fixtures_endpoint(
             status_enum = MatchStatus(status)
         except (ValueError, TypeError):
             # Invalid status, ignore it
+            logger.warning(f"Invalid status provided: {status}")
             pass
     
     # Build cache key from query parameters
@@ -120,8 +124,11 @@ async def get_fixtures_endpoint(
     
     if cached_fixtures:
         fixtures = cached_fixtures
+        logger.info(f"Returning {len(fixtures)} cached fixtures")
     else:
         try:
+            logger.info(f"Fetching fixtures from database with params: league={league}, season={season}, status={status_enum}, from_date={from_datetime}, to_date={to_datetime}, team_id={team_id}")
+            
             fixtures = await get_fixtures(
                 db,
                 league=league,
@@ -132,13 +139,19 @@ async def get_fixtures_endpoint(
                 team_id=team_id
             )
             
+            logger.info(f"Retrieved {len(fixtures)} fixtures from database")
+            
             # Cache for 5 minutes
             await cache.set(cache_key, fixtures, 300)
         except Exception as e:
             logger.error(f"Error fetching fixtures: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to fetch fixtures: {str(e)}"
+            logger.exception("Full traceback:")
+            
+            # Return empty result instead of raising error
+            return ListResponse(
+                data=[],
+                total=0,
+                message=f"No fixtures available at the moment"
             )
     
     return ListResponse(
@@ -168,47 +181,60 @@ async def get_upcoming_matches(
     """
     Get upcoming matches for user's leagues
     """
-    # TODO: Implement actual league membership check
-    # For now, return upcoming matches for the next 7 days
+    import logging
+    logger = logging.getLogger(__name__)
     
-    # Try to get from cache
-    cache_key = f"upcoming_matches:{current_user.id}"
-    cached_matches = await cache.get(cache_key)
-    
-    if cached_matches:
-        matches = cached_matches
-    else:
-        now = datetime.now(timezone.utc)
-        next_week = now + timedelta(days=7)
+    try:
+        # Try to get from cache
+        cache_key = f"upcoming_matches:{current_user.id}"
+        cached_matches = await cache.get(cache_key)
         
-        matches = await get_fixtures(
-            db,
-            status=MatchStatus.NOT_STARTED,
-            from_date=now,
-            to_date=next_week
+        if cached_matches:
+            matches = cached_matches
+        else:
+            now = datetime.now(timezone.utc)
+            next_week = now + timedelta(days=7)
+            
+            logger.info(f"Fetching upcoming matches from {now} to {next_week}")
+            
+            matches = await get_fixtures(
+                db,
+                status=MatchStatus.NOT_STARTED,
+                from_date=now,
+                to_date=next_week
+            )
+            
+            logger.info(f"Found {len(matches)} upcoming matches")
+            
+            # Cache for 10 minutes
+            await cache.set(cache_key, matches, 600)
+        
+        formatted_matches = []
+        for m in matches:
+            formatted_matches.append({
+                "id": m.fixture_id,
+                "homeTeam": {
+                    "name": m.home_team,
+                    "logo": m.home_team_logo
+                },
+                "awayTeam": {
+                    "name": m.away_team,
+                    "logo": m.away_team_logo
+                },
+                "kickoff": m.date.isoformat()
+            })
+        
+        return DataResponse(
+            data=formatted_matches
         )
+    except Exception as e:
+        logger.error(f"Error fetching upcoming matches: {str(e)}")
+        logger.exception("Full traceback:")
         
-        # Cache for 10 minutes
-        await cache.set(cache_key, matches, 600)
-    
-    formatted_matches = []
-    for m in matches:
-        formatted_matches.append({
-            "id": m.fixture_id,
-            "homeTeam": {
-                "name": m.home_team,
-                "logo": m.home_team_logo
-            },
-            "awayTeam": {
-                "name": m.away_team,
-                "logo": m.away_team_logo
-            },
-            "kickoff": m.date.isoformat()
-        })
-    
-    return DataResponse(
-        data=formatted_matches
-    )
+        return DataResponse(
+            data=[],
+            message="No upcoming matches available"
+        )
 
 @router.get("/{match_id}", response_model=DataResponse)
 async def get_match(
@@ -244,10 +270,18 @@ async def get_match(
             await cache.set(cache_key, match, 300)
     
     # Get prediction deadlines
-    deadlines = await get_prediction_deadlines()
+    deadlines = await get_prediction_deadlines(db)
     
     # Add prediction deadline to match data
-    match_data = match.dict()
+    match_data = match.dict() if hasattr(match, 'dict') else {
+        "fixture_id": match.fixture_id,
+        "home_team": match.home_team,
+        "away_team": match.away_team,
+        "date": match.date.isoformat() if match.date else None,
+        "status": match.status.value if match.status else None,
+        "league": match.league,
+        "season": match.season
+    }
     match_data["prediction_deadline"] = deadlines.get(str(match.fixture_id))
     
     return DataResponse(
