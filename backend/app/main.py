@@ -24,6 +24,9 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Log CORS configuration for debugging
+logger.info(f"CORS Origins: {settings.CORS_ORIGINS}")
+
 # Configure CORS with settings from environment
 app.add_middleware(
     CORSMiddleware,
@@ -74,6 +77,7 @@ try:
     logger.info("Users router registered successfully at /api/v1/users")
 except Exception as e:
     logger.error(f"FAILED to import/register users router: {str(e)}")
+    logger.exception("Full traceback:")
 
 # Matches router
 try:
@@ -85,6 +89,7 @@ try:
     logger.info("Matches router registered successfully at /api/v1/matches")
 except Exception as e:
     logger.error(f"FAILED to import/register matches router: {str(e)}")
+    logger.exception("Full traceback:")
 
 # Predictions router
 try:
@@ -96,6 +101,7 @@ try:
     logger.info("Predictions router registered successfully at /api/v1/predictions")
 except Exception as e:
     logger.error(f"FAILED to import/register predictions router: {str(e)}")
+    logger.exception("Full traceback:")
 
 # Groups router
 try:
@@ -107,6 +113,7 @@ try:
     logger.info("Groups router registered successfully at /api/v1/groups")
 except Exception as e:
     logger.error(f"FAILED to import/register groups router: {str(e)}")
+    logger.exception("Full traceback:")
 
 logger.info("Router registration complete!")
 

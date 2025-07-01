@@ -54,10 +54,10 @@ async def get_fixtures_endpoint(
     league: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
-    # Accept both parameter names for backward compatibility
-    from_date: Optional[str] = Query(None, alias="from"),  # Accept 'from' as alias
-    to_date: Optional[str] = Query(None, alias="to"),      # Accept 'to' as alias
+    from_: Optional[str] = Query(None, alias="from"),    # Accept 'from' parameter
+    to: Optional[str] = Query(None),                      # Accept 'to' parameter  
     team_id: Optional[int] = Query(None),
+    limit: Optional[int] = Query(100),                    # Add limit parameter
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
@@ -69,39 +69,39 @@ async def get_fixtures_endpoint(
     import logging
     logger = logging.getLogger(__name__)
     
-    logger.info(f"Fixtures endpoint called with params: league={league}, season={season}, status={status}, from_date={from_date}, to_date={to_date}, team_id={team_id}")
+    logger.info(f"Fixtures endpoint called with: league={league}, season={season}, status={status}, from_={from_}, to={to}, team_id={team_id}")
     
     # Convert date strings to datetime if provided
     from_datetime = None
     to_datetime = None
     
-    if from_date:
+    if from_:
         try:
             # Handle different date formats
-            if 'T' in from_date:
+            if 'T' in from_:
                 # ISO format with time
-                from_date = from_date.replace('Z', '+00:00') if 'Z' in from_date else from_date
-                from_datetime = datetime.fromisoformat(from_date)
+                from_ = from_.replace('Z', '+00:00') if 'Z' in from_ else from_
+                from_datetime = datetime.fromisoformat(from_)
             else:
                 # Date only format (YYYY-MM-DD)
-                from_datetime = datetime.strptime(from_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                from_datetime = datetime.strptime(from_, "%Y-%m-%d").replace(tzinfo=timezone.utc)
         except Exception as e:
-            logger.warning(f"Invalid from_date format: {from_date}. Error: {str(e)}")
+            logger.warning(f"Invalid from_ format: {from_}. Error: {str(e)}")
             # Default to current day
             from_datetime = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     
-    if to_date:
+    if to:
         try:
             # Handle different date formats
-            if 'T' in to_date:
+            if 'T' in to:
                 # ISO format with time
-                to_date = to_date.replace('Z', '+00:00') if 'Z' in to_date else to_date
-                to_datetime = datetime.fromisoformat(to_date)
+                to = to.replace('Z', '+00:00') if 'Z' in to else to
+                to_datetime = datetime.fromisoformat(to)
             else:
                 # Date only format (YYYY-MM-DD)
-                to_datetime = datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+                to_datetime = datetime.strptime(to, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
         except Exception as e:
-            logger.warning(f"Invalid to_date format: {to_date}. Error: {str(e)}")
+            logger.warning(f"Invalid to format: {to}. Error: {str(e)}")
             # Default to 7 days from now
             to_datetime = (datetime.now(timezone.utc) + timedelta(days=7)).replace(hour=23, minute=59, second=59, microsecond=0)
     
@@ -116,7 +116,7 @@ async def get_fixtures_endpoint(
             pass
     
     # Build cache key from query parameters
-    cache_params = f"{league}:{season}:{status}:{from_date}:{to_date}:{team_id}"
+    cache_params = f"{league}:{season}:{status}:{from_}:{to}:{team_id}:{limit}"
     cache_key = f"fixtures:{cache_params}"
     
     # Try to get from cache
@@ -127,19 +127,45 @@ async def get_fixtures_endpoint(
         logger.info(f"Returning {len(fixtures)} cached fixtures")
     else:
         try:
-            logger.info(f"Fetching fixtures from database with params: league={league}, season={season}, status={status_enum}, from_date={from_datetime}, to_date={to_datetime}, team_id={team_id}")
+            logger.info(f"Fetching fixtures from database with: league={league}, season={season}, status={status_enum}, from_date={from_datetime}, to_date={to_datetime}, team_id={team_id}, limit={limit}")
             
+            # Call get_fixtures with the correct parameter names and add limit
             fixtures = await get_fixtures(
                 db,
                 league=league,
                 season=season,
                 status=status_enum,
-                from_date=from_datetime,
-                to_date=to_datetime,
-                team_id=team_id
+                from_date=from_datetime,  # Repository expects from_date
+                to_date=to_datetime,      # Repository expects to_date
+                team_id=team_id,
+                limit=limit               # Add the missing limit parameter
             )
             
             logger.info(f"Retrieved {len(fixtures)} fixtures from database")
+            
+            # Convert SQLAlchemy objects to dictionaries for serialization
+            fixtures_dict = []
+            for fixture in fixtures:
+                fixture_dict = {
+                    "fixture_id": fixture.fixture_id,
+                    "home_team": fixture.home_team,
+                    "away_team": fixture.away_team,
+                    "home_team_logo": fixture.home_team_logo,
+                    "away_team_logo": fixture.away_team_logo,
+                    "date": fixture.date.isoformat() if fixture.date else None,
+                    "league": fixture.league,
+                    "season": fixture.season,
+                    "round": fixture.round,
+                    "status": fixture.status.value if fixture.status else None,
+                    "home_score": fixture.home_score,
+                    "away_score": fixture.away_score,
+                    "venue": fixture.venue,
+                    "venue_city": getattr(fixture, 'venue_city', None),
+                    "referee": getattr(fixture, 'referee', None)
+                }
+                fixtures_dict.append(fixture_dict)
+            
+            fixtures = fixtures_dict
             
             # Cache for 5 minutes
             await cache.set(cache_key, fixtures, 300)
@@ -147,11 +173,11 @@ async def get_fixtures_endpoint(
             logger.error(f"Error fetching fixtures: {str(e)}")
             logger.exception("Full traceback:")
             
-            # Return empty result instead of raising error
+            # Return empty result instead of raising 500 error
             return ListResponse(
                 data=[],
                 total=0,
-                message=f"No fixtures available at the moment"
+                message="No fixtures available at the moment"
             )
     
     return ListResponse(
