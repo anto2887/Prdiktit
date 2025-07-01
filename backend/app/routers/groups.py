@@ -156,8 +156,8 @@ async def get_teams(
         for team in teams_data:
             teams.append({
                 "id": team.id,
-                "name": team.name,
-                "logo": team.logo,
+                "name": team.team_name,
+                "logo": team.team_logo,
                 "country": getattr(team, 'country', league),
                 "league": league
             })
