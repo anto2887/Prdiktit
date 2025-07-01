@@ -18,11 +18,11 @@ const GroupForm = () => {
   const { showSuccess, showError } = useNotifications();
 
   const leagues = [
-    { id: 'PL', name: 'Premier League', season: '2024-25' },
-    { id: 'LL', name: 'La Liga', season: '2024-25' },
-    { id: 'UCL', name: 'Champions League', season: '2024-25' },
+    { id: 'Premier League', name: 'Premier League', season: '2024-25' },
+    { id: 'La Liga', name: 'La Liga', season: '2024-25' },
+    { id: 'UEFA Champions League', name: 'Champions League', season: '2024-25' },
     { id: 'MLS', name: 'MLS', season: '2025' },
-    { id: 'FCWC', name: 'FIFA Club World Cup', season: '2025' }
+    { id: 'FIFA Club World Cup', name: 'FIFA Club World Cup', season: '2025' }
   ];
 
   const handleLeagueSelect = (leagueId) => {
