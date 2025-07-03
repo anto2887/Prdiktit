@@ -4,7 +4,6 @@ import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { usePredictions, useMatches, useNotifications } from '../contexts/AppContext';
 
 // Components
-import PredictionForm from '../components/predictions/PredictionForm';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 
@@ -17,7 +16,9 @@ const PredictionFormPage = () => {
   const { 
     fetchPrediction, 
     createPrediction, 
-    updatePrediction, 
+    updatePrediction,
+    fetchUserPredictions,
+    userPredictions,
     loading: predictionLoading, 
     error: predictionError 
   } = usePredictions();
@@ -32,70 +33,316 @@ const PredictionFormPage = () => {
   const { showSuccess, showError } = useNotifications();
   
   const [prediction, setPrediction] = useState(null);
+  const [match, setMatch] = useState(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [homeScore, setHomeScore] = useState('');
+  const [awayScore, setAwayScore] = useState('');
+  const [existingPrediction, setExistingPrediction] = useState(null);
   
-  // Combined loading and error states
-  const isLoading = predictionLoading || matchLoading;
-  const error = predictionError || matchError;
-
   useEffect(() => {
     const loadData = async () => {
-      // If we have a prediction ID, fetch the prediction
-      if (id) {
-        const predictionData = await fetchPrediction(id);
-        setPrediction(predictionData);
-        
-        // Also fetch the associated match
-        if (predictionData?.fixture_id) {
-          await fetchMatchById(predictionData.fixture_id);
+      setIsInitialLoading(true);
+      
+      try {
+        // If we have a prediction ID, fetch the prediction
+        if (id) {
+          const predictionData = await fetchPrediction(id);
+          setPrediction(predictionData);
+          setHomeScore(predictionData?.score1?.toString() || '');
+          setAwayScore(predictionData?.score2?.toString() || '');
+          
+          // Also fetch the associated match
+          if (predictionData?.fixture_id) {
+            const matchData = await fetchMatchById(predictionData.fixture_id);
+            setMatch(matchData || selectedMatch);
+          }
+        } 
+        // If we have a match ID from the query params, fetch that match and check for existing prediction
+        else if (matchId) {
+          const matchData = await fetchMatchById(parseInt(matchId));
+          setMatch(matchData || selectedMatch);
+          
+          // Check if user already has a prediction for this match
+          await fetchUserPredictions();
         }
-      } 
-      // If we have a match ID from the query params, fetch that match
-      else if (matchId) {
-        await fetchMatchById(matchId);
+      } catch (err) {
+        console.error('Error loading data:', err);
+        showError('Failed to load match details');
+      } finally {
+        setIsInitialLoading(false);
       }
     };
     
     loadData();
-  }, [id, matchId, fetchPrediction, fetchMatchById]);
+  }, [id, matchId, fetchPrediction, fetchMatchById, fetchUserPredictions]);
 
-  const handleSubmit = async (predictionData) => {
+  // Check for existing prediction when userPredictions or match changes
+  useEffect(() => {
+    if (userPredictions && match && !id) {
+      const existing = userPredictions.find(p => p.fixture_id === match.fixture_id);
+      if (existing) {
+        setExistingPrediction(existing);
+        setHomeScore(existing.score1?.toString() || '');
+        setAwayScore(existing.score2?.toString() || '');
+      }
+    }
+  }, [userPredictions, match, id]);
+
+  // Also update match state when selectedMatch changes
+  useEffect(() => {
+    if (selectedMatch && !match) {
+      setMatch(selectedMatch);
+    }
+  }, [selectedMatch, match]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    console.log('Form submission - Raw values:', { homeScore, awayScore });
+    
+    // Check if scores are provided (including 0)
+    if (homeScore === '' || awayScore === '') {
+      showError('Please enter scores for both teams');
+      return;
+    }
+
+    // Validate scores are numbers
+    const homeScoreNum = parseInt(homeScore);
+    const awayScoreNum = parseInt(awayScore);
+    
+    console.log('Parsed numbers:', { homeScoreNum, awayScoreNum });
+    
+    if (isNaN(homeScoreNum) || isNaN(awayScoreNum)) {
+      showError('Scores must be valid numbers');
+      return;
+    }
+
+    if (homeScoreNum < 0 || awayScoreNum < 0 || homeScoreNum > 20 || awayScoreNum > 20) {
+      showError('Scores must be between 0 and 20');
+      return;
+    }
+
+    const predictionData = {
+      match_id: match?.fixture_id || parseInt(matchId),
+      home_score: homeScoreNum,
+      away_score: awayScoreNum
+    };
+
+    console.log('Final prediction data being sent:', predictionData);
+
     try {
-      if (id) {
+      if (id || existingPrediction) {
         // Update existing prediction
-        await updatePrediction(id, predictionData);
+        const predictionId = id || existingPrediction.id;
+        console.log('Updating prediction with ID:', predictionId);
+        await updatePrediction(predictionId, {
+          home_score: homeScoreNum,
+          away_score: awayScoreNum
+        });
         showSuccess('Prediction updated successfully');
       } else {
         // Create new prediction
-        await createPrediction({
-          ...predictionData,
-          fixture_id: selectedMatch.fixture_id
-        });
+        console.log('Creating new prediction with data:', predictionData);
+        await createPrediction(predictionData);
         showSuccess('Prediction created successfully');
       }
       navigate('/predictions');
     } catch (err) {
+      console.error('Prediction submission error:', err);
+      console.error('Error details:', {
+        message: err.message,
+        response: err.response,
+        status: err.status
+      });
       showError(err.message || 'Failed to save prediction');
     }
   };
 
-  if (isLoading) {
-    return <LoadingSpinner />;
+  // Show loading only during initial data fetch
+  if (isInitialLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <LoadingSpinner />
+      </div>
+    );
   }
 
+  // Show error if there's an error
+  const error = predictionError || matchError;
   if (error) {
     return <ErrorMessage message={error} />;
   }
 
-  if (!selectedMatch) {
-    return <ErrorMessage message="Match not found" />;
+  // Use the match from state or selectedMatch
+  const currentMatch = match || selectedMatch;
+  
+  if (!currentMatch && !isInitialLoading) {
+    return (
+      <ErrorMessage 
+        message="Match not found. Please try again." 
+        onRetry={() => window.location.reload()}
+      />
+    );
   }
 
+  // Check if prediction deadline has passed
+  const isDeadlinePassed = currentMatch?.prediction_deadline 
+    ? new Date() > new Date(currentMatch.prediction_deadline)
+    : false;
+
   return (
-    <PredictionForm 
-      match={selectedMatch} 
-      initialPrediction={prediction} 
-      onSubmit={handleSubmit} 
-    />
+    <div className="max-w-2xl mx-auto p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold text-gray-900">
+            {id || existingPrediction ? 'Edit Prediction' : 'Make Prediction'}
+          </h1>
+          <button
+            onClick={() => navigate('/predictions')}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {currentMatch && (
+          <>
+            {/* Match details */}
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="text-center">
+                    <img 
+                      src={currentMatch.home_team_logo || '/placeholder-logo.svg'} 
+                      alt="" 
+                      className="w-12 h-12 mx-auto mb-1"
+                      onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
+                    />
+                    <p className="text-sm font-medium">{currentMatch.home_team}</p>
+                  </div>
+                  
+                  <div className="text-center">
+                    <p className="text-lg font-bold text-gray-900">VS</p>
+                    <p className="text-xs text-gray-500">
+                      {currentMatch.date ? new Date(currentMatch.date).toLocaleDateString() : 'TBD'}
+                    </p>
+                  </div>
+                  
+                  <div className="text-center">
+                    <img 
+                      src={currentMatch.away_team_logo || '/placeholder-logo.svg'} 
+                      alt="" 
+                      className="w-12 h-12 mx-auto mb-1"
+                      onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
+                    />
+                    <p className="text-sm font-medium">{currentMatch.away_team}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-3 text-sm text-gray-600 text-center">
+                <p>{currentMatch.league} • {currentMatch.season}</p>
+                {currentMatch.prediction_deadline && (
+                  <p className="mt-1">
+                    Deadline: {new Date(currentMatch.prediction_deadline).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Show existing prediction info if editing */}
+            {(id || existingPrediction) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center">
+                  <svg className="w-5 h-5 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  <p className="text-blue-800 font-medium">
+                    You already have a prediction for this match. You can modify it until the deadline.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Prediction form */}
+            {isDeadlinePassed ? (
+              <div className="text-center py-8">
+                <p className="text-red-600 font-medium">
+                  The prediction deadline for this match has passed.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Your Prediction</h3>
+                  
+                  <div className="flex items-center justify-center space-x-8">
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-gray-700 mb-2">
+                        {currentMatch.home_team}
+                      </p>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={homeScore}
+                        onChange={(e) => {
+                          console.log('Home score input changed:', e.target.value);
+                          setHomeScore(e.target.value);
+                        }}
+                        className="w-20 h-12 text-center text-xl font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="text-2xl font-bold text-gray-400">-</div>
+                    
+                    <div className="text-center">
+                      <p className="text-sm font-medium text-gray-700 mb-2">
+                        {currentMatch.away_team}
+                      </p>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={awayScore}
+                        onChange={(e) => {
+                          console.log('Away score input changed:', e.target.value);
+                          setAwayScore(e.target.value);
+                        }}
+                        className="w-20 h-12 text-center text-xl font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/predictions')}
+                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={predictionLoading}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {predictionLoading ? 'Saving...' : (id || existingPrediction ? 'Update Prediction' : 'Save Prediction')}
+                  </button>
+                </div>
+              </form>
+            )}
+          </>
+        )}
+      </div>
+    </div>
   );
 };
 

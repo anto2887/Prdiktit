@@ -18,12 +18,12 @@ from ..db import (
 )
 from ..schemas import (
     User,
-    Fixture,
     MatchStatus,
     ListResponse,
     DataResponse
 )
-from ..db.models import Team
+# Import the SQLAlchemy models, not schemas
+from ..db.models import Fixture, Team
 
 router = APIRouter()
 
@@ -59,51 +59,37 @@ async def debug_user_access(
     db: Session = Depends(get_db)
 ):
     """
-    Debug endpoint to check user's group access and tracked teams
+    Debug endpoint to check user's group access and fixture availability
     """
     import logging
     logger = logging.getLogger(__name__)
     
     try:
-        logger.info(f"Debug: Checking access for user {current_user.id}")
-        
-        # Import the function we need
         from ..db.repository import get_user_groups as get_user_groups_from_db
         
         # Get user's groups
         user_groups = await get_user_groups_from_db(db, current_user.id)
-        logger.info(f"Debug: User {current_user.id} belongs to {len(user_groups)} groups")
         
         debug_info = {
             "user_id": current_user.id,
-            "groups_count": len(user_groups),
+            "username": current_user.username,
+            "group_count": len(user_groups),
             "groups": [],
             "all_leagues": set(),
             "all_tracked_teams": set(),
             "fixture_counts": {}
         }
         
-        # Process each group
         for group in user_groups:
+            tracked_teams = await get_group_tracked_teams(db, group.id)
+            
             group_info = {
                 "id": group.id,
                 "name": group.name,
                 "league": group.league,
-                "admin_id": group.admin_id
+                "tracked_teams_count": len(tracked_teams),
+                "tracked_teams": list(tracked_teams)
             }
-            
-            # Get tracked teams for this group
-            tracked_teams = await get_group_tracked_teams(db, group.id)
-            group_info["tracked_teams_count"] = len(tracked_teams)
-            group_info["tracked_team_ids"] = list(tracked_teams)
-            
-            # Get team names
-            if tracked_teams:
-                tracked_team_objects = db.query(Team).filter(Team.id.in_(tracked_teams)).all()
-                group_info["tracked_team_names"] = [team.team_name for team in tracked_team_objects]
-            else:
-                group_info["tracked_team_names"] = []
-            
             debug_info["groups"].append(group_info)
             debug_info["all_leagues"].add(group.league)
             debug_info["all_tracked_teams"].update(tracked_teams)
@@ -166,7 +152,7 @@ async def get_fixtures_endpoint(
     cache: RedisCache = Depends(get_cache)
 ):
     """
-    Get fixtures with filters - DEBUG VERSION
+    Get fixtures with filters based on user's group access
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -336,7 +322,33 @@ async def get_match_statuses(
     statuses = [status.value for status in MatchStatus]
     
     return DataResponse(
-        data=statuses
+        data=statuses,
+        message="Match statuses retrieved successfully"
+    )
+
+@router.get("/deadlines", response_model=DataResponse)
+async def get_prediction_deadlines_endpoint(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Get prediction deadlines for upcoming fixtures
+    """
+    # Try cache first
+    cache_key = "prediction_deadlines"
+    cached_deadlines = await cache.get(cache_key)
+    
+    if cached_deadlines:
+        deadlines = cached_deadlines
+    else:
+        deadlines = await get_prediction_deadlines(db)
+        # Cache for 10 minutes
+        await cache.set(cache_key, deadlines, 600)
+    
+    return DataResponse(
+        data=deadlines,
+        message="Prediction deadlines retrieved successfully"
     )
 
 @router.get("/upcoming", response_model=DataResponse)
