@@ -79,52 +79,49 @@ class Group(Base):
 class Fixture(Base):
     __tablename__ = "fixtures"
 
+    # Primary key - ✅ Frontend uses: fixture_id
     fixture_id = Column(Integer, primary_key=True)
     
-    # Your current database has timezone-naive datetime - KEEP AS IS for now
+    # Core fixture data - ✅ Frontend uses: date, status, round, season
     date = Column(DateTime, nullable=False)
-    
     status = Column(Enum(MatchStatus), nullable=False, default=MatchStatus.NOT_STARTED)
     round = Column(String)
     season = Column(String, nullable=False)
     
-    # Your actual database schema - NO home_team_id/away_team_id columns
+    # Team information - ✅ Frontend uses: home_team, away_team, home_team_logo, away_team_logo
     home_team = Column(String, nullable=False)
     away_team = Column(String, nullable=False)
-    
-    # These exist in your import scripts
     home_team_logo = Column(String(512), nullable=True)
     away_team_logo = Column(String(512), nullable=True)
     
-    # Score information  
+    # Score information - ✅ Frontend uses: home_score, away_score
     home_score = Column(Integer, nullable=True)
     away_score = Column(Integer, nullable=True)
     
-    # League/Competition info
+    # League/Competition info - ✅ Frontend uses: league
     league = Column(String, nullable=False)
     competition_id = Column(Integer, nullable=True)
     
-    # Additional fields from your import scripts
+    # Additional fields - ✅ Frontend uses: venue, venue_city
     venue = Column(String, nullable=True)
     venue_city = Column(String, nullable=True)
-    referee = Column(String, nullable=True)
-    league_id = Column(Integer, nullable=True)
     
-    # Timestamps - keep as timezone-naive for now to match existing data
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Import script fields (backend only, frontend doesn't use these)
     match_timestamp = Column(DateTime, nullable=True)
     last_updated = Column(DateTime, nullable=True)
+    league_id = Column(Integer, nullable=True)
+    
+    # Simple processed flag (backend only)
     processed = Column(Boolean, default=False)
     
     # Relationships
     predictions = relationship("UserPrediction", back_populates="fixture")
     
+    # Simple indexes
     __table_args__ = (
         Index("idx_fixture_date", "date"),
         Index("idx_fixture_status", "status"),
         Index("idx_fixture_league_season", "league", "season"),
-        Index("idx_fixture_competition", "competition_id")
     )
 
 class UserPrediction(Base):
