@@ -1,13 +1,17 @@
 # app/db/models.py
+from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean, Column, ForeignKey, Integer, String, 
     DateTime, Enum, Text, Table, JSON, UniqueConstraint, Index, Float
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
 import enum
 import uuid
+
+def utc_now():
+    """Helper function to ensure all datetime fields are timezone-aware"""
+    return datetime.now(timezone.utc)
 
 from ..schemas import (
     MatchStatus, PredictionStatus, GroupPrivacyType, 
@@ -75,39 +79,40 @@ class Group(Base):
 class Fixture(Base):
     __tablename__ = "fixtures"
 
-    id = Column(Integer, primary_key=True)
-    fixture_id = Column(Integer, unique=True, nullable=False, index=True)
+    fixture_id = Column(Integer, primary_key=True)
+    
+    # FIXED: Use timezone-aware datetime
+    date = Column(DateTime(timezone=True), nullable=False)
+    
+    status = Column(Enum(MatchStatus), nullable=False, default=MatchStatus.NOT_STARTED)
+    round = Column(String)
+    season = Column(String, nullable=False)
+    
+    # Team information
+    home_team_id = Column(Integer, nullable=False)
+    away_team_id = Column(Integer, nullable=False)
     home_team = Column(String, nullable=False)
     away_team = Column(String, nullable=False)
-    home_team_logo = Column(String)
-    away_team_logo = Column(String)
-    date = Column(DateTime, nullable=False, index=True)
-    league = Column(String, nullable=False)
-    season = Column(String, nullable=False)
-    round = Column(String, nullable=False)
-    status = Column(Enum(MatchStatus), nullable=False, default=MatchStatus.NOT_STARTED)
-    home_score = Column(Integer, default=0)
-    away_score = Column(Integer, default=0)
-    last_updated = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    venue = Column(String)
-    venue_city = Column(String)
-    competition_id = Column(Integer, nullable=False)
-    match_timestamp = Column(DateTime, nullable=False)
-    last_checked = Column(DateTime, nullable=True)
-    referee = Column(String)
-    league_id = Column(Integer)
     
-    # Additional scores
-    halftime_score = Column(String)
-    fulltime_score = Column(String)
-    extratime_score = Column(String)
-    penalty_score = Column(String)
+    # Score information  
+    home_score = Column(Integer, nullable=True)
+    away_score = Column(Integer, nullable=True)
+    
+    # League/Competition info
+    league = Column(String, nullable=False)
+    competition_id = Column(Integer, nullable=True)
+    
+    # Timestamps with timezone
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    processed = Column(Boolean, default=False)
     
     # Relationships
     predictions = relationship("UserPrediction", back_populates="fixture")
     
     __table_args__ = (
-        Index("idx_fixture_date_status", "date", "status"),
+        Index("idx_fixture_date", "date"),
+        Index("idx_fixture_status", "status"),
         Index("idx_fixture_league_season", "league", "season"),
         Index("idx_fixture_competition", "competition_id")
     )
@@ -123,11 +128,14 @@ class UserPrediction(Base):
     score1 = Column(Integer, nullable=False, default=0)
     score2 = Column(Integer, nullable=False, default=0)
     points = Column(Integer, nullable=False, default=0)
-    created = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    # FIXED: Use timezone-aware datetime
+    created = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    submission_time = Column(DateTime(timezone=True), nullable=True)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
+    last_modified = Column(DateTime(timezone=True), onupdate=utc_now)
+    
     prediction_status = Column(Enum(PredictionStatus), nullable=False, default=PredictionStatus.EDITABLE)
-    submission_time = Column(DateTime, nullable=True)
-    processed_at = Column(DateTime, nullable=True)
-    last_modified = Column(DateTime, onupdate=datetime.utcnow)
     
     # Relationships
     user = relationship("User", back_populates="predictions")

@@ -281,7 +281,11 @@ async def create_prediction(
     season: str,
     week: int
 ) -> UserPrediction:
-    """Create a new prediction"""
+    """Create a new prediction with proper timezone handling"""
+    
+    # Ensure we use timezone-aware datetime
+    current_time = datetime.now(timezone.utc)
+    
     prediction = UserPrediction(
         user_id=user_id,
         fixture_id=fixture_id,
@@ -290,7 +294,8 @@ async def create_prediction(
         season=season,
         week=week,
         prediction_status=PredictionStatus.SUBMITTED,
-        submission_time=datetime.now(timezone.utc)
+        submission_time=current_time,  # Timezone-aware
+        created=current_time           # Timezone-aware
     )
     
     db.add(prediction)
@@ -304,7 +309,8 @@ async def update_prediction(
     score1: Optional[int] = None,
     score2: Optional[int] = None
 ) -> Optional[UserPrediction]:
-    """Update an existing prediction"""
+    """Update an existing prediction with timezone handling"""
+    
     prediction = await get_prediction_by_id(db, prediction_id)
     
     if not prediction:
@@ -320,7 +326,10 @@ async def update_prediction(
         prediction.score2 = score2
         
     prediction.prediction_status = PredictionStatus.SUBMITTED
+    
+    # Update with timezone-aware datetime
     prediction.submission_time = datetime.now(timezone.utc)
+    prediction.last_modified = datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(prediction)
