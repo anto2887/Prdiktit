@@ -27,14 +27,33 @@ app = FastAPI(
 # Log CORS configuration for debugging
 logger.info(f"CORS Origins: {settings.CORS_ORIGINS}")
 
-# Configure CORS with settings from environment
+# Configure CORS - UPDATED VERSION
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
-    allow_methods=settings.CORS_ALLOW_METHODS,
-    allow_headers=settings.CORS_ALLOW_HEADERS,
-    expose_headers=settings.CORS_EXPOSE_HEADERS
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://0.0.0.0:3000",
+        "http://frontend:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language", 
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-CSRFToken",
+        "Cache-Control"
+    ],
+    expose_headers=[
+        "X-RateLimit-Limit",
+        "X-RateLimit-Remaining", 
+        "X-RateLimit-Reset",
+        "Content-Type"
+    ]
 )
 
 # Add rate limiting middleware

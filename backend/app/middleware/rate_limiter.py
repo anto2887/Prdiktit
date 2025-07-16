@@ -1,20 +1,18 @@
-# app/middleware/rate_limiter.py
 import time
-from fastapi import Request, Response, HTTPException, status
+from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from typing import Dict, Tuple, Optional
 import asyncio
 import json
 import logging
 
-# Configure logger
 logger = logging.getLogger(__name__)
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
         self, 
         app, 
-        requests_per_minute: int = 600,  # Increased from 300 to 600
+        requests_per_minute: int = 600,
         exclude_paths: Optional[list] = None
     ):
         super().__init__(app)
@@ -23,99 +21,115 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.request_records: Dict[str, Tuple[int, float]] = {}
         self.lock = asyncio.Lock()
     
+    def get_cors_headers(self, request: Request = None) -> Dict[str, str]:
+        """Get CORS headers that match your frontend origin"""
+        origin = "http://localhost:3000"  # Your frontend URL
+        
+        if request and request.headers.get("origin"):
+            request_origin = request.headers.get("origin")
+            allowed_origins = [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000", 
+                "http://0.0.0.0:3000"
+            ]
+            if request_origin in allowed_origins:
+                origin = request_origin
+        
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Expose-Headers": "X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
+            "Access-Control-Max-Age": "86400"
+        }
+    
     async def dispatch(self, request: Request, call_next):
-        # Extract path for better logging
+        # CRITICAL: Handle OPTIONS (preflight) requests immediately
+        if request.method == "OPTIONS":
+            logger.info(f"Handling OPTIONS preflight for {request.url.path}")
+            return Response(
+                status_code=200,
+                headers=self.get_cors_headers(request),
+                content=""
+            )
+        
         path = request.url.path
         
-        # Expanded exclusions for development
-        development_exclusions = [
-            "/api/health",
-            "/docs", 
-            "/redoc", 
-            "/openapi.json", 
-            "/static",
-            "/api/auth",  # Auth endpoints
-            "/api/groups/teams",  # Team data (relatively static)
-            "/favicon.ico"
+        # Skip rate limiting for auth and static content
+        skip_paths = [
+            "/docs", "/redoc", "/openapi.json", "/static", "/favicon.ico",
+            "/api/v1/auth"
         ]
         
-        # Skip rate limiting for excluded paths AND OPTIONS requests
-        if (any(path.startswith(excluded) for excluded in self.exclude_paths + development_exclusions) or 
-            request.method == "OPTIONS"):
-            return await call_next(request)
+        if any(path.startswith(skip) for skip in skip_paths):
+            response = await call_next(request)
+            # Add CORS headers even to skipped paths
+            for key, value in self.get_cors_headers(request).items():
+                response.headers[key] = value
+            return response
         
-        # Get client IP
-        client_ip = request.client.host
+        # Very generous rate limiting for development
+        client_ip = request.client.host or "127.0.0.1"
+        effective_limit = self.requests_per_minute * 5  # Very high limit for dev
         
-        # Relaxed rate limiting for development
-        if request.headers.get("host", "").startswith("localhost") or client_ip == "127.0.0.1":
-            effective_limit = self.requests_per_minute * 2
-        else:
-            effective_limit = self.requests_per_minute
-        
-        # Check if rate limit is exceeded
+        # Simple rate limiting (minimal to avoid blocking during dev)
         async with self.lock:
             current_time = time.time()
-            
-            # Clean up old records (older than 1 minute)
-            self.request_records = {
-                ip: (count, timestamp) 
-                for ip, (count, timestamp) in self.request_records.items() 
-                if current_time - timestamp < 60
-            }
-            
-            # Get current count and timestamp for this IP
             count, timestamp = self.request_records.get(client_ip, (0, current_time))
             
-            # If it's a new minute, reset the count
             if current_time - timestamp >= 60:
                 count = 0
                 timestamp = current_time
             
-            # Increment the count
             count += 1
-            
-            # Update the record
             self.request_records[client_ip] = (count, timestamp)
             
-            # Check if rate limit is exceeded
+            # Only block if extremely high usage
             if count > effective_limit:
-                # Calculate time until reset
-                reset_time = 60 - (current_time - timestamp)
+                logger.warning(f"Rate limit exceeded: {count}/{effective_limit}")
                 
-                # Log rate limit hit for debugging
-                logger.warning(f"Rate limit exceeded for {client_ip} on {path}. Count: {count}/{effective_limit}")
+                cors_headers = self.get_cors_headers(request)
+                cors_headers.update({
+                    "Content-Type": "application/json",
+                    "X-RateLimit-Limit": str(effective_limit),
+                    "X-RateLimit-Remaining": "0"
+                })
                 
-                # Return 429 Too Many Requests with CORS headers
                 return Response(
-                    content=json.dumps({
-                        "detail": "Rate limit exceeded. Please slow down your requests.",
-                        "path": path,
-                        "count": count,
-                        "limit": effective_limit,
-                        "reset_in": int(reset_time)
-                    }),
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    headers={
-                        "Retry-After": str(int(reset_time)), 
-                        "Content-Type": "application/json",
-                        "X-RateLimit-Limit": str(effective_limit),
-                        "X-RateLimit-Remaining": str(max(0, effective_limit - count)),
-                        "X-RateLimit-Reset": str(int(timestamp + 60)),
-                        # Critical: Add CORS headers to error responses
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                        "Access-Control-Allow-Headers": "*"
-                    }
+                    content=json.dumps({"detail": "Rate limit exceeded"}),
+                    status_code=429,
+                    headers=cors_headers
                 )
         
-        # Process the request
-        response = await call_next(request)
-        
-        # Add rate limit headers to response using effective_limit
-        remaining = effective_limit - count
-        response.headers["X-RateLimit-Limit"] = str(effective_limit)
-        response.headers["X-RateLimit-Remaining"] = str(max(0, remaining))
-        response.headers["X-RateLimit-Reset"] = str(int(timestamp + 60))
-        
-        return response
+        # Process the actual request
+        try:
+            response = await call_next(request)
+            
+            # Add CORS headers to all successful responses
+            cors_headers = self.get_cors_headers(request)
+            cors_headers.update({
+                "X-RateLimit-Limit": str(effective_limit),
+                "X-RateLimit-Remaining": str(max(0, effective_limit - count))
+            })
+            
+            for key, value in cors_headers.items():
+                response.headers[key] = value
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error processing request: {e}")
+            
+            # CRITICAL: Return errors with CORS headers
+            error_headers = self.get_cors_headers(request)
+            error_headers["Content-Type"] = "application/json"
+            
+            return Response(
+                content=json.dumps({
+                    "detail": "Internal server error",
+                    "error": str(e)
+                }),
+                status_code=500,
+                headers=error_headers
+            )
