@@ -1,11 +1,54 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePredictions } from '../../contexts/AppContext';
 import { formatDate } from '../../utils/dateUtils';
 import { formatMatchResult, formatPredictionStatus } from '../../utils/formatters';
 
 const RecentPredictions = () => {
-  const { userPredictions } = usePredictions();
+  const { userPredictions, fetchUserPredictions } = usePredictions();
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Force a refresh when component mounts and every 30 seconds
+  useEffect(() => {
+    const loadPredictions = async () => {
+      console.log('RecentPredictions: Fetching user predictions...');
+      await fetchUserPredictions();
+    };
+    
+    loadPredictions();
+    
+    // Set up interval to refresh predictions every 30 seconds
+    const interval = setInterval(loadPredictions, 30000);
+    
+    return () => clearInterval(interval);
+  }, [fetchUserPredictions, refreshTrigger]);
+
+  // Listen for storage events (when predictions are updated in other tabs/components)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'predictions_updated') {
+        console.log('RecentPredictions: Detected prediction update, refreshing...');
+        setRefreshTrigger(prev => prev + 1);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also listen for custom events within the same tab
+    const handleCustomEvent = () => {
+      console.log('RecentPredictions: Custom prediction update event, refreshing...');
+      setRefreshTrigger(prev => prev + 1);
+    };
+    
+    window.addEventListener('predictionsUpdated', handleCustomEvent);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('predictionsUpdated', handleCustomEvent);
+    };
+  }, []);
+
+  console.log('RecentPredictions: Current userPredictions:', userPredictions);
 
   // Add safety check to prevent sorting undefined
   const recentPredictions = userPredictions && userPredictions.length > 0
@@ -34,6 +77,13 @@ const RecentPredictions = () => {
 
   return (
     <div className="space-y-4">
+      {/* Debug info in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+          Debug: {userPredictions.length} total predictions, showing {recentPredictions.length} recent
+        </div>
+      )}
+      
       {recentPredictions.map((prediction) => {
         const fixture = prediction.fixture || {};
         const isPredictionCorrect = prediction.status === 'PROCESSED' && prediction.points === 3;

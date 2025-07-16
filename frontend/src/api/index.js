@@ -531,27 +531,42 @@ export const predictionsApi = {
     }
   },
 
+  // FIXED: Properly handle 0 values
   createPrediction: async (predictionData) => {
     const payload = {
-      match_id: predictionData.match_id || predictionData.fixture_id,
-      home_score: predictionData.home_score || predictionData.score1,
-      away_score: predictionData.away_score || predictionData.score2
+      match_id: predictionData.match_id ?? predictionData.fixture_id,
+      home_score: predictionData.home_score !== undefined ? predictionData.home_score : predictionData.score1,
+      away_score: predictionData.away_score !== undefined ? predictionData.away_score : predictionData.score2
     };
     
     console.log('Sending prediction data:', payload);
+    
+    // Validate that we have all required fields
+    if (payload.match_id === undefined || payload.home_score === undefined || payload.away_score === undefined) {
+      console.error('Missing required fields:', payload);
+      throw new Error(`Missing required fields: match_id=${payload.match_id}, home_score=${payload.home_score}, away_score=${payload.away_score}`);
+    }
+    
     return await api.client.post('/predictions', payload);
   },
 
+  // FIXED: Properly handle 0 values for updates too
   updatePrediction: async (predictionId, predictionData) => {
     const payload = {};
     
-    if ('home_score' in predictionData || 'score1' in predictionData) {
-      payload.home_score = predictionData.home_score || predictionData.score1;
+    if ('home_score' in predictionData) {
+      payload.home_score = predictionData.home_score;
+    } else if ('score1' in predictionData) {
+      payload.home_score = predictionData.score1;
     }
     
-    if ('away_score' in predictionData || 'score2' in predictionData) {
-      payload.away_score = predictionData.away_score || predictionData.score2;
+    if ('away_score' in predictionData) {
+      payload.away_score = predictionData.away_score;
+    } else if ('score2' in predictionData) {
+      payload.away_score = predictionData.score2;
     }
+    
+    console.log('Updating prediction with payload:', payload);
     
     return await api.client.put(`/predictions/${predictionId}`, payload);
   },

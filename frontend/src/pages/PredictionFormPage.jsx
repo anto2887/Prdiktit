@@ -145,8 +145,18 @@ const PredictionFormPage = () => {
         console.log('Creating new prediction with data:', predictionData);
         await createPrediction(predictionData);
         showSuccess('Prediction created successfully');
+        
+        // Trigger dashboard refresh by dispatching custom event
+        window.dispatchEvent(new CustomEvent('predictionsUpdated'));
+        localStorage.setItem('predictions_updated', Date.now().toString());
       }
-      navigate('/predictions');
+      
+      // Force a refresh of predictions data with a small delay
+      setTimeout(async () => {
+        await fetchUserPredictions();
+      }, 500);
+      
+      navigate('/dashboard'); // Navigate to dashboard to see the updated predictions
     } catch (err) {
       console.error('Prediction submission error:', err);
       console.error('Error details:', {
