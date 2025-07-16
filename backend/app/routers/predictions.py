@@ -34,7 +34,7 @@ async def submit_prediction(
     cache: RedisCache = Depends(get_cache)
 ):
     """
-    Submit a new prediction - Fixed timezone handling
+    Submit a new prediction - Working with your actual database schema
     """
     import logging
     from datetime import datetime, timezone, timedelta
@@ -59,7 +59,7 @@ async def submit_prediction(
                 detail="Scores must be between 0 and 20"
             )
         
-        # Get the fixture
+        # Get the fixture using your actual repository function
         logger.info(f"Looking up fixture: {match_id}")
         fixture = await get_fixture_by_id(db, match_id)
         
@@ -70,8 +70,8 @@ async def submit_prediction(
                 detail=f"Match with ID {match_id} not found"
             )
         
-        logger.info(f"Found fixture: {fixture.id}, status: {fixture.status}")
-        logger.info(f"Fixture date type: {type(fixture.date)}, value: {fixture.date}")
+        logger.info(f"Found fixture: {fixture.fixture_id}, status: {fixture.status}")
+        logger.info(f"Teams: {fixture.home_team} vs {fixture.away_team}")
         
         # Check if match has started
         if fixture.status != MatchStatus.NOT_STARTED:
@@ -81,51 +81,46 @@ async def submit_prediction(
                 detail="Cannot predict after match has started"
             )
         
-        # FIXED: Handle timezone comparison properly
+        # Safe timezone handling for deadline check
         try:
-            # Get current time as timezone-aware
             current_time = datetime.now(timezone.utc)
             logger.info(f"Current time (UTC): {current_time}")
+            logger.info(f"Fixture date: {fixture.date}, type: {type(fixture.date)}")
             
-            # Handle fixture date timezone
             if fixture.date:
+                # Handle timezone-naive database datetime
                 if fixture.date.tzinfo is None:
-                    # If fixture date is naive, assume it's UTC
-                    fixture_date_utc = fixture.date.replace(tzinfo=timezone.utc)
-                    logger.info(f"Fixture date was naive, converted to UTC: {fixture_date_utc}")
+                    # Database stores naive datetime, assume it's UTC
+                    fixture_utc = fixture.date.replace(tzinfo=timezone.utc)
+                    logger.info(f"Converted fixture date to UTC: {fixture_utc}")
                 else:
-                    # If fixture date is already timezone-aware, convert to UTC
-                    fixture_date_utc = fixture.date.astimezone(timezone.utc)
-                    logger.info(f"Fixture date converted to UTC: {fixture_date_utc}")
+                    fixture_utc = fixture.date.astimezone(timezone.utc)
+                    logger.info(f"Fixture date already timezone-aware: {fixture_utc}")
                 
-                # Calculate deadline (30 minutes before match for development)
-                match_deadline = fixture_date_utc - timedelta(minutes=30)
-                logger.info(f"Match deadline: {match_deadline}")
+                # Very lenient deadline for development (1 minute before)
+                deadline = fixture_utc - timedelta(minutes=1)
+                logger.info(f"Prediction deadline: {deadline}")
                 
-                # Compare timezone-aware datetimes
-                if current_time > match_deadline:
-                    logger.warning(f"Deadline check: {current_time} > {match_deadline}")
-                    # For development, just warn but don't block
-                    logger.warning("Deadline passed, but allowing for development")
-                    # raise HTTPException(
-                    #     status_code=status.HTTP_400_BAD_REQUEST,
-                    #     detail="Prediction deadline has passed"
-                    # )
+                if current_time > deadline:
+                    logger.warning(f"Deadline passed: {current_time} > {deadline}")
+                    # For development, just warn but allow
+                    logger.warning("Allowing prediction past deadline for development")
+                else:
+                    logger.info("Deadline check passed")
             else:
                 logger.warning("Fixture has no date, skipping deadline check")
                 
         except Exception as date_error:
             logger.error(f"Date comparison error: {date_error}")
-            # For development, continue anyway
-            logger.warning("Date comparison failed, continuing for development")
+            logger.warning("Continuing with prediction despite date error")
         
-        # Check for existing prediction
+        # Check for existing prediction using your actual repository function
         logger.info("Checking for existing prediction")
         existing_prediction = await get_user_prediction(db, current_user.id, match_id)
         
         if existing_prediction:
             logger.info(f"Updating existing prediction: {existing_prediction.id}")
-            # Update existing
+            # Update existing using your actual repository function
             updated_prediction = await update_prediction(
                 db,
                 existing_prediction.id,
@@ -140,11 +135,11 @@ async def submit_prediction(
                     detail="Failed to update prediction"
                 )
             
-            # Clear cache
+            # Clear cache safely
             try:
                 await cache.delete(f"user_predictions:{current_user.id}")
-            except:
-                logger.warning("Cache delete failed, continuing")
+            except Exception as cache_error:
+                logger.warning(f"Cache delete failed: {cache_error}")
             
             logger.info("Prediction updated successfully")
             return DataResponse(
@@ -154,7 +149,7 @@ async def submit_prediction(
                     "home_score": updated_prediction.score1,
                     "away_score": updated_prediction.score2,
                     "points": updated_prediction.points,
-                    "prediction_status": updated_prediction.prediction_status.value if hasattr(updated_prediction.prediction_status, 'value') else updated_prediction.prediction_status,
+                    "prediction_status": updated_prediction.prediction_status.value if hasattr(updated_prediction.prediction_status, 'value') else str(updated_prediction.prediction_status),
                     "created": updated_prediction.created.isoformat() if updated_prediction.created else None,
                     "user_id": updated_prediction.user_id
                 },
@@ -164,22 +159,25 @@ async def submit_prediction(
         # Create new prediction
         logger.info("Creating new prediction")
         
-        # Extract week from fixture
+        # Extract week safely
         week = 0
-        if hasattr(fixture, 'round') and fixture.round:
-            try:
+        try:
+            if hasattr(fixture, 'round') and fixture.round:
                 import re
                 week_match = re.search(r'\d+', str(fixture.round))
                 if week_match:
                     week = int(week_match.group())
-            except Exception as week_error:
-                logger.warning(f"Week extraction failed: {week_error}")
-                week = 0
+                else:
+                    logger.warning(f"Could not extract week from round: {fixture.round}")
+        except Exception as week_error:
+            logger.warning(f"Week extraction failed: {week_error}")
+            week = 0
         
         season = str(getattr(fixture, 'season', '2024'))
         
         logger.info(f"Creating prediction: user={current_user.id}, fixture={match_id}, season={season}, week={week}")
         
+        # Use your actual repository function
         new_prediction = await create_prediction(
             db,
             current_user.id,
@@ -197,11 +195,11 @@ async def submit_prediction(
                 detail="Failed to create prediction"
             )
         
-        # Clear cache
+        # Clear cache safely
         try:
             await cache.delete(f"user_predictions:{current_user.id}")
-        except:
-            logger.warning("Cache delete failed, continuing")
+        except Exception as cache_error:
+            logger.warning(f"Cache delete failed: {cache_error}")
         
         logger.info(f"Prediction created successfully: {new_prediction.id}")
         
@@ -212,7 +210,7 @@ async def submit_prediction(
                 "home_score": new_prediction.score1,
                 "away_score": new_prediction.score2,
                 "points": new_prediction.points,
-                "prediction_status": new_prediction.prediction_status.value if hasattr(new_prediction.prediction_status, 'value') else new_prediction.prediction_status,
+                "prediction_status": new_prediction.prediction_status.value if hasattr(new_prediction.prediction_status, 'value') else str(new_prediction.prediction_status),
                 "created": new_prediction.created.isoformat() if new_prediction.created else None,
                 "user_id": new_prediction.user_id
             },

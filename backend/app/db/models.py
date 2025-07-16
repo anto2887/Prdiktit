@@ -81,18 +81,20 @@ class Fixture(Base):
 
     fixture_id = Column(Integer, primary_key=True)
     
-    # FIXED: Use timezone-aware datetime
-    date = Column(DateTime(timezone=True), nullable=False)
+    # Your current database has timezone-naive datetime - KEEP AS IS for now
+    date = Column(DateTime, nullable=False)
     
     status = Column(Enum(MatchStatus), nullable=False, default=MatchStatus.NOT_STARTED)
     round = Column(String)
     season = Column(String, nullable=False)
     
-    # Team information
-    home_team_id = Column(Integer, nullable=False)
-    away_team_id = Column(Integer, nullable=False)
+    # Your actual database schema - NO home_team_id/away_team_id columns
     home_team = Column(String, nullable=False)
     away_team = Column(String, nullable=False)
+    
+    # These exist in your import scripts
+    home_team_logo = Column(String(512), nullable=True)
+    away_team_logo = Column(String(512), nullable=True)
     
     # Score information  
     home_score = Column(Integer, nullable=True)
@@ -102,9 +104,17 @@ class Fixture(Base):
     league = Column(String, nullable=False)
     competition_id = Column(Integer, nullable=True)
     
-    # Timestamps with timezone
-    created_at = Column(DateTime(timezone=True), default=utc_now)
-    updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    # Additional fields from your import scripts
+    venue = Column(String, nullable=True)
+    venue_city = Column(String, nullable=True)
+    referee = Column(String, nullable=True)
+    league_id = Column(Integer, nullable=True)
+    
+    # Timestamps - keep as timezone-naive for now to match existing data
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    match_timestamp = Column(DateTime, nullable=True)
+    last_updated = Column(DateTime, nullable=True)
     processed = Column(Boolean, default=False)
     
     # Relationships
@@ -129,11 +139,11 @@ class UserPrediction(Base):
     score2 = Column(Integer, nullable=False, default=0)
     points = Column(Integer, nullable=False, default=0)
     
-    # FIXED: Use timezone-aware datetime
-    created = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-    submission_time = Column(DateTime(timezone=True), nullable=True)
-    processed_at = Column(DateTime(timezone=True), nullable=True)
-    last_modified = Column(DateTime(timezone=True), onupdate=utc_now)
+    # Keep as timezone-naive for now to match existing data
+    created = Column(DateTime, default=datetime.utcnow, nullable=False)
+    submission_time = Column(DateTime, nullable=True)
+    processed_at = Column(DateTime, nullable=True)
+    last_modified = Column(DateTime, onupdate=datetime.utcnow)
     
     prediction_status = Column(Enum(PredictionStatus), nullable=False, default=PredictionStatus.EDITABLE)
     
