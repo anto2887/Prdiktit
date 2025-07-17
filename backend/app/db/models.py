@@ -111,8 +111,8 @@ class Fixture(Base):
     last_updated = Column(DateTime, nullable=True)
     league_id = Column(Integer, nullable=True)
     
-    # Simple processed flag (backend only)
-    processed = Column(Boolean, default=False)
+    # REMOVE THIS LINE:
+    # processed = Column(Boolean, default=False)
     
     # Relationships
     predictions = relationship("UserPrediction", back_populates="fixture")
