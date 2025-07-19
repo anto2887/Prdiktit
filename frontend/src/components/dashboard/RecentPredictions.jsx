@@ -4,6 +4,17 @@ import { usePredictions } from '../../contexts/AppContext';
 import { formatDate } from '../../utils/dateUtils';
 import { formatMatchResult, formatPredictionStatus } from '../../utils/formatters';
 
+// Simple and clean image error handler to prevent infinite loops
+const handleImageError = (e) => {
+  // Only try fallback once
+  if (!e.target.src.endsWith('/placeholder-logo.svg')) {
+    e.target.src = '/placeholder-logo.svg';
+  } else {
+    // Hide image if fallback also fails
+    e.target.style.display = 'none';
+  }
+};
+
 const RecentPredictions = () => {
   const { userPredictions, fetchUserPredictions } = usePredictions();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -107,7 +118,7 @@ const RecentPredictions = () => {
                   <img src={fixture.home_team_logo || '/placeholder-logo.svg'} 
                        alt="" 
                        className="h-8 w-8 object-contain"
-                       onError={(e) => { e.target.src = '/placeholder-logo.svg'; }} />
+                       onError={handleImageError} />
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-900">

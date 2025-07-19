@@ -18,6 +18,7 @@ from ..db import (
     get_user_predictions,
     get_prediction_deadlines
 )
+from ..db.models import UserPrediction
 from ..schemas import (
     Prediction, PredictionCreate, PredictionStatus, 
     MatchStatus, ListResponse, DataResponse, User,
@@ -239,7 +240,7 @@ async def get_user_predictions_endpoint(
     cache: RedisCache = Depends(get_cache)
 ):
     """
-    Get current user's predictions
+    Get current user's predictions WITH fixture data
     """
     try:
         # Try to get from cache first
@@ -261,14 +262,86 @@ async def get_user_predictions_endpoint(
                 # Invalid status, ignore it
                 pass
         
-        predictions = await get_user_predictions(
-            db=db,
-            user_id=current_user.id,
-            fixture_id=fixture_id,
-            status=status_enum,
-            season=season,
-            week=week
-        )
+        # Build query with JOIN to get fixture data
+        from sqlalchemy.orm import joinedload
+        
+        query = db.query(UserPrediction).options(
+            joinedload(UserPrediction.fixture)
+        ).filter(UserPrediction.user_id == current_user.id)
+        
+        # Apply filters
+        if fixture_id:
+            query = query.filter(UserPrediction.fixture_id == fixture_id)
+        
+        if status_enum:
+            query = query.filter(UserPrediction.prediction_status == status_enum)
+        
+        if season:
+            query = query.filter(UserPrediction.season == season)
+        
+        if week:
+            query = query.filter(UserPrediction.week == week)
+        
+        # Execute query and get results with fixtures loaded
+        raw_predictions = query.order_by(UserPrediction.created.desc()).all()
+        
+        # Convert SQLAlchemy objects to dictionaries with fixture data
+        predictions = []
+        for pred in raw_predictions:
+            # Access the fixture through the relationship
+            fixture = pred.fixture
+            
+            prediction_dict = {
+                "id": pred.id,
+                "match_id": pred.fixture_id,
+                "user_id": pred.user_id,
+                
+                # Include BOTH field naming conventions for compatibility
+                "home_score": pred.score1,  # New naming (for API consistency)
+                "away_score": pred.score2,  # New naming (for API consistency)
+                "score1": pred.score1,      # Old naming (for frontend compatibility)
+                "score2": pred.score2,      # Old naming (for frontend compatibility)
+                
+                "points": pred.points,
+                "prediction_status": pred.prediction_status.value if hasattr(pred.prediction_status, 'value') else str(pred.prediction_status),
+                "created": pred.created.isoformat() if pred.created else None,
+                "submission_time": pred.submission_time.isoformat() if pred.submission_time else None,
+                "season": pred.season,
+                "week": pred.week,
+                # Add fixture data
+                "fixture": {
+                    "fixture_id": fixture.fixture_id if fixture else None,
+                    "home_team": fixture.home_team if fixture else "Home Team",
+                    "away_team": fixture.away_team if fixture else "Away Team",
+                    "home_team_logo": fixture.home_team_logo if fixture else None,
+                    "away_team_logo": fixture.away_team_logo if fixture else None,
+                    "date": fixture.date.isoformat() if fixture and fixture.date else None,
+                    "league": fixture.league if fixture else "Unknown League",
+                    "status": fixture.status.value if fixture and hasattr(fixture.status, 'value') else str(fixture.status) if fixture else "UNKNOWN",
+                    "home_score": fixture.home_score if fixture else None,
+                    "away_score": fixture.away_score if fixture else None,
+                    "season": fixture.season if fixture else pred.season,
+                    "round": fixture.round if fixture else None,
+                    "venue": fixture.venue if fixture else None,
+                    "venue_city": fixture.venue_city if fixture else None
+                } if fixture else {
+                    "fixture_id": pred.fixture_id,
+                    "home_team": "Home Team",
+                    "away_team": "Away Team",
+                    "home_team_logo": None,
+                    "away_team_logo": None,
+                    "date": None,
+                    "league": "Unknown League",
+                    "status": "UNKNOWN",
+                    "home_score": None,
+                    "away_score": None,
+                    "season": pred.season,
+                    "round": None,
+                    "venue": None,
+                    "venue_city": None
+                }
+            }
+            predictions.append(prediction_dict)
         
         # Cache only the complete list
         if not fixture_id and not status and not season and not week:
@@ -283,6 +356,7 @@ async def get_user_predictions_endpoint(
         import logging
         logger = logging.getLogger(__name__)
         logger.error(f"Error in get_user_predictions: {str(e)}")
+        logger.exception("Full traceback:")
         
         return ListResponse(
             data=[],
