@@ -33,8 +33,9 @@ group_members = Table(
     Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
     Column("group_id", Integer, ForeignKey("groups.id"), primary_key=True),
     Column("role", Enum(MemberRole), default=MemberRole.MEMBER),
-    Column("joined_at", DateTime, default=datetime.utcnow),
-    Column("last_active", DateTime, default=datetime.utcnow)
+    # FIXED: Use timezone-aware UTC instead of utcnow()
+    Column("joined_at", DateTime, default=utc_now),
+    Column("last_active", DateTime, default=utc_now)
 )
 
 # Models
@@ -46,7 +47,8 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    # FIXED: Use timezone-aware UTC
+    created_at = Column(DateTime, default=utc_now)
     
     # Relationships
     predictions = relationship("UserPrediction", back_populates="user")
@@ -83,7 +85,7 @@ class Fixture(Base):
     fixture_id = Column(Integer, primary_key=True)
     
     # Core fixture data - ✅ Frontend uses: date, status, round, season
-    date = Column(DateTime, nullable=False)
+    date = Column(DateTime, nullable=False)  # UTC kickoff time from API
     status = Column(Enum(MatchStatus), nullable=False, default=MatchStatus.NOT_STARTED)
     round = Column(String)
     season = Column(String, nullable=False)
@@ -138,9 +140,10 @@ class UserPrediction(Base):
     
     # Keep as timezone-naive for now to match existing data
     created = Column(DateTime, default=datetime.utcnow, nullable=False)
-    submission_time = Column(DateTime, nullable=True)
-    processed_at = Column(DateTime, nullable=True)
-    last_modified = Column(DateTime, onupdate=datetime.utcnow)
+    # CRITICAL: All prediction timestamps in UTC
+    submission_time = Column(DateTime, default=utc_now)
+    last_modified = Column(DateTime, default=utc_now, onupdate=utc_now)
+    processed_at = Column(DateTime, nullable=True)  # Set when prediction processed
     
     prediction_status = Column(Enum(PredictionStatus), nullable=False, default=PredictionStatus.EDITABLE)
     

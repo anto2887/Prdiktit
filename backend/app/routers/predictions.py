@@ -35,7 +35,12 @@ async def submit_prediction(
     cache: RedisCache = Depends(get_cache)
 ):
     """
-    Submit a new prediction - Working with your actual database schema
+    Submit a new prediction.
+    
+    TIMEZONE HANDLING:
+    - All deadlines checked against UTC
+    - Database stores all times in UTC
+    - Frontend displays times in user's local timezone
     """
     import logging
     from datetime import datetime, timezone, timedelta
@@ -82,44 +87,36 @@ async def submit_prediction(
                 detail="Cannot predict after match has started"
             )
         
-        # Safe timezone handling for deadline check
-        try:
-            current_time = datetime.now(timezone.utc)
-            logger.info(f"Current time (UTC): {current_time}")
-            logger.info(f"Fixture date: {fixture.date}, type: {type(fixture.date)}")
-            
-            if fixture.date:
-                # Handle timezone-naive database datetime
-                if fixture.date.tzinfo is None:
-                    # Database stores naive datetime, assume it's UTC
-                    fixture_utc = fixture.date.replace(tzinfo=timezone.utc)
-                    logger.info(f"Converted fixture date to UTC: {fixture_utc}")
-                else:
-                    fixture_utc = fixture.date.astimezone(timezone.utc)
-                    logger.info(f"Fixture date already timezone-aware: {fixture_utc}")
-                
-                # Deadline is exactly the kickoff time
-                deadline = fixture_utc
-                logger.info(f"Prediction deadline (kickoff time): {deadline}")
-                
-                if current_time > deadline:
-                    logger.warning(f"Deadline passed: {current_time} > {deadline}")
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Cannot make or modify predictions after match kickoff"
-                    )
-                else:
-                    logger.info("Deadline check passed - can still make predictions")
-            else:
-                logger.warning("Fixture has no date, skipping deadline check")
-                
-        except HTTPException:
-            # Re-raise HTTP exceptions
-            raise
-        except Exception as date_error:
-            logger.error(f"Date comparison error: {date_error}")
-            logger.warning("Continuing with prediction despite date error")
+        # CRITICAL: All deadline checks must be UTC-aware
+        current_time_utc = datetime.now(timezone.utc)
+        logger.info(f"Current time (UTC): {current_time_utc}")
         
+        if fixture.date:
+            # Ensure fixture date is UTC-aware
+            if fixture.date.tzinfo is None:
+                # Database stored naive datetime - assume UTC
+                fixture_utc = fixture.date.replace(tzinfo=timezone.utc)
+                logger.warning(f"Converting naive fixture date to UTC: {fixture_utc}")
+            else:
+                fixture_utc = fixture.date.astimezone(timezone.utc)
+            
+            # Deadline is exactly kickoff time (UTC)
+            deadline_utc = fixture_utc
+            logger.info(f"Prediction deadline (UTC): {deadline_utc}")
+            
+            if current_time_utc > deadline_utc:
+                # Calculate how long ago deadline passed for better error message
+                time_passed = current_time_utc - deadline_utc
+                minutes_passed = int(time_passed.total_seconds() / 60)
+                
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Prediction deadline passed {minutes_passed} minutes ago. "
+                           f"Deadline was at kickoff time: {deadline_utc.isoformat()}"
+                )
+        else:
+            logger.warning("Fixture has no date, skipping deadline check")
+                
         # Check for existing prediction using your actual repository function
         logger.info("Checking for existing prediction")
         existing_prediction = await get_user_prediction(db, current_user.id, match_id)
@@ -227,12 +224,8 @@ async def submit_prediction(
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
-        logger.error(f"Unexpected error in submit_prediction: {str(e)}")
-        logger.exception("Full traceback:")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}"
-        )
+        logger.error(f"Prediction submission error: {e}")
+        raise
 
 @router.get("/user", response_model=ListResponse)
 async def get_user_predictions_endpoint(

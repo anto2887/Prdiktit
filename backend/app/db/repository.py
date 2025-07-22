@@ -208,18 +208,35 @@ async def create_or_update_fixture(db: Session, fixture_data: Dict[str, Any]) ->
     return fixture
 
 async def get_prediction_deadlines(db: Session) -> Dict[str, str]:
-    """Get prediction deadlines for upcoming fixtures - deadline is kickoff time"""
+    """
+    Get prediction deadlines for upcoming fixtures.
+    
+    TIMEZONE HANDLING:
+    - Returns UTC timestamps as ISO strings
+    - Frontend converts to user's local timezone
+    - Deadline is exactly the kickoff time (no buffer)
+    """
     deadlines = {}
+    
+    # Get upcoming fixtures with UTC-aware comparison
+    current_time_utc = datetime.now(timezone.utc)
+    
     fixtures = db.query(Fixture).filter(
         Fixture.status == MatchStatus.NOT_STARTED,
-        Fixture.date > datetime.now(timezone.utc)
+        Fixture.date > current_time_utc
     ).all()
     
     for fixture in fixtures:
-        # Deadline is the exact kickoff time (no buffer)
-        deadline = fixture.date
-        deadlines[str(fixture.fixture_id)] = deadline.isoformat()
-        
+        if fixture.date:
+            # Ensure UTC timezone info
+            if fixture.date.tzinfo is None:
+                deadline_utc = fixture.date.replace(tzinfo=timezone.utc)
+            else:
+                deadline_utc = fixture.date.astimezone(timezone.utc)
+            
+            # Return as ISO string with timezone info
+            deadlines[str(fixture.fixture_id)] = deadline_utc.isoformat()
+    
     return deadlines
 
 # =============================================================================
@@ -273,20 +290,14 @@ async def get_user_predictions(
         
     return query.order_by(UserPrediction.created.desc()).all()
 
-async def create_prediction(
-    db: Session, 
-    user_id: int, 
-    fixture_id: int, 
-    score1: int,
-    score2: int,
-    season: str,
-    week: int
-) -> UserPrediction:
-    """Create a new prediction with proper timezone handling"""
+async def create_prediction(db: Session, user_id: int, fixture_id: int, 
+                          score1: int, score2: int, season: str, week: int, **kwargs) -> UserPrediction:
+    """
+    Create a new prediction.
     
-    # Ensure we use timezone-aware datetime
-    current_time = datetime.now(timezone.utc)
-    
+    TIMEZONE HANDLING:
+    - All timestamps stored as UTC in database
+    """
     prediction = UserPrediction(
         user_id=user_id,
         fixture_id=fixture_id,
@@ -294,9 +305,11 @@ async def create_prediction(
         score2=score2,
         season=season,
         week=week,
-        prediction_status=PredictionStatus.SUBMITTED,
-        submission_time=current_time,  # Timezone-aware
-        created=current_time           # Timezone-aware
+        prediction_status=PredictionStatus.EDITABLE,
+        # FIXED: Use timezone-aware UTC
+        submission_time=datetime.now(timezone.utc),
+        last_modified=datetime.now(timezone.utc),
+        **kwargs
     )
     
     db.add(prediction)

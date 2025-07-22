@@ -55,17 +55,17 @@ class MatchProcessor:
             return []
     
     def get_upcoming_matches_for_locking(self) -> List[Fixture]:
-        """Get matches that are about to start (for locking predictions)"""
+        """Get matches ready for prediction locking (kickoff time reached)"""
         try:
-            now = datetime.now(timezone.utc)
+            # CRITICAL: Use UTC for all time comparisons
+            now_utc = datetime.now(timezone.utc)
             
-            # Get matches that have reached kickoff time but haven't started yet
             upcoming_matches = self.db.query(Fixture).filter(
                 Fixture.status == MatchStatus.NOT_STARTED,
-                Fixture.date <= now  # Kickoff time has passed
+                Fixture.date <= now_utc  # Kickoff time has passed (UTC)
             ).all()
             
-            logger.info(f"Found {len(upcoming_matches)} matches ready for prediction locking")
+            logger.info(f"Found {len(upcoming_matches)} matches ready for locking (UTC time: {now_utc})")
             return upcoming_matches
             
         except Exception as e:
@@ -96,66 +96,32 @@ class MatchProcessor:
             return 0
     
     def process_match_predictions(self, fixture: Fixture) -> int:
-        """Process all predictions for a completed match"""
+        """Process predictions for a completed match"""
         try:
-            # Get all locked predictions for this match
+            # Update prediction processing timestamp
+            processed_time_utc = datetime.now(timezone.utc)
+            
+            # Process locked predictions and update with UTC timestamp
             locked_predictions = self.db.query(UserPrediction).filter(
                 UserPrediction.fixture_id == fixture.fixture_id,
                 UserPrediction.prediction_status == PredictionStatus.LOCKED
             ).all()
-            
-            if not locked_predictions:
-                logger.info(f"No locked predictions found for fixture {fixture.fixture_id}")
-                return 0
-            
             processed_count = 0
-            
             for prediction in locked_predictions:
-                try:
-                    # Calculate points
-                    points = calculate_points(
-                        prediction.score1,
-                        prediction.score2,
-                        fixture.home_score,
-                        fixture.away_score
-                    )
-                    
-                    # Update prediction
-                    prediction.points = points
-                    prediction.prediction_status = PredictionStatus.PROCESSED
-                    prediction.processed_at = datetime.now(timezone.utc)
-                    
-                    # Update or create user results
-                    user_result = self.db.query(UserResults).filter(
-                        UserResults.user_id == prediction.user_id,
-                        UserResults.season == prediction.season
-                    ).first()
-                    
-                    if not user_result:
-                        user_result = UserResults(
-                            user_id=prediction.user_id,
-                            points=0,
-                            season=prediction.season,
-                            week=prediction.week
-                        )
-                        self.db.add(user_result)
-                    
-                    user_result.points += points
-                    processed_count += 1
-                    
-                    logger.debug(f"Processed prediction {prediction.id}: {points} points")
-                    
-                except Exception as e:
-                    logger.error(f"Error processing prediction {prediction.id}: {e}")
-                    continue
-            
+                prediction.points = calculate_points(
+                    prediction.score1,
+                    prediction.score2,
+                    fixture.home_score,
+                    fixture.away_score
+                )
+                prediction.prediction_status = PredictionStatus.PROCESSED
+                prediction.processed_at = processed_time_utc  # UTC timestamp
+                processed_count += 1
             self.db.commit()
-            logger.info(f"Processed {processed_count} predictions for fixture {fixture.fixture_id}")
             return processed_count
             
         except Exception as e:
-            logger.error(f"Error processing predictions for fixture {fixture.fixture_id}: {e}")
-            self.db.rollback()
+            logger.error(f"Error processing predictions: {e}")
             return 0
     
     def run_prediction_locking(self) -> Dict[str, Any]:
