@@ -1,14 +1,25 @@
-# 3. Create: backend/app/services/background_tasks.py
-
+# backend/app/services/background_tasks.py
 import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Dict, Any
-import schedule
-import time
 import threading
 
-from .match_processor import MatchProcessor
+# Add error handling for missing dependencies
+try:
+    import schedule
+    import time
+    SCHEDULE_AVAILABLE = True
+except ImportError as e:
+    logging.error(f"Schedule library not available: {e}")
+    SCHEDULE_AVAILABLE = False
+
+try:
+    from .match_processor import MatchProcessor
+    MATCH_PROCESSOR_AVAILABLE = True
+except ImportError as e:
+    logging.error(f"MatchProcessor not available: {e}")
+    MATCH_PROCESSOR_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +27,21 @@ class BackgroundTaskRunner:
     """Simple background task runner for match and prediction processing"""
     
     def __init__(self):
-        self.processor = MatchProcessor()
+        self.processor = None
+        if MATCH_PROCESSOR_AVAILABLE:
+            try:
+                self.processor = MatchProcessor()
+            except Exception as e:
+                logger.error(f"Failed to initialize MatchProcessor: {e}")
+        
         self.is_running = False
         self.thread = None
     
     def run_processing_cycle(self) -> Dict[str, Any]:
         """Run a single processing cycle"""
+        if not self.processor:
+            return {"status": "error", "error": "MatchProcessor not available"}
+        
         try:
             logger.info("Starting background processing cycle")
             result = self.processor.run_all_processing()
@@ -33,6 +53,14 @@ class BackgroundTaskRunner:
     
     def start_scheduler(self):
         """Start the background task scheduler"""
+        if not SCHEDULE_AVAILABLE:
+            logger.error("Cannot start scheduler: schedule library not available")
+            return
+        
+        if not self.processor:
+            logger.error("Cannot start scheduler: MatchProcessor not available")
+            return
+        
         if self.is_running:
             logger.warning("Background tasks already running")
             return
@@ -59,7 +87,8 @@ class BackgroundTaskRunner:
         self.is_running = False
         if self.thread:
             self.thread.join(timeout=5)
-        schedule.clear()
+        if SCHEDULE_AVAILABLE:
+            schedule.clear()
         logger.info("Background task scheduler stopped")
 
 # Global instance

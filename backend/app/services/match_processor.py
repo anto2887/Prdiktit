@@ -1,17 +1,13 @@
-# Create: backend/app/services/match_processor.py
-
+# backend/app/services/match_processor.py
 import logging
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
-
 from ..db.database import SessionLocal
 from ..db.models import Fixture, UserPrediction, UserResults, MatchStatus, PredictionStatus
 from ..db.repository import calculate_points
-
 logger = logging.getLogger(__name__)
-
 class MatchProcessor:
     """Handles match and prediction processing for PostgreSQL database"""
     

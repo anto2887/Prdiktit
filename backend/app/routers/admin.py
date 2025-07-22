@@ -5,7 +5,16 @@ from sqlalchemy.orm import Session
 from ..core.security import get_current_active_user
 from ..db.database import get_db
 from ..schemas import DataResponse, User
-from ..services.match_processor import MatchProcessor
+
+# Add error handling for the MatchProcessor import
+try:
+    from ..services.match_processor import MatchProcessor
+    MATCH_PROCESSOR_AVAILABLE = True
+except ImportError as e:
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.error(f"Failed to import MatchProcessor: {e}")
+    MATCH_PROCESSOR_AVAILABLE = False
 
 router = APIRouter()
 
@@ -17,6 +26,12 @@ async def process_completed_matches(
     """
     Manually trigger processing of completed matches
     """
+    if not MATCH_PROCESSOR_AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Match processor service not available"
+        )
+    
     try:
         processor = MatchProcessor()
         result = processor.run_match_processing()
@@ -40,6 +55,12 @@ async def lock_match_predictions(
     """
     Manually trigger locking of predictions for matches at kickoff
     """
+    if not MATCH_PROCESSOR_AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Match processor service not available"
+        )
+    
     try:
         processor = MatchProcessor()
         result = processor.run_prediction_locking()
@@ -63,6 +84,12 @@ async def process_all_tasks(
     """
     Run all processing tasks (lock predictions + process matches)
     """
+    if not MATCH_PROCESSOR_AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Match processor service not available"
+        )
+    
     try:
         processor = MatchProcessor()
         result = processor.run_all_processing()
@@ -86,6 +113,12 @@ async def get_processing_status(
     """
     Get status of matches and predictions needing processing
     """
+    if not MATCH_PROCESSOR_AVAILABLE:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Match processor service not available"
+        )
+    
     try:
         processor = MatchProcessor()
         

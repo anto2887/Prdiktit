@@ -163,12 +163,10 @@ async def init_services(app: FastAPI) -> None:
     
     logger.info("All services initialized successfully")
 
-async def shutdown_services() -> None:
+async def shutdown_services(app=None):
     """
     Shutdown all application services
     """
     logger.info("Shutting down application services...")
-    
     # Add cleanup code for services here
-    
     logger.info("All services shut down successfully")
