@@ -32,10 +32,11 @@ from ..db.models import (
     Group as GroupModel
 )
 from ..schemas import (
+    LoginRequest, LoginResponse, Token, UserCreate, User, BaseResponse,
     GroupCreate, GroupBase, GroupMember,
-    GroupPrivacyType, MemberRole, LoginRequest,
-    ListResponse, DataResponse, User, TeamInfo,
-    MemberAction
+    GroupPrivacyType, MemberRole, 
+    ListResponse, DataResponse, TeamInfo,
+    MemberAction, JoinGroupRequest
 )
 
 router = APIRouter()
@@ -291,7 +292,7 @@ async def create_group_endpoint(
 
 @router.post("/join", response_model=DataResponse)
 async def join_group(
-    join_data: LoginRequest,
+    join_data: JoinGroupRequest,  # ✅ Use the correct schema
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
@@ -301,7 +302,7 @@ async def join_group(
     """
     try:
         # Get the group by invite code
-        group = await get_group_by_invite_code(db, join_data.password)  # Using password field for invite code
+        group = await get_group_by_invite_code(db, join_data.invite_code)
         
         if not group:
             raise HTTPException(
@@ -319,6 +320,7 @@ async def join_group(
             )
         
         # Add user to group_members table
+        from datetime import datetime, timezone
         stmt = group_members.insert().values(
             user_id=current_user.id,
             group_id=group.id,
@@ -337,7 +339,9 @@ async def join_group(
             message="Successfully joined group",
             data={
                 "group_id": group.id,
-                "group_name": group.name
+                "group_name": group.name,
+                "league": group.league,
+                "member_count": len(await get_group_members(db, group.id))
             }
         )
     except HTTPException:

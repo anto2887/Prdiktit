@@ -188,3 +188,8 @@ class TeamInfo(BaseModel):
 
     class Config:
         from_attributes = True
+
+# === GROUP JOIN SCHEMA ===
+class JoinGroupRequest(BaseModel):
+    """Schema for joining a group with invite code"""
+    invite_code: str = Field(..., min_length=8, max_length=8, description="8-character group invite code")
