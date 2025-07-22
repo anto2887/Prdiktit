@@ -538,3 +538,306 @@
 2025-07-22 05:48:15,429 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
 2025-07-22 05:48:46,561 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
 2025-07-22 05:48:46,562 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:50:16,433 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:50:16,436 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:50:47,435 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:50:47,436 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:52:17,436 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:52:17,438 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:52:48,426 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:52:48,428 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:54:18,428 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:54:18,430 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:54:49,486 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:54:49,488 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:56:19,429 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:56:19,431 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:56:50,433 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:56:50,435 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:58:20,428 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:58:20,429 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 05:58:51,425 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 05:58:51,427 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:00:21,429 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:00:21,430 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:00:52,507 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:00:52,508 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:02:22,434 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:02:22,436 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:02:53,436 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:02:53,438 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:04:23,437 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:04:23,440 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:04:54,429 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:04:54,431 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:06:24,432 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:06:24,433 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:06:55,428 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:06:55,429 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:08:25,438 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:08:25,440 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:08:56,439 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:08:56,441 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:10:26,443 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:10:26,445 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:10:57,432 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:10:57,433 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:12:27,424 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:12:27,426 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:12:58,433 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:12:58,436 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:14:28,435 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:14:28,437 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:14:59,431 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:14:59,433 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:16:29,427 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:16:29,430 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:17:00,436 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:17:00,438 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:18:30,431 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:18:30,434 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:19:01,453 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:19:01,455 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:20:31,429 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:20:31,431 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:21:02,440 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:21:02,443 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:22:32,423 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:22:32,424 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:23:03,428 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:23:03,430 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:24:33,438 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:24:33,440 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:25:04,437 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:25:04,440 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:26:34,428 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:26:34,429 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:27:04,482 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:27:04,484 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:28:35,436 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:28:35,441 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:29:04,524 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:29:04,525 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:30:36,446 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:30:36,448 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:31:04,578 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:31:04,579 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:32:37,432 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:32:37,435 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:33:04,622 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:33:04,625 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:34:38,439 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:34:38,442 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:35:04,663 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:35:04,665 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:36:39,083 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:36:39,085 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:37:05,434 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:37:05,436 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:38:40,438 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:38:40,439 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:39:06,431 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:39:06,433 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:40:41,442 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:40:41,444 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:41:07,429 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:41:07,431 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:42:42,435 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:42:42,437 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:43:08,439 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:43:08,441 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:44:43,436 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:44:43,438 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:45:09,476 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:45:09,522 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:46:44,435 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:46:44,437 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:47:10,019 - app.services.smart_scheduler - INFO - 🔄 Starting processing cycle (mode: minimal)
+2025-07-22 06:47:10,020 - match_processing_audit - INFO - SMART_CYCLE_START: mode=minimal, timestamp=2025-07-22T06:47:10.019666+00:00
+2025-07-22 06:47:10,022 - app.services.match_processor - INFO - 🔄 Starting full processing cycle at 2025-07-22 06:47:10.022248+00:00
+2025-07-22 06:47:10,024 - match_processing_audit - INFO - FULL_CYCLE_START: timestamp=2025-07-22T06:47:10.022248+00:00
+2025-07-22 06:47:10,026 - app.services.match_processor - INFO - 🚀 Starting prediction locking cycle at 2025-07-22 06:47:10.026146+00:00
+2025-07-22 06:47:10,026 - match_processing_audit - INFO - LOCKING_CYCLE_START: timestamp=2025-07-22T06:47:10.026146+00:00
+2025-07-22 06:47:10,047 - app.services.match_processor - INFO - 🔒 Found 67 matches ready for locking (UTC time: 2025-07-22 06:47:10.027852+00:00)
+2025-07-22 06:47:10,048 - match_processing_audit - INFO - SCAN_LOCKING_MATCHES: found 67 matches ready for locking at 2025-07-22 06:47:10.027852+00:00
+2025-07-22 06:47:10,060 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326472 (Los Angeles FC vs Toronto FC)
+2025-07-22 06:47:10,061 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326472, match='Los Angeles FC vs Toronto FC', predictions_locked=0
+2025-07-22 06:47:10,076 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326494 (Real Salt Lake vs Los Angeles FC)
+2025-07-22 06:47:10,077 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326494, match='Real Salt Lake vs Los Angeles FC', predictions_locked=0
+2025-07-22 06:47:10,089 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326496 (Inter Miami vs Atlanta United FC)
+2025-07-22 06:47:10,090 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326496, match='Inter Miami vs Atlanta United FC', predictions_locked=0
+2025-07-22 06:47:10,098 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326509 (New York City FC vs Toronto FC)
+2025-07-22 06:47:10,099 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326509, match='New York City FC vs Toronto FC', predictions_locked=0
+2025-07-22 06:47:10,107 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326510 (FC Dallas vs Minnesota United FC)
+2025-07-22 06:47:10,107 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326510, match='FC Dallas vs Minnesota United FC', predictions_locked=0
+2025-07-22 06:47:10,116 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326511 (Colorado Rapids vs Sporting Kansas City)
+2025-07-22 06:47:10,117 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326511, match='Colorado Rapids vs Sporting Kansas City', predictions_locked=0
+2025-07-22 06:47:10,128 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326512 (Los Angeles Galaxy vs Vancouver Whitecaps)
+2025-07-22 06:47:10,132 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326512, match='Los Angeles Galaxy vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 06:47:10,141 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326513 (Charlotte vs Orlando City SC)
+2025-07-22 06:47:10,141 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326513, match='Charlotte vs Orlando City SC', predictions_locked=0
+2025-07-22 06:47:10,151 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326516 (CF Montreal vs Inter Miami)
+2025-07-22 06:47:10,152 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326516, match='CF Montreal vs Inter Miami', predictions_locked=0
+2025-07-22 06:47:10,158 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326515 (DC United vs Atlanta United FC)
+2025-07-22 06:47:10,159 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326515, match='DC United vs Atlanta United FC', predictions_locked=0
+2025-07-22 06:47:10,166 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326514 (FC Cincinnati vs Chicago Fire)
+2025-07-22 06:47:10,167 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326514, match='FC Cincinnati vs Chicago Fire', predictions_locked=0
+2025-07-22 06:47:10,174 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326518 (Nashville SC vs Philadelphia Union)
+2025-07-22 06:47:10,175 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326518, match='Nashville SC vs Philadelphia Union', predictions_locked=0
+2025-07-22 06:47:10,183 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326517 (Austin vs Los Angeles FC)
+2025-07-22 06:47:10,183 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326517, match='Austin vs Los Angeles FC', predictions_locked=0
+2025-07-22 06:47:10,191 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326519 (Real Salt Lake vs St. Louis City)
+2025-07-22 06:47:10,191 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326519, match='Real Salt Lake vs St. Louis City', predictions_locked=0
+2025-07-22 06:47:10,199 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326521 (San Jose Earthquakes vs New York Red Bulls)
+2025-07-22 06:47:10,200 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326521, match='San Jose Earthquakes vs New York Red Bulls', predictions_locked=0
+2025-07-22 06:47:10,208 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326520 (Portland Timbers vs New England Revolution)
+2025-07-22 06:47:10,211 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326520, match='Portland Timbers vs New England Revolution', predictions_locked=0
+2025-07-22 06:47:10,221 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326729 (San Diego vs Houston Dynamo)
+2025-07-22 06:47:10,222 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326729, match='San Diego vs Houston Dynamo', predictions_locked=0
+2025-07-22 06:47:10,230 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326522 (Seattle Sounders vs Columbus Crew)
+2025-07-22 06:47:10,231 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326522, match='Seattle Sounders vs Columbus Crew', predictions_locked=0
+2025-07-22 06:47:10,241 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326523 (New England Revolution vs Inter Miami)
+2025-07-22 06:47:10,241 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326523, match='New England Revolution vs Inter Miami', predictions_locked=0
+2025-07-22 06:47:10,248 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326465 (Los Angeles FC vs Colorado Rapids)
+2025-07-22 06:47:10,249 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326465, match='Los Angeles FC vs Colorado Rapids', predictions_locked=0
+2025-07-22 06:47:10,258 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326527 (Orlando City SC vs CF Montreal)
+2025-07-22 06:47:10,258 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326527, match='Orlando City SC vs CF Montreal', predictions_locked=0
+2025-07-22 06:47:10,270 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326528 (Philadelphia Union vs New York Red Bulls)
+2025-07-22 06:47:10,271 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326528, match='Philadelphia Union vs New York Red Bulls', predictions_locked=0
+2025-07-22 06:47:10,283 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326529 (Toronto FC vs Atlanta United FC)
+2025-07-22 06:47:10,283 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326529, match='Toronto FC vs Atlanta United FC', predictions_locked=0
+2025-07-22 06:47:10,291 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326525 (FC Cincinnati vs Columbus Crew)
+2025-07-22 06:47:10,291 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326525, match='FC Cincinnati vs Columbus Crew', predictions_locked=0
+2025-07-22 06:47:10,298 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326526 (Inter Miami vs Nashville SC)
+2025-07-22 06:47:10,299 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326526, match='Inter Miami vs Nashville SC', predictions_locked=0
+2025-07-22 06:47:10,306 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326524 (Charlotte vs New York City FC)
+2025-07-22 06:47:10,307 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326524, match='Charlotte vs New York City FC', predictions_locked=0
+2025-07-22 06:47:10,314 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326730 (Chicago Fire vs San Diego)
+2025-07-22 06:47:10,314 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326730, match='Chicago Fire vs San Diego', predictions_locked=0
+2025-07-22 06:47:10,321 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326531 (Sporting Kansas City vs Seattle Sounders)
+2025-07-22 06:47:10,322 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326531, match='Sporting Kansas City vs Seattle Sounders', predictions_locked=0
+2025-07-22 06:47:10,329 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326532 (Minnesota United FC vs San Jose Earthquakes)
+2025-07-22 06:47:10,330 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326532, match='Minnesota United FC vs San Jose Earthquakes', predictions_locked=0
+2025-07-22 06:47:10,337 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326530 (Austin vs New England Revolution)
+2025-07-22 06:47:10,338 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326530, match='Austin vs New England Revolution', predictions_locked=0
+2025-07-22 06:47:10,348 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326534 (Real Salt Lake vs Houston Dynamo)
+2025-07-22 06:47:10,348 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326534, match='Real Salt Lake vs Houston Dynamo', predictions_locked=0
+2025-07-22 06:47:10,359 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326533 (Colorado Rapids vs Vancouver Whitecaps)
+2025-07-22 06:47:10,360 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326533, match='Colorado Rapids vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 06:47:10,369 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326535 (Los Angeles Galaxy vs DC United)
+2025-07-22 06:47:10,370 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326535, match='Los Angeles Galaxy vs DC United', predictions_locked=0
+2025-07-22 06:47:10,384 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326536 (Los Angeles FC vs FC Dallas)
+2025-07-22 06:47:10,385 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326536, match='Los Angeles FC vs FC Dallas', predictions_locked=0
+2025-07-22 06:47:10,395 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326537 (St. Louis City vs Portland Timbers)
+2025-07-22 06:47:10,396 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326537, match='St. Louis City vs Portland Timbers', predictions_locked=0
+2025-07-22 06:47:10,404 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326542 (Orlando City SC vs New York City FC)
+2025-07-22 06:47:10,404 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326542, match='Orlando City SC vs New York City FC', predictions_locked=0
+2025-07-22 06:47:10,410 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326543 (Philadelphia Union vs CF Montreal)
+2025-07-22 06:47:10,411 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326543, match='Philadelphia Union vs CF Montreal', predictions_locked=0
+2025-07-22 06:47:10,417 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326541 (New York Red Bulls vs New England Revolution)
+2025-07-22 06:47:10,418 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326541, match='New York Red Bulls vs New England Revolution', predictions_locked=0
+2025-07-22 06:47:10,424 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326538 (Atlanta United FC vs Chicago Fire)
+2025-07-22 06:47:10,425 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326538, match='Atlanta United FC vs Chicago Fire', predictions_locked=0
+2025-07-22 06:47:10,437 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326540 (FC Cincinnati vs Inter Miami)
+2025-07-22 06:47:10,437 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:47:10,438 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326540, match='FC Cincinnati vs Inter Miami', predictions_locked=0
+2025-07-22 06:47:10,440 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:47:10,447 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326539 (Charlotte vs DC United)
+2025-07-22 06:47:10,448 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326539, match='Charlotte vs DC United', predictions_locked=0
+2025-07-22 06:47:10,455 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326544 (Houston Dynamo vs Vancouver Whitecaps)
+2025-07-22 06:47:10,455 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326544, match='Houston Dynamo vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 06:47:10,465 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326545 (Minnesota United FC vs Los Angeles FC)
+2025-07-22 06:47:10,466 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326545, match='Minnesota United FC vs Los Angeles FC', predictions_locked=0
+2025-07-22 06:47:10,473 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326546 (Nashville SC vs Columbus Crew)
+2025-07-22 06:47:10,474 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326546, match='Nashville SC vs Columbus Crew', predictions_locked=0
+2025-07-22 06:47:10,481 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326547 (Seattle Sounders vs Colorado Rapids)
+2025-07-22 06:47:10,481 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326547, match='Seattle Sounders vs Colorado Rapids', predictions_locked=0
+2025-07-22 06:47:10,488 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326550 (San Jose Earthquakes vs FC Dallas)
+2025-07-22 06:47:10,489 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326550, match='San Jose Earthquakes vs FC Dallas', predictions_locked=0
+2025-07-22 06:47:10,497 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326548 (Los Angeles Galaxy vs Austin)
+2025-07-22 06:47:10,498 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326548, match='Los Angeles Galaxy vs Austin', predictions_locked=0
+2025-07-22 06:47:10,504 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326549 (Portland Timbers vs Real Salt Lake)
+2025-07-22 06:47:10,504 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326549, match='Portland Timbers vs Real Salt Lake', predictions_locked=0
+2025-07-22 06:47:10,511 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326731 (San Diego vs Toronto FC)
+2025-07-22 06:47:10,511 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326731, match='San Diego vs Toronto FC', predictions_locked=0
+2025-07-22 06:47:10,518 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326555 (New York Red Bulls vs Inter Miami)
+2025-07-22 06:47:10,518 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326555, match='New York Red Bulls vs Inter Miami', predictions_locked=0
+2025-07-22 06:47:10,524 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326551 (Atlanta United FC vs Charlotte)
+2025-07-22 06:47:10,524 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326551, match='Atlanta United FC vs Charlotte', predictions_locked=0
+2025-07-22 06:47:10,530 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326554 (New England Revolution vs Orlando City SC)
+2025-07-22 06:47:10,531 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326554, match='New England Revolution vs Orlando City SC', predictions_locked=0
+2025-07-22 06:47:10,537 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326552 (Columbus Crew vs DC United)
+2025-07-22 06:47:10,537 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326552, match='Columbus Crew vs DC United', predictions_locked=0
+2025-07-22 06:47:10,543 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326553 (CF Montreal vs Chicago Fire)
+2025-07-22 06:47:10,544 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326553, match='CF Montreal vs Chicago Fire', predictions_locked=0
+2025-07-22 06:47:10,549 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326560 (Seattle Sounders vs San Jose Earthquakes)
+2025-07-22 06:47:10,549 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326560, match='Seattle Sounders vs San Jose Earthquakes', predictions_locked=0
+2025-07-22 06:47:10,555 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326556 (FC Dallas vs St. Louis City)
+2025-07-22 06:47:10,555 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326556, match='FC Dallas vs St. Louis City', predictions_locked=0
+2025-07-22 06:47:10,561 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326557 (Houston Dynamo vs Philadelphia Union)
+2025-07-22 06:47:10,561 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326557, match='Houston Dynamo vs Philadelphia Union', predictions_locked=0
+2025-07-22 06:47:10,567 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326558 (Sporting Kansas City vs New York City FC)
+2025-07-22 06:47:10,568 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326558, match='Sporting Kansas City vs New York City FC', predictions_locked=0
+2025-07-22 06:47:10,574 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326559 (Nashville SC vs Toronto FC)
+2025-07-22 06:47:10,575 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326559, match='Nashville SC vs Toronto FC', predictions_locked=0
+2025-07-22 06:47:10,581 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326561 (Real Salt Lake vs FC Cincinnati)
+2025-07-22 06:47:10,581 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326561, match='Real Salt Lake vs FC Cincinnati', predictions_locked=0
+2025-07-22 06:47:10,587 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326562 (Los Angeles FC vs Los Angeles Galaxy)
+2025-07-22 06:47:10,588 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326562, match='Los Angeles FC vs Los Angeles Galaxy', predictions_locked=0
+2025-07-22 06:47:10,594 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326563 (Portland Timbers vs Minnesota United FC)
+2025-07-22 06:47:10,594 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326563, match='Portland Timbers vs Minnesota United FC', predictions_locked=0
+2025-07-22 06:47:10,600 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1326732 (San Diego vs Vancouver Whitecaps)
+2025-07-22 06:47:10,601 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1326732, match='San Diego vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 06:47:10,606 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1383916 (Inter vs Fluminense)
+2025-07-22 06:47:10,607 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1383916, match='Inter vs Fluminense', predictions_locked=0
+2025-07-22 06:47:10,612 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1386548 (Manchester City vs Al-Hilal Saudi FC)
+2025-07-22 06:47:10,613 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1386548, match='Manchester City vs Al-Hilal Saudi FC', predictions_locked=0
+2025-07-22 06:47:10,617 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1386549 (Real Madrid vs Juventus)
+2025-07-22 06:47:10,618 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1386549, match='Real Madrid vs Juventus', predictions_locked=0
+2025-07-22 06:47:10,622 - app.services.match_processor - INFO - 🔒 Locked 0 predictions for fixture 1386550 (Borussia Dortmund vs Monterrey)
+2025-07-22 06:47:10,623 - match_processing_audit - INFO - LOCK_PREDICTIONS: fixture_id=1386550, match='Borussia Dortmund vs Monterrey', predictions_locked=0
+2025-07-22 06:47:10,625 - app.services.match_processor - INFO - 🎯 Prediction locking complete: 67 matches processed, 0 predictions locked in 0.60s
+2025-07-22 06:47:10,625 - match_processing_audit - INFO - LOCKING_CYCLE_COMPLETE: {'status': 'success', 'matches_processed': 67, 'predictions_locked': 0, 'successful_locks': 67, 'failed_locks': 0, 'duration_seconds': 0.598823, 'timestamp': '2025-07-22T06:47:10.624969+00:00'}
+2025-07-22 06:47:10,626 - app.services.match_processor - INFO - 🚀 Starting match processing cycle at 2025-07-22 06:47:10.626655+00:00
+2025-07-22 06:47:10,627 - match_processing_audit - INFO - PROCESSING_CYCLE_START: timestamp=2025-07-22T06:47:10.626655+00:00
+2025-07-22 06:47:10,634 - app.services.match_processor - INFO - 🔍 Found 253 completed matches in database
+2025-07-22 06:47:10,835 - app.services.match_processor - INFO - 📊 Found 0 completed matches needing processing
+2025-07-22 06:47:10,835 - match_processing_audit - INFO - SCAN_COMPLETED_MATCHES: found 0 matches needing processing
+2025-07-22 06:47:10,836 - app.services.match_processor - INFO - 🎯 Match processing complete: 0 matches processed, 0 predictions in 0.21s
+2025-07-22 06:47:10,837 - match_processing_audit - INFO - PROCESSING_CYCLE_COMPLETE: {'status': 'success', 'matches_completed': 0, 'predictions_processed': 0, 'successful_processing': 0, 'failed_processing': 0, 'duration_seconds': 0.210095, 'timestamp': '2025-07-22T06:47:10.836750+00:00', 'processed_matches': [], 'failed_matches': []}
+2025-07-22 06:47:10,837 - app.services.match_processor - INFO - 🏁 Full processing cycle complete in 0.82s
+2025-07-22 06:47:10,838 - match_processing_audit - INFO - FULL_CYCLE_COMPLETE: duration=0.82s
+2025-07-22 06:47:10,838 - app.services.smart_scheduler - INFO - ✅ Processing cycle completed in mode: minimal
+2025-07-22 06:48:45,438 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:48:45,439 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:49:11,430 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:49:11,431 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:50:46,528 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:50:46,530 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:51:12,430 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 06:51:12,433 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 06:52:32,951 - app.middleware.rate_limiter - INFO - Handling OPTIONS preflight for /api/v1/predictions/user
+2025-07-22 06:52:33,045 - app.middleware.rate_limiter - INFO - Handling OPTIONS preflight for /api/v1/matches/live
+2025-07-22 06:52:33,047 - app.middleware.rate_limiter - INFO - Handling OPTIONS preflight for /api/v1/matches/live
+2025-07-22 09:02:53,625 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 09:02:53,628 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 12:22:37,048 - app.middleware.rate_limiter - INFO - Handling OPTIONS preflight for /api/v1/predictions/user
+2025-07-22 12:22:37,097 - app.middleware.rate_limiter - INFO - Handling OPTIONS preflight for /api/v1/matches/live
+2025-07-22 12:22:37,182 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 12:22:37,183 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 12:22:37,610 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 12:22:37,612 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 12:24:38,427 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 12:24:38,429 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 12:24:41,421 - app.services.cache_service - ERROR - Error setting cache: Object of type Fixture is not JSON serializable
+2025-07-22 12:24:41,422 - app.middleware.rate_limiter - ERROR - Error processing request: Unable to serialize unknown type: <class 'app.db.models.Fixture'>
+2025-07-22 12:25:14,315 - app.main - INFO - 🔄 Shutting down application...
+2025-07-22 12:25:14,316 - app.main - INFO - 🛑 Stopping smart scheduler...
+2025-07-22 12:25:14,318 - app.services.smart_scheduler - INFO - 🛑 Stopping smart scheduler...
+2025-07-22 12:25:24,320 - match_processing_audit - INFO - SMART_SCHEDULER_SHUTDOWN
+2025-07-22 12:25:24,321 - app.services.smart_scheduler - INFO - ✅ Smart scheduler stopped
+2025-07-22 12:25:24,322 - app.main - INFO - ✅ Smart scheduler stopped
+2025-07-22 12:25:24,322 - app.services.init_services - INFO - Shutting down application services...
+2025-07-22 12:25:24,323 - app.services.init_services - INFO - All services shut down successfully
+2025-07-22 12:25:24,323 - app.main - INFO - ✅ Services shutdown complete
+2025-07-22 12:25:24,324 - app.main - INFO - 🛑 Application shutdown complete

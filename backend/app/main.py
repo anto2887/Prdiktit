@@ -9,7 +9,7 @@ from .core.config import settings
 from .db.session import create_tables
 from .services.init_services import init_services, shutdown_services
 from .middleware.rate_limiter import RateLimitMiddleware
-from .services.smart_scheduler import smart_scheduler
+from .services.enhanced_smart_scheduler import enhanced_smart_scheduler
 
 # Configure comprehensive logging
 def setup_logging():
@@ -31,12 +31,14 @@ def setup_logging():
     
     # Set specific loggers to appropriate levels
     logging.getLogger('match_processing_audit').setLevel(logging.INFO)
+    logging.getLogger('fixture_monitoring').setLevel(logging.INFO)
     logging.getLogger('app.services.match_processor').setLevel(logging.INFO)
-    logging.getLogger('app.services.smart_scheduler').setLevel(logging.INFO)
-    
+    logging.getLogger('app.services.enhanced_smart_scheduler').setLevel(logging.INFO)
+    logging.getLogger('app.services.football_api').setLevel(logging.INFO)
     # Suppress noisy loggers
     logging.getLogger('uvicorn.access').setLevel(logging.WARNING)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+    logging.getLogger('aiohttp.access').setLevel(logging.WARNING)
 
 # Set up logging first
 setup_logging()
@@ -163,31 +165,35 @@ async def startup_event():
         await init_services(app)
         logger.info("✅ Services initialized")
         
-        # 🧠 START SMART MATCH-DAY SCHEDULER
-        logger.info("🧠 Starting intelligent match-day scheduler...")
+        # 🧠 START ENHANCED SMART SCHEDULER WITH FIXTURE MONITORING
+        logger.info("🧠 Starting enhanced smart scheduler with fixture monitoring...")
         try:
-            smart_scheduler.start_scheduler()
+            enhanced_smart_scheduler.start_scheduler()
             
             # Log the initial schedule
-            status = smart_scheduler.get_status()
+            status = enhanced_smart_scheduler.get_status()
             schedule = status.get('current_schedule', {})
             
-            logger.info("✅ Smart scheduler started successfully!")
+            logger.info("✅ Enhanced smart scheduler started successfully!")
             logger.info(f"📊 Current mode: {schedule.get('mode', 'unknown')}")
             logger.info(f"⏰ Current frequency: every {schedule.get('frequency', 'unknown')} seconds")
             logger.info(f"📅 Reason: {schedule.get('reason', 'unknown')}")
             logger.info(f"🏈 Today's matches: {status.get('todays_matches', 0)}")
             logger.info(f"📋 Upcoming matches: {status.get('upcoming_matches', 0)}")
+            logger.info(f"📡 Fixture monitoring: {'enabled' if status.get('fixture_monitoring_enabled') else 'disabled'}")
             
-            logger.info("🤖 Smart scheduler features:")
-            logger.info("   🎯 Only processes intensively on match days")
+            logger.info("🤖 Enhanced scheduler features:")
+            logger.info("   🎯 Intelligent processing based on match timing")
             logger.info("   ⚡ High frequency (2min) during active matches")
             logger.info("   🔄 Medium frequency (5min) around match times")
             logger.info("   💤 Low frequency (15-30min) on non-match periods")
-            logger.info("   📊 Automatically adapts based on match schedule")
+            logger.info("   📡 Proactive fixture monitoring on match days")
+            logger.info("   🚨 Automatic detection of postponements/changes")
+            logger.info("   📊 Real-time score updates during live matches")
+            logger.info("   📝 Comprehensive logging of all changes")
             
         except Exception as e:
-            logger.error(f"❌ Failed to start smart scheduler: {e}")
+            logger.error(f"❌ Failed to start enhanced scheduler: {e}")
             logger.warning("⚠️ Application will continue without automatic processing")
         
         logger.info("🎉 Application startup complete!")
@@ -203,10 +209,18 @@ async def shutdown_event():
     logger.info("🔄 Shutting down application...")
     
     try:
-        # Stop smart scheduler
-        logger.info("🛑 Stopping smart scheduler...")
-        smart_scheduler.stop_scheduler()
-        logger.info("✅ Smart scheduler stopped")
+        # Stop enhanced scheduler
+        logger.info("🛑 Stopping enhanced scheduler...")
+        enhanced_smart_scheduler.stop_scheduler()
+        logger.info("✅ Enhanced scheduler stopped")
+        
+        # Close football API service
+        try:
+            from .services.football_api import football_api_service
+            await football_api_service.close()
+            logger.info("✅ Football API service closed")
+        except Exception as e:
+            logger.warning(f"⚠️ Error closing football API service: {e}")
         
         # Shutdown services
         await shutdown_services(app)
@@ -221,15 +235,16 @@ async def shutdown_event():
 # Enhanced health check endpoint
 @app.get("/health")
 async def health_check():
-    """Enhanced health check with smart scheduler status"""
-    scheduler_status = smart_scheduler.get_status()
+    """Enhanced health check with scheduler and fixture monitoring status"""
+    scheduler_status = enhanced_smart_scheduler.get_status()
     
     return {
         "status": "healthy",
-        "smart_scheduler": {
+        "enhanced_scheduler": {
             "enabled": scheduler_status["is_running"],
             "mode": scheduler_status["current_schedule"]["mode"] if scheduler_status["current_schedule"] else None,
             "frequency": scheduler_status["current_schedule"]["frequency"] if scheduler_status["current_schedule"] else None,
+            "fixture_monitoring": scheduler_status["fixture_monitoring_enabled"],
             "todays_matches": scheduler_status["todays_matches"],
             "upcoming_matches": scheduler_status["upcoming_matches"]
         },
@@ -239,18 +254,18 @@ async def health_check():
 # Smart scheduler status endpoint
 @app.get("/debug/scheduler-status")
 async def scheduler_status():
-    """Get detailed smart scheduler status"""
-    return smart_scheduler.get_status()
+    """Get detailed enhanced scheduler status"""
+    return enhanced_smart_scheduler.get_status()
 
 # Force schedule recalculation endpoint (for testing)
 @app.post("/debug/recalculate-schedule")
 async def recalculate_schedule():
     """Force recalculation of processing schedule"""
     try:
-        old_schedule = smart_scheduler.current_schedule
-        new_schedule = smart_scheduler.calculate_optimal_schedule()
-        smart_scheduler.current_schedule = new_schedule
-        smart_scheduler.last_schedule_check = datetime.now(timezone.utc)
+        old_schedule = enhanced_smart_scheduler.current_schedule
+        new_schedule = enhanced_smart_scheduler.calculate_optimal_schedule()
+        enhanced_smart_scheduler.current_schedule = new_schedule
+        enhanced_smart_scheduler.last_schedule_check = datetime.now(timezone.utc)
         
         return {
             "status": "success",
@@ -270,10 +285,57 @@ async def recalculate_schedule():
 async def trigger_processing():
     """Manually trigger a processing cycle"""
     try:
-        result = smart_scheduler.run_processing_cycle()
+        result = await enhanced_smart_scheduler.run_processing_cycle()
         return {
             "status": "success",
             "processing_result": result,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+@app.post("/debug/trigger-fixture-monitoring")
+async def trigger_fixture_monitoring():
+    """Manually trigger fixture monitoring"""
+    try:
+        result = await enhanced_smart_scheduler.fixture_monitor.check_and_update_fixtures()
+        return {
+            "status": "success",
+            "monitoring_result": result,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+@app.get("/debug/fixture-monitoring-status")
+async def fixture_monitoring_status():
+    """Get fixture monitoring status and recent changes"""
+    try:
+        fixtures_needing_monitoring = await enhanced_smart_scheduler.fixture_monitor.get_fixtures_needing_monitoring()
+        
+        return {
+            "status": "success",
+            "fixtures_being_monitored": len(fixtures_needing_monitoring),
+            "last_api_call": enhanced_smart_scheduler.fixture_monitor.last_api_call.isoformat() if enhanced_smart_scheduler.fixture_monitor.last_api_call else None,
+            "api_call_interval": enhanced_smart_scheduler.fixture_monitor.api_call_interval,
+            "monitoring_enabled": enhanced_smart_scheduler.should_monitor_fixtures(),
+            "fixtures": [
+                {
+                    "fixture_id": f.fixture_id,
+                    "match": f"{f.home_team} vs {f.away_team}",
+                    "date": f.date.isoformat() if f.date else None,
+                    "status": f.status.value
+                }
+                for f in fixtures_needing_monitoring[:10]  # Show first 10
+            ],
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
