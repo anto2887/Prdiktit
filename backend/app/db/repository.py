@@ -208,7 +208,7 @@ async def create_or_update_fixture(db: Session, fixture_data: Dict[str, Any]) ->
     return fixture
 
 async def get_prediction_deadlines(db: Session) -> Dict[str, str]:
-    """Get prediction deadlines for upcoming fixtures"""
+    """Get prediction deadlines for upcoming fixtures - deadline is kickoff time"""
     deadlines = {}
     fixtures = db.query(Fixture).filter(
         Fixture.status == MatchStatus.NOT_STARTED,
@@ -216,7 +216,8 @@ async def get_prediction_deadlines(db: Session) -> Dict[str, str]:
     ).all()
     
     for fixture in fixtures:
-        deadline = fixture.date - timedelta(hours=1)
+        # Deadline is the exact kickoff time (no buffer)
+        deadline = fixture.date
         deadlines[str(fixture.fixture_id)] = deadline.isoformat()
         
     return deadlines

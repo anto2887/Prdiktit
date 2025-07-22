@@ -6,6 +6,7 @@ import { usePredictions, useMatches, useNotifications } from '../contexts/AppCon
 // Components
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
+import { formatKickoffTime, formatDeadlineTime, isDateInPast } from '../utils/dateUtils';
 
 const PredictionFormPage = () => {
   const { id } = useParams();
@@ -195,10 +196,12 @@ const PredictionFormPage = () => {
     );
   }
 
-  // Check if prediction deadline has passed
+  // Check if prediction deadline has passed (kickoff time)
   const isDeadlinePassed = currentMatch?.prediction_deadline 
-    ? new Date() > new Date(currentMatch.prediction_deadline)
-    : false;
+    ? isDateInPast(currentMatch.prediction_deadline)
+    : currentMatch?.date 
+      ? isDateInPast(currentMatch.date)
+      : false;
 
   return (
     <div className="max-w-2xl mx-auto p-6">
@@ -236,7 +239,7 @@ const PredictionFormPage = () => {
                   <div className="text-center">
                     <p className="text-lg font-bold text-gray-900">VS</p>
                     <p className="text-xs text-gray-500">
-                      {currentMatch.date ? new Date(currentMatch.date).toLocaleDateString() : 'TBD'}
+                      {currentMatch.date ? formatKickoffTime(currentMatch.date) : 'TBD'}
                     </p>
                   </div>
                   
@@ -254,11 +257,24 @@ const PredictionFormPage = () => {
               
               <div className="mt-3 text-sm text-gray-600 text-center">
                 <p>{currentMatch.league} • {currentMatch.season}</p>
-                {currentMatch.prediction_deadline && (
-                  <p className="mt-1">
-                    Deadline: {new Date(currentMatch.prediction_deadline).toLocaleString()}
-                  </p>
-                )}
+                {(() => {
+                  const deadline = currentMatch.prediction_deadline || currentMatch.date;
+                  if (!deadline) return null;
+                  
+                  const { text, urgency } = formatDeadlineTime(deadline);
+                  
+                  return (
+                    <p className={`mt-1 font-medium ${
+                      urgency === 'critical' ? 'text-red-600' :
+                      urgency === 'high' ? 'text-orange-600' :
+                      urgency === 'medium' ? 'text-yellow-600' :
+                      urgency === 'expired' ? 'text-red-500' :
+                      'text-blue-600'
+                    }`}>
+                      ⏰ Predictions close: {text}
+                    </p>
+                  );
+                })()}
               </div>
             </div>
 
@@ -280,7 +296,10 @@ const PredictionFormPage = () => {
             {isDeadlinePassed ? (
               <div className="text-center py-8">
                 <p className="text-red-600 font-medium">
-                  The prediction deadline for this match has passed.
+                  ⚠️ This match has kicked off. Predictions are no longer accepted.
+                </p>
+                <p className="text-gray-600 text-sm mt-2">
+                  Kickoff was: {currentMatch.date ? formatKickoffTime(currentMatch.date) : 'Unknown time'}
                 </p>
               </div>
             ) : (

@@ -4,6 +4,8 @@ import { useMatches, usePredictions } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import MatchAvailabilityCheck from './MatchAvailabilityCheck';
+import TimezoneIndicator from '../common/TimezoneIndicator';
+import { formatKickoffTime, formatDeadlineTime, isDateInPast } from '../../utils/dateUtils';
 
 const PredictionList = () => {
   const { fixtures, fetchFixtures, loading: matchesLoading, error: matchesError } = useMatches();
@@ -61,13 +63,12 @@ const PredictionList = () => {
   };
 
   const isPredictionDeadlinePassed = (match) => {
-    if (!match.prediction_deadline) {
-      // If no deadline specified, assume 1 hour before match
-      const matchDate = new Date(match.date);
-      const deadline = new Date(matchDate.getTime() - 60 * 60 * 1000);
-      return new Date() > deadline;
+    if (match.prediction_deadline) {
+      return isDateInPast(match.prediction_deadline);
     }
-    return new Date() > new Date(match.prediction_deadline);
+    
+    // Fallback: if no deadline from API, use match kickoff time
+    return isDateInPast(match.date);
   };
 
   return (
@@ -75,12 +76,15 @@ const PredictionList = () => {
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">Upcoming Matches</h2>
-          <Link
-            to="/predictions/history"
-            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-          >
-            View History →
-          </Link>
+          <div className="flex items-center gap-4">
+            <TimezoneIndicator />
+            <Link
+              to="/predictions/history"
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              View History →
+            </Link>
+          </div>
         </div>
 
         {upcomingMatches.length === 0 ? (
@@ -104,10 +108,7 @@ const PredictionList = () => {
                     {/* Match Info Header */}
                     <div className="flex justify-between items-center mb-4">
                       <span className="text-gray-500 text-sm">
-                        {matchDate.toLocaleDateString()} | {matchDate.toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {formatKickoffTime(match.date)}
                       </span>
                       <span className="text-xs font-medium px-2 py-1 bg-gray-100 rounded-full">
                         {match.league}
@@ -188,10 +189,21 @@ const PredictionList = () => {
                       
                       {/* Deadline Info */}
                       <p className="text-xs text-gray-500 text-center">
-                        {match.prediction_deadline 
-                          ? `Deadline: ${new Date(match.prediction_deadline).toLocaleString()}`
-                          : `Deadline: ${new Date(matchDate.getTime() - 60 * 60 * 1000).toLocaleString()}`
-                        }
+                        {(() => {
+                          const deadline = match.prediction_deadline || match.date;
+                          const { text, urgency } = formatDeadlineTime(deadline);
+                          
+                          return (
+                            <span className={`
+                              ${urgency === 'critical' ? 'text-red-600 font-semibold' : ''}
+                              ${urgency === 'high' ? 'text-orange-600 font-medium' : ''}
+                              ${urgency === 'medium' ? 'text-yellow-600' : ''}
+                              ${urgency === 'expired' ? 'text-red-500' : ''}
+                            `}>
+                              🕐 Predictions close: {text}
+                            </span>
+                          );
+                        })()}
                       </p>
                     </div>
                   </div>

@@ -98,19 +98,24 @@ async def submit_prediction(
                     fixture_utc = fixture.date.astimezone(timezone.utc)
                     logger.info(f"Fixture date already timezone-aware: {fixture_utc}")
                 
-                # Very lenient deadline for development (1 minute before)
-                deadline = fixture_utc - timedelta(minutes=1)
-                logger.info(f"Prediction deadline: {deadline}")
+                # Deadline is exactly the kickoff time
+                deadline = fixture_utc
+                logger.info(f"Prediction deadline (kickoff time): {deadline}")
                 
                 if current_time > deadline:
                     logger.warning(f"Deadline passed: {current_time} > {deadline}")
-                    # For development, just warn but allow
-                    logger.warning("Allowing prediction past deadline for development")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Cannot make or modify predictions after match kickoff"
+                    )
                 else:
-                    logger.info("Deadline check passed")
+                    logger.info("Deadline check passed - can still make predictions")
             else:
                 logger.warning("Fixture has no date, skipping deadline check")
                 
+        except HTTPException:
+            # Re-raise HTTP exceptions
+            raise
         except Exception as date_error:
             logger.error(f"Date comparison error: {date_error}")
             logger.warning("Continuing with prediction despite date error")
@@ -490,12 +495,26 @@ async def reset_prediction_endpoint(
             detail="Access denied"
         )
     
-    # Check if match has already started
+    # Check if match has already started or reached kickoff
     if prediction.fixture.status != MatchStatus.NOT_STARTED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot reset prediction after match has started"
         )
+
+    # Check if kickoff time has passed
+    current_time = datetime.now(timezone.utc)
+    if prediction.fixture.date:
+        if prediction.fixture.date.tzinfo is None:
+            fixture_utc = prediction.fixture.date.replace(tzinfo=timezone.utc)
+        else:
+            fixture_utc = prediction.fixture.date.astimezone(timezone.utc)
+        
+        if current_time > fixture_utc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot reset prediction after match kickoff"
+            )
     
     reset_pred = await reset_prediction(db, prediction_id)
     

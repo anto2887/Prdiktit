@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { usePredictions } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import { formatDateTime, formatKickoffTime, formatShortDate, formatTime } from '../../utils/dateUtils';
 
 export const PredictionHistory = () => {
   const { userPredictions, fetchUserPredictions, loading, error } = usePredictions();
@@ -197,13 +198,10 @@ export const PredictionHistory = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {new Date(fixture.date).toLocaleDateString()}
+                            {formatShortDate(fixture.date)}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {new Date(fixture.date).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
+                            {formatTime(fixture.date)}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">

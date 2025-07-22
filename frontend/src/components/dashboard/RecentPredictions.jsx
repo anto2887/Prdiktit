@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePredictions } from '../../contexts/AppContext';
-import { formatDate } from '../../utils/dateUtils';
+import { formatKickoffTime, formatShortDate } from '../../utils/dateUtils';
 import { formatMatchResult, formatPredictionStatus } from '../../utils/formatters';
 
 // Simple and clean image error handler to prevent infinite loops
@@ -125,7 +125,7 @@ const RecentPredictions = () => {
                     {fixture.home_team || 'Home Team'} vs {fixture.away_team || 'Away Team'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {fixture.date ? formatDate(fixture.date, 'PPP') : 'Date not available'}
+                    {fixture.date ? formatKickoffTime(fixture.date) : 'Date not available'}
                   </p>
                 </div>
               </div>
