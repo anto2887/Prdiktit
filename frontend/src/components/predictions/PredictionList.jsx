@@ -77,7 +77,7 @@ const PredictionList = () => {
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">Upcoming Matches</h2>
           <div className="flex items-center gap-4">
-            <TimezoneIndicator />
+            <TimezoneIndicator showDetails={true} />
             <Link
               to="/predictions/history"
               className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -94,7 +94,6 @@ const PredictionList = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {upcomingMatches.map(match => {
-              const matchDate = new Date(match.date);
               const prediction = getPredictionForMatch(match.fixture_id);
               const hasPrediction = !!prediction;
               const deadlinePassed = isPredictionDeadlinePassed(match);
@@ -105,7 +104,7 @@ const PredictionList = () => {
                   className="bg-white rounded-lg shadow-md overflow-hidden border-l-4 border-blue-500 hover:shadow-lg transition-shadow"
                 >
                   <div className="p-6">
-                    {/* Match Info Header */}
+                    {/* Match Info Header with timezone-aware time */}
                     <div className="flex justify-between items-center mb-4">
                       <span className="text-gray-500 text-sm">
                         {formatKickoffTime(match.date)}
@@ -173,10 +172,7 @@ const PredictionList = () => {
                         </div>
                       ) : (
                         <Link 
-                          to={hasPrediction 
-                            ? `/predictions/new?match=${match.fixture_id}`
-                            : `/predictions/new?match=${match.fixture_id}`
-                          }
+                          to={`/predictions/new?match=${match.fixture_id}`}
                           className={`block w-full py-2 text-center rounded-md text-white font-medium transition-colors
                             ${hasPrediction 
                               ? 'bg-green-600 hover:bg-green-700' 
@@ -187,7 +183,7 @@ const PredictionList = () => {
                         </Link>
                       )}
                       
-                      {/* Deadline Info */}
+                      {/* Deadline Info with timezone awareness */}
                       <p className="text-xs text-gray-500 text-center">
                         {(() => {
                           const deadline = match.prediction_deadline || match.date;
@@ -200,7 +196,7 @@ const PredictionList = () => {
                               ${urgency === 'medium' ? 'text-yellow-600' : ''}
                               ${urgency === 'expired' ? 'text-red-500' : ''}
                             `}>
-                              🕐 Predictions close: {text}
+                              {urgency === 'expired' ? '🚫' : '⏰'} {text}
                             </span>
                           );
                         })()}

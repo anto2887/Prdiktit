@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePredictions } from '../../contexts/AppContext';
+import TimezoneIndicator from '../common/TimezoneIndicator';
 import { formatKickoffTime, formatShortDate } from '../../utils/dateUtils';
 import { formatMatchResult, formatPredictionStatus } from '../../utils/formatters';
 
@@ -77,7 +78,7 @@ const RecentPredictions = () => {
       <div className="text-center py-8 text-gray-500">
         <p>You haven't made any predictions yet.</p>
         <Link 
-          to="/predictions/new" 
+          to="/predictions" 
           className="mt-4 inline-block text-blue-600 hover:text-blue-800"
         >
           Make your first prediction →
@@ -88,6 +89,12 @@ const RecentPredictions = () => {
 
   return (
     <div className="space-y-4">
+      {/* Header with timezone indicator */}
+      <div className="flex justify-between items-center pb-2 border-b border-gray-200">
+        <h3 className="text-lg font-medium text-gray-900">Recent Predictions</h3>
+        <TimezoneIndicator showDetails={false} />
+      </div>
+
       {/* Debug info in development */}
       {process.env.NODE_ENV === 'development' && (
         <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
@@ -124,6 +131,7 @@ const RecentPredictions = () => {
                   <p className="text-sm font-medium text-gray-900">
                     {fixture.home_team || 'Home Team'} vs {fixture.away_team || 'Away Team'}
                   </p>
+                  {/* FIXED: Using timezone-aware formatting */}
                   <p className="text-xs text-gray-500">
                     {fixture.date ? formatKickoffTime(fixture.date) : 'Date not available'}
                   </p>

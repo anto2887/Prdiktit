@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useMatches, usePredictions } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import TimezoneIndicator from '../common/TimezoneIndicator';
+import { formatKickoffTime, formatShortDate } from '../../utils/dateUtils';
 
 const UpcomingMatches = () => {
   const { fixtures, fetchFixtures, loading, error } = useMatches();
@@ -37,9 +39,16 @@ const UpcomingMatches = () => {
 
   return (
     <div className="divide-y divide-gray-200">
+      {/* Timezone indicator header */}
+      <div className="p-4 bg-gray-50 border-b">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">Upcoming Matches</h3>
+          <TimezoneIndicator showDetails={false} />
+        </div>
+      </div>
+
       {upcomingMatches.map((match) => {
         const prediction = userPredictions.find(p => p.fixture_id === match.fixture_id);
-        const matchDate = new Date(match.date);
 
         return (
           <Link
@@ -50,18 +59,9 @@ const UpcomingMatches = () => {
             className="block hover:bg-gray-50 transition-colors"
           >
             <div className="p-4">
-              {/* Date and Time */}
+              {/* Date and Time - FIXED: Using timezone utilities */}
               <div className="text-sm text-gray-500 mb-2">
-                {matchDate.toLocaleDateString([], {
-                  weekday: 'short',
-                  month: 'short',
-                  day: 'numeric'
-                })}
-                {' • '}
-                {matchDate.toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
+                {formatKickoffTime(match.date)}
               </div>
 
               {/* Teams and Prediction Status */}
@@ -69,9 +69,10 @@ const UpcomingMatches = () => {
                 {/* Home Team */}
                 <div className="col-span-3 flex items-center space-x-2">
                   <img
-                    src={match.home_team_logo}
+                    src={match.home_team_logo || '/placeholder-logo.svg'}
                     alt={`${match.home_team} logo`}
                     className="h-6 w-6 object-contain"
+                    onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
                   />
                   <span className="font-medium truncate">{match.home_team}</span>
                 </div>
@@ -91,9 +92,10 @@ const UpcomingMatches = () => {
                 <div className="col-span-3 flex items-center justify-end space-x-2">
                   <span className="font-medium truncate">{match.away_team}</span>
                   <img
-                    src={match.away_team_logo}
+                    src={match.away_team_logo || '/placeholder-logo.svg'}
                     alt={`${match.away_team} logo`}
                     className="h-6 w-6 object-contain"
+                    onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
                   />
                 </div>
               </div>
@@ -126,7 +128,7 @@ const UpcomingMatches = () => {
       {/* Link to all matches */}
       <div className="p-4 bg-gray-50">
         <Link
-          to="/matches"
+          to="/predictions"
           className="text-blue-600 hover:text-blue-800 text-sm font-medium"
         >
           View all upcoming matches →
