@@ -9,13 +9,15 @@ from .core.config import settings
 from .db.session import create_tables
 from .services.init_services import init_services, shutdown_services
 from .middleware.rate_limiter import RateLimitMiddleware
+
+# 🚀 CRITICAL FIX: Import the ENHANCED scheduler, not the old one
 from .services.enhanced_smart_scheduler import enhanced_smart_scheduler
 
 # Configure comprehensive logging
 def setup_logging():
     """Set up comprehensive logging for the application"""
     
-    # Create logs directory
+    # Create logs directory - now persistent with volumes
     log_dir = os.path.join(os.path.dirname(__file__), '../logs')
     os.makedirs(log_dir, exist_ok=True)
     
@@ -29,81 +31,51 @@ def setup_logging():
         ]
     )
     
-    # Set specific loggers to appropriate levels
+    # Set specific loggers for enhanced scheduler components
     logging.getLogger('match_processing_audit').setLevel(logging.INFO)
     logging.getLogger('fixture_monitoring').setLevel(logging.INFO)
     logging.getLogger('app.services.match_processor').setLevel(logging.INFO)
     logging.getLogger('app.services.enhanced_smart_scheduler').setLevel(logging.INFO)
     logging.getLogger('app.services.football_api').setLevel(logging.INFO)
+    
     # Suppress noisy loggers
     logging.getLogger('uvicorn.access').setLevel(logging.WARNING)
     logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-    logging.getLogger('aiohttp.access').setLevel(logging.WARNING)
+    logging.getLogger('aiohttp').setLevel(logging.WARNING)
 
-# Set up logging first
+# Initialize logging
 setup_logging()
+
 logger = logging.getLogger(__name__)
 
-# Create FastAPI app
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    description=settings.PROJECT_DESCRIPTION,
-    version=settings.PROJECT_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    title="Football Predictions API",
+    description="Enhanced API for football match predictions with intelligent scheduling",
+    version="2.0.0"
 )
+
+# Add rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://0.0.0.0:3000",
-        "http://frontend:3000"
-    ],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=[
-        "Accept",
-        "Accept-Language",
-        "Content-Language", 
-        "Content-Type",
-        "Authorization",
-        "X-Requested-With",
-        "X-CSRFToken",
-        "Cache-Control"
-    ],
-    expose_headers=[
-        "X-RateLimit-Limit",
-        "X-RateLimit-Remaining", 
-        "X-RateLimit-Reset",
-        "Content-Type"
-    ]
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Add rate limiting middleware
-app.add_middleware(
-    RateLimitMiddleware,
-    requests_per_minute=settings.API_RATE_LIMIT,
-    exclude_paths=[
-        "/docs", 
-        "/redoc", 
-        "/openapi.json", 
-        "/static",
-        "/api/health",
-        "/api/auth",
-        "/favicon.ico"
-    ]
-)
+logger.info("🚀 Football Predictions API initializing...")
+logger.info("🧠 Enhanced Smart Scheduler with Fixture Monitoring enabled")
 
-# Import and include routers
-logger.info("Starting router registration...")
+# Register routers
+logger.info("📋 Registering API routers...")
 
 # Auth router
 try:
     from .routers.auth import router as auth_router
-    app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+    app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["authentication"])
     logger.info("✅ Auth router registered")
 except Exception as e:
     logger.error(f"❌ Failed to register auth router: {e}")
@@ -166,15 +138,15 @@ async def startup_event():
         logger.info("✅ Services initialized")
         
         # 🧠 START ENHANCED SMART SCHEDULER WITH FIXTURE MONITORING
-        logger.info("🧠 Starting enhanced smart scheduler with fixture monitoring...")
+        logger.info("🧠 Starting Enhanced Smart Scheduler with Fixture Monitoring...")
         try:
             enhanced_smart_scheduler.start_scheduler()
             
-            # Log the initial schedule
+            # Log the initial schedule and status
             status = enhanced_smart_scheduler.get_status()
             schedule = status.get('current_schedule', {})
             
-            logger.info("✅ Enhanced smart scheduler started successfully!")
+            logger.info("✅ Enhanced Smart Scheduler started successfully!")
             logger.info(f"📊 Current mode: {schedule.get('mode', 'unknown')}")
             logger.info(f"⏰ Current frequency: every {schedule.get('frequency', 'unknown')} seconds")
             logger.info(f"📅 Reason: {schedule.get('reason', 'unknown')}")
@@ -182,18 +154,18 @@ async def startup_event():
             logger.info(f"📋 Upcoming matches: {status.get('upcoming_matches', 0)}")
             logger.info(f"📡 Fixture monitoring: {'enabled' if status.get('fixture_monitoring_enabled') else 'disabled'}")
             
-            logger.info("🤖 Enhanced scheduler features:")
+            logger.info("🤖 Enhanced Scheduler Features Active:")
             logger.info("   🎯 Intelligent processing based on match timing")
             logger.info("   ⚡ High frequency (2min) during active matches")
             logger.info("   🔄 Medium frequency (5min) around match times")
-            logger.info("   💤 Low frequency (15-30min) on non-match periods")
+            logger.info("   💤 Low frequency (15-30min) during quiet periods")
             logger.info("   📡 Proactive fixture monitoring on match days")
             logger.info("   🚨 Automatic detection of postponements/changes")
             logger.info("   📊 Real-time score updates during live matches")
-            logger.info("   📝 Comprehensive logging of all changes")
+            logger.info("   📝 Comprehensive logging to persistent volumes")
             
         except Exception as e:
-            logger.error(f"❌ Failed to start enhanced scheduler: {e}")
+            logger.error(f"❌ Failed to start Enhanced Smart Scheduler: {e}")
             logger.warning("⚠️ Application will continue without automatic processing")
         
         logger.info("🎉 Application startup complete!")
@@ -210,9 +182,9 @@ async def shutdown_event():
     
     try:
         # Stop enhanced scheduler
-        logger.info("🛑 Stopping enhanced scheduler...")
+        logger.info("🛑 Stopping Enhanced Smart Scheduler...")
         enhanced_smart_scheduler.stop_scheduler()
-        logger.info("✅ Enhanced scheduler stopped")
+        logger.info("✅ Enhanced Smart Scheduler stopped")
         
         # Close football API service
         try:
@@ -251,13 +223,13 @@ async def health_check():
         "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
-# Smart scheduler status endpoint
+# 🧠 ENHANCED SCHEDULER DEBUG ENDPOINTS
+
 @app.get("/debug/scheduler-status")
 async def scheduler_status():
-    """Get detailed enhanced scheduler status"""
+    """Get detailed Enhanced Smart Scheduler status"""
     return enhanced_smart_scheduler.get_status()
 
-# Force schedule recalculation endpoint (for testing)
 @app.post("/debug/recalculate-schedule")
 async def recalculate_schedule():
     """Force recalculation of processing schedule"""
@@ -280,7 +252,6 @@ async def recalculate_schedule():
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
-# Manual processing trigger endpoint
 @app.post("/debug/trigger-processing")
 async def trigger_processing():
     """Manually trigger a processing cycle"""

@@ -617,6 +617,14 @@ export const usersApi = {
   getUserPredictions: (userId, params = {}) => api.client.get(`/users/predictions${userId ? `?user_id=${userId}` : ''}`, { params })
 };
 
+export const schedulerApi = {
+  getStatus: () => api.client.get('/debug/scheduler-status'),
+  triggerProcessing: () => api.client.post('/debug/trigger-processing'),
+  triggerMonitoring: () => api.client.post('/debug/trigger-fixture-monitoring'),
+  getMonitoringStatus: () => api.client.get('/debug/fixture-monitoring-status'),
+  recalculateSchedule: () => api.client.post('/debug/recalculate-schedule')
+};
+
 // Add debug logging
 console.log('API module loaded, predictionsApi methods:', Object.keys(predictionsApi));
 console.log('API module loaded, groupsApi methods:', Object.keys(groupsApi));
@@ -629,7 +637,8 @@ export {
   createCacheKey,
   shouldCacheResponse,
   formatApiResponse,
-  clearCache
+  clearCache,
+  schedulerApi
 };
 
 export default api;

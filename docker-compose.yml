@@ -30,6 +30,10 @@ services:
     build: ./backend
     volumes:
       - ./backend:/app
+      # 📝 PERSISTENT LOGGING VOLUMES - Logs persist between container restarts
+      - ./logs:/app/logs                    # Main logs directory
+      - ./logs:/app/backend/logs            # Backend-specific logs  
+      - backend_logs:/var/log/app           # Additional log location for system logs
     ports:
       - "8000:8000"
     depends_on:
@@ -55,6 +59,8 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+      # 📝 FRONTEND LOGS (if you want frontend logging too)
+      - ./logs/frontend:/app/logs
     ports:
       - "3000:3000"
     depends_on:
@@ -68,6 +74,9 @@ services:
 
 volumes:
   postgres_data:
+  # 📝 PERSISTENT LOG VOLUMES
+  backend_logs:
+    driver: local
 
 networks:
   app-network:
