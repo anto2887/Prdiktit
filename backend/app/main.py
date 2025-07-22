@@ -7,6 +7,7 @@ from .core.config import settings
 from .db.session import create_tables
 from .services.init_services import init_services, shutdown_services
 from .middleware.rate_limiter import RateLimitMiddleware
+from .services.background_tasks import background_runner
 
 # Configure logging
 logging.basicConfig(
@@ -74,6 +75,9 @@ app.add_middleware(
 # Import and include routers with detailed error logging
 logger.info("Starting router registration...")
 
+# Import all routers at once
+from .routers import auth, matches, predictions, groups, admin
+
 # Auth router - REGISTER ONLY ONCE
 try:
     logger.info("Importing auth router...")
@@ -134,6 +138,18 @@ except Exception as e:
     logger.error(f"FAILED to import/register groups router: {str(e)}")
     logger.exception("Full traceback:")
 
+# Admin router
+try:
+    logger.info("Importing admin router...")
+    from .routers.admin import router as admin_router
+    logger.info("Admin router imported successfully")
+    
+    app.include_router(admin_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
+    logger.info("Admin router registered successfully at /api/v1/admin")
+except Exception as e:
+    logger.error(f"FAILED to import/register admin router: {str(e)}")
+    logger.exception("Full traceback:")
+
 logger.info("Router registration complete!")
 
 @app.on_event("startup")
@@ -150,6 +166,10 @@ async def startup_event():
     
     # Initialize services
     await init_services(app)
+    
+    # Start background processing (comment out if you don't want auto-processing)
+    # background_runner.start_scheduler()
+    
     logger.info("Application startup complete")
 
 @app.on_event("shutdown")
@@ -158,7 +178,11 @@ async def shutdown_event():
     Clean up resources on shutdown
     """
     logger.info("Shutting down application...")
-    await shutdown_services()
+    
+    # Stop background processing
+    background_runner.stop_scheduler()
+    
+    await shutdown_services(app)
     logger.info("Application shutdown complete")
 
 # Health check endpoint
