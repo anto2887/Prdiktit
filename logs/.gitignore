@@ -1,0 +1,10 @@
+# Keep log directory structure but ignore log files
+*.log
+!.gitignore
+!.gitkeep
+
+# Keep subdirectories
+!frontend/
+!archive/
+frontend/*.log
+archive/*.log

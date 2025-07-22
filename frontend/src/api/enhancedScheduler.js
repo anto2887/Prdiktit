@@ -1,3 +1,4 @@
+// Enhanced Smart Scheduler API - Separate file to avoid conflicts
 // frontend/src/api/enhancedScheduler.js
 // Enhanced Smart Scheduler API integration
 
@@ -25,7 +26,8 @@ export const enhancedSchedulerApi = {
       console.error('Error fetching scheduler status:', error);
       return {
         status: 'error',
-        message: error.response?.data?.message || 'Failed to fetch scheduler status'
+        message: error.response?.data?.message || 'Failed to fetch scheduler status',
+        details: error.response?.data?.details
       };
     }
   },
@@ -45,7 +47,8 @@ export const enhancedSchedulerApi = {
       console.error('Error recalculating schedule:', error);
       return {
         status: 'error',
-        message: error.response?.data?.message || 'Failed to recalculate schedule'
+        message: error.response?.data?.message || 'Failed to recalculate schedule',
+        details: error.response?.data?.details
       };
     }
   },
@@ -65,7 +68,8 @@ export const enhancedSchedulerApi = {
       console.error('Error triggering processing:', error);
       return {
         status: 'error',
-        message: error.response?.data?.message || 'Failed to trigger processing'
+        message: error.response?.data?.message || 'Failed to trigger processing',
+        details: error.response?.data?.details
       };
     }
   },
@@ -85,7 +89,8 @@ export const enhancedSchedulerApi = {
       console.error('Error triggering fixture monitoring:', error);
       return {
         status: 'error',
-        message: error.response?.data?.message || 'Failed to trigger fixture monitoring'
+        message: error.response?.data?.message || 'Failed to trigger fixture monitoring',
+        details: error.response?.data?.details
       };
     }
   },
@@ -105,7 +110,8 @@ export const enhancedSchedulerApi = {
       console.error('Error fetching fixture monitoring status:', error);
       return {
         status: 'error',
-        message: error.response?.data?.message || 'Failed to fetch fixture monitoring status'
+        message: error.response?.data?.message || 'Failed to fetch fixture monitoring status',
+        details: error.response?.data?.details
       };
     }
   },
@@ -125,7 +131,8 @@ export const enhancedSchedulerApi = {
       console.error('Error fetching health status:', error);
       return {
         status: 'error',
-        message: error.response?.data?.message || 'Failed to fetch health status'
+        message: error.response?.data?.message || 'Failed to fetch health status',
+        details: error.response?.data?.details
       };
     }
   }
