@@ -1,0 +1,157 @@
+2025-07-22 05:46:44,900 - INFO - SMART_SCHEDULER_INIT: {'mode': 'minimal', 'frequency': 3600, 'reason': 'No matches in next 3 days', 'next_match_date': None}
+2025-07-22 05:46:44,900 - INFO - SMART_SCHEDULER_START
+2025-07-22 05:46:44,902 - INFO - SMART_CYCLE_START: mode=minimal, timestamp=2025-07-22T05:46:44.901694+00:00
+2025-07-22 05:46:44,905 - INFO - FULL_CYCLE_START: timestamp=2025-07-22T05:46:44.904112+00:00
+2025-07-22 05:46:44,906 - INFO - LOCKING_CYCLE_START: timestamp=2025-07-22T05:46:44.905719+00:00
+2025-07-22 05:46:44,920 - INFO - SCAN_LOCKING_MATCHES: found 67 matches ready for locking at 2025-07-22 05:46:44.907578+00:00
+2025-07-22 05:46:44,929 - INFO - LOCK_PREDICTIONS: fixture_id=1326472, match='Los Angeles FC vs Toronto FC', predictions_locked=0
+2025-07-22 05:46:44,935 - INFO - LOCK_PREDICTIONS: fixture_id=1326494, match='Real Salt Lake vs Los Angeles FC', predictions_locked=0
+2025-07-22 05:46:44,940 - INFO - LOCK_PREDICTIONS: fixture_id=1326496, match='Inter Miami vs Atlanta United FC', predictions_locked=0
+2025-07-22 05:46:44,945 - INFO - LOCK_PREDICTIONS: fixture_id=1326509, match='New York City FC vs Toronto FC', predictions_locked=0
+2025-07-22 05:46:44,951 - INFO - LOCK_PREDICTIONS: fixture_id=1326510, match='FC Dallas vs Minnesota United FC', predictions_locked=0
+2025-07-22 05:46:44,960 - INFO - LOCK_PREDICTIONS: fixture_id=1326511, match='Colorado Rapids vs Sporting Kansas City', predictions_locked=0
+2025-07-22 05:46:44,966 - INFO - LOCK_PREDICTIONS: fixture_id=1326512, match='Los Angeles Galaxy vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 05:46:44,970 - INFO - LOCK_PREDICTIONS: fixture_id=1326513, match='Charlotte vs Orlando City SC', predictions_locked=0
+2025-07-22 05:46:44,978 - INFO - LOCK_PREDICTIONS: fixture_id=1326516, match='CF Montreal vs Inter Miami', predictions_locked=0
+2025-07-22 05:46:44,983 - INFO - LOCK_PREDICTIONS: fixture_id=1326515, match='DC United vs Atlanta United FC', predictions_locked=0
+2025-07-22 05:46:44,987 - INFO - LOCK_PREDICTIONS: fixture_id=1326514, match='FC Cincinnati vs Chicago Fire', predictions_locked=0
+2025-07-22 05:46:44,993 - INFO - LOCK_PREDICTIONS: fixture_id=1326518, match='Nashville SC vs Philadelphia Union', predictions_locked=0
+2025-07-22 05:46:45,000 - INFO - LOCK_PREDICTIONS: fixture_id=1326517, match='Austin vs Los Angeles FC', predictions_locked=0
+2025-07-22 05:46:45,004 - INFO - LOCK_PREDICTIONS: fixture_id=1326519, match='Real Salt Lake vs St. Louis City', predictions_locked=0
+2025-07-22 05:46:45,008 - INFO - LOCK_PREDICTIONS: fixture_id=1326521, match='San Jose Earthquakes vs New York Red Bulls', predictions_locked=0
+2025-07-22 05:46:45,012 - INFO - LOCK_PREDICTIONS: fixture_id=1326520, match='Portland Timbers vs New England Revolution', predictions_locked=0
+2025-07-22 05:46:45,017 - INFO - LOCK_PREDICTIONS: fixture_id=1326729, match='San Diego vs Houston Dynamo', predictions_locked=0
+2025-07-22 05:46:45,021 - INFO - LOCK_PREDICTIONS: fixture_id=1326522, match='Seattle Sounders vs Columbus Crew', predictions_locked=0
+2025-07-22 05:46:45,026 - INFO - LOCK_PREDICTIONS: fixture_id=1326523, match='New England Revolution vs Inter Miami', predictions_locked=0
+2025-07-22 05:46:45,030 - INFO - LOCK_PREDICTIONS: fixture_id=1326465, match='Los Angeles FC vs Colorado Rapids', predictions_locked=0
+2025-07-22 05:46:45,034 - INFO - LOCK_PREDICTIONS: fixture_id=1326527, match='Orlando City SC vs CF Montreal', predictions_locked=0
+2025-07-22 05:46:45,038 - INFO - LOCK_PREDICTIONS: fixture_id=1326528, match='Philadelphia Union vs New York Red Bulls', predictions_locked=0
+2025-07-22 05:46:45,042 - INFO - LOCK_PREDICTIONS: fixture_id=1326529, match='Toronto FC vs Atlanta United FC', predictions_locked=0
+2025-07-22 05:46:45,048 - INFO - LOCK_PREDICTIONS: fixture_id=1326525, match='FC Cincinnati vs Columbus Crew', predictions_locked=0
+2025-07-22 05:46:45,054 - INFO - LOCK_PREDICTIONS: fixture_id=1326526, match='Inter Miami vs Nashville SC', predictions_locked=0
+2025-07-22 05:46:45,060 - INFO - LOCK_PREDICTIONS: fixture_id=1326524, match='Charlotte vs New York City FC', predictions_locked=0
+2025-07-22 05:46:45,066 - INFO - LOCK_PREDICTIONS: fixture_id=1326730, match='Chicago Fire vs San Diego', predictions_locked=0
+2025-07-22 05:46:45,072 - INFO - LOCK_PREDICTIONS: fixture_id=1326531, match='Sporting Kansas City vs Seattle Sounders', predictions_locked=0
+2025-07-22 05:46:45,079 - INFO - LOCK_PREDICTIONS: fixture_id=1326532, match='Minnesota United FC vs San Jose Earthquakes', predictions_locked=0
+2025-07-22 05:46:45,087 - INFO - LOCK_PREDICTIONS: fixture_id=1326530, match='Austin vs New England Revolution', predictions_locked=0
+2025-07-22 05:46:45,092 - INFO - LOCK_PREDICTIONS: fixture_id=1326534, match='Real Salt Lake vs Houston Dynamo', predictions_locked=0
+2025-07-22 05:46:45,096 - INFO - LOCK_PREDICTIONS: fixture_id=1326533, match='Colorado Rapids vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 05:46:45,099 - INFO - LOCK_PREDICTIONS: fixture_id=1326535, match='Los Angeles Galaxy vs DC United', predictions_locked=0
+2025-07-22 05:46:45,102 - INFO - LOCK_PREDICTIONS: fixture_id=1326536, match='Los Angeles FC vs FC Dallas', predictions_locked=0
+2025-07-22 05:46:45,106 - INFO - LOCK_PREDICTIONS: fixture_id=1326537, match='St. Louis City vs Portland Timbers', predictions_locked=0
+2025-07-22 05:46:45,109 - INFO - LOCK_PREDICTIONS: fixture_id=1326542, match='Orlando City SC vs New York City FC', predictions_locked=0
+2025-07-22 05:46:45,113 - INFO - LOCK_PREDICTIONS: fixture_id=1326543, match='Philadelphia Union vs CF Montreal', predictions_locked=0
+2025-07-22 05:46:45,124 - INFO - LOCK_PREDICTIONS: fixture_id=1326541, match='New York Red Bulls vs New England Revolution', predictions_locked=0
+2025-07-22 05:46:45,128 - INFO - LOCK_PREDICTIONS: fixture_id=1326538, match='Atlanta United FC vs Chicago Fire', predictions_locked=0
+2025-07-22 05:46:45,132 - INFO - LOCK_PREDICTIONS: fixture_id=1326540, match='FC Cincinnati vs Inter Miami', predictions_locked=0
+2025-07-22 05:46:45,139 - INFO - LOCK_PREDICTIONS: fixture_id=1326539, match='Charlotte vs DC United', predictions_locked=0
+2025-07-22 05:46:45,145 - INFO - LOCK_PREDICTIONS: fixture_id=1326544, match='Houston Dynamo vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 05:46:45,149 - INFO - LOCK_PREDICTIONS: fixture_id=1326545, match='Minnesota United FC vs Los Angeles FC', predictions_locked=0
+2025-07-22 05:46:45,153 - INFO - LOCK_PREDICTIONS: fixture_id=1326546, match='Nashville SC vs Columbus Crew', predictions_locked=0
+2025-07-22 05:46:45,158 - INFO - LOCK_PREDICTIONS: fixture_id=1326547, match='Seattle Sounders vs Colorado Rapids', predictions_locked=0
+2025-07-22 05:46:45,162 - INFO - LOCK_PREDICTIONS: fixture_id=1326550, match='San Jose Earthquakes vs FC Dallas', predictions_locked=0
+2025-07-22 05:46:45,168 - INFO - LOCK_PREDICTIONS: fixture_id=1326548, match='Los Angeles Galaxy vs Austin', predictions_locked=0
+2025-07-22 05:46:45,173 - INFO - LOCK_PREDICTIONS: fixture_id=1326549, match='Portland Timbers vs Real Salt Lake', predictions_locked=0
+2025-07-22 05:46:45,177 - INFO - LOCK_PREDICTIONS: fixture_id=1326731, match='San Diego vs Toronto FC', predictions_locked=0
+2025-07-22 05:46:45,181 - INFO - LOCK_PREDICTIONS: fixture_id=1326555, match='New York Red Bulls vs Inter Miami', predictions_locked=0
+2025-07-22 05:46:45,185 - INFO - LOCK_PREDICTIONS: fixture_id=1326551, match='Atlanta United FC vs Charlotte', predictions_locked=0
+2025-07-22 05:46:45,188 - INFO - LOCK_PREDICTIONS: fixture_id=1326554, match='New England Revolution vs Orlando City SC', predictions_locked=0
+2025-07-22 05:46:45,192 - INFO - LOCK_PREDICTIONS: fixture_id=1326552, match='Columbus Crew vs DC United', predictions_locked=0
+2025-07-22 05:46:45,197 - INFO - LOCK_PREDICTIONS: fixture_id=1326553, match='CF Montreal vs Chicago Fire', predictions_locked=0
+2025-07-22 05:46:45,201 - INFO - LOCK_PREDICTIONS: fixture_id=1326560, match='Seattle Sounders vs San Jose Earthquakes', predictions_locked=0
+2025-07-22 05:46:45,205 - INFO - LOCK_PREDICTIONS: fixture_id=1326556, match='FC Dallas vs St. Louis City', predictions_locked=0
+2025-07-22 05:46:45,209 - INFO - LOCK_PREDICTIONS: fixture_id=1326557, match='Houston Dynamo vs Philadelphia Union', predictions_locked=0
+2025-07-22 05:46:45,212 - INFO - LOCK_PREDICTIONS: fixture_id=1326558, match='Sporting Kansas City vs New York City FC', predictions_locked=0
+2025-07-22 05:46:45,217 - INFO - LOCK_PREDICTIONS: fixture_id=1326559, match='Nashville SC vs Toronto FC', predictions_locked=0
+2025-07-22 05:46:45,221 - INFO - LOCK_PREDICTIONS: fixture_id=1326561, match='Real Salt Lake vs FC Cincinnati', predictions_locked=0
+2025-07-22 05:46:45,226 - INFO - LOCK_PREDICTIONS: fixture_id=1326562, match='Los Angeles FC vs Los Angeles Galaxy', predictions_locked=0
+2025-07-22 05:46:45,231 - INFO - LOCK_PREDICTIONS: fixture_id=1326563, match='Portland Timbers vs Minnesota United FC', predictions_locked=0
+2025-07-22 05:46:45,236 - INFO - LOCK_PREDICTIONS: fixture_id=1326732, match='San Diego vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 05:46:45,241 - INFO - LOCK_PREDICTIONS: fixture_id=1383916, match='Inter vs Fluminense', predictions_locked=0
+2025-07-22 05:46:45,246 - INFO - LOCK_PREDICTIONS: fixture_id=1386548, match='Manchester City vs Al-Hilal Saudi FC', predictions_locked=0
+2025-07-22 05:46:45,249 - INFO - LOCK_PREDICTIONS: fixture_id=1386549, match='Real Madrid vs Juventus', predictions_locked=0
+2025-07-22 05:46:45,254 - INFO - LOCK_PREDICTIONS: fixture_id=1386550, match='Borussia Dortmund vs Monterrey', predictions_locked=0
+2025-07-22 05:46:45,256 - INFO - LOCKING_CYCLE_COMPLETE: {'status': 'success', 'matches_processed': 67, 'predictions_locked': 0, 'successful_locks': 67, 'failed_locks': 0, 'duration_seconds': 0.350509, 'timestamp': '2025-07-22T05:46:45.256228+00:00'}
+2025-07-22 05:46:45,258 - INFO - PROCESSING_CYCLE_START: timestamp=2025-07-22T05:46:45.257741+00:00
+2025-07-22 05:46:45,507 - INFO - SCAN_COMPLETED_MATCHES: found 0 matches needing processing
+2025-07-22 05:46:45,508 - INFO - PROCESSING_CYCLE_COMPLETE: {'status': 'success', 'matches_completed': 0, 'predictions_processed': 0, 'successful_processing': 0, 'failed_processing': 0, 'duration_seconds': 0.250708, 'timestamp': '2025-07-22T05:46:45.508449+00:00', 'processed_matches': [], 'failed_matches': []}
+2025-07-22 05:46:45,509 - INFO - FULL_CYCLE_COMPLETE: duration=0.61s
+2025-07-22 05:47:07,061 - INFO - SMART_SCHEDULER_SHUTDOWN
+2025-07-22 05:47:09,247 - INFO - SMART_SCHEDULER_INIT: {'mode': 'minimal', 'frequency': 3600, 'reason': 'No matches in next 3 days', 'next_match_date': None}
+2025-07-22 05:47:09,248 - INFO - SMART_SCHEDULER_START
+2025-07-22 05:47:09,249 - INFO - SMART_CYCLE_START: mode=minimal, timestamp=2025-07-22T05:47:09.248686+00:00
+2025-07-22 05:47:09,251 - INFO - FULL_CYCLE_START: timestamp=2025-07-22T05:47:09.250783+00:00
+2025-07-22 05:47:09,253 - INFO - LOCKING_CYCLE_START: timestamp=2025-07-22T05:47:09.252255+00:00
+2025-07-22 05:47:09,266 - INFO - SCAN_LOCKING_MATCHES: found 67 matches ready for locking at 2025-07-22 05:47:09.254131+00:00
+2025-07-22 05:47:09,273 - INFO - LOCK_PREDICTIONS: fixture_id=1326472, match='Los Angeles FC vs Toronto FC', predictions_locked=0
+2025-07-22 05:47:09,280 - INFO - LOCK_PREDICTIONS: fixture_id=1326494, match='Real Salt Lake vs Los Angeles FC', predictions_locked=0
+2025-07-22 05:47:09,284 - INFO - LOCK_PREDICTIONS: fixture_id=1326496, match='Inter Miami vs Atlanta United FC', predictions_locked=0
+2025-07-22 05:47:09,289 - INFO - LOCK_PREDICTIONS: fixture_id=1326509, match='New York City FC vs Toronto FC', predictions_locked=0
+2025-07-22 05:47:09,293 - INFO - LOCK_PREDICTIONS: fixture_id=1326510, match='FC Dallas vs Minnesota United FC', predictions_locked=0
+2025-07-22 05:47:09,298 - INFO - LOCK_PREDICTIONS: fixture_id=1326511, match='Colorado Rapids vs Sporting Kansas City', predictions_locked=0
+2025-07-22 05:47:09,301 - INFO - LOCK_PREDICTIONS: fixture_id=1326512, match='Los Angeles Galaxy vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 05:47:09,305 - INFO - LOCK_PREDICTIONS: fixture_id=1326513, match='Charlotte vs Orlando City SC', predictions_locked=0
+2025-07-22 05:47:09,310 - INFO - LOCK_PREDICTIONS: fixture_id=1326516, match='CF Montreal vs Inter Miami', predictions_locked=0
+2025-07-22 05:47:09,314 - INFO - LOCK_PREDICTIONS: fixture_id=1326515, match='DC United vs Atlanta United FC', predictions_locked=0
+2025-07-22 05:47:09,319 - INFO - LOCK_PREDICTIONS: fixture_id=1326514, match='FC Cincinnati vs Chicago Fire', predictions_locked=0
+2025-07-22 05:47:09,323 - INFO - LOCK_PREDICTIONS: fixture_id=1326518, match='Nashville SC vs Philadelphia Union', predictions_locked=0
+2025-07-22 05:47:09,329 - INFO - LOCK_PREDICTIONS: fixture_id=1326517, match='Austin vs Los Angeles FC', predictions_locked=0
+2025-07-22 05:47:09,332 - INFO - LOCK_PREDICTIONS: fixture_id=1326519, match='Real Salt Lake vs St. Louis City', predictions_locked=0
+2025-07-22 05:47:09,336 - INFO - LOCK_PREDICTIONS: fixture_id=1326521, match='San Jose Earthquakes vs New York Red Bulls', predictions_locked=0
+2025-07-22 05:47:09,339 - INFO - LOCK_PREDICTIONS: fixture_id=1326520, match='Portland Timbers vs New England Revolution', predictions_locked=0
+2025-07-22 05:47:09,343 - INFO - LOCK_PREDICTIONS: fixture_id=1326729, match='San Diego vs Houston Dynamo', predictions_locked=0
+2025-07-22 05:47:09,346 - INFO - LOCK_PREDICTIONS: fixture_id=1326522, match='Seattle Sounders vs Columbus Crew', predictions_locked=0
+2025-07-22 05:47:09,349 - INFO - LOCK_PREDICTIONS: fixture_id=1326523, match='New England Revolution vs Inter Miami', predictions_locked=0
+2025-07-22 05:47:09,352 - INFO - LOCK_PREDICTIONS: fixture_id=1326465, match='Los Angeles FC vs Colorado Rapids', predictions_locked=0
+2025-07-22 05:47:09,357 - INFO - LOCK_PREDICTIONS: fixture_id=1326527, match='Orlando City SC vs CF Montreal', predictions_locked=0
+2025-07-22 05:47:09,360 - INFO - LOCK_PREDICTIONS: fixture_id=1326528, match='Philadelphia Union vs New York Red Bulls', predictions_locked=0
+2025-07-22 05:47:09,363 - INFO - LOCK_PREDICTIONS: fixture_id=1326529, match='Toronto FC vs Atlanta United FC', predictions_locked=0
+2025-07-22 05:47:09,367 - INFO - LOCK_PREDICTIONS: fixture_id=1326525, match='FC Cincinnati vs Columbus Crew', predictions_locked=0
+2025-07-22 05:47:09,370 - INFO - LOCK_PREDICTIONS: fixture_id=1326526, match='Inter Miami vs Nashville SC', predictions_locked=0
+2025-07-22 05:47:09,373 - INFO - LOCK_PREDICTIONS: fixture_id=1326524, match='Charlotte vs New York City FC', predictions_locked=0
+2025-07-22 05:47:09,377 - INFO - LOCK_PREDICTIONS: fixture_id=1326730, match='Chicago Fire vs San Diego', predictions_locked=0
+2025-07-22 05:47:09,380 - INFO - LOCK_PREDICTIONS: fixture_id=1326531, match='Sporting Kansas City vs Seattle Sounders', predictions_locked=0
+2025-07-22 05:47:09,383 - INFO - LOCK_PREDICTIONS: fixture_id=1326532, match='Minnesota United FC vs San Jose Earthquakes', predictions_locked=0
+2025-07-22 05:47:09,387 - INFO - LOCK_PREDICTIONS: fixture_id=1326530, match='Austin vs New England Revolution', predictions_locked=0
+2025-07-22 05:47:09,391 - INFO - LOCK_PREDICTIONS: fixture_id=1326534, match='Real Salt Lake vs Houston Dynamo', predictions_locked=0
+2025-07-22 05:47:09,394 - INFO - LOCK_PREDICTIONS: fixture_id=1326533, match='Colorado Rapids vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 05:47:09,398 - INFO - LOCK_PREDICTIONS: fixture_id=1326535, match='Los Angeles Galaxy vs DC United', predictions_locked=0
+2025-07-22 05:47:09,401 - INFO - LOCK_PREDICTIONS: fixture_id=1326536, match='Los Angeles FC vs FC Dallas', predictions_locked=0
+2025-07-22 05:47:09,405 - INFO - LOCK_PREDICTIONS: fixture_id=1326537, match='St. Louis City vs Portland Timbers', predictions_locked=0
+2025-07-22 05:47:09,409 - INFO - LOCK_PREDICTIONS: fixture_id=1326542, match='Orlando City SC vs New York City FC', predictions_locked=0
+2025-07-22 05:47:09,412 - INFO - LOCK_PREDICTIONS: fixture_id=1326543, match='Philadelphia Union vs CF Montreal', predictions_locked=0
+2025-07-22 05:47:09,415 - INFO - LOCK_PREDICTIONS: fixture_id=1326541, match='New York Red Bulls vs New England Revolution', predictions_locked=0
+2025-07-22 05:47:09,431 - INFO - LOCK_PREDICTIONS: fixture_id=1326538, match='Atlanta United FC vs Chicago Fire', predictions_locked=0
+2025-07-22 05:47:09,447 - INFO - LOCK_PREDICTIONS: fixture_id=1326540, match='FC Cincinnati vs Inter Miami', predictions_locked=0
+2025-07-22 05:47:09,479 - INFO - LOCK_PREDICTIONS: fixture_id=1326539, match='Charlotte vs DC United', predictions_locked=0
+2025-07-22 05:47:09,489 - INFO - LOCK_PREDICTIONS: fixture_id=1326544, match='Houston Dynamo vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 05:47:09,497 - INFO - LOCK_PREDICTIONS: fixture_id=1326545, match='Minnesota United FC vs Los Angeles FC', predictions_locked=0
+2025-07-22 05:47:09,503 - INFO - LOCK_PREDICTIONS: fixture_id=1326546, match='Nashville SC vs Columbus Crew', predictions_locked=0
+2025-07-22 05:47:09,509 - INFO - LOCK_PREDICTIONS: fixture_id=1326547, match='Seattle Sounders vs Colorado Rapids', predictions_locked=0
+2025-07-22 05:47:09,515 - INFO - LOCK_PREDICTIONS: fixture_id=1326550, match='San Jose Earthquakes vs FC Dallas', predictions_locked=0
+2025-07-22 05:47:09,520 - INFO - LOCK_PREDICTIONS: fixture_id=1326548, match='Los Angeles Galaxy vs Austin', predictions_locked=0
+2025-07-22 05:47:09,526 - INFO - LOCK_PREDICTIONS: fixture_id=1326549, match='Portland Timbers vs Real Salt Lake', predictions_locked=0
+2025-07-22 05:47:09,533 - INFO - LOCK_PREDICTIONS: fixture_id=1326731, match='San Diego vs Toronto FC', predictions_locked=0
+2025-07-22 05:47:09,538 - INFO - LOCK_PREDICTIONS: fixture_id=1326555, match='New York Red Bulls vs Inter Miami', predictions_locked=0
+2025-07-22 05:47:09,545 - INFO - LOCK_PREDICTIONS: fixture_id=1326551, match='Atlanta United FC vs Charlotte', predictions_locked=0
+2025-07-22 05:47:09,549 - INFO - LOCK_PREDICTIONS: fixture_id=1326554, match='New England Revolution vs Orlando City SC', predictions_locked=0
+2025-07-22 05:47:09,553 - INFO - LOCK_PREDICTIONS: fixture_id=1326552, match='Columbus Crew vs DC United', predictions_locked=0
+2025-07-22 05:47:09,559 - INFO - LOCK_PREDICTIONS: fixture_id=1326553, match='CF Montreal vs Chicago Fire', predictions_locked=0
+2025-07-22 05:47:09,563 - INFO - LOCK_PREDICTIONS: fixture_id=1326560, match='Seattle Sounders vs San Jose Earthquakes', predictions_locked=0
+2025-07-22 05:47:09,567 - INFO - LOCK_PREDICTIONS: fixture_id=1326556, match='FC Dallas vs St. Louis City', predictions_locked=0
+2025-07-22 05:47:09,570 - INFO - LOCK_PREDICTIONS: fixture_id=1326557, match='Houston Dynamo vs Philadelphia Union', predictions_locked=0
+2025-07-22 05:47:09,574 - INFO - LOCK_PREDICTIONS: fixture_id=1326558, match='Sporting Kansas City vs New York City FC', predictions_locked=0
+2025-07-22 05:47:09,578 - INFO - LOCK_PREDICTIONS: fixture_id=1326559, match='Nashville SC vs Toronto FC', predictions_locked=0
+2025-07-22 05:47:09,581 - INFO - LOCK_PREDICTIONS: fixture_id=1326561, match='Real Salt Lake vs FC Cincinnati', predictions_locked=0
+2025-07-22 05:47:09,585 - INFO - LOCK_PREDICTIONS: fixture_id=1326562, match='Los Angeles FC vs Los Angeles Galaxy', predictions_locked=0
+2025-07-22 05:47:09,590 - INFO - LOCK_PREDICTIONS: fixture_id=1326563, match='Portland Timbers vs Minnesota United FC', predictions_locked=0
+2025-07-22 05:47:09,595 - INFO - LOCK_PREDICTIONS: fixture_id=1326732, match='San Diego vs Vancouver Whitecaps', predictions_locked=0
+2025-07-22 05:47:09,599 - INFO - LOCK_PREDICTIONS: fixture_id=1383916, match='Inter vs Fluminense', predictions_locked=0
+2025-07-22 05:47:09,604 - INFO - LOCK_PREDICTIONS: fixture_id=1386548, match='Manchester City vs Al-Hilal Saudi FC', predictions_locked=0
+2025-07-22 05:47:09,608 - INFO - LOCK_PREDICTIONS: fixture_id=1386549, match='Real Madrid vs Juventus', predictions_locked=0
+2025-07-22 05:47:09,613 - INFO - LOCK_PREDICTIONS: fixture_id=1386550, match='Borussia Dortmund vs Monterrey', predictions_locked=0
+2025-07-22 05:47:09,614 - INFO - LOCKING_CYCLE_COMPLETE: {'status': 'success', 'matches_processed': 67, 'predictions_locked': 0, 'successful_locks': 67, 'failed_locks': 0, 'duration_seconds': 0.362271, 'timestamp': '2025-07-22T05:47:09.614526+00:00'}
+2025-07-22 05:47:09,615 - INFO - PROCESSING_CYCLE_START: timestamp=2025-07-22T05:47:09.615489+00:00
+2025-07-22 05:47:09,801 - INFO - SCAN_COMPLETED_MATCHES: found 0 matches needing processing
+2025-07-22 05:47:09,802 - INFO - PROCESSING_CYCLE_COMPLETE: {'status': 'success', 'matches_completed': 0, 'predictions_processed': 0, 'successful_processing': 0, 'failed_processing': 0, 'duration_seconds': 0.186283, 'timestamp': '2025-07-22T05:47:09.801772+00:00', 'processed_matches': [], 'failed_matches': []}
+2025-07-22 05:47:09,802 - INFO - FULL_CYCLE_COMPLETE: duration=0.55s

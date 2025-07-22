@@ -1,5 +1,7 @@
 # app/main.py
 import logging
+import os
+from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,13 +9,37 @@ from .core.config import settings
 from .db.session import create_tables
 from .services.init_services import init_services, shutdown_services
 from .middleware.rate_limiter import RateLimitMiddleware
-from .services.background_tasks import background_runner
+from .services.smart_scheduler import smart_scheduler
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# Configure comprehensive logging
+def setup_logging():
+    """Set up comprehensive logging for the application"""
+    
+    # Create logs directory
+    log_dir = os.path.join(os.path.dirname(__file__), '../logs')
+    os.makedirs(log_dir, exist_ok=True)
+    
+    # Configure root logger
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.StreamHandler(),  # Console output
+            logging.FileHandler(os.path.join(log_dir, 'app.log'))  # File output
+        ]
+    )
+    
+    # Set specific loggers to appropriate levels
+    logging.getLogger('match_processing_audit').setLevel(logging.INFO)
+    logging.getLogger('app.services.match_processor').setLevel(logging.INFO)
+    logging.getLogger('app.services.smart_scheduler').setLevel(logging.INFO)
+    
+    # Suppress noisy loggers
+    logging.getLogger('uvicorn.access').setLevel(logging.WARNING)
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+
+# Set up logging first
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # Create FastAPI app
@@ -25,10 +51,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Log CORS configuration for debugging
-logger.info(f"CORS Origins: {settings.CORS_ORIGINS}")
-
-# Configure CORS - UPDATED VERSION
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -72,143 +95,199 @@ app.add_middleware(
     ]
 )
 
-# Import and include routers with detailed error logging
+# Import and include routers
 logger.info("Starting router registration...")
 
-# Import all routers at once
-from .routers import auth, matches, predictions, groups, admin
-
-# Auth router - REGISTER ONLY ONCE
+# Auth router
 try:
-    logger.info("Importing auth router...")
     from .routers.auth import router as auth_router
-    logger.info("Auth router imported successfully")
-    
     app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
-    logger.info("Auth router registered successfully at /api/v1/auth")
+    logger.info("✅ Auth router registered")
 except Exception as e:
-    logger.error(f"FAILED to import/register auth router: {str(e)}")
-    logger.exception("Full traceback:")
+    logger.error(f"❌ Failed to register auth router: {e}")
 
 # Users router
 try:
-    logger.info("Importing users router...")
     from .routers.users import router as users_router
-    logger.info("Users router imported successfully")
-    
     app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
-    logger.info("Users router registered successfully at /api/v1/users")
+    logger.info("✅ Users router registered")
 except Exception as e:
-    logger.error(f"FAILED to import/register users router: {str(e)}")
-    logger.exception("Full traceback:")
+    logger.error(f"❌ Failed to register users router: {e}")
 
 # Matches router
 try:
-    logger.info("Importing matches router...")
     from .routers.matches import router as matches_router
-    logger.info("Matches router imported successfully")
-    
     app.include_router(matches_router, prefix=f"{settings.API_V1_STR}/matches", tags=["matches"])
-    logger.info("Matches router registered successfully at /api/v1/matches")
+    logger.info("✅ Matches router registered")
 except Exception as e:
-    logger.error(f"FAILED to import/register matches router: {str(e)}")
-    logger.exception("Full traceback:")
+    logger.error(f"❌ Failed to register matches router: {e}")
 
 # Predictions router
 try:
-    logger.info("Importing predictions router...")
     from .routers.predictions import router as predictions_router
-    logger.info("Predictions router imported successfully")
-    
     app.include_router(predictions_router, prefix=f"{settings.API_V1_STR}/predictions", tags=["predictions"])
-    logger.info("Predictions router registered successfully at /api/v1/predictions")
+    logger.info("✅ Predictions router registered")
 except Exception as e:
-    logger.error(f"FAILED to import/register predictions router: {str(e)}")
-    logger.exception("Full traceback:")
+    logger.error(f"❌ Failed to register predictions router: {e}")
 
 # Groups router
 try:
-    logger.info("Importing groups router...")
     from .routers.groups import router as groups_router
-    logger.info("Groups router imported successfully")
-    
     app.include_router(groups_router, prefix=f"{settings.API_V1_STR}/groups", tags=["groups"])
-    logger.info("Groups router registered successfully at /api/v1/groups")
+    logger.info("✅ Groups router registered")
 except Exception as e:
-    logger.error(f"FAILED to import/register groups router: {str(e)}")
-    logger.exception("Full traceback:")
+    logger.error(f"❌ Failed to register groups router: {e}")
 
 # Admin router
 try:
-    logger.info("Importing admin router...")
     from .routers.admin import router as admin_router
-    logger.info("Admin router imported successfully")
-    
     app.include_router(admin_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
-    logger.info("Admin router registered successfully at /api/v1/admin")
+    logger.info("✅ Admin router registered")
 except Exception as e:
-    logger.error(f"FAILED to import/register admin router: {str(e)}")
-    logger.exception("Full traceback:")
+    logger.error(f"❌ Failed to register admin router: {e}")
 
-logger.info("Router registration complete!")
+logger.info("✅ Router registration complete!")
 
 @app.on_event("startup")
 async def startup_event():
-    """
-    Initialize application on startup
-    """
-    logger.info("Starting application...")
+    """Initialize application on startup"""
+    logger.info("🚀 Starting application...")
     
-    # Create database tables if they don't exist
-    if settings.CREATE_TABLES_ON_STARTUP:
-        create_tables()
-        logger.info("Database tables created")
-    
-    # Initialize services
-    await init_services(app)
-    
-    # Start background processing (comment out if you don't want auto-processing)
-    # background_runner.start_scheduler()
-    
-    logger.info("Application startup complete")
+    try:
+        # Create database tables if they don't exist
+        if settings.CREATE_TABLES_ON_STARTUP:
+            create_tables()
+            logger.info("✅ Database tables created")
+
+        # Initialize services
+        await init_services(app)
+        logger.info("✅ Services initialized")
+        
+        # 🧠 START SMART MATCH-DAY SCHEDULER
+        logger.info("🧠 Starting intelligent match-day scheduler...")
+        try:
+            smart_scheduler.start_scheduler()
+            
+            # Log the initial schedule
+            status = smart_scheduler.get_status()
+            schedule = status.get('current_schedule', {})
+            
+            logger.info("✅ Smart scheduler started successfully!")
+            logger.info(f"📊 Current mode: {schedule.get('mode', 'unknown')}")
+            logger.info(f"⏰ Current frequency: every {schedule.get('frequency', 'unknown')} seconds")
+            logger.info(f"📅 Reason: {schedule.get('reason', 'unknown')}")
+            logger.info(f"🏈 Today's matches: {status.get('todays_matches', 0)}")
+            logger.info(f"📋 Upcoming matches: {status.get('upcoming_matches', 0)}")
+            
+            logger.info("🤖 Smart scheduler features:")
+            logger.info("   🎯 Only processes intensively on match days")
+            logger.info("   ⚡ High frequency (2min) during active matches")
+            logger.info("   🔄 Medium frequency (5min) around match times")
+            logger.info("   💤 Low frequency (15-30min) on non-match periods")
+            logger.info("   📊 Automatically adapts based on match schedule")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to start smart scheduler: {e}")
+            logger.warning("⚠️ Application will continue without automatic processing")
+        
+        logger.info("🎉 Application startup complete!")
+        
+    except Exception as e:
+        logger.error(f"💥 CRITICAL: Application startup failed: {e}")
+        logger.exception("Startup failure traceback:")
+        raise
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """
-    Clean up resources on shutdown
-    """
-    logger.info("Shutting down application...")
+    """Clean up resources on shutdown"""
+    logger.info("🔄 Shutting down application...")
     
-    # Stop background processing
-    background_runner.stop_scheduler()
-    
-    await shutdown_services(app)
-    logger.info("Application shutdown complete")
+    try:
+        # Stop smart scheduler
+        logger.info("🛑 Stopping smart scheduler...")
+        smart_scheduler.stop_scheduler()
+        logger.info("✅ Smart scheduler stopped")
+        
+        # Shutdown services
+        await shutdown_services(app)
+        logger.info("✅ Services shutdown complete")
+        
+        logger.info("🛑 Application shutdown complete")
+        
+    except Exception as e:
+        logger.error(f"💥 Error during shutdown: {e}")
+        logger.exception("Shutdown error traceback:")
 
-# Health check endpoint
+# Enhanced health check endpoint
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Enhanced health check with smart scheduler status"""
+    scheduler_status = smart_scheduler.get_status()
+    
+    return {
+        "status": "healthy",
+        "smart_scheduler": {
+            "enabled": scheduler_status["is_running"],
+            "mode": scheduler_status["current_schedule"]["mode"] if scheduler_status["current_schedule"] else None,
+            "frequency": scheduler_status["current_schedule"]["frequency"] if scheduler_status["current_schedule"] else None,
+            "todays_matches": scheduler_status["todays_matches"],
+            "upcoming_matches": scheduler_status["upcoming_matches"]
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+# Smart scheduler status endpoint
+@app.get("/debug/scheduler-status")
+async def scheduler_status():
+    """Get detailed smart scheduler status"""
+    return smart_scheduler.get_status()
+
+# Force schedule recalculation endpoint (for testing)
+@app.post("/debug/recalculate-schedule")
+async def recalculate_schedule():
+    """Force recalculation of processing schedule"""
+    try:
+        old_schedule = smart_scheduler.current_schedule
+        new_schedule = smart_scheduler.calculate_optimal_schedule()
+        smart_scheduler.current_schedule = new_schedule
+        smart_scheduler.last_schedule_check = datetime.now(timezone.utc)
+        
+        return {
+            "status": "success",
+            "old_schedule": old_schedule,
+            "new_schedule": new_schedule,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+
+# Manual processing trigger endpoint
+@app.post("/debug/trigger-processing")
+async def trigger_processing():
+    """Manually trigger a processing cycle"""
+    try:
+        result = smart_scheduler.run_processing_cycle()
+        return {
+            "status": "success",
+            "processing_result": result,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
 
 # Add OPTIONS handler for preflight requests
 @app.options("/{path:path}")
 async def options_handler(path: str):
     """Handle preflight OPTIONS requests"""
     return {"message": "OK"}
-
-# Debug endpoint to check registered routes
-@app.get("/debug/routes")
-async def debug_routes():
-    """Debug endpoint to see all registered routes"""
-    routes = []
-    for route in app.routes:
-        if hasattr(route, 'methods') and hasattr(route, 'path'):
-            routes.append({
-                "path": route.path,
-                "methods": list(route.methods),
-                "name": getattr(route, 'name', 'unnamed')
-            })
-    return {"routes": routes, "total_routes": len(routes)}
 
 # For local development
 if __name__ == "__main__":
