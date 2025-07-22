@@ -59,7 +59,7 @@ services:
       - API_RATE_LIMIT=600
       - FOOTBALL_API_KEY=2e229688fb1a199c6243f07a2b6e4b54
       - PYTHONPATH=/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
       - app-network
 
