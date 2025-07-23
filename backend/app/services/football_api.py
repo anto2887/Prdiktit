@@ -53,3 +53,6 @@ class FootballAPIService:
         Returns the latest fixture data
         """
         # ... implementation to be completed ... 
+
+# Create global instance
+football_api_service = FootballAPIService() 
