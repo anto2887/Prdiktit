@@ -60,13 +60,18 @@ class MatchProcessor:
             logger.info(f"🔍 Found {len(matches)} completed matches in database")
             
             for match in matches:
-                # Check if this match has any LOCKED predictions (meaning it needs processing)
-                locked_predictions = self.db.query(UserPrediction).filter(
+                # 🎯 CRITICAL FIX: Check for ANY unprocessed predictions
+                # This includes SUBMITTED, LOCKED, and even EDITABLE (for emergency processing)
+                unprocessed_predictions = self.db.query(UserPrediction).filter(
                     UserPrediction.fixture_id == match.fixture_id,
-                    UserPrediction.prediction_status == PredictionStatus.LOCKED
+                    UserPrediction.prediction_status.in_([
+                        PredictionStatus.SUBMITTED,  # Normal submitted predictions
+                        PredictionStatus.LOCKED,     # Predictions locked at kickoff
+                        PredictionStatus.EDITABLE    # Emergency: process even editable ones
+                    ])
                 ).first()
                 
-                if locked_predictions:
+                if unprocessed_predictions:
                     completed_matches.append(match)
                     logger.debug(f"✅ Match {match.fixture_id} ({match.home_team} vs {match.away_team}) needs processing")
                 else:
@@ -143,23 +148,28 @@ class MatchProcessor:
             logger.info(f"🏈 Starting processing for match {fixture.fixture_id}: {match_name} (Final: {final_score})")
             audit_logger.info(f"PROCESS_START: fixture_id={fixture.fixture_id}, match='{match_name}', final_score='{final_score}', status='{fixture.status.value}'")
             
-            # Get all locked predictions for this match
-            locked_predictions = self.db.query(UserPrediction).filter(
+            # 🎯 CRITICAL FIX: Get ALL unprocessed predictions
+            # This handles all cases: SUBMITTED, LOCKED, and even EDITABLE
+            unprocessed_predictions = self.db.query(UserPrediction).filter(
                 UserPrediction.fixture_id == fixture.fixture_id,
-                UserPrediction.prediction_status == PredictionStatus.LOCKED
+                UserPrediction.prediction_status.in_([
+                    PredictionStatus.SUBMITTED,  # Normal flow
+                    PredictionStatus.LOCKED,     # Locked at kickoff
+                    PredictionStatus.EDITABLE    # Emergency processing
+                ])
             ).all()
             
-            if not locked_predictions:
-                logger.warning(f"⚠️ No locked predictions found for fixture {fixture.fixture_id}")
+            if not unprocessed_predictions:
+                logger.warning(f"⚠️ No unprocessed predictions found for fixture {fixture.fixture_id}")
                 audit_logger.warning(f"PROCESS_NO_PREDICTIONS: fixture_id={fixture.fixture_id}, match='{match_name}'")
                 return 0
             
-            logger.info(f"📊 Processing {len(locked_predictions)} predictions for match {fixture.fixture_id}")
+            logger.info(f"📊 Processing {len(unprocessed_predictions)} predictions for match {fixture.fixture_id}")
             
             processed_count = 0
             points_distribution = {"0_points": 0, "1_point": 0, "3_points": 0}
             
-            for prediction in locked_predictions:
+            for prediction in unprocessed_predictions:
                 try:
                     # Calculate points
                     points = calculate_points(
@@ -169,50 +179,31 @@ class MatchProcessor:
                         fixture.away_score
                     )
                     
-                    # Track points distribution
-                    if points == 0:
-                        points_distribution["0_points"] += 1
-                    elif points == 1:
-                        points_distribution["1_point"] += 1
-                    elif points == 3:
-                        points_distribution["3_points"] += 1
-                    
-                    # Update prediction
+                    # Update prediction with points and status
                     prediction.points = points
                     prediction.prediction_status = PredictionStatus.PROCESSED
-                    prediction.processed_at = datetime.now(timezone.utc)
                     
-                    # Update or create user results
-                    user_result = self.db.query(UserResults).filter(
-                        UserResults.user_id == prediction.user_id,
-                        UserResults.season == prediction.season
-                    ).first()
+                    # Track points distribution for logging
+                    if points == 3:
+                        points_distribution["3_points"] += 1
+                    elif points == 1:
+                        points_distribution["1_point"] += 1
+                    else:
+                        points_distribution["0_points"] += 1
                     
-                    if not user_result:
-                        user_result = UserResults(
-                            user_id=prediction.user_id,
-                            points=0,
-                            season=prediction.season,
-                            week=prediction.week
-                        )
-                        self.db.add(user_result)
-                    
-                    user_result.points += points
                     processed_count += 1
                     
-                    logger.debug(f"✅ Processed prediction {prediction.id}: user={prediction.user_id}, predicted={prediction.score1}-{prediction.score2}, points={points}")
+                    logger.debug(f"   🎯 Processed prediction {prediction.id}: {prediction.score1}-{prediction.score2} = {points} points")
+                    audit_logger.debug(f"PROCESS_PREDICTION: prediction_id={prediction.id}, user_id={prediction.user_id}, predicted='{prediction.score1}-{prediction.score2}', actual='{fixture.home_score}-{fixture.away_score}', points={points}")
                     
                 except Exception as e:
                     logger.error(f"❌ Error processing prediction {prediction.id}: {e}")
-                    audit_logger.error(f"PREDICTION_ERROR: prediction_id={prediction.id}, user_id={prediction.user_id}, error='{str(e)}'")
-                    continue
+                    audit_logger.error(f"PROCESS_PREDICTION_ERROR: prediction_id={prediction.id}, error='{str(e)}'")
             
+            # Commit all changes
             self.db.commit()
             
-            # Log comprehensive results
             logger.info(f"✅ Successfully processed {processed_count} predictions for match {fixture.fixture_id}")
-            logger.info(f"📈 Points distribution: {points_distribution['3_points']} perfect scores, {points_distribution['1_point']} correct results, {points_distribution['0_points']} incorrect")
-            
             audit_logger.info(f"PROCESS_SUCCESS: fixture_id={fixture.fixture_id}, match='{match_name}', predictions_processed={processed_count}, perfect_scores={points_distribution['3_points']}, correct_results={points_distribution['1_point']}, incorrect={points_distribution['0_points']}")
             
             return processed_count
