@@ -1,207 +1,352 @@
 # backend/app/services/football_api.py
-import logging
+"""
+Enhanced Football API Service
+
+This service provides comprehensive football data fetching capabilities
+with support for fixture synchronization and real-time updates.
+"""
+
 import asyncio
 import aiohttp
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional, List
+import logging
+from datetime import datetime, timezone, timedelta
+from typing import Dict, List, Optional, Any
 from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
 class FootballAPIService:
-    """
-    Service for fetching fixture updates from external football API
-    Integrates with your existing football API for proactive monitoring
-    """
+    """Enhanced service for interacting with football data API"""
     
     def __init__(self):
         self.api_key = settings.FOOTBALL_API_KEY
-        self.base_url = "https://v3.football.api-sports.io"
+        self.base_url = "https://api-football-v1.p.rapidapi.com/v3"
+        self.session = None
+        self.rate_limit_delay = 0.1  # 100ms between requests
+        self.last_request_time = None
+        
+        # Headers for API requests
         self.headers = {
             "X-RapidAPI-Key": self.api_key,
-            "X-RapidAPI-Host": "v3.football.api-sports.io"
+            "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
         }
-        self.session = None
         
-        # Rate limiting
-        self.last_request_time = None
-        self.min_request_interval = 1.0  # Minimum 1 second between requests
-    
-    async def _get_session(self):
-        """Get or create aiohttp session"""
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """Get or create HTTP session"""
         if self.session is None or self.session.closed:
-            timeout = aiohttp.ClientTimeout(total=30)
             self.session = aiohttp.ClientSession(
                 headers=self.headers,
-                timeout=timeout
+                timeout=aiohttp.ClientTimeout(total=30)
             )
         return self.session
     
-    async def _rate_limit(self):
-        """Ensure we don't exceed API rate limits"""
-        if self.last_request_time:
-            elapsed = (datetime.now(timezone.utc) - self.last_request_time).total_seconds()
-            if elapsed < self.min_request_interval:
-                sleep_time = self.min_request_interval - elapsed
-                logger.debug(f"Rate limiting: sleeping {sleep_time:.2f}s")
-                await asyncio.sleep(sleep_time)
-        
-        self.last_request_time = datetime.now(timezone.utc)
-    
-    async def make_api_request(self, endpoint: str, params: Dict[str, Any] = None) -> Optional[List[Dict[str, Any]]]:
-        """
-        Make a request to the football API
-        
-        Args:
-            endpoint: API endpoint (e.g., 'fixtures', 'teams', 'leagues')
-            params: Query parameters for the API request
-            
-        Returns:
-            List of response data or None if error
-        """
-        if not self.api_key:
-            logger.error("Football API key not configured")
-            return None
-        
-        if params is None:
-            params = {}
-        
-        url = f"{self.base_url}/{endpoint}"
-        
+    async def _make_request(self, endpoint: str, params: Dict = None) -> Dict:
+        """Make rate-limited API request"""
         try:
             # Rate limiting
-            await self._rate_limit()
+            if self.last_request_time:
+                elapsed = (datetime.now() - self.last_request_time).total_seconds()
+                if elapsed < self.rate_limit_delay:
+                    await asyncio.sleep(self.rate_limit_delay - elapsed)
             
             session = await self._get_session()
-            
-            logger.debug(f"Making API request to: {url} with params: {params}")
+            url = f"{self.base_url}/{endpoint}"
             
             async with session.get(url, params=params) as response:
+                self.last_request_time = datetime.now()
+                
                 if response.status == 200:
                     data = await response.json()
-                    
-                    # Check for API errors
-                    if data.get('errors') and len(data['errors']) > 0:
-                        logger.error(f"API returned errors: {data['errors']}")
-                        return None
-                    
-                    # Return the response data
-                    response_data = data.get('response', [])
-                    logger.debug(f"API request successful. Found {len(response_data)} items")
-                    return response_data
-                    
+                    return data
                 elif response.status == 429:
-                    logger.warning("API rate limit exceeded, waiting...")
-                    await asyncio.sleep(5)
-                    return None
-                    
+                    logger.warning("⚠️ Rate limit exceeded, waiting...")
+                    await asyncio.sleep(60)  # Wait 1 minute for rate limit reset
+                    return await self._make_request(endpoint, params)  # Retry
                 else:
-                    logger.error(f"API request failed with status {response.status}: {await response.text()}")
-                    return None
+                    logger.error(f"❌ API request failed: {response.status}")
+                    return {}
                     
-        except asyncio.TimeoutError:
-            logger.error(f"API request timeout for {url}")
-            return None
-        except aiohttp.ClientError as e:
-            logger.error(f"API request error for {url}: {e}")
-            return None
         except Exception as e:
-            logger.error(f"Unexpected error making API request to {url}: {e}")
+            logger.error(f"❌ Error making API request to {endpoint}: {e}")
+            return {}
+    
+    async def get_fixtures_by_date_range(self, start_date: str, end_date: str, league_ids: List[int] = None) -> List[Dict]:
+        """
+        Get fixtures within a date range
+        
+        Args:
+            start_date: ISO format date string (e.g., "2024-01-01")
+            end_date: ISO format date string (e.g., "2024-01-31") 
+            league_ids: Optional list of league IDs to filter by
+            
+        Returns:
+            List of fixture dictionaries in standardized format
+        """
+        try:
+            all_fixtures = []
+            
+            # Default leagues if none specified (adapt to your needs)
+            if not league_ids:
+                league_ids = [
+                    39,    # Premier League
+                    140,   # La Liga
+                    78,    # Bundesliga
+                    135,   # Serie A
+                    61,    # Ligue 1
+                    253,   # MLS
+                    848    # FIFA Club World Cup
+                ]
+            
+            logger.info(f"📡 Fetching fixtures from {start_date} to {end_date} for {len(league_ids)} leagues")
+            
+            for league_id in league_ids:
+                try:
+                    # Convert date strings to proper format for API
+                    start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                    end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                    
+                    # API typically wants date in YYYY-MM-DD format
+                    api_start = start_dt.strftime('%Y-%m-%d')
+                    api_end = end_dt.strftime('%Y-%m-%d')
+                    
+                    params = {
+                        'league': league_id,
+                        'season': '2024',  # Adjust based on current season
+                        'from': api_start,
+                        'to': api_end
+                    }
+                    
+                    logger.debug(f"🔍 Fetching fixtures for league {league_id}")
+                    response = await self._make_request('fixtures', params)
+                    
+                    if response and 'response' in response:
+                        fixtures = response['response']
+                        
+                        for fixture_data in fixtures:
+                            try:
+                                # Convert API response to our standardized format
+                                standardized_fixture = await self._standardize_fixture(fixture_data)
+                                if standardized_fixture:
+                                    all_fixtures.append(standardized_fixture)
+                                    
+                            except Exception as e:
+                                logger.error(f"❌ Error standardizing fixture: {e}")
+                                continue
+                        
+                        logger.debug(f"✅ Retrieved {len(fixtures)} fixtures for league {league_id}")
+                    
+                    # Rate limiting between league requests
+                    await asyncio.sleep(self.rate_limit_delay)
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error fetching fixtures for league {league_id}: {e}")
+                    continue
+            
+            logger.info(f"✅ Total fixtures retrieved: {len(all_fixtures)}")
+            return all_fixtures
+            
+        except Exception as e:
+            logger.error(f"❌ Error in get_fixtures_by_date_range: {e}")
+            return []
+    
+    async def get_fixture_by_id(self, fixture_id: int) -> Optional[Dict]:
+        """
+        Get a specific fixture by ID
+        
+        Args:
+            fixture_id: The fixture ID
+            
+        Returns:
+            Standardized fixture dictionary or None
+        """
+        try:
+            params = {'id': fixture_id}
+            response = await self._make_request('fixtures', params)
+            
+            if response and 'response' in response and len(response['response']) > 0:
+                fixture_data = response['response'][0]
+                return await self._standardize_fixture(fixture_data)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Error fetching fixture {fixture_id}: {e}")
             return None
     
-    async def get_fixture_by_id(self, fixture_id: int) -> Optional[Dict[str, Any]]:
+    async def _standardize_fixture(self, api_fixture: Dict) -> Dict:
         """
-        Fetch a single fixture by ID from the API
-        Returns the latest fixture data
-        """
-        params = {'id': fixture_id}
-        fixtures = await self.make_api_request('fixtures', params)
-        
-        if fixtures and len(fixtures) > 0:
-            return fixtures[0]
-        return None
-    
-    async def get_fixtures_by_date(self, date: str, league_id: int = None) -> List[Dict[str, Any]]:
-        """
-        Get fixtures for a specific date
+        Convert API fixture data to our standardized format
         
         Args:
-            date: Date in YYYY-MM-DD format
-            league_id: Optional league ID to filter by
+            api_fixture: Raw fixture data from API
             
         Returns:
-            List of fixtures
+            Standardized fixture dictionary
         """
-        params = {'date': date}
-        if league_id:
-            params['league'] = league_id
+        try:
+            # Extract fixture info
+            fixture_info = api_fixture.get('fixture', {})
+            teams = api_fixture.get('teams', {})
+            league_info = api_fixture.get('league', {})
+            goals = api_fixture.get('goals', {})
             
-        fixtures = await self.make_api_request('fixtures', params)
-        return fixtures or []
+            # Map API status to our MatchStatus enum values
+            status_mapping = {
+                'TBD': 'NOT_STARTED',
+                'NS': 'NOT_STARTED',
+                '1H': 'FIRST_HALF', 
+                'HT': 'HALFTIME',
+                '2H': 'SECOND_HALF',
+                'ET': 'EXTRA_TIME',
+                'P': 'PENALTY',
+                'FT': 'FINISHED',
+                'AET': 'FINISHED_AET',
+                'PEN': 'FINISHED_PEN',
+                'SUSP': 'SUSPENDED',
+                'INT': 'INTERRUPTED',
+                'PST': 'POSTPONED',
+                'CANC': 'CANCELLED',
+                'ABD': 'ABANDONED',
+                'AWD': 'TECHNICAL_LOSS',
+                'WO': 'WALKOVER',
+                'LIVE': 'LIVE'
+            }
+            
+            api_status = fixture_info.get('status', {}).get('short', 'NS')
+            mapped_status = status_mapping.get(api_status, 'NOT_STARTED')
+            
+            # Parse date
+            fixture_date = fixture_info.get('date')
+            if fixture_date:
+                # Convert to datetime object
+                parsed_date = datetime.fromisoformat(fixture_date.replace('Z', '+00:00'))
+            else:
+                parsed_date = datetime.now(timezone.utc)
+            
+            # Build standardized fixture
+            standardized = {
+                'fixture_id': fixture_info.get('id'),
+                'home_team': teams.get('home', {}).get('name', ''),
+                'away_team': teams.get('away', {}).get('name', ''),
+                'date': parsed_date.isoformat(),
+                'league': league_info.get('name', ''),
+                'season': league_info.get('season', '2024'),
+                'round': league_info.get('round', ''),
+                'status': mapped_status,
+                'home_score': goals.get('home') if goals.get('home') is not None else None,
+                'away_score': goals.get('away') if goals.get('away') is not None else None,
+                'venue': fixture_info.get('venue', {}).get('name'),
+                'venue_city': fixture_info.get('venue', {}).get('city'),
+                'referee': fixture_info.get('referee'),
+                'home_team_logo': teams.get('home', {}).get('logo'),
+                'away_team_logo': teams.get('away', {}).get('logo')
+            }
+            
+            return standardized
+            
+        except Exception as e:
+            logger.error(f"❌ Error standardizing fixture: {e}")
+            return None
     
-    async def get_fixtures_by_date_range(self, from_date: str, to_date: str, league_id: int = None) -> List[Dict[str, Any]]:
+    async def get_live_fixtures(self) -> List[Dict]:
         """
-        Get fixtures for a date range
+        Get all currently live fixtures
+        
+        Returns:
+            List of live fixture dictionaries
+        """
+        try:
+            params = {'live': 'all'}
+            response = await self._make_request('fixtures', params)
+            
+            live_fixtures = []
+            if response and 'response' in response:
+                for fixture_data in response['response']:
+                    standardized = await self._standardize_fixture(fixture_data)
+                    if standardized:
+                        live_fixtures.append(standardized)
+            
+            return live_fixtures
+            
+        except Exception as e:
+            logger.error(f"❌ Error fetching live fixtures: {e}")
+            return []
+    
+    async def get_fixtures_by_status(self, status: str, league_ids: List[int] = None) -> List[Dict]:
+        """
+        Get fixtures by status (e.g., 'FT' for finished)
         
         Args:
-            from_date: Start date in YYYY-MM-DD format
-            to_date: End date in YYYY-MM-DD format
-            league_id: Optional league ID to filter by
+            status: API status code (FT, NS, LIVE, etc.)
+            league_ids: Optional list of league IDs
             
         Returns:
-            List of fixtures
+            List of fixture dictionaries
         """
-        params = {
-            'from': from_date,
-            'to': to_date
-        }
-        if league_id:
-            params['league'] = league_id
+        try:
+            all_fixtures = []
             
-        fixtures = await self.make_api_request('fixtures', params)
-        return fixtures or []
+            # Default leagues if none specified
+            if not league_ids:
+                league_ids = [39, 140, 78, 135, 61, 253, 848]
+            
+            for league_id in league_ids:
+                try:
+                    params = {
+                        'league': league_id,
+                        'season': '2024',
+                        'status': status
+                    }
+                    
+                    response = await self._make_request('fixtures', params)
+                    
+                    if response and 'response' in response:
+                        for fixture_data in response['response']:
+                            standardized = await self._standardize_fixture(fixture_data)
+                            if standardized:
+                                all_fixtures.append(standardized)
+                    
+                    await asyncio.sleep(self.rate_limit_delay)
+                    
+                except Exception as e:
+                    logger.error(f"❌ Error fetching {status} fixtures for league {league_id}: {e}")
+                    continue
+            
+            return all_fixtures
+            
+        except Exception as e:
+            logger.error(f"❌ Error in get_fixtures_by_status: {e}")
+            return []
     
-    async def get_live_fixtures(self, league_id: int = None) -> List[Dict[str, Any]]:
+    async def test_api_connection(self) -> bool:
         """
-        Get live fixtures
+        Test if API connection is working
         
-        Args:
-            league_id: Optional league ID to filter by
-            
         Returns:
-            List of live fixtures
+            True if connection successful, False otherwise
         """
-        params = {'live': 'all'}
-        if league_id:
-            params['league'] = league_id
+        try:
+            logger.info("🔗 Testing API connection...")
             
-        fixtures = await self.make_api_request('fixtures', params)
-        return fixtures or []
-    
-    async def get_teams_by_league(self, league_id: int, season: int) -> List[Dict[str, Any]]:
-        """
-        Get teams for a specific league and season
-        
-        Args:
-            league_id: League ID
-            season: Season year
+            # Test with a simple timezone request
+            response = await self._make_request('timezone')
             
-        Returns:
-            List of teams
-        """
-        params = {
-            'league': league_id,
-            'season': season
-        }
-        
-        teams = await self.make_api_request('teams', params)
-        return teams or []
+            if response and 'response' in response:
+                logger.info("✅ API connection successful")
+                return True
+            else:
+                logger.error("❌ API connection failed - no response")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ API connection test failed: {e}")
+            return False
     
     async def close(self):
-        """Close the aiohttp session"""
+        """Close the HTTP session"""
         if self.session and not self.session.closed:
             await self.session.close()
-            logger.debug("Football API session closed")
+            logger.info("✅ Football API session closed")
 
-# Create global instance
+# Global instance
 football_api_service = FootballAPIService() 

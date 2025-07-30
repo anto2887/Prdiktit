@@ -192,20 +192,55 @@ async def get_live_matches(db: Session) -> List[Fixture]:
         ])
     ).all()
 
-async def create_or_update_fixture(db: Session, fixture_data: Dict[str, Any]) -> Fixture:
-    """Create or update fixture"""
-    fixture = await get_fixture_by_id(db, fixture_data["fixture_id"])
+async def create_or_update_fixture(db: Session, **fixture_data) -> Fixture:
+    """
+    Create a new fixture or update existing one
     
-    if fixture:
-        for key, value in fixture_data.items():
-            setattr(fixture, key, value)
-    else:
-        fixture = Fixture(**fixture_data)
-        db.add(fixture)
-    
-    db.commit()
-    db.refresh(fixture)
-    return fixture
+    Args:
+        db: Database session
+        **fixture_data: Fixture data fields
+        
+    Returns:
+        Created or updated Fixture object
+    """
+    try:
+        fixture_id = fixture_data.get('fixture_id')
+        
+        if not fixture_id:
+            raise ValueError("fixture_id is required")
+        
+        # Check if fixture already exists
+        existing_fixture = db.query(Fixture).filter(
+            Fixture.fixture_id == fixture_id
+        ).first()
+        
+        if existing_fixture:
+            # Update existing fixture
+            for key, value in fixture_data.items():
+                if hasattr(existing_fixture, key) and value is not None:
+                    setattr(existing_fixture, key, value)
+            
+            existing_fixture.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(existing_fixture)
+            return existing_fixture
+        else:
+            # Create new fixture
+            new_fixture = Fixture(
+                **fixture_data,
+                created_at=datetime.now(timezone.utc),
+                updated_at=datetime.now(timezone.utc)
+            )
+            
+            db.add(new_fixture)
+            db.commit()
+            db.refresh(new_fixture)
+            return new_fixture
+            
+    except Exception as e:
+        logger.error(f"Error creating/updating fixture {fixture_data.get('fixture_id')}: {e}")
+        db.rollback()
+        raise
 
 async def get_prediction_deadlines(db: Session) -> Dict[str, str]:
     """
@@ -238,6 +273,145 @@ async def get_prediction_deadlines(db: Session) -> Dict[str, str]:
             deadlines[str(fixture.fixture_id)] = deadline_utc.isoformat()
     
     return deadlines
+
+async def get_fixtures_needing_update(db: Session, hours_ago: int = 24) -> List[Fixture]:
+    """
+    Get fixtures that might need updates (recent or upcoming)
+    
+    Args:
+        db: Database session
+        hours_ago: How many hours back to check
+        
+    Returns:
+        List of fixtures that might need updates
+    """
+    try:
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
+        future_time = datetime.now(timezone.utc) + timedelta(days=7)
+        
+        fixtures = db.query(Fixture).filter(
+            Fixture.date >= cutoff_time,
+            Fixture.date <= future_time,
+            ~Fixture.status.in_([
+                MatchStatus.CANCELLED,
+                MatchStatus.ABANDONED
+            ])
+        ).order_by(Fixture.date.asc()).all()
+        
+        return fixtures
+        
+    except Exception as e:
+        logger.error(f"Error getting fixtures needing update: {e}")
+        return []
+
+async def bulk_update_fixtures(db: Session, fixtures_data: List[Dict]) -> Dict[str, int]:
+    """
+    Bulk update multiple fixtures efficiently
+    
+    Args:
+        db: Database session
+        fixtures_data: List of fixture data dictionaries
+        
+    Returns:
+        Dictionary with update statistics
+    """
+    stats = {"updated": 0, "created": 0, "errors": 0}
+    
+    try:
+        for fixture_data in fixtures_data:
+            try:
+                await create_or_update_fixture(db, **fixture_data)
+                
+                # Determine if it was an update or creation
+                fixture_id = fixture_data.get('fixture_id')
+                existing = db.query(Fixture).filter(
+                    Fixture.fixture_id == fixture_id
+                ).first()
+                
+                if existing:
+                    # Check if it was recently created (within last minute)
+                    if existing.created_at and (datetime.now(timezone.utc) - existing.created_at).total_seconds() < 60:
+                        stats["created"] += 1
+                    else:
+                        stats["updated"] += 1
+                        
+            except Exception as e:
+                logger.error(f"Error in bulk update for fixture {fixture_data.get('fixture_id')}: {e}")
+                stats["errors"] += 1
+                continue
+        
+        return stats
+        
+    except Exception as e:
+        logger.error(f"Error in bulk_update_fixtures: {e}")
+        return stats
+
+async def get_fixtures_by_status_and_date(
+    db: Session, 
+    status: MatchStatus,
+    date_from: Optional[datetime] = None,
+    date_to: Optional[datetime] = None
+) -> List[Fixture]:
+    """
+    Get fixtures by status within a date range
+    
+    Args:
+        db: Database session
+        status: Match status to filter by
+        date_from: Start date (optional)
+        date_to: End date (optional)
+        
+    Returns:
+        List of matching fixtures
+    """
+    try:
+        query = db.query(Fixture).filter(Fixture.status == status)
+        
+        if date_from:
+            query = query.filter(Fixture.date >= date_from)
+            
+        if date_to:
+            query = query.filter(Fixture.date <= date_to)
+            
+        fixtures = query.order_by(Fixture.date.asc()).all()
+        return fixtures
+        
+    except Exception as e:
+        logger.error(f"Error getting fixtures by status and date: {e}")
+        return []
+
+async def mark_fixtures_for_monitoring(db: Session, fixture_ids: List[int]) -> int:
+    """
+    Mark fixtures as needing monitoring (for enhanced scheduler)
+    
+    Args:
+        db: Database session
+        fixture_ids: List of fixture IDs to mark
+        
+    Returns:
+        Number of fixtures marked
+    """
+    try:
+        marked = 0
+        
+        for fixture_id in fixture_ids:
+            fixture = db.query(Fixture).filter(
+                Fixture.fixture_id == fixture_id
+            ).first()
+            
+            if fixture:
+                # Add a monitoring flag or timestamp
+                fixture.needs_monitoring = True
+                fixture.last_monitored = datetime.now(timezone.utc)
+                marked += 1
+        
+        db.commit()
+        return marked
+        
+    except Exception as e:
+        logger.error(f"Error marking fixtures for monitoring: {e}")
+        db.rollback()
+        return 0
 
 # =============================================================================
 # PREDICTION REPOSITORY FUNCTIONS
