@@ -10,6 +10,7 @@ from sqlalchemy import or_
 from ..db.database import SessionLocal
 from ..db.models import Fixture, MatchStatus
 from .match_processor import MatchProcessor
+from .match_status_updater import match_status_updater
 
 logger = logging.getLogger(__name__)
 audit_logger = logging.getLogger('match_processing_audit')
@@ -85,7 +86,7 @@ class FixtureMonitor:
         """
         try:
             # Import your football API service
-            from ..services.football_api import football_api_service
+            from .football_api import football_api_service
             
             logger.info(f"🔄 Fetching updates for {len(fixture_ids)} fixtures from API")
             fixture_monitor_logger.info(f"API_CALL_START: checking {len(fixture_ids)} fixtures")
@@ -491,43 +492,47 @@ class EnhancedSmartScheduler:
                 "reason": f"Error in scheduling: {str(e)}"
             }
     
-    async def run_processing_cycle(self) -> Dict[str, Any]:
-        """Run processing cycle with optional fixture monitoring"""
-        if not self.processor:
-            return {"status": "error", "error": "MatchProcessor not available"}
-        
+    async def run_enhanced_processing_with_status_updates(self):
+        """
+        Enhanced processing cycle that includes status updates
+        """
         try:
-            cycle_start = datetime.now(timezone.utc)
-            schedule_info = self.current_schedule or {"mode": "unknown"}
+            logger.info("🔄 Starting enhanced processing cycle with status updates")
             
-            logger.info(f"🔄 Starting enhanced processing cycle (mode: {schedule_info['mode']})")
+            # Step 1: Update match statuses from API
+            logger.info("📡 Step 1: Updating match statuses from API...")
+            try:
+                # Update recent matches (last 3 days)
+                updated_count = await match_status_updater.update_recent_matches(days_back=3)
+                logger.info(f"✅ Updated {updated_count} match statuses")
+                
+                # Also update live matches
+                live_updated = await match_status_updater.update_live_matches()
+                if live_updated > 0:
+                    logger.info(f"🔴 Updated {live_updated} live matches")
+                    
+            except Exception as e:
+                logger.error(f"❌ Error updating match statuses: {e}")
             
-            # Run match processing
-            processing_result = self.processor.run_all_processing()
+            # Step 2: Run normal processing (prediction locking and match processing)
+            logger.info("⚙️ Step 2: Running prediction and match processing...")
             
-            # Run fixture monitoring if enabled
-            fixture_result = None
-            if schedule_info.get('fixture_monitoring', False):
-                logger.info("📡 Running fixture monitoring...")
-                fixture_result = await self.fixture_monitor.check_and_update_fixtures()
+            # Import here to avoid circular imports
+            from .match_processor import MatchProcessor
             
-            # Combine results
-            result = {
-                "status": "success",
-                "processing": processing_result,
-                "fixture_monitoring": fixture_result,
-                "schedule_mode": schedule_info["mode"],
-                "cycle_start": cycle_start.isoformat(),
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
+            processor = MatchProcessor()
             
-            logger.info(f"✅ Enhanced processing cycle completed")
+            # Run the full processing cycle
+            result = processor.run_all_processing()
+            
+            logger.info("✅ Enhanced processing cycle with status updates completed")
+            
             return result
             
         except Exception as e:
             logger.error(f"❌ Error in enhanced processing cycle: {e}")
             return {"status": "error", "error": str(e)}
-    
+
     def should_update_schedule(self) -> bool:
         """Check if we should recalculate the schedule"""
         if not self.last_schedule_check:
@@ -565,7 +570,8 @@ class EnhancedSmartScheduler:
                     asyncio.set_event_loop(loop)
                     
                     try:
-                        result = loop.run_until_complete(self.run_processing_cycle())
+                        # Use the new enhanced processing method
+                        result = loop.run_until_complete(self.run_enhanced_processing_with_status_updates())
                     finally:
                         loop.close()
                     

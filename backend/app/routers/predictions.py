@@ -16,7 +16,8 @@ from ..db import (
     reset_prediction,
     get_prediction_by_id,
     get_user_predictions,
-    get_prediction_deadlines
+    get_prediction_deadlines,
+    check_group_membership
 )
 from ..db.models import UserPrediction
 from ..schemas import (
@@ -523,3 +524,134 @@ async def reset_prediction_endpoint(
     return DataResponse(
         message="Prediction reset successfully"
     )
+
+@router.get("/leaderboard/{group_id}", response_model=ListResponse)
+async def get_group_leaderboard(
+    group_id: int = Path(...),
+    season: Optional[str] = Query(None),
+    week: Optional[int] = Query(None),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Get group leaderboard showing member rankings by total points
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    try:
+        # Check if user is a member of the group
+        is_member = await check_group_membership(db, group_id, current_user.id)
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a member of this group"
+            )
+        
+        # Try to get from cache first
+        cache_key = f"group_leaderboard:{group_id}:{season or 'all'}:{week or 'all'}"
+        cached_leaderboard = await cache.get(cache_key)
+        
+        if cached_leaderboard:
+            return ListResponse(
+                data=cached_leaderboard,
+                total=len(cached_leaderboard)
+            )
+        
+        # Build query to get group members and their total points
+        from sqlalchemy import func, text
+        from ..db.models import group_members, User as UserModel, UserPrediction
+        
+        # Base query: get all group members with their total points
+        query = db.query(
+            UserModel.id.label('user_id'),
+            UserModel.username,
+            func.coalesce(func.sum(UserPrediction.points), 0).label('total_points'),
+            func.count(UserPrediction.id).label('total_predictions'),
+            func.sum(func.case((UserPrediction.points == 3, 1), else_=0)).label('perfect_scores'),
+            func.sum(func.case((UserPrediction.points == 1, 1), else_=0)).label('correct_results'),
+            func.sum(func.case((UserPrediction.points == 0, 1), else_=0)).label('incorrect_predictions')
+        ).select_from(
+            UserModel
+        ).join(
+            group_members,
+            UserModel.id == group_members.c.user_id
+        ).outerjoin(
+            UserPrediction,
+            UserModel.id == UserPrediction.user_id
+        ).filter(
+            group_members.c.group_id == group_id
+        )
+        
+        # Apply season filter if provided
+        if season:
+            query = query.filter(UserPrediction.season == season)
+        
+        # Apply week filter if provided
+        if week:
+            query = query.filter(UserPrediction.week == week)
+        
+        # Group by user and order by total points descending
+        query = query.group_by(
+            UserModel.id, 
+            UserModel.username
+        ).order_by(
+            text('total_points DESC'),
+            text('total_predictions DESC'),
+            UserModel.username
+        )
+        
+        # Execute query
+        results = query.all()
+        
+        # Build leaderboard data
+        leaderboard = []
+        for rank, result in enumerate(results, 1):
+            # Calculate accuracy
+            total_preds = result.total_predictions or 0
+            accuracy = 0
+            if total_preds > 0:
+                correct_preds = (result.perfect_scores or 0) + (result.correct_results or 0)
+                accuracy = round((correct_preds / total_preds) * 100, 1)
+            
+            # Calculate average points per prediction
+            avg_points = 0
+            if total_preds > 0:
+                avg_points = round((result.total_points or 0) / total_preds, 2)
+            
+            leaderboard.append({
+                "rank": rank,
+                "user_id": result.user_id,
+                "username": result.username,
+                "total_points": result.total_points or 0,
+                "total_predictions": total_preds,
+                "perfect_scores": result.perfect_scores or 0,
+                "correct_results": result.correct_results or 0,
+                "incorrect_predictions": result.incorrect_predictions or 0,
+                "accuracy_percentage": accuracy,
+                "average_points": avg_points
+            })
+        
+        # Cache for 5 minutes
+        await cache.set(cache_key, leaderboard, 300)
+        
+        logger.info(f"Generated leaderboard for group {group_id} with {len(leaderboard)} members")
+        
+        return ListResponse(
+            data=leaderboard,
+            total=len(leaderboard)
+        )
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"Error generating group leaderboard: {e}")
+        logger.exception("Full traceback:")
+        
+        # Return empty leaderboard on error
+        return ListResponse(
+            data=[],
+            total=0
+        )

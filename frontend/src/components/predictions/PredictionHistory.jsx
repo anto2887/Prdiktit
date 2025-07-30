@@ -1,248 +1,259 @@
+// src/components/predictions/PredictionHistory.jsx
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { usePredictions } from '../../contexts/AppContext';
+import { usePredictions, useUser } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import { formatDateTime, formatKickoffTime, formatShortDate, formatTime } from '../../utils/dateUtils';
 
-export const PredictionHistory = () => {
+const PredictionHistory = () => {
   const { userPredictions, fetchUserPredictions, loading, error } = usePredictions();
-  const [filteredPredictions, setFilteredPredictions] = useState([]);
+  const { profile } = useUser();
   const [filters, setFilters] = useState({
-    status: '',
     season: '',
-    week: ''
+    week: '',
+    status: ''
   });
 
   useEffect(() => {
     fetchUserPredictions();
   }, [fetchUserPredictions]);
 
-  useEffect(() => {
-    if (userPredictions) {
-      let filtered = [...userPredictions];
-      
-      if (filters.status) {
-        filtered = filtered.filter(pred => pred.status === filters.status);
-      }
-      
-      if (filters.season) {
-        filtered = filtered.filter(pred => pred.season === filters.season);
-      }
-      
-      if (filters.week) {
-        filtered = filtered.filter(pred => pred.week === parseInt(filters.week));
-      }
-      
-      // Sort by date/time (newest first)
-      filtered.sort((a, b) => {
-        if (!a.fixture?.date || !b.fixture?.date) return 0;
-        return new Date(b.fixture.date) - new Date(a.fixture.date);
-      });
-      
-      setFilteredPredictions(filtered);
-    }
-  }, [userPredictions, filters]);
+  // Filter predictions
+  const filteredPredictions = userPredictions.filter(prediction => {
+    if (filters.season && prediction.season !== filters.season) return false;
+    if (filters.week && prediction.week !== parseInt(filters.week)) return false;
+    if (filters.status && prediction.prediction_status !== filters.status) return false;
+    return true;
+  });
 
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  // Group predictions by status for stats
+  const predictionStats = filteredPredictions.reduce((stats, pred) => {
+    const status = pred.prediction_status;
+    const points = pred.points || 0;
+    
+    if (!stats[status]) {
+      stats[status] = { count: 0, totalPoints: 0 };
+    }
+    
+    stats[status].count++;
+    stats[status].totalPoints += points;
+    
+    return stats;
+  }, {});
+
+  const totalPoints = Object.values(predictionStats).reduce((sum, stat) => sum + stat.totalPoints, 0);
+  const totalPredictions = filteredPredictions.length;
+
+  // Helper function to get status badge
+  const getStatusBadge = (status) => {
+    const badges = {
+      'EDITABLE': 'bg-gray-100 text-gray-800',
+      'SUBMITTED': 'bg-blue-100 text-blue-800',
+      'LOCKED': 'bg-yellow-100 text-yellow-800',
+      'PROCESSED': 'bg-green-100 text-green-800'
+    };
+    
+    return badges[status] || 'bg-gray-100 text-gray-800';
   };
 
-  // Get unique seasons and weeks for filters
-  const seasons = [...new Set(userPredictions.map(p => p.season))].sort().reverse();
-  const weeks = [...new Set(userPredictions.map(p => p.week))].sort((a, b) => b - a);
+  // Helper function to get points badge
+  const getPointsBadge = (points) => {
+    if (points === 3) return 'bg-green-100 text-green-800 font-bold';
+    if (points === 1) return 'bg-yellow-100 text-yellow-800 font-bold';
+    if (points === 0) return 'bg-red-100 text-red-800 font-bold';
+    return 'bg-gray-100 text-gray-800';
+  };
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Prediction History</h1>
-        <Link
-          to="/predictions/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          New Prediction
-        </Link>
+    <div className="max-w-6xl mx-auto p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Prediction History</h1>
+        <p className="text-gray-600">View all your predictions and their results</p>
       </div>
-      
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-md">
-        <h2 className="font-medium mb-4">Filter Predictions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="">All Statuses</option>
-              <option value="SUBMITTED">Submitted</option>
-              <option value="LOCKED">Locked</option>
-              <option value="PROCESSED">Processed</option>
-            </select>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500">Total Points</div>
+          <div className="text-2xl font-bold text-blue-600">{totalPoints}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500">Total Predictions</div>
+          <div className="text-2xl font-bold text-gray-900">{totalPredictions}</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500">Perfect Scores</div>
+          <div className="text-2xl font-bold text-green-600">
+            {filteredPredictions.filter(p => p.points === 3).length}
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Season
-            </label>
-            <select
-              name="season"
-              value={filters.season}
-              onChange={handleFilterChange}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="">All Seasons</option>
-              {seasons.map(season => (
-                <option key={season} value={season}>{season}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Week
-            </label>
-            <select
-              name="week"
-              value={filters.week}
-              onChange={handleFilterChange}
-              className="w-full p-2 border rounded-md"
-            >
-              <option value="">All Weeks</option>
-              {weeks.map(week => (
-                <option key={week} value={week}>Week {week}</option>
-              ))}
-            </select>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500">Average Points</div>
+          <div className="text-2xl font-bold text-purple-600">
+            {totalPredictions > 0 ? (totalPoints / totalPredictions).toFixed(1) : '0.0'}
           </div>
         </div>
       </div>
-      
-      {/* Predictions List */}
-      <div className="bg-white rounded-lg shadow-md">
-        {filteredPredictions.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">No predictions match your filters</p>
-          </div>
-        ) : (
-          <div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Match
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Prediction
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Result
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Points
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredPredictions.map(prediction => {
-                    const fixture = prediction.fixture || {};
-                    const isPredictionCorrect = 
-                      prediction.status === 'PROCESSED' && 
-                      prediction.score1 === fixture.home_score && 
-                      prediction.score2 === fixture.away_score;
-                      
-                    const isResultCorrect = 
-                      prediction.status === 'PROCESSED' && 
-                      prediction.points > 0 && 
-                      !isPredictionCorrect;
-                    
-                    return (
-                      <tr 
-                        key={prediction.prediction_id}
-                        className={`
-                          ${isPredictionCorrect ? 'bg-green-50' : ''}
-                          ${isResultCorrect ? 'bg-yellow-50' : ''}
-                        `}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 flex items-center justify-center">
-                              <img className="h-8 w-8" src={fixture.home_team_logo} alt="" />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {fixture.home_team} vs {fixture.away_team}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {fixture.league}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {formatShortDate(fixture.date)}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {formatTime(fixture.date)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                          {prediction.score1} - {prediction.score2}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
-                          {fixture.status === 'FINISHED' || fixture.status === 'FINISHED_AET' || 
-                           fixture.status === 'FINISHED_PEN' ? (
-                            <span>
-                              {fixture.home_score} - {fixture.away_score}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500">Pending</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          {prediction.status === 'PROCESSED' ? (
-                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
-                              +{prediction.points}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full
-                            ${prediction.status === 'SUBMITTED' ? 'bg-green-100 text-green-800' : ''}
-                            ${prediction.status === 'LOCKED' ? 'bg-yellow-100 text-yellow-800' : ''}
-                            ${prediction.status === 'PROCESSED' ? 'bg-blue-100 text-blue-800' : ''}
-                          `}>
-                            {prediction.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow mb-6">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Filters</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Season</label>
+              <select
+                value={filters.season}
+                onChange={(e) => setFilters({...filters, season: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+              >
+                <option value="">All Seasons</option>
+                <option value="2024-2025">2024-2025</option>
+                <option value="2023-2024">2023-2024</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Week</label>
+              <select
+                value={filters.week}
+                onChange={(e) => setFilters({...filters, week: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+              >
+                <option value="">All Weeks</option>
+                {Array.from({ length: 38 }, (_, i) => i + 1).map(week => (
+                  <option key={week} value={week}>Week {week}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters({...filters, status: e.target.value})}
+                className="w-full border border-gray-300 rounded-md px-3 py-2"
+              >
+                <option value="">All Statuses</option>
+                <option value="EDITABLE">Editable</option>
+                <option value="SUBMITTED">Submitted</option>
+                <option value="LOCKED">Locked</option>
+                <option value="PROCESSED">Processed</option>
+              </select>
             </div>
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* Predictions Table */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Match
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Your Prediction
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actual Result
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Points
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredPredictions.length > 0 ? (
+                filteredPredictions.map((prediction) => (
+                  <tr key={prediction.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="flex items-center space-x-2">
+                          {prediction.fixture?.home_team_logo && (
+                            <img 
+                              src={prediction.fixture.home_team_logo} 
+                              alt={prediction.fixture.home_team}
+                              className="w-6 h-6 object-contain"
+                            />
+                          )}
+                          <span className="text-sm font-medium">
+                            {prediction.fixture?.home_team || 'Home Team'}
+                          </span>
+                        </div>
+                        <span className="text-gray-500">vs</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm font-medium">
+                            {prediction.fixture?.away_team || 'Away Team'}
+                          </span>
+                          {prediction.fixture?.away_team_logo && (
+                            <img 
+                              src={prediction.fixture.away_team_logo} 
+                              alt={prediction.fixture.away_team}
+                              className="w-6 h-6 object-contain"
+                            />
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {prediction.fixture?.league || 'Unknown League'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        {prediction.score1} - {prediction.score2}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {prediction.fixture?.home_score !== null && prediction.fixture?.away_score !== null ? (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                          {prediction.fixture.home_score} - {prediction.fixture.away_score}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">Not played</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {prediction.points !== null ? (
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${getPointsBadge(prediction.points)}`}>
+                          {prediction.points} pts
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-sm">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(prediction.prediction_status)}`}>
+                        {prediction.prediction_status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center text-sm text-gray-500">
+                      {prediction.fixture?.date ? 
+                        new Date(prediction.fixture.date).toLocaleDateString() : 
+                        'TBD'
+                      }
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                    No predictions found with the current filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
