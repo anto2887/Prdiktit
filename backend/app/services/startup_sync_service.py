@@ -1,12 +1,11 @@
 # backend/app/services/startup_sync_service.py
 """
-Startup Data Synchronization Service
+Comprehensive Startup Data Synchronization Service
 
-This service runs on application startup to:
-1. Fetch latest fixture data from external API
-2. Update database with any new/changed fixtures
-3. Process any missed score updates
-4. Ensure all predictions are properly scored
+This service runs on application startup and API refresh to:
+1. Fetch latest fixture data from external API  
+2. Process ALL predictions for finished matches (regardless of status)
+3. Ensure comprehensive data consistency
 """
 
 import asyncio
@@ -17,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from ..db.database import SessionLocal
 from ..db.models import Fixture, UserPrediction, MatchStatus, PredictionStatus
-from ..db.repository import get_fixtures, create_or_update_fixture, process_match_predictions
+from ..db.repository import get_fixtures, create_or_update_fixture, calculate_points
 from .football_api import football_api_service
 from .match_processor import MatchProcessor
 
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 startup_logger = logging.getLogger('startup_sync')
 
 class StartupSyncService:
-    """Service to synchronize data and process scores on startup"""
+    """Service to synchronize data and process scores on startup - STATUS AGNOSTIC"""
     
     def __init__(self):
         self.db = SessionLocal()
@@ -44,13 +43,14 @@ class StartupSyncService:
     async def run_startup_sync(self) -> Dict[str, Any]:
         """
         Main method to run complete startup synchronization
+        STATUS AGNOSTIC: Processes ALL predictions for finished matches
         """
         start_time = datetime.now(timezone.utc)
-        logger.info("🚀 Starting startup data synchronization...")
+        logger.info("🚀 Starting comprehensive startup data synchronization...")
         startup_logger.info(f"STARTUP_SYNC_BEGIN: timestamp={start_time.isoformat()}")
         
         results = {
-            "status": "success",
+            "status": "success", 
             "start_time": start_time.isoformat(),
             "fixtures_updated": 0,
             "fixtures_added": 0,
@@ -67,9 +67,9 @@ class StartupSyncService:
             results["fixtures_updated"] = fixture_results["updated"]
             results["fixtures_added"] = fixture_results["added"]
             
-            # Step 2: Process any completed matches that weren't processed
-            logger.info("⚽ Step 2: Processing completed matches...")
-            processing_results = await self.process_completed_matches()
+            # Step 2: STATUS AGNOSTIC - Process ALL predictions for finished matches
+            logger.info("⚽ Step 2: Processing ALL predictions for finished matches (status agnostic)...")
+            processing_results = await self.process_all_finished_matches()
             results["matches_processed"] = processing_results["matches_processed"]
             results["predictions_processed"] = processing_results["predictions_processed"]
             
@@ -83,8 +83,8 @@ class StartupSyncService:
             results["end_time"] = end_time.isoformat()
             
             logger.info(f"✅ Startup synchronization complete in {results['duration_seconds']:.2f}s")
-            logger.info(f"   Fixtures: {results['fixtures_added']} added, {results['fixtures_updated']} updated")
-            logger.info(f"   Processing: {results['matches_processed']} matches, {results['predictions_processed']} predictions")
+            logger.info(f"   📊 Fixtures: {results['fixtures_added']} added, {results['fixtures_updated']} updated")
+            logger.info(f"   ⚽ Processing: {results['matches_processed']} matches, {results['predictions_processed']} predictions")
             
             startup_logger.info(f"STARTUP_SYNC_COMPLETE: {results}")
             
@@ -104,8 +104,8 @@ class StartupSyncService:
         results = {"added": 0, "updated": 0, "errors": 0}
         
         try:
-            # Get date range for fixture sync (last 7 days + next 30 days)
-            start_date = datetime.now(timezone.utc) - timedelta(days=7)
+            # Get date range for fixture sync (last 14 days + next 30 days for comprehensive coverage)
+            start_date = datetime.now(timezone.utc) - timedelta(days=14)
             end_date = datetime.now(timezone.utc) + timedelta(days=30)
             
             logger.info(f"📅 Fetching fixtures from {start_date.date()} to {end_date.date()}")
@@ -119,12 +119,11 @@ class StartupSyncService:
             
             existing_fixture_ids = {f.fixture_id for f in existing_fixtures}
             
-            # Fetch fixtures from API (you may need to adapt this based on your API)
+            # Fetch fixtures from API with correct parameter names
             try:
-                # Get fixtures by date range - adapt this to your football API service
                 api_fixtures = await football_api_service.get_fixtures_by_date_range(
-                    start_date=start_date.isoformat(),
-                    end_date=end_date.isoformat()
+                    from_date=start_date,
+                    to_date=end_date
                 )
                 
                 logger.info(f"📡 Retrieved {len(api_fixtures)} fixtures from API")
@@ -141,9 +140,9 @@ class StartupSyncService:
                             'fixture_id': fixture_id,
                             'home_team': api_fixture.get('home_team', ''),
                             'away_team': api_fixture.get('away_team', ''),
-                            'date': datetime.fromisoformat(api_fixture.get('date', '').replace('Z', '+00:00')),
-                            'league': api_fixture.get('league', ''),
-                            'season': api_fixture.get('season', '2024-2025'),
+                            'date': api_fixture.get('date'),  # Already a datetime object
+                            'league': api_fixture.get('league_name', ''),
+                            'season': '2024-2025',  # Default season
                             'round': api_fixture.get('round', ''),
                             'status': MatchStatus(api_fixture.get('status', 'NOT_STARTED')),
                             'home_score': api_fixture.get('home_score'),
@@ -183,55 +182,20 @@ class StartupSyncService:
             
         return results
     
-    async def update_fixture_if_changed(self, existing_fixture: Fixture, new_data: Dict) -> bool:
+    async def process_all_finished_matches(self) -> Dict[str, int]:
         """
-        Update fixture only if data has actually changed
-        """
-        try:
-            changes_made = False
-            
-            # Check for changes in key fields
-            if existing_fixture.status != new_data['status']:
-                existing_fixture.status = new_data['status']
-                changes_made = True
-                logger.info(f"📊 Status updated for {existing_fixture.home_team} vs {existing_fixture.away_team}: {existing_fixture.status.value} → {new_data['status'].value}")
-            
-            if existing_fixture.date != new_data['date']:
-                existing_fixture.date = new_data['date']
-                changes_made = True
-                logger.info(f"📅 Date updated for {existing_fixture.home_team} vs {existing_fixture.away_team}")
-            
-            if (existing_fixture.home_score != new_data['home_score'] or 
-                existing_fixture.away_score != new_data['away_score']):
-                existing_fixture.home_score = new_data['home_score']
-                existing_fixture.away_score = new_data['away_score']
-                changes_made = True
-                logger.info(f"⚽ Score updated for {existing_fixture.home_team} vs {existing_fixture.away_team}: {new_data['home_score']}-{new_data['away_score']}")
-            
-            if existing_fixture.venue != new_data.get('venue'):
-                existing_fixture.venue = new_data.get('venue')
-                changes_made = True
-            
-            if changes_made:
-                existing_fixture.updated_at = datetime.now(timezone.utc)
-                self.db.commit()
-                
-            return changes_made
-            
-        except Exception as e:
-            logger.error(f"❌ Error updating fixture {existing_fixture.fixture_id}: {e}")
-            self.db.rollback()
-            return False
-    
-    async def process_completed_matches(self) -> Dict[str, int]:
-        """
-        Process all completed matches that haven't been processed yet
+        STATUS AGNOSTIC: Process ALL predictions for finished matches
+        
+        This method checks:
+        1. Match is actually finished (has final scores and finished status)
+        2. Processes ANY prediction regardless of current status
+        3. Handles edge cases like draft predictions on completed matches
         """
         results = {"matches_processed": 0, "predictions_processed": 0}
         
         try:
-            # Find completed matches that haven't been processed
-            completed_matches = self.db.query(Fixture).filter(
+            # Get ALL finished matches with final scores
+            finished_matches = self.db.query(Fixture).filter(
                 Fixture.status.in_([
                     MatchStatus.FINISHED,
                     MatchStatus.FINISHED_AET,
@@ -241,98 +205,175 @@ class StartupSyncService:
                 Fixture.away_score.isnot(None)
             ).all()
             
-            logger.info(f"🔍 Found {len(completed_matches)} completed matches to check")
+            logger.info(f"🔍 Found {len(finished_matches)} finished matches to check comprehensively")
             
-            for match in completed_matches:
+            for match in finished_matches:
                 try:
-                    # Check if there are unprocessed predictions for this match
-                    unprocessed_predictions = self.db.query(UserPrediction).filter(
-                        UserPrediction.fixture_id == match.fixture_id,
-                        UserPrediction.prediction_status.in_([
-                            PredictionStatus.SUBMITTED,
-                            PredictionStatus.LOCKED
-                        ])
-                    ).count()
+                    # STATUS AGNOSTIC: Get ALL predictions for this match (any status)
+                    all_predictions = self.db.query(UserPrediction).filter(
+                        UserPrediction.fixture_id == match.fixture_id
+                    ).all()
                     
-                    if unprocessed_predictions > 0:
-                        logger.info(f"⚽ Processing {unprocessed_predictions} predictions for {match.home_team} vs {match.away_team}")
-                        
-                        # Process predictions for this match
-                        if self.processor:
-                            processed_count = self.processor.process_match_predictions(match)
-                            results["predictions_processed"] += processed_count
-                            results["matches_processed"] += 1
+                    if not all_predictions:
+                        continue
+                    
+                    # Filter to only predictions that need processing
+                    predictions_to_process = []
+                    already_processed_count = 0
+                    
+                    for prediction in all_predictions:
+                        if prediction.prediction_status == PredictionStatus.PROCESSED:
+                            already_processed_count += 1
                         else:
-                            # Fallback to repository function
-                            processed_count = await process_match_predictions(self.db, match.fixture_id)
-                            results["predictions_processed"] += processed_count
-                            results["matches_processed"] += 1
+                            # ANY non-processed prediction gets processed
+                            predictions_to_process.append(prediction)
+                    
+                    if not predictions_to_process:
+                        if already_processed_count > 0:
+                            logger.debug(f"✅ Match {match.fixture_id} already has {already_processed_count} processed predictions")
+                        continue
+                    
+                    logger.info(f"⚽ Processing {len(predictions_to_process)} predictions for {match.home_team} vs {match.away_team}")
+                    logger.info(f"   Final Score: {match.home_score}-{match.away_score}")
+                    logger.info(f"   Match Date: {match.date}")
+                    logger.info(f"   Already Processed: {already_processed_count}")
+                    
+                    # Process each prediction
+                    processed_count = 0
+                    points_distribution = {"3_points": 0, "1_point": 0, "0_points": 0}
+                    
+                    for prediction in predictions_to_process:
+                        try:
+                            old_status = prediction.prediction_status.value
                             
+                            # Calculate points using the repository function
+                            points = calculate_points(
+                                prediction.score1,  # home prediction
+                                prediction.score2,  # away prediction
+                                match.home_score,   # actual home
+                                match.away_score    # actual away
+                            )
+                            
+                            # Update prediction regardless of original status
+                            prediction.points = points
+                            prediction.prediction_status = PredictionStatus.PROCESSED
+                            prediction.processed_at = datetime.now(timezone.utc)
+                            
+                            processed_count += 1
+                            
+                            # Track distribution
+                            if points == 3:
+                                points_distribution["3_points"] += 1
+                            elif points == 1:
+                                points_distribution["1_point"] += 1
+                            else:
+                                points_distribution["0_points"] += 1
+                            
+                            logger.info(f"     User {prediction.user_id}: {prediction.score1}-{prediction.score2} → {points} pts (was {old_status})")
+                            
+                        except Exception as e:
+                            logger.error(f"❌ Error processing prediction {prediction.id}: {e}")
+                            continue
+                    
+                    if processed_count > 0:
+                        self.db.commit()
+                        results["matches_processed"] += 1
+                        results["predictions_processed"] += processed_count
+                        
+                        logger.info(f"✅ Processed {processed_count} predictions for match {match.fixture_id}")
+                        logger.info(f"📊 Points: {points_distribution['3_points']} perfect, {points_distribution['1_point']} correct, {points_distribution['0_points']} wrong")
+                    
                 except Exception as e:
                     logger.error(f"❌ Error processing match {match.fixture_id}: {e}")
+                    self.db.rollback()
                     continue
                     
         except Exception as e:
-            logger.error(f"❌ Error in completed matches processing: {e}")
-            
+            logger.error(f"❌ Error in process_all_finished_matches: {e}")
+        
         return results
     
-    async def verify_prediction_scoring(self) -> Dict[str, Any]:
+    async def update_fixture_if_changed(self, existing_fixture: Fixture, new_data: Dict) -> bool:
         """
-        Verify that all processed predictions have correct scores
+        Update fixture only if data has actually changed
         """
-        verification_results = {
-            "total_checked": 0,
-            "inconsistencies_found": 0,
-            "corrections_made": 0
-        }
+        try:
+            changes_made = False
+            
+            # Check for changes in key fields
+            if existing_fixture.status != new_data['status']:
+                old_status = existing_fixture.status.value
+                existing_fixture.status = new_data['status']
+                changes_made = True
+                logger.info(f"📊 Status updated for {existing_fixture.home_team} vs {existing_fixture.away_team}: {old_status} → {new_data['status'].value}")
+            
+            if existing_fixture.home_score != new_data['home_score'] or existing_fixture.away_score != new_data['away_score']:
+                old_score = f"{existing_fixture.home_score}-{existing_fixture.away_score}"
+                existing_fixture.home_score = new_data['home_score']
+                existing_fixture.away_score = new_data['away_score']
+                changes_made = True
+                new_score = f"{existing_fixture.home_score}-{existing_fixture.away_score}"
+                logger.info(f"⚽ Score updated for {existing_fixture.home_team} vs {existing_fixture.away_team}: {old_score} → {new_score}")
+            
+            if changes_made:
+                existing_fixture.last_updated = datetime.now(timezone.utc)
+                self.db.commit()
+                
+            return changes_made
+            
+        except Exception as e:
+            logger.error(f"❌ Error updating fixture: {e}")
+            self.db.rollback()
+            return False
+    
+    async def verify_prediction_scoring(self) -> Dict[str, int]:
+        """
+        Verify prediction scoring consistency and fix any issues
+        """
+        results = {"total_checked": 0, "inconsistencies_found": 0, "corrections_made": 0}
         
         try:
-            # Get all processed predictions from the last 30 days
-            cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
-            
-            processed_predictions = self.db.query(UserPrediction).join(
-                Fixture, UserPrediction.fixture_id == Fixture.fixture_id
-            ).filter(
+            # Check recent processed predictions for scoring consistency
+            recent_processed = self.db.query(UserPrediction).join(Fixture).filter(
                 UserPrediction.prediction_status == PredictionStatus.PROCESSED,
-                Fixture.date >= cutoff_date,
                 Fixture.status.in_([
                     MatchStatus.FINISHED,
                     MatchStatus.FINISHED_AET,
                     MatchStatus.FINISHED_PEN
-                ])
-            ).all()
+                ]),
+                Fixture.date >= datetime.now(timezone.utc) - timedelta(days=14)
+            ).limit(50).all()  # Check last 50 processed predictions
             
-            verification_results["total_checked"] = len(processed_predictions)
-            
-            for prediction in processed_predictions:
-                fixture = prediction.fixture
+            for prediction in recent_processed:
+                results["total_checked"] += 1
                 
-                # Recalculate points
-                from ..db.repository import calculate_points
-                correct_points = calculate_points(
+                # Recalculate expected points
+                expected_points = calculate_points(
                     prediction.score1,
                     prediction.score2,
-                    fixture.home_score,
-                    fixture.away_score
+                    prediction.fixture.home_score,
+                    prediction.fixture.away_score
                 )
                 
-                # Check if points are incorrect
-                if prediction.points != correct_points:
-                    logger.warning(f"🔧 Correcting points for prediction {prediction.id}: {prediction.points} → {correct_points}")
-                    prediction.points = correct_points
-                    verification_results["inconsistencies_found"] += 1
-                    verification_results["corrections_made"] += 1
+                if prediction.points != expected_points:
+                    results["inconsistencies_found"] += 1
+                    
+                    # Fix the inconsistency
+                    old_points = prediction.points
+                    prediction.points = expected_points
+                    results["corrections_made"] += 1
+                    
+                    logger.warning(f"🔧 Fixed scoring inconsistency for user {prediction.user_id} on match {prediction.fixture_id}: {old_points} → {expected_points} pts")
             
-            if verification_results["corrections_made"] > 0:
+            if results["corrections_made"] > 0:
                 self.db.commit()
-                logger.info(f"✅ Corrected {verification_results['corrections_made']} prediction scoring inconsistencies")
+                logger.info(f"✅ Fixed {results['corrections_made']} scoring inconsistencies")
             
         except Exception as e:
-            logger.error(f"❌ Error in prediction scoring verification: {e}")
+            logger.error(f"❌ Error in verify_prediction_scoring: {e}")
             self.db.rollback()
-            
-        return verification_results
+        
+        return results
 
 # Global instance
 startup_sync_service = StartupSyncService()

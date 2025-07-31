@@ -40,50 +40,44 @@ class MatchProcessor:
             self.db.close()
     
     def get_completed_matches(self) -> List[Fixture]:
-        """Get all completed matches that need processing"""
+        """
+        Get matches that are completed and have ANY unprocessed predictions
+        STATUS AGNOSTIC: Looks for finished matches with any non-PROCESSED predictions
+        """
         try:
-            completed_statuses = [
-                MatchStatus.FINISHED,
-                MatchStatus.FINISHED_AET,
-                MatchStatus.FINISHED_PEN
-            ]
-            
-            # Get completed matches that haven't been processed yet
-            completed_matches = []
-            
-            matches = self.db.query(Fixture).filter(
-                Fixture.status.in_(completed_statuses),
+            # Get all finished matches
+            finished_matches = self.db.query(Fixture).filter(
+                Fixture.status.in_([
+                    MatchStatus.FINISHED,
+                    MatchStatus.FINISHED_AET,
+                    MatchStatus.FINISHED_PEN
+                ]),
                 Fixture.home_score.isnot(None),
                 Fixture.away_score.isnot(None)
             ).all()
             
-            logger.info(f"🔍 Found {len(matches)} completed matches in database")
+            logger.info(f"🔍 Found {len(finished_matches)} finished matches in database")
             
-            for match in matches:
-                # 🎯 CRITICAL FIX: Check for ANY unprocessed predictions
-                # This includes SUBMITTED, LOCKED, and even EDITABLE (for emergency processing)
-                unprocessed_predictions = self.db.query(UserPrediction).filter(
+            # Filter to only matches that actually need processing (status agnostic)
+            matches_needing_processing = []
+            for match in finished_matches:
+                # Count ANY non-processed predictions
+                unprocessed_count = self.db.query(UserPrediction).filter(
                     UserPrediction.fixture_id == match.fixture_id,
-                    UserPrediction.prediction_status.in_([
-                        PredictionStatus.SUBMITTED,  # Normal submitted predictions
-                        PredictionStatus.LOCKED,     # Predictions locked at kickoff
-                        PredictionStatus.EDITABLE    # Emergency: process even editable ones
-                    ])
-                ).first()
+                    UserPrediction.prediction_status != PredictionStatus.PROCESSED  # Any status except PROCESSED
+                ).count()
                 
-                if unprocessed_predictions:
-                    completed_matches.append(match)
-                    logger.debug(f"✅ Match {match.fixture_id} ({match.home_team} vs {match.away_team}) needs processing")
-                else:
-                    logger.debug(f"⏭️ Match {match.fixture_id} ({match.home_team} vs {match.away_team}) already processed")
+                if unprocessed_count > 0:
+                    matches_needing_processing.append(match)
+                    logger.info(f"📋 Match {match.fixture_id} needs processing: {unprocessed_count} unprocessed predictions")
             
-            logger.info(f"📊 Found {len(completed_matches)} completed matches needing processing")
-            audit_logger.info(f"SCAN_COMPLETED_MATCHES: found {len(completed_matches)} matches needing processing")
+            logger.info(f"📊 Found {len(matches_needing_processing)} completed matches needing processing")
+            audit_logger.info(f"SCAN_COMPLETED_MATCHES: found {len(matches_needing_processing)} matches needing processing")
             
-            return completed_matches
+            return matches_needing_processing
             
         except Exception as e:
-            logger.error(f"❌ Error getting completed matches: {e}")
+            logger.error(f"Error getting completed matches: {e}")
             audit_logger.error(f"SCAN_ERROR: {str(e)}")
             return []
     
@@ -140,37 +134,45 @@ class MatchProcessor:
             return 0
     
     def process_match_predictions(self, fixture: Fixture) -> int:
-        """Process all predictions for a completed match with detailed logging"""
+        """
+        Process all predictions for a completed match with detailed logging
+        STATUS AGNOSTIC: Processes ANY prediction that isn't already PROCESSED
+        """
         match_name = f"{fixture.home_team} vs {fixture.away_team}"
         final_score = f"{fixture.home_score}-{fixture.away_score}"
         
         try:
-            logger.info(f"🏈 Starting processing for match {fixture.fixture_id}: {match_name} (Final: {final_score})")
+            logger.info(f"🏈 Starting status-agnostic processing for match {fixture.fixture_id}: {match_name} (Final: {final_score})")
             audit_logger.info(f"PROCESS_START: fixture_id={fixture.fixture_id}, match='{match_name}', final_score='{final_score}', status='{fixture.status.value}'")
             
-            # 🎯 CRITICAL FIX: Get ALL unprocessed predictions
-            # This handles all cases: SUBMITTED, LOCKED, and even EDITABLE
+            # STATUS AGNOSTIC: Get ALL predictions that aren't already processed
             unprocessed_predictions = self.db.query(UserPrediction).filter(
                 UserPrediction.fixture_id == fixture.fixture_id,
-                UserPrediction.prediction_status.in_([
-                    PredictionStatus.SUBMITTED,  # Normal flow
-                    PredictionStatus.LOCKED,     # Locked at kickoff
-                    PredictionStatus.EDITABLE    # Emergency processing
-                ])
+                UserPrediction.prediction_status != PredictionStatus.PROCESSED  # Any status except PROCESSED
             ).all()
             
             if not unprocessed_predictions:
-                logger.warning(f"⚠️ No unprocessed predictions found for fixture {fixture.fixture_id}")
-                audit_logger.warning(f"PROCESS_NO_PREDICTIONS: fixture_id={fixture.fixture_id}, match='{match_name}'")
+                logger.info(f"✅ No unprocessed predictions found for {match_name}")
+                audit_logger.info(f"PROCESS_NO_PREDICTIONS: fixture_id={fixture.fixture_id}, match='{match_name}'")
                 return 0
             
-            logger.info(f"📊 Processing {len(unprocessed_predictions)} predictions for match {fixture.fixture_id}")
+            logger.info(f"🎯 Processing {len(unprocessed_predictions)} predictions for {match_name} (status agnostic)")
+            
+            # Show breakdown of statuses being processed
+            status_breakdown = {}
+            for pred in unprocessed_predictions:
+                status = pred.prediction_status.value
+                status_breakdown[status] = status_breakdown.get(status, 0) + 1
+            
+            logger.info(f"📊 Processing breakdown: {status_breakdown}")
             
             processed_count = 0
             points_distribution = {"0_points": 0, "1_point": 0, "3_points": 0}
             
             for prediction in unprocessed_predictions:
                 try:
+                    old_status = prediction.prediction_status.value
+                    
                     # Calculate points
                     points = calculate_points(
                         prediction.score1,
@@ -182,6 +184,7 @@ class MatchProcessor:
                     # Update prediction with points and status
                     prediction.points = points
                     prediction.prediction_status = PredictionStatus.PROCESSED
+                    prediction.processed_at = datetime.now(timezone.utc)
                     
                     # Track points distribution for logging
                     if points == 3:
@@ -193,8 +196,8 @@ class MatchProcessor:
                     
                     processed_count += 1
                     
-                    logger.debug(f"   🎯 Processed prediction {prediction.id}: {prediction.score1}-{prediction.score2} = {points} points")
-                    audit_logger.debug(f"PROCESS_PREDICTION: prediction_id={prediction.id}, user_id={prediction.user_id}, predicted='{prediction.score1}-{prediction.score2}', actual='{fixture.home_score}-{fixture.away_score}', points={points}")
+                    logger.info(f"   🎯 User {prediction.user_id}: {prediction.score1}-{prediction.score2} vs {final_score} = {points}pts (was {old_status})")
+                    audit_logger.debug(f"PROCESS_PREDICTION: prediction_id={prediction.id}, user_id={prediction.user_id}, predicted='{prediction.score1}-{prediction.score2}', actual='{fixture.home_score}-{fixture.away_score}', points={points}, old_status='{old_status}'")
                     
                 except Exception as e:
                     logger.error(f"❌ Error processing prediction {prediction.id}: {e}")
@@ -204,6 +207,7 @@ class MatchProcessor:
             self.db.commit()
             
             logger.info(f"✅ Successfully processed {processed_count} predictions for match {fixture.fixture_id}")
+            logger.info(f"📊 Points distribution: perfect_scores={points_distribution['3_points']}, correct_results={points_distribution['1_point']}, incorrect={points_distribution['0_points']}")
             audit_logger.info(f"PROCESS_SUCCESS: fixture_id={fixture.fixture_id}, match='{match_name}', predictions_processed={processed_count}, perfect_scores={points_distribution['3_points']}, correct_results={points_distribution['1_point']}, incorrect={points_distribution['0_points']}")
             
             return processed_count

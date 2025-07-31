@@ -8,9 +8,9 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
-from ..db.database import SessionLocal
-from ..db.models import Fixture, MatchStatus
-from .football_api import football_api_service
+from backend.app.db.database import SessionLocal
+from backend.app.db.models import Fixture, MatchStatus
+from backend.app.services.football_api import football_api_service
 
 logger = logging.getLogger(__name__)
 

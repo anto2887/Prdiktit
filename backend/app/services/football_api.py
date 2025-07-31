@@ -1,6 +1,6 @@
 # backend/app/services/football_api.py
 """
-Enhanced Football API Service
+Enhanced Football API Service with proper async/await handling
 
 This service provides comprehensive football data fetching capabilities
 with support for fixture synchronization and real-time updates.
@@ -20,103 +20,183 @@ class FootballAPIService:
     
     def __init__(self):
         self.api_key = settings.FOOTBALL_API_KEY
-        self.base_url = "https://api-football-v1.p.rapidapi.com/v3"
+        self.base_url = "https://v3.football.api-sports.io"  # ← Changed to correct API endpoint
         self.session = None
-        self.rate_limit_delay = 0.1  # 100ms between requests
+        self.rate_limit_delay = 0.5  # 500ms between requests (more conservative)
         self.last_request_time = None
         
-        # Headers for API requests
+        # Headers for API requests (correct format)
         self.headers = {
-            "X-RapidAPI-Key": self.api_key,
-            "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+            "x-rapidapi-key": self.api_key,                    # ← Changed from "X-RapidAPI-Key"
+            "x-rapidapi-host": "v3.football.api-sports.io"     # ← Changed the host
         }
         
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create HTTP session"""
-        if self.session is None or self.session.closed:
+        # Track if we're in a proper async context
+        self._loop = None
+        
+    async def _ensure_session(self) -> aiohttp.ClientSession:
+        """Ensure we have a valid HTTP session in the current event loop"""
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No event loop running - this shouldn't happen in async context
+            logger.error("❌ No event loop running - cannot create session")
+            raise RuntimeError("Must be called from within an async context")
+        
+        # If session doesn't exist or is closed or from different loop, create new one
+        if (self.session is None or 
+            self.session.closed or 
+            self._loop != current_loop):
+            
+            if self.session and not self.session.closed:
+                await self.session.close()
+            
+            # Create new session with proper timeout configuration
+            timeout = aiohttp.ClientTimeout(
+                total=30,        # Total timeout for the request
+                connect=10,      # Timeout for connection
+                sock_read=20     # Socket read timeout
+            )
+            
             self.session = aiohttp.ClientSession(
                 headers=self.headers,
-                timeout=aiohttp.ClientTimeout(total=30)
+                timeout=timeout,
+                connector=aiohttp.TCPConnector(
+                    limit=10,                    # Connection pool limit
+                    limit_per_host=5,           # Connections per host
+                    ttl_dns_cache=300,          # DNS cache TTL
+                    use_dns_cache=True,
+                )
             )
+            self._loop = current_loop
+            logger.debug("✅ Created new aiohttp session")
+        
         return self.session
     
     async def _make_request(self, endpoint: str, params: Dict = None) -> Dict:
-        """Make rate-limited API request"""
+        """Make rate-limited API request with proper error handling"""
+        if not self.api_key:
+            logger.error("❌ No API key configured")
+            return {}
+        
         try:
+            # Ensure we're in an async context
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                logger.error("❌ _make_request called outside async context")
+                return {}
+            
             # Rate limiting
             if self.last_request_time:
                 elapsed = (datetime.now() - self.last_request_time).total_seconds()
                 if elapsed < self.rate_limit_delay:
                     await asyncio.sleep(self.rate_limit_delay - elapsed)
             
-            session = await self._get_session()
+            session = await self._ensure_session()
             url = f"{self.base_url}/{endpoint}"
             
+            logger.debug(f"🔗 Making API request to: {endpoint}")
+            
+            # Use async context manager properly
             async with session.get(url, params=params) as response:
                 self.last_request_time = datetime.now()
                 
+                # Log response status for debugging
+                logger.debug(f"📡 API Response: {response.status} for {endpoint}")
+                
                 if response.status == 200:
-                    data = await response.json()
-                    return data
+                    try:
+                        data = await response.json()
+                        
+                        # Check for API errors in response
+                        if 'errors' in data and data['errors']:
+                            logger.error(f"❌ API returned errors: {data['errors']}")
+                            return {}
+                        
+                        return data
+                    except Exception as e:
+                        logger.error(f"❌ Error parsing JSON response: {e}")
+                        return {}
+                        
+                elif response.status == 403:
+                    logger.error(f"❌ API request failed: 403 Forbidden")
+                    logger.error(f"   Endpoint: {endpoint}")
+                    logger.error(f"   Check API key and subscription status")
+                    return {}
+                    
                 elif response.status == 429:
                     logger.warning("⚠️ Rate limit exceeded, waiting...")
                     await asyncio.sleep(60)  # Wait 1 minute for rate limit reset
-                    return await self._make_request(endpoint, params)  # Retry
-                else:
-                    logger.error(f"❌ API request failed: {response.status}")
+                    # Don't retry immediately, return empty to avoid infinite loops
                     return {}
                     
+                elif response.status >= 500:
+                    logger.error(f"❌ API server error: {response.status}")
+                    return {}
+                    
+                else:
+                    logger.error(f"❌ API request failed: {response.status}")
+                    try:
+                        error_text = await response.text()
+                        logger.error(f"   Response: {error_text[:200]}")
+                    except:
+                        pass
+                    return {}
+                    
+        except asyncio.TimeoutError:
+            logger.error(f"⏰ API request timeout for endpoint: {endpoint}")
+            return {}
         except Exception as e:
             logger.error(f"❌ Error making API request to {endpoint}: {e}")
             return {}
     
-    async def get_fixtures_by_date_range(self, start_date: str, end_date: str, league_ids: List[int] = None) -> List[Dict]:
+    async def get_fixtures_by_date_range(
+        self, 
+        from_date: datetime, 
+        to_date: datetime, 
+        league_ids: Optional[List[int]] = None
+    ) -> List[Dict]:
         """
         Get fixtures within a date range
         
         Args:
-            start_date: ISO format date string (e.g., "2024-01-01")
-            end_date: ISO format date string (e.g., "2024-01-31") 
-            league_ids: Optional list of league IDs to filter by
+            from_date: Start date (timezone-aware)
+            to_date: End date (timezone-aware)
+            league_ids: Optional list of league IDs
             
         Returns:
-            List of fixture dictionaries in standardized format
+            List of fixture dictionaries
         """
         try:
+            # Ensure we're in async context
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                logger.error("❌ get_fixtures_by_date_range called outside async context")
+                return []
+            
             all_fixtures = []
             
-            # Default leagues if none specified (adapt to your needs)
+            # Default leagues if none specified
             if not league_ids:
-                league_ids = [
-                    39,    # Premier League
-                    140,   # La Liga
-                    78,    # Bundesliga
-                    135,   # Serie A
-                    61,    # Ligue 1
-                    253,   # MLS
-                    848    # FIFA Club World Cup
-                ]
+                league_ids = [39, 140, 78, 135, 61, 253, 848]  # Major leagues
             
-            logger.info(f"📡 Fetching fixtures from {start_date} to {end_date} for {len(league_ids)} leagues")
+            # Format dates for API
+            from_str = from_date.strftime('%Y-%m-%d')
+            to_str = to_date.strftime('%Y-%m-%d')
+            
+            logger.info(f"📡 Fetching fixtures from {from_str} to {to_str} for {len(league_ids)} leagues")
             
             for league_id in league_ids:
                 try:
-                    # Convert date strings to proper format for API
-                    start_dt = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
-                    end_dt = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
-                    
-                    # API typically wants date in YYYY-MM-DD format
-                    api_start = start_dt.strftime('%Y-%m-%d')
-                    api_end = end_dt.strftime('%Y-%m-%d')
-                    
                     params = {
                         'league': league_id,
-                        'season': '2024',  # Adjust based on current season
-                        'from': api_start,
-                        'to': api_end
+                        'season': '2024',  # Current season
+                        'from': from_str,
+                        'to': to_str
                     }
                     
-                    logger.debug(f"🔍 Fetching fixtures for league {league_id}")
                     response = await self._make_request('fixtures', params)
                     
                     if response and 'response' in response:
@@ -160,6 +240,13 @@ class FootballAPIService:
             Standardized fixture dictionary or None
         """
         try:
+            # Ensure we're in async context
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                logger.error("❌ get_fixture_by_id called outside async context")
+                return None
+            
             params = {'id': fixture_id}
             response = await self._make_request('fixtures', params)
             
@@ -173,7 +260,7 @@ class FootballAPIService:
             logger.error(f"❌ Error fetching fixture {fixture_id}: {e}")
             return None
     
-    async def _standardize_fixture(self, api_fixture: Dict) -> Dict:
+    async def _standardize_fixture(self, api_fixture: Dict) -> Optional[Dict]:
         """
         Convert API fixture data to our standardized format
         
@@ -181,7 +268,7 @@ class FootballAPIService:
             api_fixture: Raw fixture data from API
             
         Returns:
-            Standardized fixture dictionary
+            Standardized fixture dictionary or None
         """
         try:
             # Extract fixture info
@@ -226,97 +313,35 @@ class FootballAPIService:
             # Build standardized fixture
             standardized = {
                 'fixture_id': fixture_info.get('id'),
-                'home_team': teams.get('home', {}).get('name', ''),
-                'away_team': teams.get('away', {}).get('name', ''),
-                'date': parsed_date.isoformat(),
-                'league': league_info.get('name', ''),
-                'season': league_info.get('season', '2024'),
-                'round': league_info.get('round', ''),
+                'date': parsed_date,
                 'status': mapped_status,
-                'home_score': goals.get('home') if goals.get('home') is not None else None,
-                'away_score': goals.get('away') if goals.get('away') is not None else None,
+                'league_id': league_info.get('id'),
+                'league_name': league_info.get('name'),
+                'home_team': teams.get('home', {}).get('name'),
+                'away_team': teams.get('away', {}).get('name'),
+                'home_team_id': teams.get('home', {}).get('id'),
+                'away_team_id': teams.get('away', {}).get('id'),
+                'home_score': goals.get('home'),
+                'away_score': goals.get('away'),
                 'venue': fixture_info.get('venue', {}).get('name'),
-                'venue_city': fixture_info.get('venue', {}).get('city'),
                 'referee': fixture_info.get('referee'),
-                'home_team_logo': teams.get('home', {}).get('logo'),
-                'away_team_logo': teams.get('away', {}).get('logo')
+                'last_updated': datetime.now(timezone.utc)
             }
+            
+            # Validate required fields
+            if not standardized['fixture_id']:
+                logger.warning("⚠️ Fixture missing ID, skipping")
+                return None
+            
+            if not standardized['home_team'] or not standardized['away_team']:
+                logger.warning(f"⚠️ Fixture {standardized['fixture_id']} missing team names, skipping")
+                return None
             
             return standardized
             
         except Exception as e:
             logger.error(f"❌ Error standardizing fixture: {e}")
             return None
-    
-    async def get_live_fixtures(self) -> List[Dict]:
-        """
-        Get all currently live fixtures
-        
-        Returns:
-            List of live fixture dictionaries
-        """
-        try:
-            params = {'live': 'all'}
-            response = await self._make_request('fixtures', params)
-            
-            live_fixtures = []
-            if response and 'response' in response:
-                for fixture_data in response['response']:
-                    standardized = await self._standardize_fixture(fixture_data)
-                    if standardized:
-                        live_fixtures.append(standardized)
-            
-            return live_fixtures
-            
-        except Exception as e:
-            logger.error(f"❌ Error fetching live fixtures: {e}")
-            return []
-    
-    async def get_fixtures_by_status(self, status: str, league_ids: List[int] = None) -> List[Dict]:
-        """
-        Get fixtures by status (e.g., 'FT' for finished)
-        
-        Args:
-            status: API status code (FT, NS, LIVE, etc.)
-            league_ids: Optional list of league IDs
-            
-        Returns:
-            List of fixture dictionaries
-        """
-        try:
-            all_fixtures = []
-            
-            # Default leagues if none specified
-            if not league_ids:
-                league_ids = [39, 140, 78, 135, 61, 253, 848]
-            
-            for league_id in league_ids:
-                try:
-                    params = {
-                        'league': league_id,
-                        'season': '2024',
-                        'status': status
-                    }
-                    
-                    response = await self._make_request('fixtures', params)
-                    
-                    if response and 'response' in response:
-                        for fixture_data in response['response']:
-                            standardized = await self._standardize_fixture(fixture_data)
-                            if standardized:
-                                all_fixtures.append(standardized)
-                    
-                    await asyncio.sleep(self.rate_limit_delay)
-                    
-                except Exception as e:
-                    logger.error(f"❌ Error fetching {status} fixtures for league {league_id}: {e}")
-                    continue
-            
-            return all_fixtures
-            
-        except Exception as e:
-            logger.error(f"❌ Error in get_fixtures_by_status: {e}")
-            return []
     
     async def test_api_connection(self) -> bool:
         """
@@ -326,6 +351,13 @@ class FootballAPIService:
             True if connection successful, False otherwise
         """
         try:
+            # Ensure we're in async context
+            try:
+                asyncio.get_running_loop()
+            except RuntimeError:
+                logger.error("❌ test_api_connection called outside async context")
+                return False
+            
             logger.info("🔗 Testing API connection...")
             
             # Test with a simple timezone request
@@ -346,6 +378,8 @@ class FootballAPIService:
         """Close the HTTP session"""
         if self.session and not self.session.closed:
             await self.session.close()
+            self.session = None
+            self._loop = None
             logger.info("✅ Football API session closed")
 
 # Global instance
