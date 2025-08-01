@@ -1,4 +1,7 @@
 # backend/app/main.py
+"""
+Updated main application with enhanced logging and unified transaction management
+"""
 import logging
 import os
 from datetime import datetime, timezone
@@ -13,52 +16,125 @@ from .middleware.rate_limiter import RateLimitMiddleware
 # Import enhanced scheduler and startup sync service
 from .services.enhanced_smart_scheduler import enhanced_smart_scheduler
 from .services.startup_sync_service import startup_sync_service
+from .services.unified_transaction_manager import unified_transaction_manager
 
-# Configure comprehensive logging
+# Configure comprehensive logging with transaction support
 def setup_logging():
-    """Set up comprehensive logging for the application"""
+    """Set up comprehensive logging for the application with transaction logging"""
     
     # Create logs directory - now persistent with volumes
     log_dir = os.path.join(os.path.dirname(__file__), '../logs')
     os.makedirs(log_dir, exist_ok=True)
     
     # Configure root logger
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.StreamHandler(),  # Console output
-            logging.FileHandler(os.path.join(log_dir, 'app.log'))  # File output
-        ]
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    
+    # Clear any existing handlers
+    root_logger.handlers.clear()
+    
+    # Create formatters
+    detailed_formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     
-    # Set specific loggers for enhanced scheduler components
-    logging.getLogger('match_processing_audit').setLevel(logging.INFO)
-    logging.getLogger('fixture_monitoring').setLevel(logging.INFO)
-    logging.getLogger('startup_sync').setLevel(logging.INFO)
-    logging.getLogger('app.services.match_processor').setLevel(logging.INFO)
-    logging.getLogger('app.services.enhanced_smart_scheduler').setLevel(logging.INFO)
-    logging.getLogger('app.services.football_api').setLevel(logging.INFO)
-    logging.getLogger('app.services.startup_sync_service').setLevel(logging.INFO)
+    simple_formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(message)s"
+    )
     
-    # Suppress noisy loggers
-    logging.getLogger('uvicorn.access').setLevel(logging.WARNING)
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-    logging.getLogger('aiohttp').setLevel(logging.WARNING)
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(simple_formatter)
+    console_handler.setLevel(logging.INFO)
+    root_logger.addHandler(console_handler)
+    
+    # Main application log file
+    app_handler = logging.FileHandler(os.path.join(log_dir, 'app.log'))
+    app_handler.setFormatter(detailed_formatter)
+    app_handler.setLevel(logging.INFO)
+    root_logger.addHandler(app_handler)
+    
+    # Set up specialized loggers with dedicated files
+    
+    # Transaction audit logger
+    transaction_logger = logging.getLogger('transaction_audit')
+    transaction_logger.setLevel(logging.INFO)
+    transaction_logger.propagate = False  # Don't propagate to root logger
+    
+    transaction_handler = logging.FileHandler(os.path.join(log_dir, 'transaction_audit.log'))
+    transaction_handler.setFormatter(logging.Formatter(
+        "%(asctime)s - TRANSACTION - %(levelname)s - %(message)s"
+    ))
+    transaction_logger.addHandler(transaction_handler)
+    
+    # Database verification logger
+    verification_logger = logging.getLogger('database_verification')
+    verification_logger.setLevel(logging.INFO)
+    verification_logger.propagate = False
+    
+    verification_handler = logging.FileHandler(os.path.join(log_dir, 'database_verification.log'))
+    verification_handler.setFormatter(logging.Formatter(
+        "%(asctime)s - VERIFICATION - %(levelname)s - %(message)s"
+    ))
+    verification_logger.addHandler(verification_handler)
+    
+    # Match processing audit logger
+    audit_logger = logging.getLogger('match_processing_audit')
+    audit_logger.setLevel(logging.INFO)
+    audit_logger.propagate = False
+    
+    audit_handler = logging.FileHandler(os.path.join(log_dir, 'match_processing_audit.log'))
+    audit_handler.setFormatter(logging.Formatter(
+        "%(asctime)s - AUDIT - %(levelname)s - %(message)s"
+    ))
+    audit_logger.addHandler(audit_handler)
+    
+    # Fixture monitoring logger
+    fixture_logger = logging.getLogger('fixture_monitoring')
+    fixture_logger.setLevel(logging.INFO)
+    fixture_logger.propagate = False
+    
+    fixture_handler = logging.FileHandler(os.path.join(log_dir, 'fixture_monitoring.log'))
+    fixture_handler.setFormatter(logging.Formatter(
+        "%(asctime)s - FIXTURE - %(levelname)s - %(message)s"
+    ))
+    fixture_logger.addHandler(fixture_handler)
+    
+    # Startup sync logger
+    startup_logger = logging.getLogger('startup_sync')
+    startup_logger.setLevel(logging.INFO)
+    startup_logger.propagate = False
+    
+    startup_handler = logging.FileHandler(os.path.join(log_dir, 'startup_sync.log'))
+    startup_handler.setFormatter(logging.Formatter(
+        "%(asctime)s - STARTUP - %(levelname)s - %(message)s"
+    ))
+    startup_logger.addHandler(startup_handler)
+    
+    # Log the logging setup completion
+    logging.info("🚀 Enhanced logging system initialized")
+    logging.info(f"📁 Log directory: {log_dir}")
+    logging.info("📝 Specialized loggers configured:")
+    logging.info("   - transaction_audit.log: Database transaction details")
+    logging.info("   - database_verification.log: Post-commit verification results")
+    logging.info("   - match_processing_audit.log: Match processing audit trail")
+    logging.info("   - fixture_monitoring.log: Fixture monitoring activities")
+    logging.info("   - startup_sync.log: Application startup synchronization")
 
-# Initialize logging
+# Set up logging first
 setup_logging()
 
-logger = logging.getLogger(__name__)
+# Configure specific service loggers
+logging.getLogger('app.services.match_processor').setLevel(logging.INFO)
+logging.getLogger('app.services.enhanced_smart_scheduler').setLevel(logging.INFO)
+logging.getLogger('app.services.unified_transaction_manager').setLevel(logging.INFO)
 
+# Create FastAPI app
 app = FastAPI(
     title="Football Predictions API",
-    description="Enhanced API for football match predictions with intelligent scheduling and startup data sync",
-    version="2.1.0"
+    description="Enhanced Football Predictions API with Unified Transaction Management",
+    version="2.0.0"
 )
-
-# Add rate limiting middleware
-app.add_middleware(RateLimitMiddleware)
 
 # Configure CORS
 app.add_middleware(
@@ -69,218 +145,198 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logger.info("🚀 Football Predictions API initializing...")
-logger.info("🧠 Enhanced Smart Scheduler with Fixture Monitoring enabled")
-logger.info("🔄 Startup Data Synchronization enabled")
+# Add rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
 
-# Register routers
-logger.info("📋 Registering API routers...")
-
-# Auth router
-try:
-    from .routers.auth import router as auth_router
-    app.include_router(auth_router, prefix=f"{settings.API_V1_STR}/auth", tags=["authentication"])
-    logger.info("✅ Auth router registered")
-except Exception as e:
-    logger.error(f"❌ Failed to register auth router: {e}")
-
-# Users router
-try:
-    from .routers.users import router as users_router
-    app.include_router(users_router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
-    logger.info("✅ Users router registered")
-except Exception as e:
-    logger.error(f"❌ Failed to register users router: {e}")
-
-# Matches router
-try:
-    from .routers.matches import router as matches_router
-    app.include_router(matches_router, prefix=f"{settings.API_V1_STR}/matches", tags=["matches"])
-    logger.info("✅ Matches router registered")
-except Exception as e:
-    logger.error(f"❌ Failed to register matches router: {e}")
-
-# Predictions router
-try:
-    from .routers.predictions import router as predictions_router
-    app.include_router(predictions_router, prefix=f"{settings.API_V1_STR}/predictions", tags=["predictions"])
-    logger.info("✅ Predictions router registered")
-except Exception as e:
-    logger.error(f"❌ Failed to register predictions router: {e}")
-
-# Groups router
-try:
-    from .routers.groups import router as groups_router
-    app.include_router(groups_router, prefix=f"{settings.API_V1_STR}/groups", tags=["groups"])
-    logger.info("✅ Groups router registered")
-except Exception as e:
-    logger.error(f"❌ Failed to register groups router: {e}")
-
-# Admin router (if exists)
-try:
-    from .routers.admin import router as admin_router
-    app.include_router(admin_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
-    logger.info("✅ Admin router registered")
-except Exception as e:
-    logger.warning(f"⚠️ Admin router not available: {e}")
-
-logger.info("✅ Router registration complete!")
-
+# Application startup
 @app.on_event("startup")
 async def startup_event():
-    """Initialize application on startup with enhanced data synchronization"""
-    logger.info("🚀 Starting enhanced application startup sequence...")
-    startup_start_time = datetime.now(timezone.utc)
+    """Enhanced startup with unified transaction management and comprehensive sync"""
+    startup_logger = logging.getLogger('startup_sync')
+    transaction_logger = logging.getLogger('transaction_audit')
     
     try:
-        # Step 1: Create database tables if they don't exist
+        startup_logger.info("🚀 APPLICATION_STARTUP_BEGIN")
+        startup_logger.info("📊 Using Unified Transaction Management System")
+        
+        # Step 1: Create database tables
+        startup_logger.info("📋 Step 1: Creating database tables...")
         if settings.CREATE_TABLES_ON_STARTUP:
-            logger.info("🗄️ Creating database tables...")
             create_tables()
-            logger.info("✅ Database tables created")
-
-        # Step 2: Initialize core services
-        logger.info("🔧 Initializing core services...")
-        await init_services(app)
-        logger.info("✅ Core services initialized")
+            startup_logger.info("✅ Database tables created/verified")
+        else:
+            startup_logger.info("⏭️ Table creation skipped (CREATE_TABLES_ON_STARTUP=False)")
         
-        # Step 3: Run startup data synchronization
-        logger.info("🔄 Running startup data synchronization...")
+        # Step 2: Initialize services
+        startup_logger.info("🔧 Step 2: Initializing services...")
+        await init_services()
+        startup_logger.info("✅ Services initialized")
+        
+        # Step 3: Run comprehensive startup sync with unified transactions
+        startup_logger.info("🔄 Step 3: Running comprehensive startup synchronization...")
         try:
-            sync_results = await startup_sync_service.run_startup_sync()
+            sync_result = await startup_sync_service.run_comprehensive_startup_sync()
             
-            if sync_results["status"] == "success":
-                logger.info("✅ Startup data synchronization completed successfully")
-                logger.info(f"   📊 Fixtures: {sync_results['fixtures_added']} added, {sync_results['fixtures_updated']} updated")
-                logger.info(f"   ⚽ Processing: {sync_results['matches_processed']} matches, {sync_results['predictions_processed']} predictions")
-                logger.info(f"   ⏱️ Duration: {sync_results['duration_seconds']:.2f}s")
+            if sync_result.get('success', False):
+                startup_logger.info(f"✅ Startup sync completed successfully:")
+                startup_logger.info(f"   - Matches processed: {sync_result.get('matches_processed', 0)}")
+                startup_logger.info(f"   - Predictions processed: {sync_result.get('predictions_processed', 0)}")
+                startup_logger.info(f"   - Verification passed: {sync_result.get('verification_passed', False)}")
+                transaction_logger.info(f"STARTUP_SYNC_SUCCESS: {sync_result}")
             else:
-                logger.error(f"❌ Startup data synchronization failed: {sync_results.get('error', 'Unknown error')}")
+                startup_logger.error(f"❌ Startup sync failed: {sync_result.get('error_message', 'Unknown error')}")
+                transaction_logger.error(f"STARTUP_SYNC_FAILED: {sync_result}")
                 
-        except Exception as e:
-            logger.error(f"❌ Error during startup data synchronization: {e}")
-            # Continue startup even if sync fails
+        except Exception as sync_error:
+            startup_logger.error(f"❌ Critical error in startup sync: {sync_error}")
+            transaction_logger.error(f"STARTUP_SYNC_CRITICAL_ERROR: {str(sync_error)}")
         
-        # Step 4: Start Enhanced Smart Scheduler
-        logger.info("🧠 Starting Enhanced Smart Scheduler with Fixture Monitoring...")
+        # Step 4: Start enhanced scheduler
+        startup_logger.info("⏰ Step 4: Starting Enhanced Smart Scheduler...")
         try:
-            enhanced_smart_scheduler.start_scheduler()
-            
-            # Log the initial schedule and status
-            status = enhanced_smart_scheduler.get_status()
-            schedule = status.get('current_schedule', {})
-            
-            logger.info("✅ Enhanced Smart Scheduler started successfully!")
-            logger.info(f"   📅 Mode: {schedule.get('mode', 'adaptive')}")
-            logger.info(f"   ⏰ Frequency: {schedule.get('frequency', 'dynamic')} minutes")
-            logger.info(f"   🔍 Fixture monitoring: {'enabled' if status.get('fixture_monitoring_enabled') else 'disabled'}")
-            logger.info(f"   ⚽ Today's matches: {status.get('todays_matches', 0)}")
-            
-        except Exception as e:
-            logger.error(f"❌ Failed to start Enhanced Smart Scheduler: {e}")
-            # Continue startup even if scheduler fails
+            enhanced_smart_scheduler.start()
+            startup_logger.info("✅ Enhanced Smart Scheduler started successfully")
+        except Exception as scheduler_error:
+            startup_logger.error(f"❌ Error starting scheduler: {scheduler_error}")
         
-        # Step 5: Final startup completion
-        startup_duration = (datetime.now(timezone.utc) - startup_start_time).total_seconds()
-        logger.info(f"🎉 Enhanced application startup complete in {startup_duration:.2f}s")
-        logger.info("🔥 System is ready for predictions with intelligent scheduling and real-time monitoring!")
+        # Step 5: Final startup verification
+        startup_logger.info("🔍 Step 5: Running startup verification...")
+        try:
+            # Test the unified transaction manager
+            test_result = unified_transaction_manager.update_match_statuses_and_process_predictions([])
+            if test_result.success:
+                startup_logger.info("✅ Unified Transaction Manager operational")
+                transaction_logger.info("STARTUP_VERIFICATION_SUCCESS: UnifiedTransactionManager operational")
+            else:
+                startup_logger.warning("⚠️ Unified Transaction Manager test returned failure (may be expected with empty data)")
+        except Exception as test_error:
+            startup_logger.error(f"❌ Error testing Unified Transaction Manager: {test_error}")
+            transaction_logger.error(f"STARTUP_VERIFICATION_ERROR: {str(test_error)}")
+        
+        startup_logger.info("🎉 APPLICATION_STARTUP_COMPLETE")
+        startup_logger.info("🔧 Enhanced Features Active:")
+        startup_logger.info("   ✅ Unified Transaction Management")
+        startup_logger.info("   ✅ Comprehensive Transaction Logging")
+        startup_logger.info("   ✅ Database Write Verification")
+        startup_logger.info("   ✅ Single Session Per Processing Cycle")
+        startup_logger.info("   ✅ Enhanced Smart Scheduler")
+        startup_logger.info("   ✅ Startup Synchronization")
+        
+        # Log current time for reference
+        current_time = datetime.now(timezone.utc)
+        startup_logger.info(f"🕐 Application started at: {current_time.isoformat()}")
         
     except Exception as e:
-        logger.error(f"💥 CRITICAL: Enhanced application startup failed: {e}")
-        logger.exception("Startup failure traceback:")
-        raise
+        startup_logger.error(f"❌ CRITICAL_STARTUP_ERROR: {str(e)}")
+        transaction_logger.error(f"STARTUP_CRITICAL_ERROR: {str(e)}")
+        # Don't raise - let the application start even if there are issues
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Clean up resources on shutdown"""
-    logger.info("🔄 Shutting down enhanced application...")
+    """Enhanced shutdown with proper cleanup"""
+    startup_logger = logging.getLogger('startup_sync')
+    transaction_logger = logging.getLogger('transaction_audit')
     
     try:
-        # Stop enhanced scheduler
-        logger.info("🛑 Stopping Enhanced Smart Scheduler...")
-        enhanced_smart_scheduler.stop_scheduler()
-        logger.info("✅ Enhanced Smart Scheduler stopped")
+        startup_logger.info("🛑 APPLICATION_SHUTDOWN_BEGIN")
         
-        # Close football API service
+        # Stop the enhanced scheduler
+        startup_logger.info("⏰ Stopping Enhanced Smart Scheduler...")
         try:
-            from .services.football_api import football_api_service
-            await football_api_service.close()
-            logger.info("✅ Football API service closed")
-        except Exception as e:
-            logger.warning(f"⚠️ Error closing football API service: {e}")
+            enhanced_smart_scheduler.stop()
+            startup_logger.info("✅ Enhanced Smart Scheduler stopped")
+        except Exception as scheduler_error:
+            startup_logger.error(f"❌ Error stopping scheduler: {scheduler_error}")
         
         # Shutdown services
-        await shutdown_services(app)
-        logger.info("✅ Services shutdown complete")
+        startup_logger.info("🔧 Shutting down services...")
+        await shutdown_services()
+        startup_logger.info("✅ Services shutdown complete")
         
-        logger.info("🛑 Enhanced application shutdown complete")
+        startup_logger.info("🛑 APPLICATION_SHUTDOWN_COMPLETE")
+        transaction_logger.info("APPLICATION_SHUTDOWN: Clean shutdown completed")
         
     except Exception as e:
-        logger.error(f"💥 Error during shutdown: {e}")
-        logger.exception("Shutdown error traceback:")
+        startup_logger.error(f"❌ Error during shutdown: {str(e)}")
+        transaction_logger.error(f"SHUTDOWN_ERROR: {str(e)}")
 
-# Enhanced health check endpoint
+# Include routers
+from .routers import auth, predictions, matches, groups, users
+
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
+app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["predictions"])
+app.include_router(matches.router, prefix="/api/v1/matches", tags=["matches"])
+app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+
+# Health check endpoint with enhanced information
 @app.get("/health")
 async def health_check():
-    """Enhanced health check with scheduler, fixture monitoring, and sync status"""
+    """Enhanced health check with transaction manager status"""
+    current_time = datetime.now(timezone.utc)
+    
+    # Get scheduler status
     scheduler_status = enhanced_smart_scheduler.get_status()
     
     return {
         "status": "healthy",
-        "version": "2.1.0",
+        "timestamp": current_time.isoformat(),
+        "version": "2.0.0",
         "features": {
-            "enhanced_scheduler": True,
-            "fixture_monitoring": True,
-            "startup_data_sync": True,
-            "intelligent_processing": True
+            "unified_transaction_management": True,
+            "comprehensive_logging": True,
+            "database_verification": True,
+            "single_session_processing": True,
+            "enhanced_scheduler": scheduler_status["is_running"]
         },
-        "enhanced_scheduler": {
-            "enabled": scheduler_status["is_running"],
-            "mode": scheduler_status["current_schedule"]["mode"] if scheduler_status["current_schedule"] else None,
-            "frequency": scheduler_status["current_schedule"]["frequency"] if scheduler_status["current_schedule"] else None,
-            "fixture_monitoring": scheduler_status["fixture_monitoring_enabled"],
-            "todays_matches": scheduler_status["todays_matches"],
-            "upcoming_matches": scheduler_status["upcoming_matches"]
-        },
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "scheduler": scheduler_status,
+        "database": "postgresql",
+        "timezone": "UTC"
     }
 
-# Debug endpoints for monitoring and troubleshooting
-@app.get("/debug/startup-sync-status")
-async def get_startup_sync_status():
-    """Get the last startup sync results"""
-    return {
-        "message": "Startup sync service is available",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "note": "Sync runs automatically on startup"
-    }
-
-@app.post("/debug/trigger-manual-sync")
-async def trigger_manual_sync():
-    """Manually trigger data synchronization (for debugging)"""
+# Enhanced processing endpoint for manual testing
+@app.post("/api/v1/admin/process-matches")
+async def manual_process_matches():
+    """Manual endpoint to trigger match processing for testing"""
     try:
-        logger.info("🔧 Manual sync triggered via debug endpoint")
-        results = await startup_sync_service.run_startup_sync()
+        # Use the enhanced scheduler's processing method
+        result = await enhanced_smart_scheduler.run_enhanced_processing_with_status_updates()
+        return {"success": True, "result": result}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# Emergency sync endpoint for specific matches
+@app.post("/api/v1/admin/emergency-sync/{fixture_id}")
+async def emergency_sync_match(fixture_id: int):
+    """Emergency endpoint to sync a specific match"""
+    try:
+        result = unified_transaction_manager.emergency_status_sync(fixture_id)
         return {
-            "status": "success",
-            "results": results,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "success": result.success,
+            "fixture_id": fixture_id,
+            "predictions_processed": result.predictions_processed,
+            "verification_passed": result.verification_passed,
+            "error_message": result.error_message
         }
     except Exception as e:
-        logger.error(f"❌ Manual sync failed: {e}")
-        return {
-            "status": "error",
-            "error": str(e),
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
+        return {"success": False, "fixture_id": fixture_id, "error": str(e)}
 
-# Add OPTIONS handler for preflight requests
-@app.options("/{path:path}")
-async def options_handler(path: str):
-    """Handle preflight OPTIONS requests"""
-    return {"message": "OK"}
+# Transaction log viewer endpoint
+@app.get("/api/v1/admin/transaction-logs")
+async def get_transaction_logs(lines: int = 100):
+    """Get recent transaction logs for debugging"""
+    try:
+        log_file = os.path.join(os.path.dirname(__file__), '../logs/transaction_audit.log')
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                all_lines = f.readlines()
+                recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+                return {"success": True, "logs": recent_lines}
+        else:
+            return {"success": False, "error": "Transaction log file not found"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
-# For local development
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

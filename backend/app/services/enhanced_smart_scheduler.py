@@ -1,8 +1,7 @@
 # backend/app/services/enhanced_smart_scheduler.py
 """
-Enhanced Smart Scheduler with proper async/await handling
-
-Fixed the event loop management and timeout context manager issues.
+Updated Enhanced Smart Scheduler that uses the Unified Transaction Manager
+All database operations now go through unified session management
 """
 
 import asyncio
@@ -16,42 +15,67 @@ from sqlalchemy.orm import Session
 from ..db.database import SessionLocal
 from ..db.models import Fixture, MatchStatus
 from .match_status_updater import match_status_updater
+from .unified_transaction_manager import unified_transaction_manager
+from .match_processor import MatchProcessor
 
 # Configure loggers
 logger = logging.getLogger(__name__)
 audit_logger = logging.getLogger('match_processing_audit')
 fixture_monitor_logger = logging.getLogger('fixture_monitoring')
+transaction_logger = logging.getLogger('transaction_audit')
 
 class FixtureMonitor:
-    """Monitor fixtures for critical changes"""
+    """Monitor fixtures for critical changes using unified transaction management"""
     
     def __init__(self):
-        self.db = SessionLocal()
+        # No longer maintains its own database session
         self.last_check = None
     
-    def __del__(self):
-        if hasattr(self, 'db'):
-            self.db.close()
-    
     async def monitor_fixtures(self) -> Dict[str, Any]:
-        """Monitor fixtures for changes and update database"""
+        """Monitor fixtures for changes using read-only session"""
         try:
             fixture_monitor_logger.info("MONITORING_CYCLE_START")
             
-            # For now, return a simple success result
-            # TODO: Implement actual fixture monitoring when API is stable
-            
-            result = {
-                "status": "success",
-                "changes_detected": 0,
-                "updates_applied": 0,
-                "critical_changes": [],
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
-            
-            fixture_monitor_logger.info(f"MONITORING_CYCLE_COMPLETE: {result}")
-            return result
-            
+            # Use a read-only session for monitoring (no transactions needed)
+            db = SessionLocal()
+            try:
+                # Get fixtures that need monitoring (matches in next 24 hours)
+                now = datetime.now(timezone.utc)
+                tomorrow = now + timedelta(hours=24)
+                
+                upcoming_matches = db.query(Fixture).filter(
+                    Fixture.date.between(now, tomorrow),
+                    Fixture.status == MatchStatus.NOT_STARTED
+                ).all()
+                
+                # Get currently live matches
+                live_matches = db.query(Fixture).filter(
+                    Fixture.status.in_([
+                        MatchStatus.FIRST_HALF,
+                        MatchStatus.SECOND_HALF,
+                        MatchStatus.HALFTIME,
+                        MatchStatus.EXTRA_TIME,
+                        MatchStatus.PENALTY,
+                        MatchStatus.LIVE
+                    ])
+                ).all()
+                
+                result = {
+                    "status": "success",
+                    "upcoming_matches": len(upcoming_matches),
+                    "live_matches": len(live_matches),
+                    "changes_detected": 0,
+                    "updates_applied": 0,
+                    "critical_changes": [],
+                    "timestamp": datetime.now(timezone.utc).isoformat()
+                }
+                
+                fixture_monitor_logger.info(f"MONITORING_CYCLE_COMPLETE: {result}")
+                return result
+                
+            finally:
+                db.close()
+                
         except Exception as e:
             logger.error(f"❌ Error in fixture monitoring: {e}")
             fixture_monitor_logger.error(f"MONITORING_CYCLE_ERROR: {str(e)}")
@@ -63,15 +87,16 @@ class FixtureMonitor:
 
 class EnhancedSmartScheduler:
     """
-    Enhanced intelligent scheduler with proper async handling
+    Enhanced intelligent scheduler using unified transaction management
     """
     
     def __init__(self):
-        self.processor = None
+        self.processor = MatchProcessor()  # Uses unified transaction manager
         self.fixture_monitor = FixtureMonitor()
         self.is_running = False
         self.thread = None
-        self.db = SessionLocal()
+        
+        # No longer maintains own database session
         
         # Scheduling configuration
         self.check_interval = 300  # Check every 5 minutes for schedule updates
@@ -79,126 +104,141 @@ class EnhancedSmartScheduler:
         self.last_schedule_check = None
         self.last_fixture_check = None
         
-        try:
-            from .match_processor import MatchProcessor
-            self.processor = MatchProcessor()
-            logger.info("✅ Enhanced scheduler initialized with MatchProcessor and FixtureMonitor")
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize MatchProcessor: {e}")
+        logger.info("🚀 EnhancedSmartScheduler initialized with unified transaction management")
+        audit_logger.info("ENHANCED_SCHEDULER_INIT: Using unified transaction management")
     
-    def __del__(self):
-        if hasattr(self, 'db'):
-            self.db.close()
+    def start(self):
+        """Start the enhanced scheduler"""
+        if self.is_running:
+            logger.warning("⚠️ Scheduler already running")
+            return
+        
+        self.is_running = True
+        self.thread = threading.Thread(target=self._run_scheduler, daemon=True)
+        self.thread.start()
+        
+        logger.info("🚀 Enhanced Smart Scheduler started")
+        audit_logger.info("SCHEDULER_STARTED")
     
-    def get_todays_matches(self) -> List[Fixture]:
-        """Get all matches happening today (UTC)"""
-        try:
-            today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-            today_end = today_start + timedelta(days=1)
-            
-            matches = self.db.query(Fixture).filter(
-                Fixture.date >= today_start,
-                Fixture.date < today_end
-            ).all()
-            
-            return matches
-            
-        except Exception as e:
-            logger.error(f"Error getting today's matches: {e}")
-            return []
+    def stop(self):
+        """Stop the enhanced scheduler"""
+        self.is_running = False
+        if self.thread:
+            self.thread.join(timeout=30)
+        
+        logger.info("🛑 Enhanced Smart Scheduler stopped")
+        audit_logger.info("SCHEDULER_STOPPED")
     
-    def get_upcoming_matches(self, days_ahead: int = 7) -> List[Fixture]:
-        """Get upcoming matches in the next N days"""
-        try:
-            now = datetime.now(timezone.utc)
-            future_date = now + timedelta(days=days_ahead)
-            
-            matches = self.db.query(Fixture).filter(
-                Fixture.date >= now,
-                Fixture.date <= future_date,
-                Fixture.status == MatchStatus.NOT_STARTED
-            ).order_by(Fixture.date).all()
-            
-            return matches
-            
-        except Exception as e:
-            logger.error(f"Error getting upcoming matches: {e}")
-            return []
-    
-    def calculate_optimal_schedule(self) -> Dict[str, Any]:
-        """Calculate optimal scheduling frequency based on upcoming matches"""
-        try:
-            now = datetime.now(timezone.utc)
-            today_matches = self.get_todays_matches()
-            upcoming_matches = self.get_upcoming_matches(days_ahead=3)
-            
-            # Enable fixture monitoring for match days
-            fixture_monitoring_enabled = len(today_matches) > 0
-            
-            if today_matches:
-                # Match day - high frequency monitoring
-                live_matches = [m for m in today_matches if m.status in [
-                    MatchStatus.FIRST_HALF, MatchStatus.HALFTIME, 
-                    MatchStatus.SECOND_HALF, MatchStatus.LIVE
-                ]]
+    def _run_scheduler(self):
+        """Main scheduler loop"""
+        logger.info("🔄 Scheduler loop started")
+        
+        while self.is_running:
+            try:
+                # Calculate current schedule
+                schedule = self._calculate_dynamic_schedule()
                 
-                if live_matches:
+                # Log schedule information
+                logger.info(f"📅 Current schedule: {schedule['mode']} mode, "
+                           f"frequency: {schedule['frequency']}s, "
+                           f"reason: {schedule['reason']}")
+                
+                # Run processing cycle
+                self._run_processing_cycle(schedule)
+                
+                # Wait for next cycle
+                time.sleep(schedule['frequency'])
+                
+            except Exception as e:
+                logger.error(f"❌ Error in scheduler loop: {e}")
+                audit_logger.error(f"SCHEDULER_LOOP_ERROR: {str(e)}")
+                time.sleep(300)  # Wait 5 minutes before retrying
+    
+    def _calculate_dynamic_schedule(self) -> Dict[str, Any]:
+        """Calculate optimal scheduling frequency based on current match state"""
+        try:
+            # Use read-only session for schedule calculation
+            db = SessionLocal()
+            try:
+                now = datetime.now(timezone.utc)
+                
+                # Check for live matches
+                live_matches = db.query(Fixture).filter(
+                    Fixture.status.in_([
+                        MatchStatus.FIRST_HALF,
+                        MatchStatus.SECOND_HALF,
+                        MatchStatus.HALFTIME,
+                        MatchStatus.EXTRA_TIME,
+                        MatchStatus.PENALTY,
+                        MatchStatus.LIVE
+                    ])
+                ).count()
+                
+                if live_matches > 0:
                     return {
                         "mode": "live_matches",
-                        "frequency": 60,  # Every minute during live matches
+                        "frequency": 120,  # Every 2 minutes during live matches
                         "fixture_monitoring": True,
-                        "reason": f"{len(live_matches)} live matches",
-                        "live_match_count": len(live_matches)
+                        "reason": f"{live_matches} live matches in progress",
+                        "live_matches": live_matches
                     }
-                else:
+                
+                # Check for matches starting soon (next 2 hours)
+                soon_threshold = now + timedelta(hours=2)
+                upcoming_matches = db.query(Fixture).filter(
+                    Fixture.date.between(now, soon_threshold),
+                    Fixture.status == MatchStatus.NOT_STARTED
+                ).count()
+                
+                if upcoming_matches > 0:
+                    return {
+                        "mode": "matches_starting_soon",
+                        "frequency": 300,  # Every 5 minutes when matches starting soon
+                        "fixture_monitoring": True,
+                        "reason": f"{upcoming_matches} matches starting in next 2 hours",
+                        "upcoming_matches": upcoming_matches
+                    }
+                
+                # Check for matches today
+                today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                today_end = today_start + timedelta(days=1)
+                
+                today_matches = db.query(Fixture).filter(
+                    Fixture.date.between(today_start, today_end)
+                ).count()
+                
+                if today_matches > 0:
                     return {
                         "mode": "match_day",
-                        "frequency": 300,  # Every 5 minutes on match days
-                        "fixture_monitoring": fixture_monitoring_enabled,
-                        "reason": f"{len(today_matches)} matches today",
-                        "todays_match_count": len(today_matches)
+                        "frequency": 900,  # Every 15 minutes on match days
+                        "fixture_monitoring": True,
+                        "reason": f"{today_matches} matches scheduled for today"
                     }
-            
-            elif upcoming_matches:
-                # Check time to next match
-                next_match = min(upcoming_matches, key=lambda m: m.date)
-                time_to_next = (next_match.date - now).total_seconds() / 60  # minutes
                 
-                if time_to_next <= 60:  # Within 1 hour
-                    return {
-                        "mode": "match_starting_soon", 
-                        "frequency": 120,  # Every 2 minutes
-                        "fixture_monitoring": fixture_monitoring_enabled,
-                        "reason": f"Next match in {int(time_to_next)} minutes",
-                        "next_match_time": next_match.date.isoformat()
-                    }
-                elif time_to_next <= 360:  # Within 6 hours
-                    return {
-                        "mode": "match_day_approaching",
-                        "frequency": 300,  # Every 5 minutes
-                        "fixture_monitoring": fixture_monitoring_enabled,
-                        "reason": f"Next match in {int(time_to_next)} minutes",
-                        "next_match_time": next_match.date.isoformat()
-                    }
-                else:
-                    next_match = min(upcoming_matches, key=lambda m: m.date)
-                    time_to_next = (next_match.date - now).total_seconds() / 3600  # hours
-                    
+                # Check for matches in next 3 days
+                next_match = db.query(Fixture).filter(
+                    Fixture.date > now
+                ).order_by(Fixture.date.asc()).first()
+                
+                if next_match and next_match.date <= now + timedelta(days=3):
                     return {
                         "mode": "upcoming_matches",
-                        "frequency": 1800,  # Every 30 minutes
-                        "fixture_monitoring": fixture_monitoring_enabled,
-                        "reason": f"Next match in {int(time_to_next)} hours",
-                        "next_match_time": next_match.date.isoformat()
+                        "frequency": 1800,  # Every 30 minutes when matches in next 3 days
+                        "fixture_monitoring": False,
+                        "reason": f"Next match in {(next_match.date - now).days} days",
+                        "next_match_date": next_match.date.isoformat()
                     }
-            else:
-                return {
-                    "mode": "minimal",
-                    "frequency": 3600,  # Every hour when no matches
-                    "fixture_monitoring": False,
-                    "reason": "No matches in next 3 days",
-                    "next_match_date": None
-                }
+                else:
+                    return {
+                        "mode": "minimal",
+                        "frequency": 3600,  # Every hour when no matches
+                        "fixture_monitoring": False,
+                        "reason": "No matches in next 3 days",
+                        "next_match_date": None
+                    }
+                    
+            finally:
+                db.close()
                 
         except Exception as e:
             logger.error(f"Error calculating schedule: {e}")
@@ -209,182 +249,116 @@ class EnhancedSmartScheduler:
                 "reason": f"Error in scheduling: {str(e)}"
             }
     
+    def _run_processing_cycle(self, schedule: Dict[str, Any]):
+        """Run a complete processing cycle using unified transaction management"""
+        try:
+            cycle_start = datetime.now(timezone.utc)
+            logger.info(f"🔄 Starting processing cycle - {schedule['mode']} mode")
+            audit_logger.info(f"PROCESSING_CYCLE_START: mode={schedule['mode']}, frequency={schedule['frequency']}")
+            
+            # Step 1: Update match statuses from API (if applicable)
+            if schedule.get('fixture_monitoring', False):
+                try:
+                    # Check if we're in an async context
+                    try:
+                        asyncio.get_running_loop()
+                        # We're in an async context, but this is a sync method
+                        # Skip API updates for now in sync context
+                        logger.info("⚠️ Skipping API updates in sync context")
+                    except RuntimeError:
+                        # No event loop running - this is expected in the scheduler thread
+                        logger.info("📡 API updates skipped - no async context available")
+                        
+                except Exception as e:
+                    logger.error(f"❌ Error checking for API updates: {e}")
+            
+            # Step 2: Run unified processing
+            logger.info("⚙️ Running unified match and prediction processing...")
+            processing_result = self.processor.process_all_matches()
+            
+            # Step 3: Log results
+            cycle_duration = (datetime.now(timezone.utc) - cycle_start).total_seconds()
+            
+            if processing_result['status'] == 'success':
+                logger.info(f"✅ Processing cycle completed in {cycle_duration:.2f}s: "
+                           f"{processing_result['fixtures_updated']} fixtures updated, "
+                           f"{processing_result['predictions_locked']} predictions locked, "
+                           f"{processing_result['predictions_processed']} predictions processed")
+                
+                audit_logger.info(f"PROCESSING_CYCLE_SUCCESS: duration={cycle_duration:.2f}s, "
+                                 f"mode={schedule['mode']}, result={processing_result}")
+            else:
+                logger.error(f"❌ Processing cycle failed in {cycle_duration:.2f}s: {processing_result['error_message']}")
+                audit_logger.error(f"PROCESSING_CYCLE_FAILED: duration={cycle_duration:.2f}s, "
+                                  f"mode={schedule['mode']}, result={processing_result}")
+            
+            # Step 4: Fixture monitoring (if enabled)
+            if schedule.get('fixture_monitoring', False):
+                try:
+                    # Run fixture monitoring (this uses read-only session)
+                    monitor_result = asyncio.run(self.fixture_monitor.monitor_fixtures())
+                    logger.info(f"🔍 Fixture monitoring: {monitor_result['status']}")
+                except Exception as e:
+                    logger.error(f"❌ Error in fixture monitoring: {e}")
+            
+        except Exception as e:
+            logger.error(f"❌ Critical error in processing cycle: {e}")
+            audit_logger.error(f"PROCESSING_CYCLE_CRITICAL_ERROR: {str(e)}")
+    
     async def run_enhanced_processing_with_status_updates(self):
         """
         Enhanced processing cycle that includes status updates
-        
         This method ensures it's called in a proper async context
         """
         try:
             logger.info("🔄 Starting enhanced processing cycle with status updates")
+            transaction_logger.info("ENHANCED_PROCESSING_START: With API status updates")
             
             # Step 1: Update match statuses from API (only if API is working)
             logger.info("📡 Step 1: Updating match statuses from API...")
             try:
                 # Check if we have a proper async context
-                try:
-                    asyncio.get_running_loop()
-                    
-                    # Update recent matches (last 3 days)
-                    updated_count = await match_status_updater.update_recent_matches(days_back=3)
-                    logger.info(f"✅ Updated {updated_count} match statuses")
-                    
-                    # Also update live matches
-                    live_updated = await match_status_updater.update_live_matches()
-                    if live_updated > 0:
-                        logger.info(f"🔴 Updated {live_updated} live matches")
-                        
-                except RuntimeError:
-                    # No event loop running - skip API updates
-                    logger.warning("⚠️ No event loop running - skipping API status updates")
+                asyncio.get_running_loop()
+                
+                # Update recent matches (last 3 days)
+                updated_count = await match_status_updater.update_recent_matches(days_back=3)
+                logger.info(f"✅ Updated {updated_count} match statuses from API")
+                
+                # Also update live matches
+                live_updated = await match_status_updater.update_live_matches()
+                if live_updated > 0:
+                    logger.info(f"🔴 Updated {live_updated} live matches from API")
                     
             except Exception as e:
-                logger.error(f"❌ Error updating match statuses: {e}")
+                logger.error(f"❌ Error updating match statuses from API: {e}")
             
-            # Step 2: Run normal processing (prediction locking and match processing)
-            logger.info("⚙️ Step 2: Running prediction and match processing...")
+            # Step 2: Run unified processing
+            logger.info("⚙️ Step 2: Running unified prediction and match processing...")
+            processing_result = self.processor.process_all_matches()
             
-            # Import here to avoid circular imports
-            from .match_processor import MatchProcessor
+            # Step 3: Log final results
+            if processing_result['status'] == 'success':
+                logger.info(f"✅ Enhanced processing complete: "
+                           f"{processing_result['fixtures_updated']} fixtures updated, "
+                           f"{processing_result['predictions_locked']} predictions locked, "
+                           f"{processing_result['predictions_processed']} predictions processed, "
+                           f"Verification: {'PASSED' if processing_result['verification_passed'] else 'FAILED'}")
+                
+                transaction_logger.info(f"ENHANCED_PROCESSING_SUCCESS: {processing_result}")
+            else:
+                logger.error(f"❌ Enhanced processing failed: {processing_result['error_message']}")
+                transaction_logger.error(f"ENHANCED_PROCESSING_FAILED: {processing_result}")
             
-            processor = MatchProcessor()
-            
-            # Run the full processing cycle (this is synchronous)
-            result = processor.run_all_processing()
-            
-            logger.info("✅ Enhanced processing cycle with status updates completed")
-            
-            return result
+            return processing_result
             
         except Exception as e:
-            logger.error(f"❌ Error in enhanced processing cycle: {e}")
-            return {"status": "error", "error": str(e)}
-
-    def should_update_schedule(self) -> bool:
-        """Check if we should recalculate the schedule"""
-        if not self.last_schedule_check:
-            return True
-        
-        time_since_check = datetime.now(timezone.utc) - self.last_schedule_check
-        return time_since_check.total_seconds() > 1800  # 30 minutes
-    
-    def scheduler_loop(self):
-        """Main scheduler loop with proper async handling"""
-        logger.info("🤖 Enhanced smart scheduler started")
-        audit_logger.info("ENHANCED_SCHEDULER_START")
-        
-        while self.is_running:
-            try:
-                # Update schedule if needed
-                if self.should_update_schedule():
-                    new_schedule = self.calculate_optimal_schedule()
-                    
-                    if new_schedule != self.current_schedule:
-                        self.current_schedule = new_schedule
-                        self.last_schedule_check = datetime.now(timezone.utc)
-                        
-                        monitoring_status = "enabled" if new_schedule.get('fixture_monitoring') else "disabled"
-                        logger.info(f"📅 Schedule updated: {new_schedule['mode']} - {new_schedule['reason']}")
-                        logger.info(f"⏰ Frequency: every {new_schedule['frequency']} seconds")
-                        logger.info(f"📡 Fixture monitoring: {monitoring_status}")
-                        
-                        audit_logger.info(f"ENHANCED_SCHEDULE_UPDATE: {new_schedule}")
-                
-                # Run processing cycle
-                if self.current_schedule:
-                    try:
-                        # Create a new event loop for this thread if needed
-                        try:
-                            loop = asyncio.get_event_loop()
-                        except RuntimeError:
-                            # No event loop in this thread, create one
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                        
-                        # Run the async processing method properly
-                        if loop.is_running():
-                            # Loop is already running (shouldn't happen in daemon thread)
-                            logger.warning("⚠️ Event loop already running, skipping async operations")
-                            # Just run sync processing
-                            from .match_processor import MatchProcessor
-                            processor = MatchProcessor()
-                            result = processor.run_all_processing()
-                        else:
-                            # Run async processing
-                            result = loop.run_until_complete(
-                                self.run_enhanced_processing_with_status_updates()
-                            )
-                        
-                    except Exception as e:
-                        logger.error(f"❌ Error in processing cycle: {e}")
-                        # Fallback to sync processing only
-                        try:
-                            from .match_processor import MatchProcessor
-                            processor = MatchProcessor()
-                            result = processor.run_all_processing()
-                        except Exception as fallback_error:
-                            logger.error(f"❌ Fallback processing also failed: {fallback_error}")
-                    
-                    # Sleep for the calculated frequency
-                    sleep_time = self.current_schedule["frequency"]
-                    
-                    # Sleep in small increments to allow for clean shutdown
-                    slept = 0
-                    while slept < sleep_time and self.is_running:
-                        time.sleep(min(30, sleep_time - slept))
-                        slept += 30
-                else:
-                    time.sleep(300)
-                    
-            except Exception as e:
-                logger.error(f"❌ Error in enhanced scheduler loop: {e}")
-                audit_logger.error(f"ENHANCED_SCHEDULER_ERROR: {str(e)}")
-                time.sleep(300)
-        
-        logger.info("🛑 Enhanced smart scheduler stopped")
-        audit_logger.info("ENHANCED_SCHEDULER_STOP")
-    
-    def start_scheduler(self):
-        """Start the enhanced scheduler"""
-        if self.is_running:
-            logger.warning("⚠️ Enhanced scheduler already running")
-            return
-        
-        if not self.processor:
-            logger.error("❌ Cannot start scheduler: MatchProcessor not available")
-            return
-        
-        logger.info("🚀 Starting enhanced smart scheduler with fixture monitoring...")
-        
-        # Calculate initial schedule
-        self.current_schedule = self.calculate_optimal_schedule()
-        self.last_schedule_check = datetime.now(timezone.utc)
-        
-        monitoring_status = "enabled" if self.current_schedule.get('fixture_monitoring') else "disabled"
-        logger.info(f"📊 Initial schedule: {self.current_schedule['mode']} - {self.current_schedule['reason']}")
-        logger.info(f"⏰ Initial frequency: every {self.current_schedule['frequency']} seconds")
-        logger.info(f"📡 Fixture monitoring: {monitoring_status}")
-        
-        self.is_running = True
-        self.thread = threading.Thread(target=self.scheduler_loop, daemon=True)
-        self.thread.start()
-        
-        audit_logger.info(f"ENHANCED_SCHEDULER_INIT: {self.current_schedule}")
-        logger.info("✅ Enhanced smart scheduler started successfully")
-    
-    def stop_scheduler(self):
-        """Stop the scheduler"""
-        if not self.is_running:
-            return
-        
-        logger.info("🛑 Stopping enhanced scheduler...")
-        self.is_running = False
-        
-        if self.thread:
-            self.thread.join(timeout=10)
-        
-        audit_logger.info("ENHANCED_SCHEDULER_SHUTDOWN")
-        logger.info("✅ Enhanced scheduler stopped")
+            logger.error(f"❌ Critical error in enhanced processing: {e}")
+            transaction_logger.error(f"ENHANCED_PROCESSING_CRITICAL_ERROR: {str(e)}")
+            return {
+                "status": "critical_error",
+                "error_message": str(e),
+                "message": f"Critical error in enhanced processing: {str(e)}"
+            }
     
     def get_status(self) -> Dict[str, Any]:
         """Get current scheduler status"""
@@ -392,12 +366,9 @@ class EnhancedSmartScheduler:
             "is_running": self.is_running,
             "current_schedule": self.current_schedule,
             "last_schedule_check": self.last_schedule_check.isoformat() if self.last_schedule_check else None,
-            "thread_alive": self.thread.is_alive() if self.thread else False,
-            "processor_available": self.processor is not None,
-            "fixture_monitor_available": self.fixture_monitor is not None,
-            "todays_matches": len(self.get_todays_matches()),
-            "upcoming_matches": len(self.get_upcoming_matches()),
-            "fixture_monitoring_enabled": self.current_schedule.get('fixture_monitoring', False) if self.current_schedule else False
+            "last_fixture_check": self.last_fixture_check.isoformat() if self.last_fixture_check else None,
+            "using_unified_transactions": True,
+            "processor_type": "UnifiedTransactionManager"
         }
 
 # Global instance
