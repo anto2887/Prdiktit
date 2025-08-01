@@ -169,7 +169,7 @@ async def startup_event():
         
         # Step 2: Initialize services
         startup_logger.info("🔧 Step 2: Initializing services...")
-        await init_services()
+        await init_services(app)  # ✅ Add app argument
         startup_logger.info("✅ Services initialized")
         
         # Step 3: Run comprehensive startup sync with unified transactions
@@ -250,7 +250,7 @@ async def shutdown_event():
         
         # Shutdown services
         startup_logger.info("🔧 Shutting down services...")
-        await shutdown_services()
+        await shutdown_services(app)  # ✅ Add app argument
         startup_logger.info("✅ Services shutdown complete")
         
         startup_logger.info("🛑 APPLICATION_SHUTDOWN_COMPLETE")

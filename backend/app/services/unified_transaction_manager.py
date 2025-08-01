@@ -129,30 +129,29 @@ class UnifiedTransactionManager:
         """Log all pending changes before commit"""
         if not self.session:
             return
-            
+
         # Log new objects
         for obj in self.session.new:
             transaction_logger.debug(f"PENDING_INSERT: {self.transaction_id} - {type(obj).__name__} {getattr(obj, 'id', 'no_id')}")
-            
+
         # Log modified objects
         for obj in self.session.dirty:
             changes = {}
-            for attr in self.session.get_attribute_history(obj, 'home_score').added:
-                if attr is not None:
-                    changes['home_score'] = attr
-            for attr in self.session.get_attribute_history(obj, 'away_score').added:
-                if attr is not None:
-                    changes['away_score'] = attr
-            for attr in self.session.get_attribute_history(obj, 'status').added:
-                if attr is not None:
-                    changes['status'] = attr.value if hasattr(attr, 'value') else attr
-            for attr in self.session.get_attribute_history(obj, 'prediction_status').added:
-                if attr is not None:
-                    changes['prediction_status'] = attr.value if hasattr(attr, 'value') else attr
-                    
+            # Safely get object attributes that may have changed
+            if hasattr(obj, 'home_score'):
+                changes['home_score'] = getattr(obj, 'home_score', None)
+            if hasattr(obj, 'away_score'):
+                changes['away_score'] = getattr(obj, 'away_score', None)
+            if hasattr(obj, 'status'):
+                status = getattr(obj, 'status', None)
+                changes['status'] = status.value if hasattr(status, 'value') else status
+            if hasattr(obj, 'prediction_status'):
+                pred_status = getattr(obj, 'prediction_status', None)
+                changes['prediction_status'] = pred_status.value if hasattr(pred_status, 'value') else pred_status
+
             if changes:
                 transaction_logger.debug(f"PENDING_UPDATE: {self.transaction_id} - {type(obj).__name__} {getattr(obj, 'id', 'no_id')} - {changes}")
-        
+
         # Log deleted objects
         for obj in self.session.deleted:
             transaction_logger.debug(f"PENDING_DELETE: {self.transaction_id} - {type(obj).__name__} {getattr(obj, 'id', 'no_id')}")
@@ -402,8 +401,15 @@ class UnifiedTransactionManager:
             
             # Check if match date has elapsed
             now = datetime.now(timezone.utc)
-            if fixture.date > now:
-                logger.info(f"⏭️ Skipping fixture {fixture_id}: match date {fixture.date} is in the future (current time: {now})")
+
+            # Handle timezone-aware vs timezone-naive comparison
+            fixture_date = fixture.date
+            if fixture_date.tzinfo is None:
+                # If fixture date is naive, assume it's UTC
+                fixture_date = fixture_date.replace(tzinfo=timezone.utc)
+
+            if fixture_date > now:
+                logger.info(f"⏭️ Skipping fixture {fixture_id}: match date {fixture_date} is in the future (current time: {now})")
                 return result
             
             logger.info(f"✅ Match date has elapsed, proceeding with processing")

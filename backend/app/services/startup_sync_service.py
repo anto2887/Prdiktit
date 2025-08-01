@@ -61,19 +61,25 @@ class StartupSyncService:
                 try:
                     now = datetime.now(timezone.utc)
                     
-                    # Get fixtures where:
-                    # 1. Match date has elapsed
-                    # 2. Has unprocessed predictions
-                    elapsed_fixtures_with_unprocessed = db.query(Fixture).join(UserPrediction).filter(
-                        Fixture.date <= now,  # Only elapsed matches
+                    # First get all fixtures with unprocessed predictions
+                    all_fixtures_with_unprocessed = db.query(Fixture).join(UserPrediction).filter(
                         UserPrediction.prediction_status != PredictionStatus.PROCESSED
                     ).distinct().all()
-                    
-                    # Also check future matches to report them
-                    future_fixtures_with_unprocessed = db.query(Fixture).join(UserPrediction).filter(
-                        Fixture.date > now,  # Future matches
-                        UserPrediction.prediction_status != PredictionStatus.PROCESSED
-                    ).distinct().all()
+
+                    # Filter manually to handle timezone issues
+                    elapsed_fixtures_with_unprocessed = []
+                    future_fixtures_with_unprocessed = []
+
+                    for fixture in all_fixtures_with_unprocessed:
+                        fixture_date = fixture.date
+                        if fixture_date.tzinfo is None:
+                            # If fixture date is naive, assume it's UTC
+                            fixture_date = fixture_date.replace(tzinfo=timezone.utc)
+                        
+                        if fixture_date <= now:
+                            elapsed_fixtures_with_unprocessed.append(fixture)
+                        else:
+                            future_fixtures_with_unprocessed.append(fixture)
                     
                     startup_logger.info(f"🎯 Found {len(elapsed_fixtures_with_unprocessed)} ELAPSED fixtures with unprocessed predictions")
                     startup_logger.info(f"⏭️ Found {len(future_fixtures_with_unprocessed)} FUTURE fixtures with unprocessed predictions (will skip)")
