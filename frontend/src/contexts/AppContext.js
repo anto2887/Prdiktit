@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { authApi, usersApi, groupsApi, matchesApi, predictionsApi } from '../api';
+import SeasonManager from '../utils/seasonManager';
 
 // Create the main app context
 const AppContext = createContext(null);
@@ -60,6 +61,10 @@ const ActionTypes = {
   // New user stats actions
   SET_USER_STATS_LOADING: 'SET_USER_STATS_LOADING',
   SET_USER_STATS_ERROR: 'SET_USER_STATS_ERROR',
+  
+  // Season management actions
+  SET_AVAILABLE_SEASONS: 'SET_AVAILABLE_SEASONS',
+  CLEAR_LEAGUE_DATA: 'CLEAR_LEAGUE_DATA',
 };
 
 // Initial state
@@ -102,10 +107,11 @@ const initialState = {
     notifications: []
   },
   league: {
-    selectedSeason: '2024-2025',
+    selectedSeason: null, // Will be set dynamically based on group league
     selectedWeek: null,
     selectedGroup: null,
     leaderboard: [],
+    availableSeasons: [],
     loading: false,
     error: null
   }
@@ -195,7 +201,17 @@ const appReducer = (state, action) => {
     case ActionTypes.SET_CURRENT_GROUP:
       return {
         ...state,
-        groups: { ...state.groups, currentGroup: action.payload }
+        groups: { 
+          ...state.groups, 
+          currentGroup: action.payload 
+        },
+        // Reset season when changing groups - will be set based on new group's league
+        league: {
+          ...state.league,
+          selectedSeason: null,
+          leaderboard: [],
+          availableSeasons: []
+        }
       };
     
     case ActionTypes.SET_GROUP_MEMBERS:
@@ -342,6 +358,25 @@ const appReducer = (state, action) => {
       return {
         ...state,
         league: { ...state.league, error: action.payload, loading: false }
+      };
+    
+    // Season management cases
+    case ActionTypes.SET_AVAILABLE_SEASONS:
+      return {
+        ...state,
+        league: { 
+          ...state.league, 
+          availableSeasons: action.payload 
+        }
+      };
+    
+    case ActionTypes.CLEAR_LEAGUE_DATA:
+      return {
+        ...state,
+        league: {
+          ...initialState.league,
+          selectedSeason: null // Reset to null, will be set based on group
+        }
       };
     
     // New user stats cases
@@ -1154,9 +1189,18 @@ export const AppProvider = ({ children }) => {
   }, [state.auth.isAuthenticated, fetchUserPredictions, showSuccess, showError]);
 
   // League functions
-  const setSelectedSeason = useCallback((season) => {
+  const setSelectedSeason = useCallback((season, groupId = null) => {
     dispatch({ type: ActionTypes.SET_SELECTED_SEASON, payload: season });
-  }, []);
+    
+    // If we have a group context, immediately refresh leaderboard
+    if (groupId || state.league.selectedGroup) {
+      const targetGroupId = groupId || state.league.selectedGroup;
+      fetchLeaderboard(targetGroupId, {
+        season: season,
+        week: state.league.selectedWeek
+      });
+    }
+  }, [state.league.selectedGroup, state.league.selectedWeek, fetchLeaderboard]);
 
   const setSelectedWeek = useCallback((week) => {
     dispatch({ type: ActionTypes.SET_SELECTED_WEEK, payload: week });
@@ -1171,17 +1215,80 @@ export const AppProvider = ({ children }) => {
     dispatch({ type: ActionTypes.SET_LEAGUE_ERROR, payload: null });
     
     try {
-      const response = await predictionsApi.getGroupLeaderboard(groupId, queryParams);
+      // Get group details to determine league
+      const group = state.groups.currentGroup || 
+                    state.groups.userGroups.find(g => g.id === parseInt(groupId));
+      
+      let enhancedParams = { ...queryParams };
+      
+      if (group && group.league) {
+        enhancedParams.league = group.league;
+        
+        // If no season specified, use current season for the league
+        if (!enhancedParams.season) {
+          enhancedParams.season = SeasonManager.getCurrentSeason(group.league);
+          
+          // Update selected season in state if not set
+          if (!state.league.selectedSeason) {
+            dispatch({ 
+              type: ActionTypes.SET_SELECTED_SEASON, 
+              payload: enhancedParams.season 
+            });
+          }
+        }
+      }
+      
+      console.log('Fetching leaderboard with enhanced params:', enhancedParams);
+      
+      const response = await predictionsApi.getGroupLeaderboard(groupId, enhancedParams);
       dispatch({ type: ActionTypes.SET_LEADERBOARD, payload: response.data || [] });
       return response.data;
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
-      dispatch({ type: ActionTypes.SET_LEAGUE_ERROR, payload: error.message });
-      showError(error.message);
+      const errorMessage = error.message || 'Failed to load leaderboard';
+      dispatch({ type: ActionTypes.SET_LEAGUE_ERROR, payload: errorMessage });
+      showError(errorMessage);
       dispatch({ type: ActionTypes.SET_LEADERBOARD, payload: [] });
       return [];
+    } finally {
+      dispatch({ type: ActionTypes.SET_LEAGUE_LOADING, payload: false });
     }
-  }, [showError]);
+  }, [state.groups.currentGroup, state.groups.userGroups, state.league.selectedSeason, showError]);
+
+  // NEW: Function to fetch available seasons for a group
+  const fetchGroupSeasons = useCallback(async (groupId) => {
+    try {
+      const group = state.groups.currentGroup || 
+                    state.groups.userGroups.find(g => g.id === parseInt(groupId));
+      
+      let seasons = [];
+      
+      if (group && group.league) {
+        // Use local season manager for immediate response
+        seasons = SeasonManager.getAvailableSeasons(group.league, 5);
+        
+        // Also try to fetch from backend for validation
+        try {
+          const response = await predictionsApi.getGroupSeasons(groupId);
+          if (response.status === 'success' && response.data.length > 0) {
+            seasons = response.data;
+          }
+        } catch (backendError) {
+          console.warn('Backend season fetch failed, using local seasons:', backendError);
+        }
+      }
+      
+      dispatch({ 
+        type: ActionTypes.SET_AVAILABLE_SEASONS, 
+        payload: seasons 
+      });
+      
+      return seasons;
+    } catch (error) {
+      console.error('Error fetching group seasons:', error);
+      return [];
+    }
+  }, [state.groups.currentGroup, state.groups.userGroups]);
 
   // Clear functions
   const clearPredictionData = useCallback(() => {
@@ -1200,6 +1307,10 @@ export const AppProvider = ({ children }) => {
 
   const clearUserData = useCallback(() => {
     dispatch({ type: ActionTypes.CLEAR_USER_DATA });
+  }, []);
+
+  const clearLeagueData = useCallback(() => {
+    dispatch({ type: ActionTypes.CLEAR_LEAGUE_DATA });
   }, []);
 
   // 1. Add new group management functions
@@ -1362,12 +1473,20 @@ export const AppProvider = ({ children }) => {
     selectedWeek: state.league.selectedWeek,
     selectedGroup: state.league.selectedGroup,
     leaderboard: state.league.leaderboard,
+    availableSeasons: state.league.availableSeasons,
     leagueLoading: state.league.loading,
     leagueError: state.league.error,
     setSelectedSeason,
     setSelectedWeek,
     setSelectedGroup,
     fetchLeaderboard,
+    fetchGroupSeasons,
+    clearLeagueData,
+    
+    // Season management utilities
+    normalizeSeasonForQuery: (league, season) => SeasonManager.normalizeSeasonForQuery(league, season),
+    getSeasonForDisplay: (league, season) => SeasonManager.getSeasonForDisplay(league, season),
+    getCurrentSeason: (league) => SeasonManager.getCurrentSeason(league),
 
     // New getUserStats function
     getUserStats,

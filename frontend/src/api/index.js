@@ -1,6 +1,7 @@
 // src/api/index.js
 import axios from 'axios';
 import { enhancedSchedulerApi, enhancedSchedulerUtils } from './enhancedScheduler';
+import SeasonManager from '../utils/seasonManager';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 
@@ -499,50 +500,28 @@ export const predictionsApi = {
   getUserPredictions: async (params = {}) => {
     try {
       const queryParams = {};
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams[key] = String(value);
+        }
+      });
       
-      if (params.fixture_id !== undefined && params.fixture_id !== null) {
-        queryParams.fixture_id = Number(params.fixture_id);
-      }
-      
-      if (params.status) {
-        queryParams.status = params.status;
-      }
-      
-      if (params.season) {
-        queryParams.season = params.season;
-      }
-      
-      if (params.week !== undefined && params.week !== null) {
-        queryParams.week = Number(params.week);
-      }
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('getUserPredictions params:', queryParams);
-      }
-      
-      const response = await api.client.get('/predictions/user', { params: queryParams });
-      return response;
+      return await api.client.get('/predictions', { params: queryParams });
     } catch (error) {
       console.error('Error fetching user predictions:', error);
-      return {
-        status: 'success',
-        matches: [],
-        total: 0
-      };
+      return { status: 'success', data: [] };
     }
   },
 
-  // FIXED: Properly handle 0 values
   createPrediction: async (predictionData) => {
     const payload = {
-      match_id: predictionData.match_id ?? predictionData.fixture_id,
+      match_id: predictionData.match_id !== undefined ? predictionData.match_id : predictionData.fixture_id,
       home_score: predictionData.home_score !== undefined ? predictionData.home_score : predictionData.score1,
       away_score: predictionData.away_score !== undefined ? predictionData.away_score : predictionData.score2
     };
     
     console.log('Sending prediction data:', payload);
     
-    // Validate that we have all required fields
     if (payload.match_id === undefined || payload.home_score === undefined || payload.away_score === undefined) {
       console.error('Missing required fields:', payload);
       throw new Error(`Missing required fields: match_id=${payload.match_id}, home_score=${payload.home_score}, away_score=${payload.away_score}`);
@@ -551,7 +530,6 @@ export const predictionsApi = {
     return await api.client.post('/predictions', payload);
   },
 
-  // FIXED: Properly handle 0 values for updates too
   updatePrediction: async (predictionId, predictionData) => {
     const payload = {};
     
@@ -591,18 +569,45 @@ export const predictionsApi = {
 
   getPredictionStats: () => api.client.get('/predictions/stats'),
 
+  // UPDATED: Enhanced leaderboard API with season management
   getGroupLeaderboard: async (groupId, params = {}) => {
     try {
       const queryParams = {};
+      
+      // Handle season parameter with proper formatting
+      if (params.season && params.league) {
+        // Normalize season format for the specific league
+        const normalizedSeason = SeasonManager.normalizeSeasonForQuery(params.league, params.season);
+        queryParams.season = normalizedSeason;
+      } else if (params.season) {
+        queryParams.season = params.season;
+      }
+      
+      // Handle other parameters
       Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
+        if (key !== 'season' && key !== 'league' && value !== undefined && value !== null) {
           queryParams[key] = String(value);
         }
       });
       
+      console.log(`Fetching leaderboard for group ${groupId} with params:`, queryParams);
+      
       return await api.client.get(`/predictions/leaderboard/${groupId}`, { params: queryParams });
     } catch (error) {
       console.error('Error fetching group leaderboard:', error);
+      return {
+        status: 'success',
+        data: []
+      };
+    }
+  },
+
+  // NEW: Get available seasons for a group
+  getGroupSeasons: async (groupId) => {
+    try {
+      return await api.client.get(`/predictions/seasons/${groupId}`);
+    } catch (error) {
+      console.error('Error fetching group seasons:', error);
       return {
         status: 'success',
         data: []
@@ -624,6 +629,22 @@ export const schedulerApi = {
   triggerMonitoring: () => api.client.post('/debug/trigger-fixture-monitoring'),
   getMonitoringStatus: () => api.client.get('/debug/fixture-monitoring-status'),
   recalculateSchedule: () => api.client.post('/debug/recalculate-schedule')
+};
+
+// NEW: Season management API
+export const seasonsApi = {
+  getAvailableSeasons: async (league = null) => {
+    try {
+      const params = league ? { league } : {};
+      return await api.client.get('/matches/seasons', { params });
+    } catch (error) {
+      console.error('Error fetching available seasons:', error);
+      return {
+        status: 'success',
+        data: league ? [] : {}
+      };
+    }
+  }
 };
 
 // Add debug logging for enhanced scheduler

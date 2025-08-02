@@ -1,9 +1,13 @@
 # app/routers/predictions.py
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 from ..core.security import get_current_active_user
 from ..db.database import get_db
@@ -19,12 +23,13 @@ from ..db import (
     get_prediction_deadlines,
     check_group_membership
 )
-from ..db.models import UserPrediction
+from ..db.models import UserPrediction, Group
 from ..schemas import (
     Prediction, PredictionCreate, PredictionStatus, 
     MatchStatus, ListResponse, DataResponse, User,
     PredictionUpdate, BaseResponse
 )
+from ..utils.season_manager import SeasonManager
 
 router = APIRouter()
 
@@ -43,9 +48,6 @@ async def submit_prediction(
     - Database stores all times in UTC
     - Frontend displays times in user's local timezone
     """
-    import logging
-    from datetime import datetime, timezone, timedelta
-    logger = logging.getLogger(__name__)
     
     try:
         logger.info(f"Received prediction request: {prediction_data}")
@@ -362,6 +364,48 @@ async def get_user_predictions_endpoint(
             total=0
         )
 
+
+# Add new endpoint to get available seasons for a group
+@router.get("/seasons/{group_id}", response_model=ListResponse)
+async def get_group_seasons(
+    group_id: int = Path(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get available seasons for a group based on its league
+    """
+    try:
+        # Check if user is a member of the group
+        is_member = await check_group_membership(db, group_id, current_user.id)
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a member of this group"
+            )
+        
+        # Get group details
+        group = db.query(Group).filter(Group.id == group_id).first()
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Group not found"
+            )
+        
+        # Get available seasons for this league
+        available_seasons = SeasonManager.get_available_seasons(group.league, years_back=5)
+        
+        return ListResponse(
+            data=available_seasons,
+            total=len(available_seasons)
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting group seasons: {e}")
+        return ListResponse(data=[], total=0)
+
 @router.post("/batch", response_model=DataResponse)
 async def create_batch_predictions(
     predictions_data: Dict[str, Dict[str, int]],
@@ -549,11 +593,28 @@ async def get_group_leaderboard(
                 detail="You are not a member of this group"
             )
         
+        # Get group details to determine league
+        group = db.query(Group).filter(Group.id == group_id).first()
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Group not found"
+            )
+        
+        # Normalize season format for database query
+        if season:
+            normalized_season = SeasonManager.normalize_season_for_query(group.league, season)
+        else:
+            normalized_season = SeasonManager.get_current_season(group.league)
+        
+        logger.info(f"Querying leaderboard for group {group_id}, league {group.league}, season {normalized_season}")
+        
         # Try to get from cache first
-        cache_key = f"group_leaderboard:{group_id}:{season or 'all'}:{week or 'all'}"
+        cache_key = f"group_leaderboard:{group_id}:{normalized_season}:{week or 'all'}"
         cached_leaderboard = await cache.get(cache_key)
         
         if cached_leaderboard:
+            logger.info(f"Returning cached leaderboard for group {group_id}")
             return ListResponse(
                 data=cached_leaderboard,
                 total=len(cached_leaderboard)
@@ -584,9 +645,8 @@ async def get_group_leaderboard(
             group_members.c.group_id == group_id
         )
         
-        # Apply season filter if provided
-        if season:
-            query = query.filter(UserPrediction.season == season)
+        # Apply season filter - use normalized season
+        query = query.filter(UserPrediction.season == normalized_season)
         
         # Apply week filter if provided
         if week:
@@ -604,6 +664,8 @@ async def get_group_leaderboard(
         
         # Execute query
         results = query.all()
+        
+        logger.info(f"Found {len(results)} users with predictions for season {normalized_season}")
         
         # Build leaderboard data
         leaderboard = []
@@ -632,6 +694,35 @@ async def get_group_leaderboard(
                 "accuracy_percentage": accuracy,
                 "average_points": avg_points
             })
+        
+        # If no users have predictions, include all group members with zero stats
+        if not leaderboard:
+            logger.info("No predictions found, including all group members with zero stats")
+            all_members = db.query(
+                UserModel.id.label('user_id'),
+                UserModel.username
+            ).select_from(
+                UserModel
+            ).join(
+                group_members,
+                UserModel.id == group_members.c.user_id
+            ).filter(
+                group_members.c.group_id == group_id
+            ).all()
+            
+            for rank, member in enumerate(all_members, 1):
+                leaderboard.append({
+                    "rank": rank,
+                    "user_id": member.user_id,
+                    "username": member.username,
+                    "total_points": 0,
+                    "total_predictions": 0,
+                    "perfect_scores": 0,
+                    "correct_results": 0,
+                    "incorrect_predictions": 0,
+                    "accuracy_percentage": 0,
+                    "average_points": 0
+                })
         
         # Cache for 5 minutes
         await cache.set(cache_key, leaderboard, 300)
