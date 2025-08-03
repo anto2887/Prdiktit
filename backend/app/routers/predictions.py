@@ -585,8 +585,12 @@ async def get_group_leaderboard(
     logger = logging.getLogger(__name__)
     
     try:
+        logger.info(f"🔍 DEBUGGING: group_id={group_id}, season={season}, week={week}")
+        
         # Check if user is a member of the group
         is_member = await check_group_membership(db, group_id, current_user.id)
+        logger.info(f"🔍 User {current_user.id} is member of group {group_id}: {is_member}")
+        
         if not is_member:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -601,30 +605,64 @@ async def get_group_leaderboard(
                 detail="Group not found"
             )
         
+        logger.info(f"🔍 Group found: {group.name}, league: {group.league}")
+        
         # Normalize season format for database query
         if season:
             normalized_season = SeasonManager.normalize_season_for_query(group.league, season)
         else:
             normalized_season = SeasonManager.get_current_season(group.league)
         
-        logger.info(f"Querying leaderboard for group {group_id}, league {group.league}, season {normalized_season}")
+        logger.info(f"🔍 Normalized season: {normalized_season}")
         
-        # Try to get from cache first
-        cache_key = f"group_leaderboard:{group_id}:{normalized_season}:{week or 'all'}"
-        cached_leaderboard = await cache.get(cache_key)
+        # Skip cache for debugging
+        logger.info("🔍 Skipping cache for debugging")
         
-        if cached_leaderboard:
-            logger.info(f"Returning cached leaderboard for group {group_id}")
-            return ListResponse(
-                data=cached_leaderboard,
-                total=len(cached_leaderboard)
-            )
-        
-        # Build query to get group members and their total points
+        # First, let's check what group members exist
         from sqlalchemy import func, text
         from ..db.models import group_members, User as UserModel, UserPrediction
         
-        # Base query: get all group members with their total points
+        # Check group members first
+        members_query = db.query(
+            UserModel.id.label('user_id'),
+            UserModel.username
+        ).select_from(
+            UserModel
+        ).join(
+            group_members,
+            UserModel.id == group_members.c.user_id
+        ).filter(
+            group_members.c.group_id == group_id
+        )
+        
+        all_members = members_query.all()
+        logger.info(f"🔍 Found {len(all_members)} group members: {[m.username for m in all_members]}")
+        
+        # Check what seasons exist in predictions
+        seasons_query = db.query(UserPrediction.season).distinct().all()
+        existing_seasons = [s[0] for s in seasons_query if s[0]]
+        logger.info(f"🔍 Existing seasons in database: {existing_seasons}")
+        
+        # Check predictions for group members specifically
+        member_ids = [m.user_id for m in all_members]
+        if member_ids:
+            predictions_query = db.query(
+                UserPrediction.user_id,
+                UserPrediction.season,
+                func.count(UserPrediction.id).label('count')
+            ).filter(
+                UserPrediction.user_id.in_(member_ids)
+            ).group_by(
+                UserPrediction.user_id,
+                UserPrediction.season
+            ).all()
+            
+            logger.info(f"🔍 Predictions by group members:")
+            for pred in predictions_query:
+                username = next((m.username for m in all_members if m.user_id == pred.user_id), f"User{pred.user_id}")
+                logger.info(f"   {username} (ID:{pred.user_id}): {pred.count} predictions in season {pred.season}")
+        
+        # Now build the main query but with better debugging
         query = db.query(
             UserModel.id.label('user_id'),
             UserModel.username,
@@ -640,17 +678,15 @@ async def get_group_leaderboard(
             UserModel.id == group_members.c.user_id
         ).outerjoin(
             UserPrediction,
-            UserModel.id == UserPrediction.user_id
+            (UserModel.id == UserPrediction.user_id) & (UserPrediction.season == normalized_season)
         ).filter(
             group_members.c.group_id == group_id
         )
         
-        # Apply season filter - use normalized season
-        query = query.filter(UserPrediction.season == normalized_season)
-        
         # Apply week filter if provided
         if week:
             query = query.filter(UserPrediction.week == week)
+            logger.info(f"🔍 Applied week filter: {week}")
         
         # Group by user and order by total points descending
         query = query.group_by(
@@ -662,10 +698,15 @@ async def get_group_leaderboard(
             UserModel.username
         )
         
+        # Log the SQL query for debugging
+        logger.info(f"🔍 SQL Query: {str(query)}")
+        
         # Execute query
         results = query.all()
         
-        logger.info(f"Found {len(results)} users with predictions for season {normalized_season}")
+        logger.info(f"🔍 Query returned {len(results)} results")
+        for result in results:
+            logger.info(f"   {result.username}: {result.total_points} points, {result.total_predictions} predictions")
         
         # Build leaderboard data
         leaderboard = []
@@ -682,7 +723,7 @@ async def get_group_leaderboard(
             if total_preds > 0:
                 avg_points = round((result.total_points or 0) / total_preds, 2)
             
-            leaderboard.append({
+            leaderboard_entry = {
                 "rank": rank,
                 "user_id": result.user_id,
                 "username": result.username,
@@ -693,25 +734,15 @@ async def get_group_leaderboard(
                 "incorrect_predictions": result.incorrect_predictions or 0,
                 "accuracy_percentage": accuracy,
                 "average_points": avg_points
-            })
+            }
+            leaderboard.append(leaderboard_entry)
+            logger.info(f"🔍 Added to leaderboard: {leaderboard_entry}")
         
         # If no users have predictions, include all group members with zero stats
         if not leaderboard:
-            logger.info("No predictions found, including all group members with zero stats")
-            all_members = db.query(
-                UserModel.id.label('user_id'),
-                UserModel.username
-            ).select_from(
-                UserModel
-            ).join(
-                group_members,
-                UserModel.id == group_members.c.user_id
-            ).filter(
-                group_members.c.group_id == group_id
-            ).all()
-            
+            logger.info("🔍 No predictions found, including all group members with zero stats")
             for rank, member in enumerate(all_members, 1):
-                leaderboard.append({
+                zero_entry = {
                     "rank": rank,
                     "user_id": member.user_id,
                     "username": member.username,
@@ -722,12 +753,11 @@ async def get_group_leaderboard(
                     "incorrect_predictions": 0,
                     "accuracy_percentage": 0,
                     "average_points": 0
-                })
+                }
+                leaderboard.append(zero_entry)
+                logger.info(f"🔍 Added zero-stats member: {zero_entry}")
         
-        # Cache for 5 minutes
-        await cache.set(cache_key, leaderboard, 300)
-        
-        logger.info(f"Generated leaderboard for group {group_id} with {len(leaderboard)} members")
+        logger.info(f"🔍 Final leaderboard has {len(leaderboard)} entries")
         
         return ListResponse(
             data=leaderboard,
@@ -738,8 +768,8 @@ async def get_group_leaderboard(
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
-        logger.error(f"Error generating group leaderboard: {e}")
-        logger.exception("Full traceback:")
+        logger.error(f"🔍 ERROR in leaderboard: {e}")
+        logger.exception("🔍 Full traceback:")
         
         # Return empty leaderboard on error
         return ListResponse(
