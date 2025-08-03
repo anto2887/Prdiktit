@@ -506,7 +506,7 @@ export const predictionsApi = {
         }
       });
       
-      return await api.client.get('/predictions', { params: queryParams });
+      return await api.client.get('/predictions/user', { params: queryParams });
     } catch (error) {
       console.error('Error fetching user predictions:', error);
       return { status: 'success', data: [] };

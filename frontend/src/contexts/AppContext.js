@@ -1191,16 +1191,9 @@ export const AppProvider = ({ children }) => {
   // League functions
   const setSelectedSeason = useCallback((season, groupId = null) => {
     dispatch({ type: ActionTypes.SET_SELECTED_SEASON, payload: season });
-    
-    // If we have a group context, immediately refresh leaderboard
-    if (groupId || state.league.selectedGroup) {
-      const targetGroupId = groupId || state.league.selectedGroup;
-      fetchLeaderboard(targetGroupId, {
-        season: season,
-        week: state.league.selectedWeek
-      });
-    }
-  }, [state.league.selectedGroup, state.league.selectedWeek, fetchLeaderboard]);
+    // Note: Removed the immediate fetchLeaderboard call to avoid circular dependency
+    // The GroupDetailsPage will handle refreshing the leaderboard when season changes
+  }, []);
 
   const setSelectedWeek = useCallback((week) => {
     dispatch({ type: ActionTypes.SET_SELECTED_WEEK, payload: week });
