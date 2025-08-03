@@ -5,16 +5,7 @@ import {
   useAuth, 
   useGroups, 
   useNotifications,
-  fetchLeaderboard,
-  fetchGroupSeasons,
-  setSelectedSeason,
-  setSelectedWeek,
-  selectedSeason,
-  selectedWeek,
-  leaderboard,
-  availableSeasons,
-  getCurrentSeason,
-  getSeasonForDisplay
+  useLeagueContext  // <-- Use this hook instead of direct imports
 } from '../contexts/AppContext';
 import SeasonSelector from '../components/common/SeasonSelector';
 import SeasonManager from '../utils/seasonManager';
@@ -33,12 +24,22 @@ const GroupDetailsPage = () => {
     loading: groupsLoading 
   } = useGroups();
   const { showError, showSuccess } = useNotifications();
+  
+  // FIXED: Get all league functions from useLeagueContext hook
+  const {
+    fetchLeaderboard,
+    setSelectedSeason,
+    setSelectedWeek,
+    selectedSeason,
+    selectedWeek,
+    leaderboard,
+    loading: leaderboardLoading
+  } = useLeagueContext();
 
   // Local state
   const [activeTab, setActiveTab] = useState('standings');
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState(null);
-  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [seasonLoading, setSeasonLoading] = useState(false);
   
   // Prevent multiple fetches
@@ -107,15 +108,11 @@ const GroupDetailsPage = () => {
       try {
         setSeasonLoading(true);
         
-        // Fetch available seasons for this group
-        const seasons = await fetchGroupSeasons(numericGroupId);
-        console.log('Available seasons for group:', seasons);
-        
         // Set default season if none selected
         if (!selectedSeason && currentGroup.league) {
-          const defaultSeason = getCurrentSeason(currentGroup.league);
+          const defaultSeason = SeasonManager.getCurrentSeason(currentGroup.league);
           console.log(`Setting default season for ${currentGroup.league}:`, defaultSeason);
-          setSelectedSeason(defaultSeason, numericGroupId);
+          setSelectedSeason(defaultSeason);
         }
         
         hasInitializedSeasonRef.current = true;
@@ -128,7 +125,7 @@ const GroupDetailsPage = () => {
     };
 
     initializeSeasonData();
-  }, [currentGroup, groupId, selectedSeason, fetchGroupSeasons, getCurrentSeason, setSelectedSeason]);
+  }, [currentGroup, groupId, selectedSeason, setSelectedSeason]);
 
   // Load leaderboard data when season/week changes
   useEffect(() => {
@@ -139,23 +136,20 @@ const GroupDetailsPage = () => {
         return;
       }
 
-      setLeaderboardLoading(true);
       try {
         console.log(`Fetching leaderboard for group ${numericGroupId}, league: ${currentGroup.league}, season: ${selectedSeason}, week: ${selectedWeek}`);
         
-        const leaderboardData = await fetchLeaderboard(numericGroupId, {
+        await fetchLeaderboard(numericGroupId, {
           season: selectedSeason,
           week: selectedWeek,
           league: currentGroup.league
         });
         
-        console.log('Leaderboard data received:', leaderboardData);
+        console.log('Leaderboard fetch completed');
         
       } catch (err) {
         console.error('Error loading leaderboard:', err);
         showError('Failed to load leaderboard data');
-      } finally {
-        setLeaderboardLoading(false);
       }
     };
 
@@ -179,7 +173,7 @@ const GroupDetailsPage = () => {
 
   const handleSeasonChange = (newSeason) => {
     console.log('Season changed to:', newSeason);
-    setSelectedSeason(newSeason, parseInt(groupId));
+    setSelectedSeason(newSeason);
   };
 
   const handleWeekChange = (newWeek) => {
@@ -270,7 +264,7 @@ const GroupDetailsPage = () => {
             {selectedSeason && currentGroup.league && (
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  Showing {currentGroup.league} season: <strong>{getSeasonForDisplay(currentGroup.league, selectedSeason)}</strong>
+                  Showing {currentGroup.league} season: <strong>{SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}</strong>
                   {selectedWeek && ` • Week ${selectedWeek}`}
                 </p>
               </div>
@@ -351,7 +345,7 @@ const GroupDetailsPage = () => {
                         <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                           {selectedSeason ? (
                             <>
-                              No predictions found for {getSeasonForDisplay(currentGroup.league, selectedSeason)}
+                              No predictions found for {SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}
                               {selectedWeek && ` week ${selectedWeek}`}.
                               <br />
                               <span className="text-sm">Members will appear here once they make predictions.</span>
