@@ -132,17 +132,19 @@ const GroupDetailsPage = () => {
     const loadLeaderboard = async () => {
       const numericGroupId = parseInt(groupId);
       
-      if (!numericGroupId || !currentGroup || !selectedSeason) {
+      // SIMPLIFIED: Only require groupId and season
+      if (!numericGroupId || !selectedSeason) {
+        console.log('Leaderboard fetch skipped:', { groupId: numericGroupId, selectedSeason });
         return;
       }
 
       try {
-        console.log(`Fetching leaderboard for group ${numericGroupId}, league: ${currentGroup.league}, season: ${selectedSeason}, week: ${selectedWeek}`);
+        console.log(`Fetching leaderboard for group ${numericGroupId}, season: ${selectedSeason}, week: ${selectedWeek}`);
         
         await fetchLeaderboard(numericGroupId, {
           season: selectedSeason,
           week: selectedWeek,
-          league: currentGroup.league
+          league: currentGroup?.league // Optional - fetchLeaderboard can handle this
         });
         
         console.log('Leaderboard fetch completed');
@@ -154,7 +156,8 @@ const GroupDetailsPage = () => {
     };
 
     loadLeaderboard();
-  }, [groupId, currentGroup, selectedSeason, selectedWeek, fetchLeaderboard, showError]);
+  }, [groupId, selectedSeason, selectedWeek, fetchLeaderboard, showError]);
+  // Removed currentGroup dependency to prevent timing issues
 
   // Reset season initialization when group changes
   useEffect(() => {

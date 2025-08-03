@@ -619,7 +619,7 @@ async def get_group_leaderboard(
         logger.info("🔍 Skipping cache for debugging")
         
         # First, let's check what group members exist
-        from sqlalchemy import func, text
+        from sqlalchemy import func, text, case
         from ..db.models import group_members, User as UserModel, UserPrediction
         
         # Check group members first
@@ -668,9 +668,9 @@ async def get_group_leaderboard(
             UserModel.username,
             func.coalesce(func.sum(UserPrediction.points), 0).label('total_points'),
             func.count(UserPrediction.id).label('total_predictions'),
-            func.sum(func.case((UserPrediction.points == 3, 1), else_=0)).label('perfect_scores'),
-            func.sum(func.case((UserPrediction.points == 1, 1), else_=0)).label('correct_results'),
-            func.sum(func.case((UserPrediction.points == 0, 1), else_=0)).label('incorrect_predictions')
+            func.sum(case((UserPrediction.points == 3, 1), else_=0)).label('perfect_scores'),
+            func.sum(case((UserPrediction.points == 1, 1), else_=0)).label('correct_results'),
+            func.sum(case((UserPrediction.points == 0, 1), else_=0)).label('incorrect_predictions')
         ).select_from(
             UserModel
         ).join(
