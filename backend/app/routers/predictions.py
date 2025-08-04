@@ -614,6 +614,7 @@ async def get_group_leaderboard(
             normalized_season = SeasonManager.get_current_season(group.league)
         
         logger.info(f"🔍 Normalized season: {normalized_season}")
+        logger.info(f"🔍 Will filter predictions to only include fixtures from league: {group.league}")
         
         # Skip cache for debugging
         logger.info("🔍 Skipping cache for debugging")
@@ -663,6 +664,8 @@ async def get_group_leaderboard(
                 logger.info(f"   {username} (ID:{pred.user_id}): {pred.count} predictions in season {pred.season}")
         
         # Now build the main query but with better debugging
+        from ..db.models import Fixture
+        
         query = db.query(
             UserModel.id.label('user_id'),
             UserModel.username,
@@ -679,8 +682,13 @@ async def get_group_leaderboard(
         ).outerjoin(
             UserPrediction,
             (UserModel.id == UserPrediction.user_id) & (UserPrediction.season == normalized_season)
+        ).outerjoin(
+            Fixture,
+            UserPrediction.fixture_id == Fixture.fixture_id
         ).filter(
             group_members.c.group_id == group_id
+        ).filter(
+            (Fixture.league == group.league) | (UserPrediction.id.is_(None))
         )
         
         # Apply week filter if provided

@@ -250,14 +250,17 @@ export const groupsApi = {
 
   getGroupById: async (groupId) => {
     try {
+      console.log(`🌐 API: getGroupById called for groupId: ${groupId}`);
       // Add cache-busting timestamp
       const timestamp = Date.now();
       const response = await api.client.get(`/groups/${groupId}?_t=${timestamp}`);
+      console.log(`🌐 API: getGroupById response for groupId ${groupId}:`, response.data);
       return {
         status: 'success',
         data: response.data
       };
     } catch (error) {
+      console.error(`🌐 API: getGroupById error for groupId ${groupId}:`, error);
       throw new APIError(
         error.message || 'Failed to fetch group details',
         error.response?.status || 500

@@ -208,7 +208,7 @@ const appReducer = (state, action) => {
         // Reset season when changing groups - will be set based on new group's league
         league: {
           ...state.league,
-          selectedSeason: null,
+          selectedSeason: null, // Will be set by GroupDetailsPage based on new group's league
           leaderboard: [],
           availableSeasons: []
         }
@@ -687,7 +687,16 @@ export const AppProvider = ({ children }) => {
   }, [state.auth.isAuthenticated]);
 
   const fetchGroupDetails = useCallback(async (groupId) => {
-    if (!state.auth.isAuthenticated || !groupId) return null;
+    console.log('🏢 fetchGroupDetails START:', { 
+      groupId, 
+      isAuthenticated: state.auth.isAuthenticated,
+      currentGroupId: state.groups.currentGroup?.id 
+    });
+    
+    if (!state.auth.isAuthenticated || !groupId) {
+      console.log('🏢 fetchGroupDetails SKIPPED: Not authenticated or no groupId');
+      return null;
+    }
     
     try {
       dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: true });
@@ -695,22 +704,27 @@ export const AppProvider = ({ children }) => {
       
       // Clear current group first if switching to a different group
       if (state.groups.currentGroup && state.groups.currentGroup.id !== groupId) {
-        console.log(`Switching from group ${state.groups.currentGroup.id} to ${groupId}, clearing current group`);
+        console.log(`🏢 Switching from group ${state.groups.currentGroup.id} to ${groupId}, clearing current group`);
         dispatch({ type: ActionTypes.SET_CURRENT_GROUP, payload: null });
         dispatch({ type: ActionTypes.SET_GROUP_MEMBERS, payload: [] });
       }
       
-      console.log('Fetching group details for', groupId);
+      console.log('🏢 Calling groupsApi.getGroupById for groupId:', groupId);
       const response = await groupsApi.getGroupById(groupId);
+      console.log('🏢 Group details API response:', response);
       
       if (response.status === 'success') {
+        console.log('🏢 Dispatching SET_CURRENT_GROUP with data:', response.data);
         dispatch({ type: ActionTypes.SET_CURRENT_GROUP, payload: response.data });
         dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: false });
+        console.log('🏢 fetchGroupDetails SUCCESS - returning data');
         return response.data;
       } else {
+        console.error('🏢 Group details API returned error status:', response);
         throw new Error(response.message || 'Failed to fetch group details');
       }
     } catch (err) {
+      console.error('🏢 fetchGroupDetails ERROR:', err);
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: err.message || 'Failed to fetch group details' });
       showError(err.message || 'Failed to fetch group details');
       return null;
@@ -718,22 +732,34 @@ export const AppProvider = ({ children }) => {
   }, [state.auth.isAuthenticated, state.groups.currentGroup, showError]);
 
   const fetchGroupMembers = useCallback(async (groupId) => {
-    if (!state.auth.isAuthenticated || !groupId) return [];
+    console.log('👥 fetchGroupMembers START:', { 
+      groupId, 
+      isAuthenticated: state.auth.isAuthenticated 
+    });
+    
+    if (!state.auth.isAuthenticated || !groupId) {
+      console.log('👥 fetchGroupMembers SKIPPED: Not authenticated or no groupId');
+      return [];
+    }
     
     try {
       // Always fetch fresh data, don't use cached members for different groups
-      console.log('Fetching fresh group members for', groupId);
+      console.log('👥 Calling groupsApi.getGroupMembers for groupId:', groupId);
       const response = await groupsApi.getGroupMembers(groupId);
+      console.log('👥 Group members API response:', response);
       
       if (response.status === 'success') {
-        console.log(`Fetched ${response.data?.length || 0} members for group ${groupId}`);
+        console.log(`👥 Fetched ${response.data?.length || 0} members for group ${groupId}`);
+        console.log('👥 Dispatching SET_GROUP_MEMBERS with data:', response.data);
         dispatch({ type: ActionTypes.SET_GROUP_MEMBERS, payload: response.data });
+        console.log('👥 fetchGroupMembers SUCCESS - returning data');
         return response.data;
       } else {
+        console.error('👥 Group members API returned error status:', response);
         throw new Error(response.message || 'Failed to fetch group members');
       }
     } catch (err) {
-      console.error(`Error fetching group members for group ${groupId}:`, err);
+      console.error(`👥 fetchGroupMembers ERROR for group ${groupId}:`, err);
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: err.message || 'Failed to fetch group members' });
       showError(err.message || 'Failed to fetch group members');
       return [];
@@ -1212,6 +1238,8 @@ export const AppProvider = ({ children }) => {
       const group = state.groups.currentGroup || 
                     state.groups.userGroups.find(g => g.id === parseInt(groupId));
       
+      console.log('🔍 fetchLeaderboard - Group found:', group);
+      
       let enhancedParams = { ...queryParams };
       
       if (group && group.league) {
@@ -1223,21 +1251,25 @@ export const AppProvider = ({ children }) => {
           
           // Update selected season in state if not set
           if (!state.league.selectedSeason) {
+            console.log('🔍 Setting selectedSeason in fetchLeaderboard:', enhancedParams.season);
             dispatch({ 
               type: ActionTypes.SET_SELECTED_SEASON, 
               payload: enhancedParams.season 
             });
           }
         }
+      } else {
+        console.warn('🔍 No group or league found for groupId:', groupId);
       }
       
-      console.log('Fetching leaderboard with enhanced params:', enhancedParams);
+      console.log('🔍 Fetching leaderboard with enhanced params:', enhancedParams);
       
       const response = await predictionsApi.getGroupLeaderboard(groupId, enhancedParams);
+      console.log('🔍 Leaderboard response:', response);
       dispatch({ type: ActionTypes.SET_LEADERBOARD, payload: response.data || [] });
       return response.data;
     } catch (error) {
-      console.error('Error fetching leaderboard:', error);
+      console.error('🔍 Error fetching leaderboard:', error);
       const errorMessage = error.message || 'Failed to load leaderboard';
       dispatch({ type: ActionTypes.SET_LEAGUE_ERROR, payload: errorMessage });
       showError(errorMessage);
@@ -1657,6 +1689,7 @@ export const useLeagueContext = () => {
   }
   
   return {
+    // FIXED: Access properties directly from context (they're already flattened)
     selectedSeason: context.selectedSeason,
     selectedWeek: context.selectedWeek,
     selectedGroup: context.selectedGroup,
