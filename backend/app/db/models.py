@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean, Column, ForeignKey, Integer, String, 
-    DateTime, Enum, Text, Table, JSON, UniqueConstraint, Index, Float
+    DateTime, Enum, Text, Table, JSON, UniqueConstraint, Index, Float, CheckConstraint
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -66,6 +66,11 @@ class Group(Base):
     created = Column(DateTime, default=datetime.utcnow)
     privacy_type = Column(Enum(GroupPrivacyType), default=GroupPrivacyType.PRIVATE)
     description = Column(Text, nullable=True)
+    
+    # Analytics and week management fields
+    analytics_enabled = Column(Boolean, nullable=False, default=False)
+    analytics_activation_week = Column(Integer, nullable=True)
+    current_week = Column(Integer, nullable=False, default=1)
     
     # Relationships
     admin = relationship("User", back_populates="admin_groups", foreign_keys=[admin_id])
@@ -146,6 +151,11 @@ class UserPrediction(Base):
     processed_at = Column(DateTime, nullable=True)  # Set when prediction processed
     
     prediction_status = Column(Enum(PredictionStatus), nullable=False, default=PredictionStatus.EDITABLE)
+    
+    # Bonus and rivalry fields
+    bonus_type = Column(String(20), nullable=True)  # 'perfect_week', 'flawless_week'
+    bonus_points = Column(Integer, nullable=False, default=0)
+    is_rivalry_week = Column(Boolean, nullable=False, default=False)
     
     # Relationships
     user = relationship("User", back_populates="predictions")
@@ -235,4 +245,111 @@ class GroupAnalytics(Base):
     __table_args__ = (
         Index("idx_analytics_group_type", "group_id", "analysis_type"),
         UniqueConstraint("group_id", "analysis_type", "period", name="_analytics_period_uc")
+    )
+
+
+class UserAnalytics(Base):
+    __tablename__ = "user_analytics"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    analysis_type = Column(String(50), nullable=False)  # 'comprehensive', 'weekly', 'trends'
+    period = Column(String(20), nullable=False)  # season or week identifier
+    data = Column(JSON, nullable=True)  # JSON data containing analytics
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    
+    # Relationships
+    user = relationship("User")
+    
+    __table_args__ = (
+        Index("idx_analytics_user_type", "user_id", "analysis_type"),
+        Index("idx_analytics_period", "period"),
+        UniqueConstraint("user_id", "analysis_type", "period", name="_analytics_period_uc")
+    )
+
+
+class RivalryPair(Base):
+    __tablename__ = "rivalry_pairs"
+
+    id = Column(Integer, primary_key=True)
+    user1_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user2_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)
+    assigned_week = Column(Integer, nullable=False)
+    is_active = Column(Boolean, nullable=False, default=True)
+    is_champion_challenge = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    ended_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    user1 = relationship("User", foreign_keys=[user1_id])
+    user2 = relationship("User", foreign_keys=[user2_id])
+    group = relationship("Group")
+    
+    __table_args__ = (
+        Index("idx_rivalry_group_active", "group_id", "is_active"),
+        Index("idx_rivalry_week", "assigned_week"),
+        CheckConstraint("user1_id != user2_id", name="check_different_users")
+    )
+
+
+class RivalryWeek(Base):
+    __tablename__ = "rivalry_weeks"
+
+    id = Column(Integer, primary_key=True)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)
+    week = Column(Integer, nullable=False)
+    season = Column(String(20), nullable=False)
+    bonus_points = Column(Integer, nullable=False, default=3)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    
+    # Relationships
+    group = relationship("Group")
+    
+    __table_args__ = (
+        Index("idx_rivalry_weeks_group_season", "group_id", "season"),
+        UniqueConstraint("group_id", "week", "season", name="_rivalry_week_uc")
+    )
+
+
+class UserStreak(Base):
+    __tablename__ = "user_streaks"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    streak_type = Column(String(20), nullable=False)  # 'hot', 'cold', 'perfect'
+    current_count = Column(Integer, nullable=False, default=0)
+    max_count = Column(Integer, nullable=False, default=0)
+    last_updated = Column(DateTime, default=utc_now, nullable=False)
+    season = Column(String(20), nullable=False)
+    
+    # Relationships
+    user = relationship("User")
+    
+    __table_args__ = (
+        Index("idx_streaks_user_season", "user_id", "season"),
+        UniqueConstraint("user_id", "streak_type", "season", name="_user_streak_uc")
+    )
+
+
+class GroupHeatmap(Base):
+    __tablename__ = "group_heatmaps"
+
+    id = Column(Integer, primary_key=True)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)
+    week = Column(Integer, nullable=False)
+    season = Column(String(20), nullable=False)
+    match_data = Column(JSON, nullable=True)  # Stores all match heatmaps for the week
+    consensus_accuracy = Column(Float, nullable=True)  # Group accuracy percentage
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    
+    # Relationships
+    group = relationship("Group")
+    
+    __table_args__ = (
+        Index("idx_heatmaps_group_week", "group_id", "week", "season"),
+        UniqueConstraint("group_id", "week", "season", name="_heatmap_week_uc")
     )

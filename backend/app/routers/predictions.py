@@ -30,6 +30,7 @@ from ..schemas import (
     PredictionUpdate, BaseResponse
 )
 from ..utils.season_manager import SeasonManager
+from ..services.prediction_visibility import PredictionVisibilityService
 
 router = APIRouter()
 
@@ -783,4 +784,134 @@ async def get_group_leaderboard(
         return ListResponse(
             data=[],
             total=0
+        )
+
+
+@router.get("/group/{group_id}/week/{week}", response_model=DataResponse)
+async def get_group_predictions_for_week(
+    group_id: int = Path(...),
+    week: int = Path(...),
+    season: str = Query(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Get all group member predictions for a specific week
+    Only shows predictions for matches where kickoff has passed
+    """
+    try:
+        # Try cache first
+        cache_key = f"group_predictions:{group_id}:{week}:{season}"
+        cached_predictions = await cache.get(cache_key)
+        
+        if cached_predictions:
+            return DataResponse(
+                message="Group predictions retrieved successfully (cached)",
+                data=cached_predictions
+            )
+        
+        visibility_service = PredictionVisibilityService(db)
+        predictions = await visibility_service.get_group_predictions_for_week(
+            group_id, week, season, current_user.id
+        )
+        
+        # Cache for 10 minutes (predictions visibility can change frequently)
+        await cache.set(cache_key, predictions, ttl=600)
+        
+        return DataResponse(
+            message="Group predictions retrieved successfully",
+            data=predictions
+        )
+        
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error getting group predictions: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve group predictions"
+        )
+
+
+@router.get("/match/{fixture_id}/summary", response_model=DataResponse)
+async def get_match_prediction_summary(
+    fixture_id: int = Path(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache)
+):
+    """
+    Get prediction summary for a specific match (if visible)
+    """
+    try:
+        # Try cache first
+        cache_key = f"match_summary:{fixture_id}"
+        cached_summary = await cache.get(cache_key)
+        
+        if cached_summary:
+            return DataResponse(
+                message="Match prediction summary retrieved successfully (cached)",
+                data=cached_summary
+            )
+        
+        visibility_service = PredictionVisibilityService(db)
+        summary = await visibility_service.get_match_prediction_summary(fixture_id, current_user.id)
+        
+        # Cache for 15 minutes
+        await cache.set(cache_key, summary, ttl=900)
+        
+        return DataResponse(
+            message="Match prediction summary retrieved successfully",
+            data=summary
+        )
+        
+    except Exception as e:
+        logger.error(f"Error getting match summary: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve match prediction summary"
+        )
+
+
+@router.get("/group/{group_id}/visibility-schedule", response_model=DataResponse)
+async def get_visibility_schedule(
+    group_id: int = Path(...),
+    week: int = Query(...),
+    season: str = Query(...),
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get schedule of when group predictions will become visible
+    """
+    try:
+        visibility_service = PredictionVisibilityService(db)
+        schedule = await visibility_service.get_upcoming_visibility_schedule(
+            group_id, week, season, current_user.id
+        )
+        
+        return DataResponse(
+            message="Visibility schedule retrieved successfully",
+            data={
+                'group_id': group_id,
+                'week': week,
+                'season': season,
+                'schedule': schedule
+            }
+        )
+        
+    except PermissionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Error getting visibility schedule: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve visibility schedule"
         )
