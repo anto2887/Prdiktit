@@ -17,11 +17,13 @@ import {
   PredictionsPage,
   PredictionFormPage,
   PredictionHistoryPage,
+  AnalyticsPage,
   GroupsPage,
   CreateGroupPage,
   JoinGroupPage,
   GroupDetailsPage,
   GroupManagementPage,
+  GroupPredictionsPage,
   NotFoundPage
 } from './pages';
 
@@ -54,11 +56,15 @@ const AppRoutes = () => {
         <Route path="/predictions/edit/:id" element={<PredictionFormPage />} />
         <Route path="/predictions/history" element={<PredictionHistoryPage />} />
         
+        {/* Analytics routes */}
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        
         {/* Group routes */}
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/groups/create" element={<CreateGroupPage />} />
         <Route path="/groups/join" element={<JoinGroupPage />} />
         <Route path="/groups/:groupId" element={<GroupDetailsPage />} />
+        <Route path="/groups/:groupId/predictions" element={<GroupPredictionsPage />} />
         <Route path="/groups/:groupId/manage" element={<GroupManagementPage />} />
       </Route>
       

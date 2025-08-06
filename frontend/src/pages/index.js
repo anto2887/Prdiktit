@@ -11,12 +11,16 @@ export { default as PredictionsPage } from './PredictionsPage';
 export { default as PredictionFormPage } from './PredictionFormPage';
 export { default as PredictionHistoryPage } from './PredictionHistoryPage';
 
+// Analytics pages
+export { default as AnalyticsPage } from './AnalyticsPage';
+
 // Group pages
 export { default as GroupsPage } from './GroupsPage';
 export { default as CreateGroupPage } from './CreateGroupPage';
 export { default as JoinGroupPage } from './JoinGroupPage';
 export { default as GroupDetailsPage } from './GroupDetailsPage';
 export { default as GroupManagementPage } from './GroupManagementPage';
+export { default as GroupPredictionsPage } from './GroupPredictionsPage';
 
 // Error pages
 export { default as NotFoundPage } from './NotFoundPage';
