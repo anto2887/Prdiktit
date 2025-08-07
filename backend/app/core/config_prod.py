@@ -3,22 +3,28 @@ import os
 from .config import Settings
 
 class ProductionSettings(Settings):
+    def __init__(self, **kwargs):
+        # Debug: Print all environment variables related to our app
+        print("=== DEBUGGING ENVIRONMENT VARIABLES ===")
+        for key, value in os.environ.items():
+            if any(keyword in key.upper() for keyword in ['REDIS', 'DATABASE', 'SECRET', 'API', 'CORS']):
+                print(f"{key}='{value}'")
+        print("=== END DEBUG INFO ===")
+        super().__init__(**kwargs)
+    
     # Override development defaults with production values
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "").split(",")
-    
-    # Rate limiting - Updated to 120 requests per minute
-    API_RATE_LIMIT: int = int(os.getenv("API_RATE_LIMIT", "120"))
-    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
+    API_RATE_LIMIT: int = int(os.getenv("API_RATE_LIMIT", "300"))
     
     # Redis with production settings
     REDIS_HOST: str = os.getenv("REDIS_HOST", "redis")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
     REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
     
-    # Production logging - No debug levels
-    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    # Production logging
+    LOG_LEVEL: str = "INFO"
     
-    # Security settings for production - Must be set via environment
+    # Security settings for production
     SECRET_KEY: str = os.getenv("SECRET_KEY")  # Must be set in production
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")  # Must be set in production
     
@@ -38,6 +44,9 @@ class ProductionSettings(Settings):
     CORS_ALLOW_METHODS: list = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
     CORS_ALLOW_HEADERS: list = ["Authorization", "Content-Type", "X-Requested-With"]
     CORS_EXPOSE_HEADERS: list = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
+    
+    # Rate limiting for production
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "300"))
     
     # Monitoring and observability
     SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
