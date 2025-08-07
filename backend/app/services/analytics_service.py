@@ -71,7 +71,7 @@ class AnalyticsService:
             
             # Cache the results
             if self.cache:
-                await self.cache.set(cache_key, analytics, ttl=3600)  # 1 hour cache
+                await self.cache.set(cache_key, analytics, expiry=3600)  # 1 hour cache
             
             # Store in database for historical tracking
             await self._store_analytics(user_id, 'comprehensive', season, analytics)
@@ -576,7 +576,7 @@ class AnalyticsService:
             
             # Cache the result
             if self.cache:
-                await self.cache.set(cache_key, heatmap_result, ttl=1800)  # 30 minute cache
+                await self.cache.set(cache_key, heatmap_result, expiry=1800)  # 30 minute cache
             
             # Store in database
             await self._store_group_heatmap(group_id, week, season, heatmap_result)

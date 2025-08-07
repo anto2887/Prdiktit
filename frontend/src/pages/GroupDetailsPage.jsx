@@ -1,6 +1,6 @@
 // src/pages/GroupDetailsPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { 
   useUser, 
   useGroups, 
@@ -11,10 +11,12 @@ import SeasonSelector from '../components/common/SeasonSelector';
 import SeasonManager from '../utils/seasonManager';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
+import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
 
 const GroupDetailsPage = () => {
   const { groupId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { profile, fetchProfile, loading: userLoading } = useUser();
   const { 
     fetchGroupDetails, 
@@ -65,6 +67,10 @@ const GroupDetailsPage = () => {
   const [membersError, setMembersError] = useState(null);
   const [seasonLoading, setSeasonLoading] = useState(false);
   
+  // Guide state
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
+  
   // Prevent multiple fetches
   const hasFetchedRef = useRef({});
   const hasInitializedSeasonRef = useRef(false);
@@ -99,203 +105,129 @@ const GroupDetailsPage = () => {
   // Load group data
   useEffect(() => {
     console.log('🎯 Effect: Load group data triggered', { 
-      groupId, 
-      profileId: profile?.id,
-      hasProfile: !!profile 
+      groupId,
+      hasCurrentGroup: !!currentGroup,
+      groupsLoading,
+      hasFetched: hasFetchedRef.current.groupData
     });
     
-    const loadGroupData = async () => {
-      const numericGroupId = parseInt(groupId);
-      
-      console.log('🔄 loadGroupData START:', { 
-        groupId, 
-        numericGroupId, 
-        hasProfile: !!profile, 
-        profileId: profile?.id 
-      });
-      
-      if (!profile || !numericGroupId) {
-        console.log('🔄 loadGroupData SKIPPED: Missing profile or groupId');
-        return;
-      }
+    if (groupId && !groupsLoading && !hasFetchedRef.current.groupData) {
+      console.log('📊 Loading group data...');
+      hasFetchedRef.current.groupData = true;
+      loadGroupData();
+    }
+  }, [groupId, currentGroup, groupsLoading]);
 
-      const fetchKey = `${numericGroupId}_${profile.id}`;
-      if (hasFetchedRef.current[fetchKey]) {
-        console.log('🔄 loadGroupData SKIPPED: Already fetched for this key:', fetchKey);
-        return;
-      }
-
-      try {
-        console.log('🔄 Fetching group details for groupId:', numericGroupId);
-        // Load group details
-        const groupDetails = await fetchGroupDetails(numericGroupId);
-        console.log('🔄 Group details result:', groupDetails);
-        
-        if (!groupDetails) {
-          console.error('🔄 Group details fetch failed - no data returned');
-          setMembersError('Failed to load group details');
-          return;
-        }
-        
-        console.log('🔄 Fetching group members for groupId:', numericGroupId);
-        // Load group members
-        setMembersLoading(true);
-        setMembersError(null);
-        
-        const members = await fetchGroupMembers(numericGroupId);
-        console.log('🔄 Group members result:', members);
-        
-        if (Array.isArray(members)) {
-          console.log(`🔄 Loaded ${members.length} members for group ${numericGroupId}`);
-        } else {
-          console.warn('🔄 Members data is not an array:', members);
-        }
-        
-        hasFetchedRef.current[fetchKey] = true;
-        console.log('🔄 loadGroupData COMPLETED successfully');
-        
-      } catch (err) {
-        console.error('🔄 Error loading group data:', err);
-        setMembersError('Failed to load group data');
-      } finally {
-        setMembersLoading(false);
-      }
-    };
-
-    loadGroupData();
-  }, [groupId, profile?.id, fetchGroupDetails, fetchGroupMembers]);
+  const loadGroupData = async () => {
+    try {
+      console.log('📊 Loading group details and members...');
+      await Promise.all([
+        fetchGroupDetails(groupId),
+        fetchGroupMembers(groupId)
+      ]);
+    } catch (error) {
+      console.error('❌ Error loading group data:', error);
+      showError('Failed to load group data');
+    }
+  };
 
   // Initialize season data when group is loaded
   useEffect(() => {
     console.log('🎯 Effect: Initialize season data triggered', { 
-      currentGroup: !!currentGroup,
-      currentGroupId: currentGroup?.id,
-      currentGroupLeague: currentGroup?.league,
-      hasInitialized: hasInitializedSeasonRef.current
-    });
-    
-    const initializeSeasonData = async () => {
-      const numericGroupId = parseInt(groupId);
-      
-      // Only initialize if we have a group with a league and haven't initialized yet
-      if (!currentGroup || !currentGroup.league || hasInitializedSeasonRef.current) {
-        console.log('🔧 Season init skipped:', { 
-          hasGroup: !!currentGroup, 
-          hasLeague: !!currentGroup?.league, 
-          alreadyInitialized: hasInitializedSeasonRef.current 
-        });
-        return;
-      }
-
-      try {
-        setSeasonLoading(true);
-        
-        // CRITICAL FIX: Always set a default season, regardless of selectedSeason state
-        const defaultSeason = SeasonManager.getCurrentSeason(currentGroup.league);
-        console.log(`🔧 Force setting season for ${currentGroup.league}: ${defaultSeason}`);
-        console.log(`🔧 Current selectedSeason state: ${selectedSeason}`);
-        
-        // Force set the season - don't check if selectedSeason exists
-        setSelectedSeason(defaultSeason);
-        
-        hasInitializedSeasonRef.current = true;
-        console.log('🔧 Season initialization completed');
-        
-      } catch (error) {
-        console.error('Error initializing season data:', error);
-      } finally {
-        setSeasonLoading(false);
-      }
-    };
-
-    initializeSeasonData();
-  }, [currentGroup, groupId, setSelectedSeason]); // REMOVED selectedSeason from dependencies
-
-  // ADDITIONAL: Force season initialization when selectedSeason is null but we have a group
-  useEffect(() => {
-    console.log('🎯 Effect: Force season initialization triggered', { 
       hasCurrentGroup: !!currentGroup,
-      currentGroupLeague: currentGroup?.league,
+      hasInitialized: hasInitializedSeasonRef.current,
       selectedSeason,
-      hasInitialized: hasInitializedSeasonRef.current
+      selectedWeek
     });
     
-    if (currentGroup && currentGroup.league && !selectedSeason && !hasInitializedSeasonRef.current) {
-      console.log('🔧 FORCE INIT: selectedSeason is null but we have a group, initializing...');
-      const defaultSeason = SeasonManager.getCurrentSeason(currentGroup.league);
-      setSelectedSeason(defaultSeason);
+    if (currentGroup && !hasInitializedSeasonRef.current) {
+      console.log('📅 Initializing season data...');
       hasInitializedSeasonRef.current = true;
+      initializeSeasonData();
     }
-  }, [currentGroup, selectedSeason, setSelectedSeason]);
+  }, [currentGroup, selectedSeason, selectedWeek]);
 
-  // Load leaderboard data when season/week changes
+  const initializeSeasonData = async () => {
+    try {
+      setSeasonLoading(true);
+      
+      // Set default season if not already set
+      if (!selectedSeason && currentGroup.league) {
+        const defaultSeason = SeasonManager.getCurrentSeason(currentGroup.league);
+        console.log('📅 Setting default season:', defaultSeason);
+        setSelectedSeason(defaultSeason);
+      }
+      
+      // Set default week if not already set
+      if (!selectedWeek) {
+        const currentWeek = SeasonManager.getCurrentWeek(currentGroup.league);
+        console.log('📅 Setting default week:', currentWeek);
+        setSelectedWeek(currentWeek);
+      }
+      
+      // Load leaderboard for the selected season/week
+      if (selectedSeason) {
+        await loadLeaderboard();
+      }
+    } catch (error) {
+      console.error('❌ Error initializing season data:', error);
+      showError('Failed to initialize season data');
+    } finally {
+      setSeasonLoading(false);
+    }
+  };
+
+  // Load leaderboard when season/week changes
   useEffect(() => {
     console.log('🎯 Effect: Load leaderboard triggered', { 
-      groupId, 
-      selectedSeason, 
+      selectedSeason,
       selectedWeek,
-      hasCurrentGroup: !!currentGroup
+      hasCurrentGroup: !!currentGroup,
+      hasInitialized: hasInitializedSeasonRef.current
     });
     
-    const loadLeaderboard = async () => {
-      const numericGroupId = parseInt(groupId);
-      
-      // ENHANCED CHECK: Need groupId, selectedSeason, and currentGroup
-      if (!numericGroupId || !selectedSeason || !currentGroup) {
-        console.log('🔍 Leaderboard fetch skipped:', { 
-          groupId: numericGroupId, 
-          selectedSeason, 
-          hasCurrentGroup: !!currentGroup 
-        });
-        return;
-      }
+    if (selectedSeason && currentGroup && hasInitializedSeasonRef.current && !hasFetchedRef.current.leaderboard) {
+      console.log('📊 Loading leaderboard...');
+      hasFetchedRef.current.leaderboard = true;
+      loadLeaderboard();
+    }
+  }, [selectedSeason, selectedWeek, currentGroup]);
 
-      try {
-        console.log(`🔍 Fetching leaderboard for group ${numericGroupId}, season: ${selectedSeason}, week: ${selectedWeek}`);
-        console.log(`🔍 Group league: ${currentGroup.league}`);
-        
-        await fetchLeaderboard(numericGroupId, {
-          season: selectedSeason,
-          week: selectedWeek,
-          league: currentGroup.league
-        });
-        
-        console.log('🔍 Leaderboard fetch completed successfully');
-        
-      } catch (err) {
-        console.error('🔍 Error loading leaderboard:', err);
-        showError('Failed to load leaderboard data');
-      }
-    };
+  const loadLeaderboard = async () => {
+    try {
+      console.log('📊 Loading leaderboard for season:', selectedSeason, 'week:', selectedWeek);
+      await fetchLeaderboard(currentGroup.id, selectedSeason, selectedWeek);
+    } catch (error) {
+      console.error('❌ Error loading leaderboard:', error);
+      showError('Failed to load leaderboard');
+    }
+  };
 
-    loadLeaderboard();
-  }, [groupId, selectedSeason, selectedWeek, currentGroup, fetchLeaderboard, showError]); // ADDED currentGroup dependency
+  const handleSeasonChange = (newSeason) => {
+    console.log('📅 Season changed:', newSeason);
+    setSelectedSeason(newSeason);
+    hasFetchedRef.current.leaderboard = false;
+  };
 
-  // Reset season initialization when group changes
-  useEffect(() => {
-    console.log('🎯 Effect: Reset season initialization triggered', { groupId });
-    hasInitializedSeasonRef.current = false;
-  }, [groupId]);
+  const handleWeekChange = (newWeek) => {
+    console.log('📅 Week changed:', newWeek);
+    setSelectedWeek(newWeek);
+    hasFetchedRef.current.leaderboard = false;
+  };
 
-  // Loading state
-  if (groupsLoading || membersLoading || !currentGroup) {
+  // Loading states
+  if (userLoading || groupsLoading) {
     return <LoadingSpinner />;
   }
 
-  // Error state
+  // Error states
   if (membersError) {
     return <ErrorMessage message={membersError} />;
   }
 
-  const handleSeasonChange = (newSeason) => {
-    console.log('Season changed to:', newSeason);
-    setSelectedSeason(newSeason);
-  };
-
-  const handleWeekChange = (newWeek) => {
-    console.log('Week changed to:', newWeek);
-    setSelectedWeek(newWeek);
-  };
+  if (!currentGroup) {
+    return <ErrorMessage message="Group not found" />;
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -315,6 +247,46 @@ const GroupDetailsPage = () => {
                 <span>Code: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{currentGroup.invite_code}</code></span>
               )}
             </div>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex items-center gap-3">
+            <HelpTooltip content="View all predictions made by league members">
+              <button
+                onClick={() => navigate(`/groups/${groupId}/predictions`)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                📊 Predictions
+              </button>
+            </HelpTooltip>
+            <HelpTooltip content="View rivalry statistics and head-to-head matchups">
+              <button
+                onClick={() => navigate(`/groups/${groupId}/rivalries`)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              >
+                🥊 Rivalries
+              </button>
+            </HelpTooltip>
+            {profile?.id === currentGroup.admin_id && (
+              <HelpTooltip content="Manage league settings and members">
+                <button
+                  onClick={() => navigate(`/groups/${groupId}/manage`)}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  ⚙️ Manage
+                </button>
+              </HelpTooltip>
+            )}
+            <HelpTooltip content="Start the guided tour to learn about league features">
+              <button
+                onClick={() => setShowGuide(true)}
+                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            </HelpTooltip>
           </div>
         </div>
       </div>
@@ -548,6 +520,47 @@ const GroupDetailsPage = () => {
           </div>
         )}
       </div>
+      
+      {/* Guide/Help System */}
+      <OnboardingGuide
+        isOpen={showGuide}
+        onClose={() => setShowGuide(false)}
+        onComplete={() => setShowGuide(false)}
+        step={guideStep}
+        totalSteps={5}
+        steps={[
+          {
+            title: "League Overview",
+            content: "This is your league's main page. Here you can view standings, manage members, and access league features.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Standings Tab",
+            content: "View the current leaderboard and see how all members are performing. Use filters to view specific seasons and weeks.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Members Tab",
+            content: "See all league members, their roles, and when they joined. Admins can manage member permissions here.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "League Features",
+            content: "Access predictions page to see all member predictions, rivalry statistics, and league management tools.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Season & Week Filters",
+            content: "Use the season selector and week filter to view standings for specific time periods. Different leagues have different season formats.",
+            action: "Got it!",
+            highlight: null
+          }
+        ]}
+      />
     </div>
   );
 };

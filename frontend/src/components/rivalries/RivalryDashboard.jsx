@@ -1,7 +1,6 @@
 // frontend/src/components/rivalries/RivalryDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { useNotifications } from '../../contexts/AppContext';
+import { useAuth, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 
@@ -28,6 +27,7 @@ const RivalryDashboard = ({ groupId, currentWeek, season = '2024-2025' }) => {
     setError(null);
 
     try {
+      console.log(`Loading rivalries for group ${groupId}...`);
       const response = await fetch(
         `/api/v1/analytics/group/${groupId}/rivalries`,
         {
@@ -37,17 +37,28 @@ const RivalryDashboard = ({ groupId, currentWeek, season = '2024-2025' }) => {
         }
       );
 
+      console.log(`Rivalries response status: ${response.status}`);
+      
       if (!response.ok) {
-        throw new Error('Failed to load rivalries');
+        const errorText = await response.text();
+        console.error(`Rivalries API error: ${response.status} - ${errorText}`);
+        throw new Error(`Failed to load rivalries: ${response.status}`);
       }
 
       const data = await response.json();
-      setRivalries(data.data || []);
+      console.log('Rivalries API response:', data);
+      
+      // Ensure rivalries is always an array
+      const rivalriesArray = Array.isArray(data.data) ? data.data : [];
+      console.log('Processed rivalries array:', rivalriesArray);
+      setRivalries(rivalriesArray);
 
     } catch (err) {
       console.error('Error loading rivalries:', err);
       setError('Failed to load rivalry data');
       showError('Failed to load rivalries');
+      // Ensure rivalries is always an array even on error
+      setRivalries([]);
     } finally {
       setLoading(false);
     }
@@ -61,9 +72,16 @@ const RivalryDashboard = ({ groupId, currentWeek, season = '2024-2025' }) => {
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
-  const activeRivalries = rivalries.filter(r => r.is_active);
-  const historicalRivalries = rivalries.filter(r => !r.is_active);
+  // Ensure rivalries is an array before filtering
+  const rivalriesArray = Array.isArray(rivalries) ? rivalries : [];
+  console.log('Filtering rivalries array:', rivalriesArray);
+  
+  const activeRivalries = rivalriesArray.filter(r => r.is_active);
+  const historicalRivalries = rivalriesArray.filter(r => !r.is_active);
   const isRivalryWeek = activeRivalries.some(r => r.rivalry_week === currentWeek);
+
+  console.log('Active rivalries:', activeRivalries);
+  console.log('Historical rivalries:', historicalRivalries);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -562,6 +580,7 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
   const loadRivalries = async () => {
     setLoading(true);
     try {
+      console.log(`Loading compact rivalries for group ${groupId}...`);
       const response = await fetch(
         `/api/v1/analytics/group/${groupId}/rivalries`,
         {
@@ -571,12 +590,22 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
         }
       );
 
+      console.log(`Compact rivalries response status: ${response.status}`);
+      
       if (response.ok) {
         const data = await response.json();
-        setRivalries(data.data || []);
+        console.log('Compact rivalries API response:', data);
+        // Ensure rivalries is always an array
+        const rivalriesArray = Array.isArray(data.data) ? data.data : [];
+        console.log('Processed compact rivalries array:', rivalriesArray);
+        setRivalries(rivalriesArray);
+      } else {
+        console.error(`Compact rivalries API error: ${response.status}`);
+        setRivalries([]);
       }
     } catch (err) {
       console.error('Error loading compact rivalries:', err);
+      setRivalries([]);
     } finally {
       setLoading(false);
     }
@@ -584,11 +613,13 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
 
   if (loading || currentWeek < 5) return null;
 
-  const userRivalries = rivalries.filter(r => 
+  // Ensure rivalries is an array before filtering
+  const rivalriesArray = Array.isArray(rivalries) ? rivalries : [];
+  const userRivalries = rivalriesArray.filter(r => 
     r.is_active && (r.user1_id === userId || r.user2_id === userId)
   );
 
-  const isRivalryWeek = rivalries.some(r => r.rivalry_week === currentWeek);
+  const isRivalryWeek = rivalriesArray.some(r => r.rivalry_week === currentWeek);
 
   if (userRivalries.length === 0) return null;
 

@@ -201,7 +201,7 @@ const DashboardPage = () => {
       <ErrorMessage 
         title="Could not load dashboard" 
         message={errors[0]}
-        retry={handleRetry}
+        onRetry={handleRetry}
       />
     );
   }

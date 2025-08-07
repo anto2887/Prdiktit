@@ -21,6 +21,7 @@ export { default as JoinGroupPage } from './JoinGroupPage';
 export { default as GroupDetailsPage } from './GroupDetailsPage';
 export { default as GroupManagementPage } from './GroupManagementPage';
 export { default as GroupPredictionsPage } from './GroupPredictionsPage';
+export { default as RivalryPage } from './RivalryPage';
 
 // Error pages
 export { default as NotFoundPage } from './NotFoundPage';

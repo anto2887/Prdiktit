@@ -134,3 +134,92 @@ export const buildUrl = (baseUrl, params = {}) => {
     
     throw lastError;
   };
+
+// Enhanced API error class
+export class APIError extends Error {
+  constructor(message, status, code, details = null) {
+    super(message);
+    this.name = 'APIError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+    this.timestamp = new Date().toISOString();
+  }
+}
+
+// Enhanced error handler that extends your existing formatErrorResponse
+export const handleAPIError = (error, context = {}) => {
+  const errorId = `API_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  // Use your existing formatErrorResponse as base
+  const baseResponse = formatErrorResponse(error);
+  
+  // Enhance with additional info
+  const enhancedResponse = {
+    ...baseResponse,
+    errorId,
+    timestamp: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    url: window.location.href,
+    context
+  };
+  
+  // Log to console in development
+  if (process.env.NODE_ENV === 'development') {
+    console.error('🚨 API Error:', enhancedResponse);
+  }
+  
+  // Store for debugging
+  try {
+    const existingLogs = JSON.parse(localStorage.getItem('api_errors') || '[]');
+    existingLogs.push(enhancedResponse);
+    
+    if (existingLogs.length > 20) {
+      existingLogs.splice(0, existingLogs.length - 20);
+    }
+    
+    localStorage.setItem('api_errors', JSON.stringify(existingLogs));
+  } catch (e) {
+    console.warn('Failed to store API error log:', e);
+  }
+  
+  return enhancedResponse;
+};
+
+// Retry wrapper for API calls
+export const withRetry = async (fn, options = {}) => {
+  const {
+    maxRetries = 3,
+    baseDelay = 1000,
+    maxDelay = 10000,
+    backoffFactor = 2,
+    shouldRetry = (error) => {
+      // Retry on network errors or 5xx server errors
+      return !error.request || (error.response && error.response.status >= 500);
+    }
+  } = options;
+  
+  let lastError;
+  
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      
+      if (attempt === maxRetries || !shouldRetry(error)) {
+        throw error;
+      }
+      
+      const delay = Math.min(
+        baseDelay * Math.pow(backoffFactor, attempt) + Math.random() * 1000,
+        maxDelay
+      );
+      
+      console.log(`Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError;
+};

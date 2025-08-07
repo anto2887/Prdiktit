@@ -24,6 +24,7 @@ import {
   GroupDetailsPage,
   GroupManagementPage,
   GroupPredictionsPage,
+  RivalryPage,
   NotFoundPage
 } from './pages';
 
@@ -65,6 +66,7 @@ const AppRoutes = () => {
         <Route path="/groups/join" element={<JoinGroupPage />} />
         <Route path="/groups/:groupId" element={<GroupDetailsPage />} />
         <Route path="/groups/:groupId/predictions" element={<GroupPredictionsPage />} />
+        <Route path="/groups/:groupId/rivalries" element={<RivalryPage />} />
         <Route path="/groups/:groupId/manage" element={<GroupManagementPage />} />
       </Route>
       

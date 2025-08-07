@@ -6,12 +6,17 @@ import ErrorMessage from '../common/ErrorMessage';
 import MatchAvailabilityCheck from './MatchAvailabilityCheck';
 import TimezoneIndicator from '../common/TimezoneIndicator';
 import { formatKickoffTime, formatDeadlineTime, isDateInPast } from '../../utils/dateUtils';
+import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
 
 const PredictionList = () => {
   const { fixtures, fetchFixtures, loading: matchesLoading, error: matchesError } = useMatches();
   const { userPredictions, fetchUserPredictions, loading: predictionsLoading } = usePredictions();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-
+  
+  // Guide state
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
+  
   useEffect(() => {
     const loadData = async () => {
       setIsInitialLoading(true);
@@ -77,13 +82,27 @@ const PredictionList = () => {
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900">Upcoming Matches</h2>
           <div className="flex items-center gap-4">
-            <TimezoneIndicator showDetails={true} />
-            <Link
-              to="/predictions/history"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-            >
-              View History →
-            </Link>
+            <HelpTooltip content="View your timezone settings and match times">
+              <TimezoneIndicator showDetails={true} />
+            </HelpTooltip>
+            <HelpTooltip content="View your prediction history and results">
+              <Link
+                to="/predictions/history"
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                View History →
+              </Link>
+            </HelpTooltip>
+            <HelpTooltip content="Start the guided tour to learn about making predictions">
+              <button
+                onClick={() => setShowGuide(true)}
+                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            </HelpTooltip>
           </div>
         </div>
 
@@ -209,6 +228,41 @@ const PredictionList = () => {
           </div>
         )}
       </div>
+      
+      {/* Guide/Help System */}
+      <OnboardingGuide
+        isOpen={showGuide}
+        onClose={() => setShowGuide(false)}
+        onComplete={() => setShowGuide(false)}
+        step={guideStep}
+        totalSteps={4}
+        steps={[
+          {
+            title: "Making Predictions",
+            content: "This page shows upcoming matches you can predict. Click on any match to make your prediction for the final score.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Prediction Deadlines",
+            content: "Each match has a deadline for predictions. Make sure to submit before the deadline passes!",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Your Predictions",
+            content: "Matches you've already predicted will show your score prediction. You can edit predictions until the deadline.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Scoring System",
+            content: "Perfect predictions (exact score) earn 3 points. Correct results (right winner/draw) earn 1 point. Good luck!",
+            action: "Got it!",
+            highlight: null
+          }
+        ]}
+      />
     </MatchAvailabilityCheck>
   );
 };

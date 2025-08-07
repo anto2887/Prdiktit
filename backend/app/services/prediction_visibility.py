@@ -23,7 +23,7 @@ class PredictionVisibilityService:
     def __init__(self, db: Session):
         self.db = db
     
-    async def get_group_predictions_for_week(self, group_id: int, week: int, season: str, current_user_id: int) -> Dict:
+    async def get_group_predictions_for_week(self, group_id: int, week: int, season: str, current_user_id: int) -> List[Dict]:
         """
         Return all group predictions for a week, but only for matches where kickoff has passed
         """
@@ -35,131 +35,193 @@ class PredictionVisibilityService:
             if not is_member:
                 raise PermissionError(f"User {current_user_id} is not a member of group {group_id}")
             
+            # Get group details to determine league and normalize season
+            group = self.db.query(Group).filter(Group.id == group_id).first()
+            if not group:
+                raise ValueError(f"Group {group_id} not found")
+            
+            # Normalize season format for database query (same as leaderboard)
+            from ..utils.season_manager import SeasonManager
+            normalized_season = SeasonManager.normalize_season_for_query(group.league, season)
+            logger.info(f"👀 Original season: {season}, normalized season: {normalized_season}")
+            
             # Get all group members
             group_members_list = await get_group_members(self.db, group_id)
             member_ids = [m['user_id'] for m in group_members_list if m.get('status') == 'APPROVED']
             
             if not member_ids:
-                return {'error': 'No approved group members found', 'visible_predictions': []}
+                logger.info(f"No approved members found for group {group_id}")
+                return []
+            
+            logger.info(f"Found {len(member_ids)} approved members: {member_ids}")
             
             # Get all fixtures for this week with prediction data
             current_time = datetime.now(timezone.utc)
             
-            # Query for predictions with fixture data
-            predictions_query = self.db.query(
-                UserPrediction.user_id,
-                UserPrediction.score1,
-                UserPrediction.score2,
-                UserPrediction.points,
-                UserPrediction.prediction_status,
-                UserPrediction.created,
-                Fixture.fixture_id,
-                Fixture.home_team,
-                Fixture.away_team,
-                Fixture.date,
-                Fixture.status,
-                Fixture.home_score,
-                Fixture.away_score,
-                User.username
-            ).join(
-                Fixture, UserPrediction.fixture_id == Fixture.fixture_id
-            ).join(
-                User, UserPrediction.user_id == User.id
-            ).filter(
-                UserPrediction.user_id.in_(member_ids),
-                UserPrediction.week == week,
-                UserPrediction.season == season,
-                UserPrediction.prediction_status.in_([
-                    PredictionStatus.SUBMITTED, 
-                    PredictionStatus.LOCKED, 
-                    PredictionStatus.PROCESSED
-                ])
-            ).order_by(Fixture.date, User.username).all()
+            # Build query step by step to catch any issues
+            try:
+                # Start with basic query
+                base_query = self.db.query(
+                    UserPrediction.user_id,
+                    UserPrediction.score1,
+                    UserPrediction.score2,
+                    UserPrediction.points,
+                    UserPrediction.prediction_status,
+                    UserPrediction.created,
+                    Fixture.fixture_id,
+                    Fixture.home_team,
+                    Fixture.away_team,
+                    Fixture.date,
+                    Fixture.status,
+                    Fixture.home_score,
+                    Fixture.away_score,
+                    User.username
+                )
+                
+                logger.info("Base query created successfully")
+                
+                # Add joins
+                query_with_joins = base_query.join(
+                    Fixture, UserPrediction.fixture_id == Fixture.fixture_id
+                ).join(
+                    User, UserPrediction.user_id == User.id
+                )
+                
+                logger.info("Joins added successfully")
+                
+                # Add filters
+                filtered_query = query_with_joins.filter(
+                    UserPrediction.user_id.in_(member_ids),
+                    UserPrediction.week == week,
+                    UserPrediction.season == normalized_season,  # Use normalized season
+                    UserPrediction.prediction_status.in_([
+                        PredictionStatus.SUBMITTED, 
+                        PredictionStatus.LOCKED, 
+                        PredictionStatus.PROCESSED
+                    ])
+                )
+                
+                logger.info("Filters added successfully")
+                logger.info(f"Filter details: member_ids={member_ids}, week={week}, season={normalized_season}")
+                logger.info(f"Prediction statuses: {[PredictionStatus.SUBMITTED, PredictionStatus.LOCKED, PredictionStatus.PROCESSED]}")
+                
+                # Let's check what predictions exist without filters first
+                all_predictions = self.db.query(UserPrediction).all()
+                logger.info(f"Total predictions in database: {len(all_predictions)}")
+                
+                if all_predictions:
+                    sample_pred = all_predictions[0]
+                    logger.info(f"Sample prediction: user_id={sample_pred.user_id}, week={sample_pred.week}, season={sample_pred.season}, status={sample_pred.prediction_status}")
+                
+                # Check predictions for this group members
+                group_predictions = self.db.query(UserPrediction).filter(
+                    UserPrediction.user_id.in_(member_ids)
+                ).all()
+                logger.info(f"Predictions for group members: {len(group_predictions)}")
+                
+                if group_predictions:
+                    for pred in group_predictions[:3]:  # Show first 3
+                        logger.info(f"Group prediction: user_id={pred.user_id}, week={pred.week}, season={pred.season}, status={pred.prediction_status}")
+                
+                # Check predictions for this week
+                week_predictions = self.db.query(UserPrediction).filter(
+                    UserPrediction.week == week
+                ).all()
+                logger.info(f"Predictions for week {week}: {len(week_predictions)}")
+                
+                # Check predictions for this season (both original and normalized)
+                season_predictions = self.db.query(UserPrediction).filter(
+                    UserPrediction.season == season
+                ).all()
+                logger.info(f"Predictions for original season {season}: {len(season_predictions)}")
+                
+                normalized_season_predictions = self.db.query(UserPrediction).filter(
+                    UserPrediction.season == normalized_season
+                ).all()
+                logger.info(f"Predictions for normalized season {normalized_season}: {len(normalized_season_predictions)}")
+                
+                # Add ordering
+                final_query = filtered_query.order_by(Fixture.date, User.username)
+                
+                logger.info("Ordering added successfully")
+                
+                # Execute query
+                predictions_query = final_query.all()
+                
+                logger.info(f"Query executed successfully, found {len(predictions_query)} predictions")
+                
+            except Exception as query_error:
+                logger.error(f"Database query error: {query_error}")
+                logger.error(f"Query error type: {type(query_error).__name__}")
+                import traceback
+                logger.error(f"Query traceback: {traceback.format_exc()}")
+                raise
             
-            # Group predictions by fixture and check visibility
-            fixture_predictions = {}
+            # Convert to simple array format expected by frontend
+            predictions_list = []
             
             for pred in predictions_query:
-                fixture_id = pred.fixture_id
-                
-                # Initialize fixture data if not exists
-                if fixture_id not in fixture_predictions:
-                    fixture_predictions[fixture_id] = {
-                        'fixture_info': {
-                            'fixture_id': fixture_id,
-                            'home_team': pred.home_team,
-                            'away_team': pred.away_team,
-                            'kickoff_time': pred.date.isoformat() if pred.date else None,
-                            'status': pred.status.value if pred.status else 'NOT_STARTED',
-                            'actual_score': {
-                                'home': pred.home_score,
-                                'away': pred.away_score
-                            } if pred.home_score is not None else None
-                        },
-                        'predictions': [],
-                        'is_visible': False,
-                        'visibility_reason': None
-                    }
-                
-                # Check if predictions should be visible for this fixture
-                is_visible, reason = self._check_prediction_visibility(pred.date, pred.status, current_time)
-                
-                # Update visibility for this fixture
-                if is_visible and not fixture_predictions[fixture_id]['is_visible']:
-                    fixture_predictions[fixture_id]['is_visible'] = True
-                    fixture_predictions[fixture_id]['visibility_reason'] = reason
-                
-                # Add prediction data (but it will only be returned if visible)
-                fixture_predictions[fixture_id]['predictions'].append({
-                    'user_id': pred.user_id,
-                    'username': pred.username,
-                    'predicted_score': {
-                        'home': pred.score1,
-                        'away': pred.score2
-                    },
-                    'points': pred.points,
-                    'prediction_status': pred.prediction_status.value,
-                    'submitted_at': pred.created.isoformat() if pred.created else None
-                })
+                try:
+                    # Check if predictions should be visible for this fixture
+                    is_visible, reason = self._check_prediction_visibility(pred.date, pred.status, current_time)
+                    
+                    if is_visible:
+                        prediction_data = {
+                            "id": pred.user_id,  # Use user_id as id for group context
+                            "match_id": pred.fixture_id,
+                            "user_id": pred.user_id,
+                            
+                            # Include BOTH field naming conventions for compatibility (same as /predictions/user)
+                            "home_score": pred.score1,  # New naming (for API consistency)
+                            "away_score": pred.score2,  # New naming (for API consistency)
+                            "score1": pred.score1,      # Old naming (for frontend compatibility)
+                            "score2": pred.score2,      # Old naming (for frontend compatibility)
+                            
+                            "points": pred.points or 0,
+                            "prediction_status": pred.prediction_status.value,
+                            "created": pred.created.isoformat() if pred.created else None,
+                            "season": normalized_season,
+                            "week": week,
+                            
+                            # User data for group context
+                            "user": {
+                                "id": pred.user_id,
+                                "username": pred.username
+                            },
+                            
+                            # Complete fixture data (same structure as /predictions/user)
+                            "fixture": {
+                                "fixture_id": pred.fixture_id,
+                                "home_team": pred.home_team,
+                                "away_team": pred.away_team,
+                                "home_team_logo": None,  # Add if available in your fixture data
+                                "away_team_logo": None,  # Add if available in your fixture data
+                                "date": pred.date.isoformat() if pred.date else None,
+                                "league": group.league,  # Use group league
+                                "status": pred.status.value if hasattr(pred.status, 'value') else str(pred.status),
+                                "home_score": pred.home_score,
+                                "away_score": pred.away_score,
+                                "season": normalized_season,
+                                "round": None,  # Add if available
+                                "venue": None,  # Add if available
+                                "venue_city": None
+                            }
+                        }
+                        predictions_list.append(prediction_data)
+                except Exception as pred_error:
+                    logger.error(f"Error processing prediction: {pred_error}")
+                    continue
             
-            # Filter to only return visible predictions
-            visible_predictions = {}
-            total_fixtures = len(fixture_predictions)
-            visible_fixtures = 0
-            
-            for fixture_id, fixture_data in fixture_predictions.items():
-                if fixture_data['is_visible']:
-                    visible_predictions[fixture_id] = fixture_data
-                    visible_fixtures += 1
-                else:
-                    # For non-visible fixtures, only show fixture info without predictions
-                    visible_predictions[fixture_id] = {
-                        'fixture_info': fixture_data['fixture_info'],
-                        'predictions': [],  # Hide predictions
-                        'is_visible': False,
-                        'visibility_reason': 'Kickoff time has not passed yet'
-                    }
-            
-            logger.info(f"👀 Returning {visible_fixtures}/{total_fixtures} fixtures with visible predictions")
-            
-            return {
-                'group_id': group_id,
-                'week': week,
-                'season': season,
-                'total_fixtures': total_fixtures,
-                'visible_fixtures': visible_fixtures,
-                'visible_predictions': visible_predictions,
-                'group_members': [
-                    {'user_id': m['user_id'], 'username': m['username']} 
-                    for m in group_members_list if m.get('status') == 'APPROVED'
-                ],
-                'generated_at': current_time.isoformat()
-            }
+            logger.info(f"Returning {len(predictions_list)} visible predictions")
+            return predictions_list
             
         except PermissionError:
             raise
         except Exception as e:
             logger.error(f"❌ Error getting group predictions: {e}")
+            logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise
     
     def _check_prediction_visibility(self, kickoff_time: Optional[datetime], match_status: MatchStatus, current_time: datetime) -> tuple[bool, str]:

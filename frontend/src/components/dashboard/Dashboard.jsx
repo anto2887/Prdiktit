@@ -11,6 +11,7 @@ import DashboardStats from './DashboardStats';
 import RecentPredictions from './RecentPredictions';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import { OnboardingGuide, HelpTooltip, FeatureHighlight } from '../onboarding/OnboardingGuide';
 
 const Dashboard = () => {
   const { profile, stats, loading: userLoading, error: userError } = useUser();
@@ -21,6 +22,10 @@ const Dashboard = () => {
   // State to store group leaderboards
   const [groupLeaderboards, setGroupLeaderboards] = useState({});
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  
+  // Guide state
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
 
   const isLoading = userLoading || predictionsLoading;
   const error = userError || predictionsError;
@@ -103,21 +108,40 @@ const Dashboard = () => {
           <h1 className="text-2xl font-bold text-gray-900">
             Welcome back, {profile?.username}!
           </h1>
-          <Link
-            to="/predictions/new"
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Post Your Prediction →
-          </Link>
+          <div className="flex items-center space-x-3">
+            <HelpTooltip content="Start the guided tour to learn about your dashboard">
+              <button
+                onClick={() => setShowGuide(true)}
+                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+            </HelpTooltip>
+            <Link
+              to="/predictions/new"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Post Your Prediction →
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Stats Section */}
-        <section className="bg-white rounded-lg shadow">
+        <section id="stats-section" className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Your Stats</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium text-gray-900">Your Stats</h2>
+              <HelpTooltip content="View your overall prediction performance and statistics">
+                <svg className="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </HelpTooltip>
+            </div>
           </div>
           <div className="p-6">
             <DashboardStats stats={stats} />
@@ -125,9 +149,16 @@ const Dashboard = () => {
         </section>
 
         {/* Recent Predictions Section */}
-        <section className="bg-white rounded-lg shadow">
+        <section id="recent-predictions" className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Recent Predictions</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-medium text-gray-900">Recent Predictions</h2>
+              <HelpTooltip content="Your latest predictions and their results">
+                <svg className="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </HelpTooltip>
+            </div>
           </div>
           <div className="p-6">
             <RecentPredictions />
@@ -136,23 +167,27 @@ const Dashboard = () => {
       </div>
 
       {/* League Table Section - Full Width */}
-      <section className="bg-white rounded-lg shadow">
+      <section id="leagues-section" className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-900">My Leagues</h2>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-              <Link
-                to="/groups/join"
-                className="inline-flex items-center justify-center px-4 py-2 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Join League
-              </Link>
-              <Link
-                to="/groups/create"
-                className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Create League
-              </Link>
+              <HelpTooltip content="Join an existing league using an invite code">
+                <Link
+                  to="/groups/join"
+                  className="inline-flex items-center justify-center px-4 py-2 border border-blue-600 rounded-md shadow-sm text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Join League
+                </Link>
+              </HelpTooltip>
+              <HelpTooltip content="Create a new league and invite friends to compete">
+                <Link
+                  to="/groups/create"
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Create League
+                </Link>
+              </HelpTooltip>
             </div>
           </div>
 
@@ -245,6 +280,47 @@ const Dashboard = () => {
           )}
         </div>
       </section>
+      
+      {/* Guide/Help System */}
+      <OnboardingGuide
+        isOpen={showGuide}
+        onClose={() => setShowGuide(false)}
+        onComplete={() => setShowGuide(false)}
+        step={guideStep}
+        totalSteps={5}
+        steps={[
+          {
+            title: "Welcome to Your Dashboard!",
+            content: "This is your central hub for managing predictions, tracking performance, and competing in leagues. Let's explore the key features.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Your Statistics",
+            content: "View your overall prediction performance including total points, accuracy, and ranking across all your leagues.",
+            action: "Next",
+            highlight: "stats-section"
+          },
+          {
+            title: "Recent Predictions",
+            content: "See your latest predictions and their results. Perfect predictions earn 3 points, correct results earn 1 point.",
+            action: "Next",
+            highlight: "recent-predictions"
+          },
+          {
+            title: "My Leagues",
+            content: "Manage your leagues here. Join existing leagues with invite codes or create new ones to compete with friends.",
+            action: "Next",
+            highlight: "leagues-section"
+          },
+          {
+            title: "Getting Started",
+            content: "Click 'Post Your Prediction' to make new predictions, or visit your leagues to see how you rank against friends!",
+            action: "Got it!",
+            highlight: null
+          }
+        ]}
+      />
     </div>
   );
 };

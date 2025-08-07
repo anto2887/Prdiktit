@@ -427,7 +427,7 @@ class RivalryService:
         
         logger.info(f"🏆 Awarded 3 rivalry bonus points to user {user_id} for week {week}")
     
-    async def get_group_rivalries(self, group_id: int) -> Dict:
+    async def get_group_rivalries(self, group_id: int) -> List[Dict]:
         """Get current rivalries for a group"""
         
         active_rivalries = self.db.query(RivalryPair).filter(
@@ -435,9 +435,8 @@ class RivalryService:
             RivalryPair.is_active == True
         ).all()
         
-        # Group rivalries by type
-        standard_rivalries = []
-        champion_challenges = []
+        # Convert to flat array format expected by frontend
+        rivalries_list = []
         
         for rivalry in active_rivalries:
             user1 = self.db.query(User).filter(User.id == rivalry.user1_id).first()
@@ -445,20 +444,17 @@ class RivalryService:
             
             rivalry_data = {
                 'id': rivalry.id,
-                'user1': {'id': user1.id, 'username': user1.username},
-                'user2': {'id': user2.id, 'username': user2.username},
-                'assigned_week': rivalry.assigned_week,
-                'created_at': rivalry.created_at
+                'user1_id': rivalry.user1_id,
+                'user2_id': rivalry.user2_id,
+                'user1_name': user1.username if user1 else 'Unknown',
+                'user2_name': user2.username if user2 else 'Unknown',
+                'rivalry_week': rivalry.assigned_week,
+                'is_active': rivalry.is_active,
+                'is_champion_challenge': rivalry.is_champion_challenge,
+                'created_at': rivalry.created_at.isoformat() if rivalry.created_at else None,
+                'ended_at': rivalry.ended_at.isoformat() if rivalry.ended_at else None
             }
             
-            if rivalry.is_champion_challenge:
-                champion_challenges.append(rivalry_data)
-            else:
-                standard_rivalries.append(rivalry_data)
+            rivalries_list.append(rivalry_data)
         
-        return {
-            'group_id': group_id,
-            'standard_rivalries': standard_rivalries,
-            'champion_challenges': champion_challenges,
-            'total_active_rivalries': len(active_rivalries)
-        }
+        return rivalries_list

@@ -817,7 +817,7 @@ async def get_group_predictions_for_week(
         )
         
         # Cache for 10 minutes (predictions visibility can change frequently)
-        await cache.set(cache_key, predictions, ttl=600)
+        await cache.set(cache_key, predictions, expiry=600)
         
         return DataResponse(
             message="Group predictions retrieved successfully",
@@ -862,7 +862,7 @@ async def get_match_prediction_summary(
         summary = await visibility_service.get_match_prediction_summary(fixture_id, current_user.id)
         
         # Cache for 15 minutes
-        await cache.set(cache_key, summary, ttl=900)
+        await cache.set(cache_key, summary, expiry=900)
         
         return DataResponse(
             message="Match prediction summary retrieved successfully",
