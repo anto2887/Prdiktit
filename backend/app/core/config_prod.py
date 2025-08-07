@@ -1,5 +1,7 @@
 # backend/app/core/config_prod.py
 import os
+import json
+from typing import List
 from .config import Settings
 
 def safe_int(env_var: str, default: int) -> int:
@@ -18,6 +20,28 @@ def safe_bool(env_var: str, default: bool) -> bool:
     if value == '' or value is None:
         return default
     return str(value).lower() in ('true', '1', 'yes', 'on')
+
+def parse_string_list(value: str, default: List[str] = None) -> List[str]:
+    """Parse a string into a list, handling various formats"""
+    if default is None:
+        default = []
+    
+    if not value:
+        return default
+    
+    # If it's JSON format
+    if value.strip().startswith('[') and value.strip().endswith(']'):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            pass
+    
+    # Single value or comma-separated string
+    if ',' in value:
+        return [x.strip() for x in value.split(",") if x.strip()]
+    else:
+        # Single value
+        return [value.strip()] if value.strip() else default
 
 def validate_required_env(name: str, value: str) -> str:
     """Validate that required environment variables are set"""
@@ -38,15 +62,21 @@ class ProductionSettings(Settings):
     # API and rate limiting - matching your Railway variables
     API_RATE_LIMIT: int = safe_int("API_RATE_LIMIT", 300)
     
-    # CORS - matching your Railway variable
-    CORS_ORIGINS: list = [
-        x.strip() for x in os.getenv("CORS_ORIGINS", "").split(",") 
-        if x.strip()
-    ]
+    # CORS - override ALL list fields to handle Railway string format safely
+    CORS_ORIGINS: List[str] = parse_string_list(os.getenv("CORS_ORIGINS", ""))
     CORS_ALLOW_CREDENTIALS: bool = True
-    CORS_ALLOW_METHODS: list = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
-    CORS_ALLOW_HEADERS: list = ["Authorization", "Content-Type", "X-Requested-With"]
-    CORS_EXPOSE_HEADERS: list = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
+    CORS_ALLOW_METHODS: List[str] = parse_string_list(
+        os.getenv("CORS_ALLOW_METHODS", ""), 
+        ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+    )
+    CORS_ALLOW_HEADERS: List[str] = parse_string_list(
+        os.getenv("CORS_ALLOW_HEADERS", ""), 
+        ["Authorization", "Content-Type", "X-Requested-With"]
+    )
+    CORS_EXPOSE_HEADERS: List[str] = parse_string_list(
+        os.getenv("CORS_EXPOSE_HEADERS", ""), 
+        ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
+    )
     
     # Database settings - matching your Railway variable
     CREATE_TABLES_ON_STARTUP: bool = safe_bool("CREATE_TABLES_ON_STARTUP", False)
