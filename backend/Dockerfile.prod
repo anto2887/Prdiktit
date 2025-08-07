@@ -25,7 +25,6 @@ FROM python:3.12-slim
 # Set environment variables for production
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PATH=/root/.local/bin:$PATH \
     PYTHONPATH=/app \
     ENVIRONMENT=production
 
@@ -42,17 +41,21 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
 # Create app user
 RUN useradd --create-home --shell /bin/bash app
 
-# Copy Python dependencies from builder stage (correct paths for --user install)
-COPY --from=builder /root/.local /root/.local
+# Copy Python dependencies from builder stage to app user's home directory
+COPY --from=builder /root/.local /home/app/.local
 
 # Copy application code
 COPY . .
 
-# Change ownership of app directory to app user
-RUN chown -R app:app /app
+# Change ownership of app directory and .local to app user
+RUN chown -R app:app /app && \
+    chown -R app:app /home/app/.local
 
 # Switch to app user
 USER app
+
+# Update PATH to include app user's .local/bin
+ENV PATH="/home/app/.local/bin:$PATH"
 
 # Expose port
 EXPOSE 8000
