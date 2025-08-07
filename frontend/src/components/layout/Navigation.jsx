@@ -50,11 +50,11 @@ const Navigation = () => {
             <Link to="/" className="flex-shrink-0 flex items-center">
               <img
                 className="h-8 w-auto"
-                src="/logo.svg"
+                src="/static/images/logo.svg"
                 alt="Football Predictions"
               />
               <span className="ml-2 text-xl font-bold text-blue-600">
-                PrdiktIt
+                PrediktIt
               </span>
             </Link>
           </div>

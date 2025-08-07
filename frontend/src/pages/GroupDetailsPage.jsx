@@ -158,11 +158,11 @@ const GroupDetailsPage = () => {
         setSelectedSeason(defaultSeason);
       }
       
-      // Set default week if not already set
+      // Set default week if not already set (default to week 1)
       if (!selectedWeek) {
-        const currentWeek = SeasonManager.getCurrentWeek(currentGroup.league);
-        console.log('📅 Setting default week:', currentWeek);
-        setSelectedWeek(currentWeek);
+        const defaultWeek = 1; // Default to week 1 instead of calling non-existent function
+        console.log('📅 Setting default week:', defaultWeek);
+        setSelectedWeek(defaultWeek);
       }
       
       // Load leaderboard for the selected season/week
@@ -244,7 +244,9 @@ const GroupDetailsPage = () => {
               </span>
               <span>{groupMembers.length} members</span>
               {currentGroup.invite_code && (
-                <span>Code: <code className="bg-gray-100 px-2 py-1 rounded text-xs">{currentGroup.invite_code}</code></span>
+                <HelpTooltip content="Share this invite code with friends to let them join your league">
+                  <span>Code: <code className="bg-gray-100 px-2 py-1 rounded text-xs cursor-help">{currentGroup.invite_code}</code></span>
+                </HelpTooltip>
               )}
             </div>
           </div>

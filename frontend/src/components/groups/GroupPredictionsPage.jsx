@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import { OnboardingGuide, HelpTooltip, FeatureHighlight } from '../onboarding/OnboardingGuide';
+import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
 
 const GroupPredictionsPage = () => {
   const { groupId } = useParams();

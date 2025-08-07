@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import TeamSelector from './TeamSelector';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { HelpTooltip } from '../onboarding/OnboardingGuide';
 
 const GroupForm = () => {
   const [step, setStep] = useState(1);
@@ -90,9 +91,14 @@ const GroupForm = () => {
         
         {/* Step 1: League Name */}
         <div className={`mb-6 ${step !== 1 && 'hidden'}`}>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            League Name
-          </label>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              League Name
+            </label>
+            <HelpTooltip content="Choose a unique name for your league that will be visible to all members">
+              <span className="text-gray-400">ℹ️</span>
+            </HelpTooltip>
+          </div>
           <input
             type="text"
             value={formData.name}
@@ -112,9 +118,14 @@ const GroupForm = () => {
 
         {/* Step 2: League Selection */}
         <div className={`mb-6 ${step !== 2 && 'hidden'}`}>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select League
-          </label>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Select League
+            </label>
+            <HelpTooltip content="Choose which football league your group will follow. This determines the matches available for predictions">
+              <span className="text-gray-400">ℹ️</span>
+            </HelpTooltip>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             {leagues.map(league => (
               <button
@@ -134,9 +145,14 @@ const GroupForm = () => {
 
         {/* Step 3: Team Selection */}
         <div className={`mb-6 ${step !== 2 || !formData.league ? 'hidden' : ''}`}>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Teams to Track
-          </label>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Select Teams to Track
+            </label>
+            <HelpTooltip content="Choose which teams to track in your league. You can select multiple teams to follow their matches">
+              <span className="text-gray-400">ℹ️</span>
+            </HelpTooltip>
+          </div>
           <TeamSelector
             selectedLeague={formData.league}
             onTeamsSelected={handleTeamsSelected}

@@ -18,6 +18,7 @@ import LiveMatches from '../components/dashboard/LiveMatches';
 import LeagueTable from '../components/dashboard/LeagueTable';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
+import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
 
 const DashboardPage = () => {
   const { profile, stats, fetchProfile, loading: userLoading, error: userError } = useUser();
@@ -34,6 +35,10 @@ const DashboardPage = () => {
     matches: false,
     fixtures: false
   });
+  
+  // Guide state
+  const [showGuide, setShowGuide] = useState(false);
+  const [guideStep, setGuideStep] = useState(0);
 
   // Combined loading and error states
   const isLoading = userLoading || predictionsLoading || matchesLoading || groupsLoading;
@@ -208,7 +213,19 @@ const DashboardPage = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <HelpTooltip content="Start the guided tour to learn about your dashboard">
+          <button
+            onClick={() => setShowGuide(true)}
+            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+        </HelpTooltip>
+      </div>
       
       {/* FIXED: Add debug info in development */}
       {process.env.NODE_ENV === 'development' && (
@@ -225,7 +242,12 @@ const DashboardPage = () => {
       
       {/* Stats section */}
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Your Stats</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Your Stats</h2>
+          <HelpTooltip content="View your overall prediction performance and statistics">
+            <span className="text-gray-400">ℹ️</span>
+          </HelpTooltip>
+        </div>
         <DashboardStats stats={stats} />
       </section>
       
@@ -245,7 +267,12 @@ const DashboardPage = () => {
       
       {/* Recent predictions section */}
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Your Recent Predictions</h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold">Your Recent Predictions</h2>
+          <HelpTooltip content="Your latest predictions and their results">
+            <span className="text-gray-400">ℹ️</span>
+          </HelpTooltip>
+        </div>
         <RecentPredictions predictions={userPredictions} />
       </section>
       
@@ -255,18 +282,22 @@ const DashboardPage = () => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Your Groups</h2>
             <div className="flex gap-2">
-              <Link
-                to="/groups/join"
-                className="px-4 py-2 border border-blue-600 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50"
-              >
-                Join League
-              </Link>
-              <Link
-                to="/groups/create"
-                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                Create League
-              </Link>
+              <HelpTooltip content="Join an existing league using an invite code">
+                <Link
+                  to="/groups/join"
+                  className="px-4 py-2 border border-blue-600 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50"
+                >
+                  Join League
+                </Link>
+              </HelpTooltip>
+              <HelpTooltip content="Create a new league and invite friends to compete">
+                <Link
+                  to="/groups/create"
+                  className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  Create League
+                </Link>
+              </HelpTooltip>
             </div>
           </div>
           
@@ -328,6 +359,47 @@ const DashboardPage = () => {
           </div>
         </section>
       ))}
+      
+      {/* Guide/Help System */}
+      <OnboardingGuide
+        isOpen={showGuide}
+        onClose={() => setShowGuide(false)}
+        onComplete={() => setShowGuide(false)}
+        step={guideStep}
+        totalSteps={5}
+        steps={[
+          {
+            title: "Welcome to Your Dashboard!",
+            content: "This is your central hub for all football prediction activities. Let's explore what you can do here.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Your Stats",
+            content: "View your overall performance including total points, prediction accuracy, and ranking across all your leagues.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Recent Predictions",
+            content: "See your latest predictions and their results. Track how well you're performing in recent matches.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Your Groups",
+            content: "Manage your leagues here. Join existing leagues or create new ones to compete with friends.",
+            action: "Next",
+            highlight: null
+          },
+          {
+            title: "Navigation",
+            content: "Use the navigation menu to access predictions, analytics, and other features. Everything is just a click away!",
+            action: "Got it!",
+            highlight: null
+          }
+        ]}
+      />
     </div>
   );
 };

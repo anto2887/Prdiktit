@@ -4,17 +4,68 @@ import React, { useState, useEffect } from 'react';
 // Simple HelpTooltip component
 export const HelpTooltip = ({ content, position = 'top', children }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+  const [tooltipPlacement, setTooltipPlacement] = useState(position);
 
   if (!content) {
     return children || null;
   }
 
+  const handleMouseEnter = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const tooltipWidth = 250;
+    const tooltipHeight = 80;
+    
+    let placement = position;
+    let x = rect.left + rect.width / 2;
+    let y = rect.top + rect.height / 2;
+    
+    // Calculate optimal position to stay within viewport
+    if (placement === 'top') {
+      y = rect.top - 10;
+      if (y < tooltipHeight) {
+        placement = 'bottom';
+        y = rect.bottom + 10;
+      }
+    } else if (placement === 'bottom') {
+      y = rect.bottom + 10;
+      if (y + tooltipHeight > window.innerHeight) {
+        placement = 'top';
+        y = rect.top - 10;
+      }
+    } else if (placement === 'left') {
+      x = rect.left - 10;
+      if (x < tooltipWidth) {
+        placement = 'right';
+        x = rect.right + 10;
+      }
+    } else if (placement === 'right') {
+      x = rect.right + 10;
+      if (x + tooltipWidth > window.innerWidth) {
+        placement = 'left';
+        x = rect.left - 10;
+      }
+    }
+    
+    // Ensure tooltip stays within viewport bounds
+    x = Math.max(tooltipWidth / 2 + 10, Math.min(x, window.innerWidth - tooltipWidth / 2 - 10));
+    y = Math.max(tooltipHeight / 2 + 10, Math.min(y, window.innerHeight - tooltipHeight / 2 - 10));
+    
+    setTooltipPosition({ x, y });
+    setTooltipPlacement(placement);
+    setIsVisible(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsVisible(false);
+  };
+
   return (
-    <div className="relative inline-block">
+    <>
       <div
-        onMouseEnter={() => setIsVisible(true)}
-        onMouseLeave={() => setIsVisible(false)}
-        className="cursor-help"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className="cursor-help inline-block"
       >
         {children || (
           <svg className="w-4 h-4 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -24,22 +75,23 @@ export const HelpTooltip = ({ content, position = 'top', children }) => {
       </div>
 
       {isVisible && (
-        <div className={`absolute z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg whitespace-nowrap ${
-          position === 'top' ? 'bottom-full mb-2 left-1/2 transform -translate-x-1/2' :
-          position === 'bottom' ? 'top-full mt-2 left-1/2 transform -translate-x-1/2' :
-          position === 'left' ? 'right-full mr-2 top-1/2 transform -translate-y-1/2' :
-          'left-full ml-2 top-1/2 transform -translate-y-1/2'
-        }`}>
+        <div 
+          className="fixed z-[999999] px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg max-w-xs"
+          style={{
+            left: tooltipPosition.x,
+            top: tooltipPosition.y,
+            transform: 'translate(-50%, -50%)',
+            maxWidth: '250px',
+            wordWrap: 'break-word',
+            whiteSpace: 'normal',
+            pointerEvents: 'none'
+          }}
+        >
           {content}
-          <div className={`absolute w-2 h-2 bg-gray-900 rotate-45 ${
-            position === 'top' ? 'top-full left-1/2 transform -translate-x-1/2 -translate-y-1/2' :
-            position === 'bottom' ? 'bottom-full left-1/2 transform -translate-x-1/2 translate-y-1/2' :
-            position === 'left' ? 'left-full top-1/2 transform -translate-x-1/2 -translate-y-1/2' :
-            'right-full top-1/2 transform translate-x-1/2 -translate-y-1/2'
-          }`} />
+          {/* Arrow removed - no more black dot */}
         </div>
       )}
-    </div>
+    </>
   );
 };
 

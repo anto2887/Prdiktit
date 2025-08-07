@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { HelpTooltip } from '../onboarding/OnboardingGuide';
 
 const JoinGroup = () => {
     const [inviteCode, setInviteCode] = useState('');
@@ -55,12 +56,17 @@ const JoinGroup = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
-                        <label 
-                            htmlFor="inviteCode" 
-                            className="block text-sm font-medium text-gray-700 mb-2"
-                        >
-                            Enter Invite Code
-                        </label>
+                        <div className="flex justify-between items-center mb-2">
+                            <label 
+                                htmlFor="inviteCode" 
+                                className="block text-sm font-medium text-gray-700"
+                            >
+                                Enter Invite Code
+                            </label>
+                            <HelpTooltip content="Enter the 8-character invite code provided by the league admin. The code is case-insensitive">
+                                <span className="text-gray-400">ℹ️</span>
+                            </HelpTooltip>
+                        </div>
                         <input
                             id="inviteCode"
                             type="text"
