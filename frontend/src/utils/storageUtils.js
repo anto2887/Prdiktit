@@ -19,7 +19,7 @@ export const setLocalStorageItem = (key, value, expirationHours = null) => {
       
       localStorage.setItem(key, JSON.stringify(item));
     } catch (error) {
-      console.error('Error setting localStorage item:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error setting localStorage item:', error);
     }
   };
   
@@ -28,26 +28,26 @@ export const setLocalStorageItem = (key, value, expirationHours = null) => {
    * @param {string} key - Storage key
    * @returns {any} Stored value or null if expired or not found
    */
-  export const getLocalStorageItem = (key) => {
+  export const getLocalStorageItem = (key, defaultValue = null) => {
     try {
-      const itemStr = localStorage.getItem(key);
+      const item = localStorage.getItem(key);
       
-      if (!itemStr) {
-        return null;
+      if (!item) {
+        return defaultValue;
       }
       
-      const item = JSON.parse(itemStr);
+      const itemObj = JSON.parse(item);
       
       // Check for expiration
-      if (item.expiry && new Date().getTime() > item.expiry) {
+      if (itemObj.expiry && new Date().getTime() > itemObj.expiry) {
         localStorage.removeItem(key);
-        return null;
+        return defaultValue;
       }
       
-      return item.value;
+      return itemObj.value;
     } catch (error) {
-      console.error('Error getting localStorage item:', error);
-      return null;
+      process.env.NODE_ENV === 'development' && console.error('Error getting localStorage item:', error);
+      return defaultValue;
     }
   };
   
@@ -59,7 +59,7 @@ export const setLocalStorageItem = (key, value, expirationHours = null) => {
     try {
       localStorage.removeItem(key);
     } catch (error) {
-      console.error('Error removing localStorage item:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error removing localStorage item:', error);
     }
   };
   
@@ -70,7 +70,7 @@ export const setLocalStorageItem = (key, value, expirationHours = null) => {
     try {
       localStorage.clear();
     } catch (error) {
-      console.error('Error clearing localStorage:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error clearing localStorage:', error);
     }
   };
   
@@ -83,7 +83,7 @@ export const setLocalStorageItem = (key, value, expirationHours = null) => {
     try {
       sessionStorage.setItem(key, JSON.stringify(value));
     } catch (error) {
-      console.error('Error setting sessionStorage item:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error setting sessionStorage item:', error);
     }
   };
   
@@ -92,18 +92,18 @@ export const setLocalStorageItem = (key, value, expirationHours = null) => {
    * @param {string} key - Storage key
    * @returns {any} Stored value or null if not found
    */
-  export const getSessionStorageItem = (key) => {
+  export const getSessionStorageItem = (key, defaultValue = null) => {
     try {
-      const itemStr = sessionStorage.getItem(key);
+      const item = sessionStorage.getItem(key);
       
-      if (!itemStr) {
-        return null;
+      if (!item) {
+        return defaultValue;
       }
       
-      return JSON.parse(itemStr);
+      return JSON.parse(item);
     } catch (error) {
-      console.error('Error getting sessionStorage item:', error);
-      return null;
+      process.env.NODE_ENV === 'development' && console.error('Error getting sessionStorage item:', error);
+      return defaultValue;
     }
   };
   
@@ -115,7 +115,7 @@ export const setLocalStorageItem = (key, value, expirationHours = null) => {
     try {
       sessionStorage.removeItem(key);
     } catch (error) {
-      console.error('Error removing sessionStorage item:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error removing sessionStorage item:', error);
     }
   };
   
@@ -126,6 +126,6 @@ export const setLocalStorageItem = (key, value, expirationHours = null) => {
     try {
       sessionStorage.clear();
     } catch (error) {
-      console.error('Error clearing sessionStorage:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error clearing sessionStorage:', error);
     }
   };

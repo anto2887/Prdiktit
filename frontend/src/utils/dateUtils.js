@@ -19,47 +19,43 @@ import { format, parseISO, formatDistance, formatDistanceToNow, isValid, addDays
 export const parseUTCToLocal = (date) => {
   if (!date) return null;
   
-  // If it's already a Date object, return it
-  if (date instanceof Date) return date;
-  
   try {
-    // CRITICAL FIX: Handle naive datetime strings from backend
-    if (typeof date === 'string') {
-      // Check if it's a naive datetime string (no timezone info)
-      const isNaiveString = date.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$/) && !date.endsWith('Z');
+    // Handle naive date strings (without timezone info)
+    if (typeof date === 'string' && !date.includes('T') && !date.includes('Z')) {
+      // Convert naive date string to UTC
+      const utcString = `${date}T00:00:00.000Z`;
+      process.env.NODE_ENV === 'development' && console.log(`🔧 Converting naive string "${date}" to UTC "${utcString}"`);
       
-      if (isNaiveString) {
-        // Backend sends naive strings but they're actually UTC
-        // Convert to proper UTC string by adding 'Z'
-        const utcString = date + 'Z';
-        console.log(`🔧 Converting naive string "${date}" to UTC "${utcString}"`);
-        const parsedDate = parseISO(utcString);
-        
-        if (isValid(parsedDate)) {
-          console.log(`✅ Successfully parsed UTC: ${parsedDate.toString()}`);
-          return parsedDate;
-        }
-      } else {
-        // String already has timezone info, parse normally
-        const parsedDate = parseISO(date);
-        if (isValid(parsedDate)) {
-          return parsedDate;
-        }
+      const parsedDate = new Date(utcString);
+      process.env.NODE_ENV === 'development' && console.log(`✅ Successfully parsed UTC: ${parsedDate.toString()}`);
+      return parsedDate;
+    }
+    
+    // Handle ISO strings with timezone info
+    if (typeof date === 'string' && (date.includes('T') || date.includes('Z'))) {
+      const parsedDate = new Date(date);
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate;
       }
     }
     
-    // Fallback: try direct Date constructor
-    const fallbackDate = new Date(date);
-    if (isValid(fallbackDate)) {
-      console.log(`⚠️ Used fallback parsing for: ${date}`);
-      return fallbackDate;
+    // Handle Date objects
+    if (date instanceof Date) {
+      return date;
     }
     
-    console.log(`❌ Failed to parse date: ${date}`);
+    // Fallback: try to parse as is
+    const parsedDate = new Date(date);
+    if (!isNaN(parsedDate.getTime())) {
+      process.env.NODE_ENV === 'development' && console.log(`⚠️ Used fallback parsing for: ${date}`);
+      return parsedDate;
+    }
+    
+    process.env.NODE_ENV === 'development' && console.log(`❌ Failed to parse date: ${date}`);
     return null;
     
   } catch (error) {
-    console.error('❌ parseUTCToLocal error:', error);
+    process.env.NODE_ENV === 'development' && console.error('❌ parseUTCToLocal error:', error);
     return null;
   }
 };

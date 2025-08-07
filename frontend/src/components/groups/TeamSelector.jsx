@@ -92,30 +92,26 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
     setError(null);
     
     try {
-      console.log(`Loading teams for league: ${selectedLeague}`);
+      process.env.NODE_ENV === 'development' && console.log(`Loading teams for league: ${selectedLeague}`);
       
       const response = await fetchTeamsForLeague(selectedLeague);
       
-      if (response && response.status === 'success') {
-        if (Array.isArray(response.data)) {
-          console.log(`Successfully loaded ${response.data.length} teams`);
-          setTeams(response.data);
-          // Initialize image load states
-          const initialLoadStates = response.data.reduce((acc, team) => ({
-            ...acc,
-            [team.id]: 'loading'
-          }), {});
-          setImageLoadStates(initialLoadStates);
-        } else {
-          console.error("Invalid teams data format:", response.data);
-          setTeams([]);
-          setError("No teams available. Please try again later.");
-        }
+      if (response && response.status === 'success' && Array.isArray(response.data)) {
+        process.env.NODE_ENV === 'development' && console.log(`Successfully loaded ${response.data.length} teams`);
+        setTeams(response.data);
+        // Initialize image load states
+        const initialLoadStates = response.data.reduce((acc, team) => ({
+          ...acc,
+          [team.id]: 'loading'
+        }), {});
+        setImageLoadStates(initialLoadStates);
       } else {
-        throw new Error(response?.message || "Failed to load teams");
+        process.env.NODE_ENV === 'development' && console.error("Invalid teams data format:", response.data);
+        setTeams([]);
+        setError("No teams available. Please try again later.");
       }
     } catch (err) {
-      console.error('Error loading teams:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error loading teams:', err);
       setError('Failed to load teams. Please try refreshing the page.');
       showError('Failed to load teams. Please try refreshing the page.');
     } finally {

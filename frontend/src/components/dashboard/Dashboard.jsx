@@ -33,7 +33,7 @@ const Dashboard = () => {
   // FIXED: Ensure groups are fetched when component mounts
   useEffect(() => {
     if (!userGroups || userGroups.length === 0) {
-      console.log('Dashboard: Fetching user groups...');
+      process.env.NODE_ENV === 'development' && console.log('Dashboard: Fetching user groups...');
       fetchUserGroups();
     }
   }, [fetchUserGroups, userGroups]);
@@ -50,20 +50,20 @@ const Dashboard = () => {
         await Promise.all(
           userGroups.map(async (group) => {
             try {
-              console.log(`Fetching leaderboard for group ${group.id}`);
+              process.env.NODE_ENV === 'development' && console.log(`Fetching leaderboard for group ${group.id}`);
               const leaderboard = await fetchLeaderboard(group.id);
               leaderboards[group.id] = leaderboard || [];
             } catch (err) {
-              console.error(`Error fetching leaderboard for group ${group.id}:`, err);
+              process.env.NODE_ENV === 'development' && console.error(`Error fetching leaderboard for group ${group.id}:`, err);
               leaderboards[group.id] = [];
             }
           })
         );
         
         setGroupLeaderboards(leaderboards);
-        console.log('All leaderboards fetched:', leaderboards);
+        process.env.NODE_ENV === 'development' && console.log('All leaderboards fetched:', leaderboards);
       } catch (err) {
-        console.error('Error fetching group leaderboards:', err);
+        process.env.NODE_ENV === 'development' && console.error('Error fetching group leaderboards:', err);
       } finally {
         setLeaderboardLoading(false);
       }
@@ -74,11 +74,11 @@ const Dashboard = () => {
 
   // Add this after the existing useEffect hooks
   useEffect(() => {
-    console.log('=== DASHBOARD DEBUG ===');
-    console.log('Profile:', profile);
-    console.log('Groups:', userGroups);
-    console.log('Group leaderboards:', groupLeaderboards);
-    console.log('Leaderboard loading:', leaderboardLoading);
+    process.env.NODE_ENV === 'development' && console.log('=== DASHBOARD DEBUG ===');
+    process.env.NODE_ENV === 'development' && console.log('Profile:', profile);
+    process.env.NODE_ENV === 'development' && console.log('Groups:', userGroups);
+    process.env.NODE_ENV === 'development' && console.log('Group leaderboards:', groupLeaderboards);
+    process.env.NODE_ENV === 'development' && console.log('Leaderboard loading:', leaderboardLoading);
   }, [profile, userGroups, groupLeaderboards, leaderboardLoading]);
 
   if (isLoading) return <LoadingSpinner />;

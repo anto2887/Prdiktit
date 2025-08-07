@@ -67,7 +67,7 @@ const PredictionFormPage = () => {
           await fetchUserPredictions();
         }
       } catch (err) {
-        console.error('Error loading data:', err);
+        process.env.NODE_ENV === 'development' && console.error('Error loading data:', err);
         showError('Failed to load match details');
       } finally {
         setIsInitialLoading(false);
@@ -99,7 +99,7 @@ const PredictionFormPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    console.log('Form submission - Raw values:', { homeScore, awayScore });
+    process.env.NODE_ENV === 'development' && console.log('Form submission - Raw values:', { homeScore, awayScore });
     
     // Check if scores are provided (including 0)
     if (homeScore === '' || awayScore === '') {
@@ -111,7 +111,7 @@ const PredictionFormPage = () => {
     const homeScoreNum = parseInt(homeScore);
     const awayScoreNum = parseInt(awayScore);
     
-    console.log('Parsed numbers:', { homeScoreNum, awayScoreNum });
+    process.env.NODE_ENV === 'development' && console.log('Parsed numbers:', { homeScoreNum, awayScoreNum });
     
     if (isNaN(homeScoreNum) || isNaN(awayScoreNum)) {
       showError('Scores must be valid numbers');
@@ -129,13 +129,13 @@ const PredictionFormPage = () => {
       away_score: awayScoreNum
     };
 
-    console.log('Final prediction data being sent:', predictionData);
+    process.env.NODE_ENV === 'development' && console.log('Final prediction data being sent:', predictionData);
 
     try {
       if (id || existingPrediction) {
         // Update existing prediction
         const predictionId = id || existingPrediction.id;
-        console.log('Updating prediction with ID:', predictionId);
+        process.env.NODE_ENV === 'development' && console.log('Updating prediction with ID:', predictionId);
         await updatePrediction(predictionId, {
           home_score: homeScoreNum,
           away_score: awayScoreNum
@@ -143,7 +143,7 @@ const PredictionFormPage = () => {
         showSuccess('Prediction updated successfully');
       } else {
         // Create new prediction
-        console.log('Creating new prediction with data:', predictionData);
+        process.env.NODE_ENV === 'development' && console.log('Creating new prediction with data:', predictionData);
         await createPrediction(predictionData);
         showSuccess('Prediction created successfully');
         
@@ -159,8 +159,8 @@ const PredictionFormPage = () => {
       
       navigate('/dashboard'); // Navigate to dashboard to see the updated predictions
     } catch (err) {
-      console.error('Prediction submission error:', err);
-      console.error('Error details:', {
+      process.env.NODE_ENV === 'development' && console.error('Prediction submission error:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error details:', {
         message: err.message,
         response: err.response,
         status: err.status
@@ -318,7 +318,7 @@ const PredictionFormPage = () => {
                         max="20"
                         value={homeScore}
                         onChange={(e) => {
-                          console.log('Home score input changed:', e.target.value);
+                          process.env.NODE_ENV === 'development' && console.log('Home score input changed:', e.target.value);
                           setHomeScore(e.target.value);
                         }}
                         className="w-20 h-12 text-center text-xl font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -339,7 +339,7 @@ const PredictionFormPage = () => {
                         max="20"
                         value={awayScore}
                         onChange={(e) => {
-                          console.log('Away score input changed:', e.target.value);
+                          process.env.NODE_ENV === 'development' && console.log('Away score input changed:', e.target.value);
                           setAwayScore(e.target.value);
                         }}
                         className="w-20 h-12 text-center text-xl font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

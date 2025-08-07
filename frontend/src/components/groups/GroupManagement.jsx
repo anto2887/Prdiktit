@@ -36,20 +36,20 @@ const GroupManagement = () => {
     
     const loadGroupData = async () => {
       if (loadingRef.current || dataLoadedRef.current) {
-        console.log('GroupManagement: Skipping load - already loading or loaded');
+        process.env.NODE_ENV === 'development' && console.log('GroupManagement: Skipping load - already loading or loaded');
         return;
       }
 
       if (!profile || !groupId) {
-        console.log('GroupManagement: Missing profile or groupId', { profile: !!profile, groupId });
+        process.env.NODE_ENV === 'development' && console.log('GroupManagement: Missing profile or groupId', { profile: !!profile, groupId });
         return;
       }
       
       loadingRef.current = true;
       
       try {
-        console.log('Loading group details for:', groupId);
-        console.log('Current user profile:', profile);
+        process.env.NODE_ENV === 'development' && console.log('Loading group details for:', groupId);
+        process.env.NODE_ENV === 'development' && console.log('Current user profile:', profile);
         
         // Fetch group details first
         const groupDetails = await fetchGroupDetails(groupId);
@@ -58,18 +58,18 @@ const GroupManagement = () => {
           return;
         }
         
-        console.log('Group details loaded:', groupDetails);
-        console.log('Group admin_id:', groupDetails.admin_id);
-        console.log('Current user id:', profile.id);
+        process.env.NODE_ENV === 'development' && console.log('Group details loaded:', groupDetails);
+        process.env.NODE_ENV === 'development' && console.log('Group admin_id:', groupDetails.admin_id);
+        process.env.NODE_ENV === 'development' && console.log('Current user id:', profile.id);
         
         // FIXED: Better admin check with type conversion
         const isUserAdmin = parseInt(groupDetails.admin_id) === parseInt(profile.id);
-        console.log('Is user admin?', isUserAdmin);
+        process.env.NODE_ENV === 'development' && console.log('Is user admin?', isUserAdmin);
         
         if (!isUserAdmin) {
           // FIXED: Also check if user has admin role in the group
           const userRole = groupDetails.role;
-          console.log('User role in group:', userRole);
+          process.env.NODE_ENV === 'development' && console.log('User role in group:', userRole);
           
           if (userRole !== 'ADMIN') {
             showError('You are not authorized to manage this group');
@@ -78,11 +78,11 @@ const GroupManagement = () => {
           }
         }
         
-        console.log('Fetching group members for:', groupId);
+        process.env.NODE_ENV === 'development' && console.log('Fetching group members for:', groupId);
         
         // Fetch members
         const membersData = await fetchGroupMembers(groupId);
-        console.log('Received members data:', membersData);
+        process.env.NODE_ENV === 'development' && console.log('Received members data:', membersData);
         
         if (Array.isArray(membersData)) {
           // Separate approved and pending members
@@ -93,19 +93,19 @@ const GroupManagement = () => {
             m.status === 'PENDING'
           );
           
-          console.log('Approved members:', approvedMembers.length);
-          console.log('Pending members:', pendingMembers.length);
+          process.env.NODE_ENV === 'development' && console.log('Approved members:', approvedMembers.length);
+          process.env.NODE_ENV === 'development' && console.log('Pending members:', pendingMembers.length);
           
           setMembers(approvedMembers);
           setPendingRequests(pendingMembers);
         } else {
-          console.warn('Members data is not an array:', membersData);
+          process.env.NODE_ENV === 'development' && console.warn('Members data is not an array:', membersData);
           setMembers([]);
           setPendingRequests([]);
         }
         dataLoadedRef.current = true;
       } catch (err) {
-        console.error('GroupManagement: Error loading group data:', err);
+        process.env.NODE_ENV === 'development' && console.error('GroupManagement: Error loading group data:', err);
         if (mountedRef.current) {
           showError('Failed to load group data');
         }
@@ -133,40 +133,32 @@ const GroupManagement = () => {
     setLocalLoading(true);
     
     try {
-      const membersData = await fetchGroupMembers(parseInt(groupId));
+      // Reset data loaded flag to force fresh load
+      dataLoadedRef.current = false;
       
-      if (mountedRef.current && Array.isArray(membersData)) {
-        const approvedMembers = membersData.filter(m => 
-          !m.status || m.status === 'APPROVED'
-        );
-        const pendingMembers = membersData.filter(m => 
-          m.status === 'PENDING'
-        );
-        
-        setMembers(approvedMembers);
-        setPendingRequests(pendingMembers);
-      }
+      // Clear current data
+      setMembers([]);
+      setPendingRequests([]);
+      
+      // Reload data
+      await loadGroupData();
     } catch (err) {
-      console.error('Error reloading group data:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error reloading group data:', err);
       showError('Failed to reload group data');
     } finally {
-      if (mountedRef.current) {
-        setLocalLoading(false);
-      }
+      setLocalLoading(false);
       loadingRef.current = false;
     }
   };
 
   const handleMemberAction = async (userId, action) => {
-    if (!profile || localLoading) {
-      return;
-    }
+    process.env.NODE_ENV === 'development' && console.log(`GroupManagement: Performing action ${action} on user ${userId}`);
     
     try {
       setLocalLoading(true);
-      console.log(`GroupManagement: Performing action ${action} on user ${userId}`);
       
       const success = await manageMember(groupId, userId, action);
+      
       if (success) {
         showSuccess(`Successfully ${action.toLowerCase()}ed member`);
         await reloadGroupData();
@@ -174,7 +166,7 @@ const GroupManagement = () => {
         showError(`Failed to ${action.toLowerCase()} member`);
       }
     } catch (err) {
-      console.error('GroupManagement: Error managing member:', err);
+      process.env.NODE_ENV === 'development' && console.error('GroupManagement: Error managing member:', err);
       showError(`Failed to ${action.toLowerCase()} member`);
     } finally {
       if (mountedRef.current) {
@@ -206,7 +198,7 @@ const GroupManagement = () => {
         throw new Error(response?.message || 'Failed to regenerate invite code');
       }
     } catch (err) {
-      console.error('GroupManagement: Error regenerating code:', err);
+      process.env.NODE_ENV === 'development' && console.error('GroupManagement: Error regenerating code:', err);
       showError('Failed to regenerate invite code');
     } finally {
       if (mountedRef.current) {

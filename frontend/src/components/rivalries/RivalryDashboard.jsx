@@ -23,11 +23,10 @@ const RivalryDashboard = ({ groupId, currentWeek, season = '2024-2025' }) => {
   }, [groupId, currentWeek, season]);
 
   const loadRivalries = async () => {
-    setLoading(true);
-    setError(null);
-
     try {
-      console.log(`Loading rivalries for group ${groupId}...`);
+      setLoading(true);
+      process.env.NODE_ENV === 'development' && console.log(`Loading rivalries for group ${groupId}...`);
+      
       const response = await fetch(
         `/api/v1/analytics/group/${groupId}/rivalries`,
         {
@@ -36,25 +35,25 @@ const RivalryDashboard = ({ groupId, currentWeek, season = '2024-2025' }) => {
           }
         }
       );
-
-      console.log(`Rivalries response status: ${response.status}`);
+      
+      process.env.NODE_ENV === 'development' && console.log(`Rivalries response status: ${response.status}`);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`Rivalries API error: ${response.status} - ${errorText}`);
+        process.env.NODE_ENV === 'development' && console.error(`Rivalries API error: ${response.status} - ${errorText}`);
         throw new Error(`Failed to load rivalries: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('Rivalries API response:', data);
+      process.env.NODE_ENV === 'development' && console.log('Rivalries API response:', data);
       
       // Ensure rivalries is always an array
       const rivalriesArray = Array.isArray(data.data) ? data.data : [];
-      console.log('Processed rivalries array:', rivalriesArray);
+      process.env.NODE_ENV === 'development' && console.log('Processed rivalries array:', rivalriesArray);
       setRivalries(rivalriesArray);
 
     } catch (err) {
-      console.error('Error loading rivalries:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error loading rivalries:', err);
       setError('Failed to load rivalry data');
       showError('Failed to load rivalries');
       // Ensure rivalries is always an array even on error
@@ -74,14 +73,14 @@ const RivalryDashboard = ({ groupId, currentWeek, season = '2024-2025' }) => {
 
   // Ensure rivalries is an array before filtering
   const rivalriesArray = Array.isArray(rivalries) ? rivalries : [];
-  console.log('Filtering rivalries array:', rivalriesArray);
+  process.env.NODE_ENV === 'development' && console.log('Filtering rivalries array:', rivalriesArray);
   
   const activeRivalries = rivalriesArray.filter(r => r.is_active);
   const historicalRivalries = rivalriesArray.filter(r => !r.is_active);
   const isRivalryWeek = activeRivalries.some(r => r.rivalry_week === currentWeek);
 
-  console.log('Active rivalries:', activeRivalries);
-  console.log('Historical rivalries:', historicalRivalries);
+  process.env.NODE_ENV === 'development' && console.log('Active rivalries:', activeRivalries);
+  process.env.NODE_ENV === 'development' && console.log('Historical rivalries:', historicalRivalries);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -573,14 +572,15 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
 
   useEffect(() => {
     if (groupId && currentWeek >= 5) {
-      loadRivalries();
+      loadCompactRivalries();
     }
   }, [groupId, currentWeek]);
 
-  const loadRivalries = async () => {
-    setLoading(true);
+  const loadCompactRivalries = async () => {
     try {
-      console.log(`Loading compact rivalries for group ${groupId}...`);
+      setLoading(true);
+      process.env.NODE_ENV === 'development' && console.log(`Loading compact rivalries for group ${groupId}...`);
+      
       const response = await fetch(
         `/api/v1/analytics/group/${groupId}/rivalries`,
         {
@@ -589,22 +589,22 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
           }
         }
       );
-
-      console.log(`Compact rivalries response status: ${response.status}`);
+      
+      process.env.NODE_ENV === 'development' && console.log(`Compact rivalries response status: ${response.status}`);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Compact rivalries API response:', data);
+        process.env.NODE_ENV === 'development' && console.log('Compact rivalries API response:', data);
         // Ensure rivalries is always an array
         const rivalriesArray = Array.isArray(data.data) ? data.data : [];
-        console.log('Processed compact rivalries array:', rivalriesArray);
+        process.env.NODE_ENV === 'development' && console.log('Processed compact rivalries array:', rivalriesArray);
         setRivalries(rivalriesArray);
       } else {
-        console.error(`Compact rivalries API error: ${response.status}`);
+        process.env.NODE_ENV === 'development' && console.error(`Compact rivalries API error: ${response.status}`);
         setRivalries([]);
       }
     } catch (err) {
-      console.error('Error loading compact rivalries:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error loading compact rivalries:', err);
       setRivalries([]);
     } finally {
       setLoading(false);

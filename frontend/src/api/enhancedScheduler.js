@@ -23,7 +23,7 @@ export const enhancedSchedulerApi = {
         data: response.data
       };
     } catch (error) {
-      console.error('Error fetching scheduler status:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching scheduler status:', error);
       return {
         status: 'error',
         message: error.response?.data?.message || 'Failed to fetch scheduler status',
@@ -44,7 +44,7 @@ export const enhancedSchedulerApi = {
         data: response.data
       };
     } catch (error) {
-      console.error('Error recalculating schedule:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error recalculating schedule:', error);
       return {
         status: 'error',
         message: error.response?.data?.message || 'Failed to recalculate schedule',
@@ -65,7 +65,7 @@ export const enhancedSchedulerApi = {
         data: response.data
       };
     } catch (error) {
-      console.error('Error triggering processing:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error triggering processing:', error);
       return {
         status: 'error',
         message: error.response?.data?.message || 'Failed to trigger processing',
@@ -86,7 +86,7 @@ export const enhancedSchedulerApi = {
         data: response.data
       };
     } catch (error) {
-      console.error('Error triggering fixture monitoring:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error triggering fixture monitoring:', error);
       return {
         status: 'error',
         message: error.response?.data?.message || 'Failed to trigger fixture monitoring',
@@ -107,7 +107,7 @@ export const enhancedSchedulerApi = {
         data: response.data
       };
     } catch (error) {
-      console.error('Error fetching fixture monitoring status:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching fixture monitoring status:', error);
       return {
         status: 'error',
         message: error.response?.data?.message || 'Failed to fetch fixture monitoring status',
@@ -128,7 +128,7 @@ export const enhancedSchedulerApi = {
         data: response.data
       };
     } catch (error) {
-      console.error('Error fetching health status:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching health status:', error);
       return {
         status: 'error',
         message: error.response?.data?.message || 'Failed to fetch health status',

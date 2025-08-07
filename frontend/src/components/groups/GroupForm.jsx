@@ -51,9 +51,9 @@ const GroupForm = () => {
 
     setLoading(true);
     try {
-      console.log('Creating group with data:', formData);
+      process.env.NODE_ENV === 'development' && console.log('Creating group with data:', formData);
       const response = await createGroup(formData);
-      console.log('Create group response:', response);
+      process.env.NODE_ENV === 'development' && console.log('Create group response:', response);
       
       if (response && response.status === 'success') {
         showSuccess('League created successfully');
@@ -75,8 +75,8 @@ const GroupForm = () => {
         throw new Error(response?.message || 'Failed to create league');
       }
     } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error('Error creating league:', error);
       showError(error.message || 'Failed to create league');
-      console.error('Error creating league:', error);
     } finally {
       setLoading(false);
     }

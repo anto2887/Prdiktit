@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     # 60 minutes * 24 hours * 7 days = 7 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    # CORS - Development defaults (more permissive)
+    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
     
     @validator("CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
@@ -59,20 +59,38 @@ class Settings(BaseSettings):
             logger.warning("FOOTBALL_API_KEY is not set! API requests will fail.")
         return v
     
-    # Add this line:
-    API_RATE_LIMIT: int = 600  # Default to 60 requests per minute
+    # Rate limiting - Updated to 120 requests per minute
+    API_RATE_LIMIT: int = int(os.getenv("API_RATE_LIMIT", "120"))
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
     
-    # CORS settings
+    # CORS settings - Development defaults (more permissive)
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_ALLOW_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
     CORS_ALLOW_HEADERS: List[str] = ["*"]  # Permissive for development
     CORS_EXPOSE_HEADERS: List[str] = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
     
-    # Rate limiting
-    RATE_LIMIT_PER_MINUTE: int = 600  # Requests per minute
+    # Logging - Production defaults (no debug)
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    
+    # Environment indicator
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     
     class Config:
         case_sensitive = True
         env_file = ".env"
 
-settings = Settings()
+# Environment-based configuration loading
+def get_settings():
+    """Get settings based on environment"""
+    environment = os.getenv("ENVIRONMENT", "development")
+    
+    if environment == "production":
+        from .config_prod import ProductionSettings
+        logger.info("Loading production configuration")
+        return ProductionSettings()
+    else:
+        logger.info("Loading development configuration")
+        return Settings()
+
+# Initialize settings based on environment
+settings = get_settings()

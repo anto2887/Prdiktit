@@ -39,6 +39,9 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     environment:
+      # Environment indicator
+      - ENVIRONMENT=production
+      
       # Database configuration (Railway will inject these)
       - DATABASE_URI=${DATABASE_URI}
       - DB_HOST=${DB_HOST:-db}
@@ -60,16 +63,18 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS}
       - CORS_ALLOW_CREDENTIALS=true
       - CORS_ALLOW_METHODS=["GET","POST","PUT","DELETE","OPTIONS","PATCH"]
-      - CORS_ALLOW_HEADERS=["*"]
+      - CORS_ALLOW_HEADERS=["Authorization","Content-Type","X-Requested-With"]
       
       # API Configuration
       - FOOTBALL_API_KEY=${FOOTBALL_API_KEY}
-      - API_RATE_LIMIT=300
-      - CREATE_TABLES_ON_STARTUP=true
+      - API_RATE_LIMIT=120
+      - RATE_LIMIT_PER_MINUTE=120
+      - CREATE_TABLES_ON_STARTUP=false
       
       # Production settings
       - NODE_ENV=production
       - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
       
     ports:
       - "8000:8000"

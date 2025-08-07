@@ -26,10 +26,10 @@ const GroupDetailsPage = () => {
     loading: groupsLoading 
   } = useGroups();
 
-  // Log groups context state changes
+  // Debug logging for state changes
   useEffect(() => {
-    console.log('📊 Groups Context State:', {
-      currentGroup,
+    process.env.NODE_ENV === 'development' && console.log('📊 Groups Context State:', {
+      currentGroup: currentGroup,
       groupMembersCount: groupMembers?.length || 0,
       groupsLoading,
       hasCurrentGroup: !!currentGroup,
@@ -38,9 +38,8 @@ const GroupDetailsPage = () => {
     });
   }, [currentGroup, groupMembers, groupsLoading]);
 
-  // Log user context state changes
   useEffect(() => {
-    console.log('👤 User Context State:', {
+    process.env.NODE_ENV === 'development' && console.log('👤 User Context State:', {
       profile,
       userLoading,
       hasProfile: !!profile,
@@ -75,23 +74,23 @@ const GroupDetailsPage = () => {
   const hasFetchedRef = useRef({});
   const hasInitializedSeasonRef = useRef(false);
 
-  // Fetch user profile when component mounts
+  // Effect: Fetch user profile
   useEffect(() => {
-    console.log('🎯 Effect: Fetch user profile triggered', { 
+    process.env.NODE_ENV === 'development' && console.log('🎯 Effect: Fetch user profile triggered', { 
       hasProfile: !!profile,
       userLoading,
       profileId: profile?.id 
     });
     
     if (!profile && !userLoading) {
-      console.log('👤 Fetching user profile...');
+      process.env.NODE_ENV === 'development' && console.log('👤 Fetching user profile...');
       fetchProfile();
     }
   }, [profile, userLoading, fetchProfile]);
 
-  // Show success message for new groups
+  // Effect: Show success message for new groups
   useEffect(() => {
-    console.log('🎯 Effect: Show success message for new groups', { 
+    process.env.NODE_ENV === 'development' && console.log('🎯 Effect: Show success message for new groups', { 
       hasLocationState: !!location.state,
       newGroup: location.state?.newGroup,
       groupName: location.state?.groupName 
@@ -102,9 +101,9 @@ const GroupDetailsPage = () => {
     }
   }, [location.state, showSuccess]);
 
-  // Load group data
+  // Effect: Load group data
   useEffect(() => {
-    console.log('🎯 Effect: Load group data triggered', { 
+    process.env.NODE_ENV === 'development' && console.log('🎯 Effect: Load group data triggered', { 
       groupId,
       hasCurrentGroup: !!currentGroup,
       groupsLoading,
@@ -112,7 +111,7 @@ const GroupDetailsPage = () => {
     });
     
     if (groupId && !groupsLoading && !hasFetchedRef.current.groupData) {
-      console.log('📊 Loading group data...');
+      process.env.NODE_ENV === 'development' && console.log('📊 Loading group data...');
       hasFetchedRef.current.groupData = true;
       loadGroupData();
     }
@@ -120,20 +119,20 @@ const GroupDetailsPage = () => {
 
   const loadGroupData = async () => {
     try {
-      console.log('📊 Loading group details and members...');
+      process.env.NODE_ENV === 'development' && console.log('📊 Loading group details and members...');
       await Promise.all([
         fetchGroupDetails(groupId),
         fetchGroupMembers(groupId)
       ]);
     } catch (error) {
-      console.error('❌ Error loading group data:', error);
+      process.env.NODE_ENV === 'development' && console.error('❌ Error loading group data:', error);
       showError('Failed to load group data');
     }
   };
 
-  // Initialize season data when group is loaded
+  // Effect: Initialize season data
   useEffect(() => {
-    console.log('🎯 Effect: Initialize season data triggered', { 
+    process.env.NODE_ENV === 'development' && console.log('🎯 Effect: Initialize season data triggered', { 
       hasCurrentGroup: !!currentGroup,
       hasInitialized: hasInitializedSeasonRef.current,
       selectedSeason,
@@ -141,7 +140,7 @@ const GroupDetailsPage = () => {
     });
     
     if (currentGroup && !hasInitializedSeasonRef.current) {
-      console.log('📅 Initializing season data...');
+      process.env.NODE_ENV === 'development' && console.log('📅 Initializing season data...');
       hasInitializedSeasonRef.current = true;
       initializeSeasonData();
     }
@@ -154,14 +153,14 @@ const GroupDetailsPage = () => {
       // Set default season if not already set
       if (!selectedSeason && currentGroup.league) {
         const defaultSeason = SeasonManager.getCurrentSeason(currentGroup.league);
-        console.log('📅 Setting default season:', defaultSeason);
+        process.env.NODE_ENV === 'development' && console.log('📅 Setting default season:', defaultSeason);
         setSelectedSeason(defaultSeason);
       }
       
       // Set default week if not already set (default to week 1)
       if (!selectedWeek) {
         const defaultWeek = 1; // Default to week 1 instead of calling non-existent function
-        console.log('📅 Setting default week:', defaultWeek);
+        process.env.NODE_ENV === 'development' && console.log('📅 Setting default week:', defaultWeek);
         setSelectedWeek(defaultWeek);
       }
       
@@ -170,16 +169,16 @@ const GroupDetailsPage = () => {
         await loadLeaderboard();
       }
     } catch (error) {
-      console.error('❌ Error initializing season data:', error);
+      process.env.NODE_ENV === 'development' && console.error('❌ Error initializing season data:', error);
       showError('Failed to initialize season data');
     } finally {
       setSeasonLoading(false);
     }
   };
 
-  // Load leaderboard when season/week changes
+  // Effect: Load leaderboard
   useEffect(() => {
-    console.log('🎯 Effect: Load leaderboard triggered', { 
+    process.env.NODE_ENV === 'development' && console.log('🎯 Effect: Load leaderboard triggered', { 
       selectedSeason,
       selectedWeek,
       hasCurrentGroup: !!currentGroup,
@@ -187,7 +186,7 @@ const GroupDetailsPage = () => {
     });
     
     if (selectedSeason && currentGroup && hasInitializedSeasonRef.current && !hasFetchedRef.current.leaderboard) {
-      console.log('📊 Loading leaderboard...');
+      process.env.NODE_ENV === 'development' && console.log('📊 Loading leaderboard...');
       hasFetchedRef.current.leaderboard = true;
       loadLeaderboard();
     }
@@ -195,22 +194,22 @@ const GroupDetailsPage = () => {
 
   const loadLeaderboard = async () => {
     try {
-      console.log('📊 Loading leaderboard for season:', selectedSeason, 'week:', selectedWeek);
+      process.env.NODE_ENV === 'development' && console.log('📊 Loading leaderboard for season:', selectedSeason, 'week:', selectedWeek);
       await fetchLeaderboard(currentGroup.id, selectedSeason, selectedWeek);
     } catch (error) {
-      console.error('❌ Error loading leaderboard:', error);
+      process.env.NODE_ENV === 'development' && console.error('❌ Error loading leaderboard:', error);
       showError('Failed to load leaderboard');
     }
   };
 
   const handleSeasonChange = (newSeason) => {
-    console.log('📅 Season changed:', newSeason);
+    process.env.NODE_ENV === 'development' && console.log('📅 Season changed:', newSeason);
     setSelectedSeason(newSeason);
     hasFetchedRef.current.leaderboard = false;
   };
 
   const handleWeekChange = (newWeek) => {
-    console.log('📅 Week changed:', newWeek);
+    process.env.NODE_ENV === 'development' && console.log('📅 Week changed:', newWeek);
     setSelectedWeek(newWeek);
     hasFetchedRef.current.leaderboard = false;
   };

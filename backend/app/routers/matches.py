@@ -52,265 +52,73 @@ async def get_live_matches_endpoint(
         total=len(matches)
     )
 
-# Add this debug endpoint to your matches router first to understand what's happening
-@router.get("/debug-user-access", response_model=DataResponse)
-async def debug_user_access(
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Debug endpoint to check user's group access and fixture availability
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-    
-    try:
-        from ..db.repository import get_user_groups as get_user_groups_from_db
-        
-        # Get user's groups
-        user_groups = await get_user_groups_from_db(db, current_user.id)
-        
-        debug_info = {
-            "user_id": current_user.id,
-            "username": current_user.username,
-            "group_count": len(user_groups),
-            "groups": [],
-            "all_leagues": set(),
-            "all_tracked_teams": set(),
-            "fixture_counts": {}
-        }
-        
-        for group in user_groups:
-            tracked_teams = await get_group_tracked_teams(db, group.id)
-            
-            group_info = {
-                "id": group.id,
-                "name": group.name,
-                "league": group.league,
-                "tracked_teams_count": len(tracked_teams),
-                "tracked_teams": list(tracked_teams)
-            }
-            debug_info["groups"].append(group_info)
-            debug_info["all_leagues"].add(group.league)
-            debug_info["all_tracked_teams"].update(tracked_teams)
-        
-        # Convert sets to lists for JSON serialization
-        debug_info["all_leagues"] = list(debug_info["all_leagues"])
-        debug_info["all_tracked_teams"] = list(debug_info["all_tracked_teams"])
-        
-        # Check fixture counts for each league
-        for league in debug_info["all_leagues"]:
-            total_fixtures = db.query(Fixture).filter(Fixture.league == league).count()
-            upcoming_fixtures = db.query(Fixture).filter(
-                Fixture.league == league,
-                Fixture.status == MatchStatus.NOT_STARTED,
-                Fixture.date >= datetime.now(timezone.utc)
-            ).count()
-            
-            debug_info["fixture_counts"][league] = {
-                "total": total_fixtures,
-                "upcoming": upcoming_fixtures
-            }
-        
-        # Check if there are any fixtures for tracked teams
-        if debug_info["all_tracked_teams"]:
-            tracked_team_objects = db.query(Team).filter(Team.id.in_(debug_info["all_tracked_teams"])).all()
-            tracked_team_names = [team.team_name for team in tracked_team_objects]
-            
-            fixtures_with_tracked_teams = db.query(Fixture).filter(
-                or_(
-                    Fixture.home_team.in_(tracked_team_names),
-                    Fixture.away_team.in_(tracked_team_names)
-                )
-            ).count()
-            
-            debug_info["fixtures_with_tracked_teams"] = fixtures_with_tracked_teams
-            debug_info["tracked_team_names_all"] = tracked_team_names
-        
-        return DataResponse(data=debug_info)
-        
-    except Exception as e:
-        logger.error(f"Debug error: {str(e)}")
-        import traceback
-        logger.error(f"Full traceback: {traceback.format_exc()}")
-        return DataResponse(
-            data={"error": str(e), "traceback": traceback.format_exc()}
-        )
+# Remove debug endpoint for production security
+# @router.get("/debug-user-access", response_model=DataResponse)
+# async def debug_user_access(
+#     current_user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     """Debug endpoint to check user's group access and fixture availability"""
+#     # ... debug code removed for production
 
-# Now here's a simplified fixtures endpoint that we can debug step by step
-@router.get("/fixtures", response_model=ListResponse)
-async def get_fixtures_endpoint(
-    league: Optional[str] = Query(None),
-    season: Optional[str] = Query(None),
-    status: Optional[str] = Query(None),
-    from_: Optional[str] = Query(None, alias="from"),    
-    to: Optional[str] = Query(None),                       
-    team_id: Optional[int] = Query(None),
-    limit: Optional[int] = Query(100),                    
+@router.get("/fixtures", response_model=DataResponse)
+async def get_fixtures(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
-    cache: RedisCache = Depends(get_cache)
+    league: Optional[str] = Query(None, description="Filter by league"),
+    season: Optional[str] = Query(None, description="Filter by season"),
+    from_date: Optional[str] = Query(None, description="Filter from date (YYYY-MM-DD)"),
+    to_date: Optional[str] = Query(None, description="Filter to date (YYYY-MM-DD)"),
+    limit: int = Query(50, ge=1, le=100, description="Number of fixtures to return"),
+    offset: int = Query(0, ge=0, description="Number of fixtures to skip")
 ):
-    """
-    Get fixtures with filters based on user's group access
-    """
+    """Get fixtures with optional filtering"""
     import logging
     logger = logging.getLogger(__name__)
     
-    logger.info(f"Fixtures endpoint called with: league={league}, season={season}, status={status}, from_={from_}, to={to}, team_id={team_id}")
-    
-    # Convert date strings to datetime if provided
-    from_datetime = None
-    to_datetime = None
-    
-    if from_:
-        try:
-            if 'T' in from_:
-                from_ = from_.replace('Z', '+00:00') if 'Z' in from_ else from_
-                from_datetime = datetime.fromisoformat(from_)
-            else:
-                from_datetime = datetime.strptime(from_, "%Y-%m-%d").replace(tzinfo=timezone.utc)
-        except Exception as e:
-            logger.warning(f"Invalid from_ format: {from_}. Error: {str(e)}")
-            from_datetime = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    if to:
-        try:
-            if 'T' in to:
-                to = to.replace('Z', '+00:00') if 'Z' in to else to
-                to_datetime = datetime.fromisoformat(to)
-            else:
-                to_datetime = datetime.strptime(to, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
-        except Exception as e:
-            logger.warning(f"Invalid to format: {to}. Error: {str(e)}")
-            to_datetime = (datetime.now(timezone.utc) + timedelta(days=7)).replace(hour=23, minute=59, second=59, microsecond=0)
-    
-    # Convert status string to enum if provided
-    status_enum = None
-    if status:
-        try:
-            status_enum = MatchStatus(status)
-        except (ValueError, TypeError):
-            logger.warning(f"Invalid status provided: {status}")
-            pass
-    
     try:
-        # STEP 1: Check if user has groups
+        # Get user's groups and their leagues
         from ..db.repository import get_user_groups as get_user_groups_from_db
         
         user_groups = await get_user_groups_from_db(db, current_user.id)
-        logger.info(f"STEP 1: User {current_user.id} belongs to {len(user_groups)} groups")
         
         if not user_groups:
-            logger.info("STEP 1: User belongs to no groups, returning empty fixtures")
-            return ListResponse(
-                data=[],
-                total=0,
-                message="Join a group to see fixtures"
-            )
+            logger.warning(f"User {current_user.id} belongs to no groups, returning empty fixtures")
+            return DataResponse(data=[], message="No groups found for user")
         
-        # STEP 2: Get leagues and tracked teams
-        user_leagues = set()
-        all_tracked_teams = set()
+        # Collect all leagues from user's groups
+        user_leagues = [group.league for group in user_groups if group.league]
         
-        for group in user_groups:
-            user_leagues.add(group.league)
-            tracked_teams = await get_group_tracked_teams(db, group.id)
-            all_tracked_teams.update(tracked_teams)
-            logger.info(f"STEP 2: Group {group.name} - League: {group.league}, Tracked teams: {len(tracked_teams)}")
+        # Build query
+        query = db.query(Fixture).filter(Fixture.league.in_(user_leagues))
         
-        logger.info(f"STEP 2: Total leagues: {user_leagues}, Total tracked teams: {len(all_tracked_teams)}")
-        
-        # STEP 3: Build basic query without team filtering first
-        query = db.query(Fixture)
-        
-        # Filter by leagues
+        # Apply filters
         if league:
-            if league not in user_leagues:
-                logger.warning(f"STEP 3: User requested league {league} but only has access to {user_leagues}")
-                return ListResponse(data=[], total=0, message=f"You don't have access to {league} fixtures")
             query = query.filter(Fixture.league == league)
-        else:
-            query = query.filter(Fixture.league.in_(user_leagues))
-        
-        # Apply other filters
         if season:
             query = query.filter(Fixture.season == season)
-        if status_enum:
-            query = query.filter(Fixture.status == status_enum)
-        if from_datetime:
-            query = query.filter(Fixture.date >= from_datetime)
-        if to_datetime:
-            query = query.filter(Fixture.date <= to_datetime)
-        if team_id:
-            team = db.query(Team).filter(Team.id == team_id).first()
-            if team:
-                query = query.filter(
-                    or_(
-                        Fixture.home_team == team.team_name,
-                        Fixture.away_team == team.team_name
-                    )
-                )
+        if from_date:
+            query = query.filter(Fixture.date >= from_date)
+        if to_date:
+            query = query.filter(Fixture.date <= to_date)
         
-        # STEP 4: Get count before team filtering
-        fixtures_before_team_filter = query.count()
-        logger.info(f"STEP 4: Fixtures before team filtering: {fixtures_before_team_filter}")
+        # Order by date
+        query = query.order_by(Fixture.date.asc())
         
-        # STEP 5: Apply team filtering only if teams are tracked
-        if all_tracked_teams:
-            tracked_team_objects = db.query(Team).filter(Team.id.in_(all_tracked_teams)).all()
-            tracked_team_names = [team.team_name for team in tracked_team_objects]
-            logger.info(f"STEP 5: Applying team filter for: {tracked_team_names}")
-            
-            query = query.filter(
-                or_(
-                    Fixture.home_team.in_(tracked_team_names),
-                    Fixture.away_team.in_(tracked_team_names)
-                )
-            )
-        else:
-            logger.info("STEP 5: No teams tracked, showing all fixtures in user's leagues")
+        # Apply pagination
+        total = query.count()
+        fixtures = query.offset(offset).limit(limit).all()
         
-        # STEP 6: Get final results
-        fixtures = query.order_by(Fixture.date).limit(limit).all()
-        logger.info(f"STEP 6: Final fixtures count: {len(fixtures)}")
-        
-        # Convert to dictionaries
-        fixtures_dict = []
-        for fixture in fixtures:
-            fixture_dict = {
-                "fixture_id": fixture.fixture_id,
-                "home_team": fixture.home_team,
-                "away_team": fixture.away_team,
-                "home_team_logo": fixture.home_team_logo,
-                "away_team_logo": fixture.away_team_logo,
-                "date": fixture.date.isoformat() if fixture.date else None,
-                "league": fixture.league,
-                "season": fixture.season,
-                "round": fixture.round,
-                "status": fixture.status.value if fixture.status else None,
-                "home_score": fixture.home_score,
-                "away_score": fixture.away_score,
-                "venue": fixture.venue,
-                "venue_city": getattr(fixture, 'venue_city', None),
-                "referee": getattr(fixture, 'referee', None)
-            }
-            fixtures_dict.append(fixture_dict)
-        
-        return ListResponse(
-            data=fixtures_dict,
-            total=len(fixtures_dict)
+        return DataResponse(
+            data=fixtures,
+            total=total,
+            limit=limit,
+            offset=offset
         )
         
     except Exception as e:
         logger.error(f"Error fetching fixtures: {str(e)}")
-        logger.exception("Full traceback:")
-        
-        return ListResponse(
-            data=[],
-            total=0,
-            message=f"Error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail="Failed to fetch fixtures")
 
 @router.get("/statuses", response_model=DataResponse)
 async def get_match_statuses(

@@ -28,7 +28,7 @@ def setup_logging():
     
     # Configure root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     
     # Clear any existing handlers
     root_logger.handlers.clear()
@@ -45,13 +45,13 @@ def setup_logging():
     # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(simple_formatter)
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     root_logger.addHandler(console_handler)
     
     # Main application log file
     app_handler = logging.FileHandler(os.path.join(log_dir, 'app.log'))
     app_handler.setFormatter(detailed_formatter)
-    app_handler.setLevel(logging.INFO)
+    app_handler.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     root_logger.addHandler(app_handler)
     
     # Set up specialized loggers with dedicated files
@@ -323,21 +323,7 @@ async def emergency_sync_match(fixture_id: int):
     except Exception as e:
         return {"success": False, "fixture_id": fixture_id, "error": str(e)}
 
-# Transaction log viewer endpoint
-@app.get("/api/v1/admin/transaction-logs")
-async def get_transaction_logs(lines: int = 100):
-    """Get recent transaction logs for debugging"""
-    try:
-        log_file = os.path.join(os.path.dirname(__file__), '../logs/transaction_audit.log')
-        if os.path.exists(log_file):
-            with open(log_file, 'r') as f:
-                all_lines = f.readlines()
-                recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
-                return {"success": True, "logs": recent_lines}
-        else:
-            return {"success": False, "error": "Transaction log file not found"}
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+# Remove debug endpoint for production security
 
 if __name__ == "__main__":
     import uvicorn

@@ -29,7 +29,7 @@ const LeagueTable = ({
     setError(null);
     
     try {
-      console.log(`Loading members for group: ${group.id}`);
+      process.env.NODE_ENV === 'development' && console.log(`Loading members for group: ${group.id}`);
       const members = await fetchGroupMembers(group.id);
       
       if (Array.isArray(members)) {
@@ -38,7 +38,7 @@ const LeagueTable = ({
         setMembers([]);
       }
     } catch (err) {
-      console.error('Error loading group members', err);
+      process.env.NODE_ENV === 'development' && console.error('Error loading group members', err);
       setError('Failed to load league members. Please try refreshing the page.');
       if (showError) showError('Failed to load league members');
     } finally {

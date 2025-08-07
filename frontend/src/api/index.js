@@ -6,7 +6,7 @@ import SeasonManager from '../utils/seasonManager';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
 
 // Add debug logging
-console.log('API module initializing with base URL:', API_BASE_URL);
+process.env.NODE_ENV === 'development' && console.log('API module initializing with base URL:', API_BASE_URL);
 
 // Add utils.js functions
 const getDefaultHeaders = () => {
@@ -131,7 +131,7 @@ class API {
         config.headers.Authorization = `Bearer ${token}`;
       }
       // Log request for debugging
-      console.log('API Request:', {
+      process.env.NODE_ENV === 'development' && console.log('API Request:', {
         method: config.method,
         url: config.url,
         params: config.params,
@@ -144,7 +144,7 @@ class API {
     this.client.interceptors.response.use(
       response => {
         // Log successful response for debugging
-        console.log('API Response:', {
+        process.env.NODE_ENV === 'development' && console.log('API Response:', {
           status: response.status,
           data: response.data
         });
@@ -152,7 +152,7 @@ class API {
       },
       error => {
         // Log error for debugging
-        console.error('API Error:', {
+        process.env.NODE_ENV === 'development' && console.error('API Error:', {
           message: error.message,
           response: error.response?.data,
           status: error.response?.status
@@ -209,22 +209,22 @@ export const authApi = {
 export const groupsApi = {
   getUserGroups: async () => {
     try {
-      console.log('API: Fetching user groups...');
+      process.env.NODE_ENV === 'development' && console.log('API: Fetching user groups...');
       const response = await api.client.get('/groups');
-      console.log('API: getUserGroups response:', response);
-      console.log('API: response.data:', response.data);
-      console.log('API: response.data.data:', response.data.data);
+      process.env.NODE_ENV === 'development' && console.log('API: getUserGroups response:', response);
+      process.env.NODE_ENV === 'development' && console.log('API: response.data:', response.data);
+      process.env.NODE_ENV === 'development' && console.log('API: response.data.data:', response.data.data);
       
       // FIXED: Check if the response has the expected structure
       if (response && response.data) {
         // Case 1: Backend returns ListResponse directly
         if (response.data.status === 'success' && Array.isArray(response.data.data)) {
-          console.log('API: Returning backend ListResponse directly:', response.data);
+          process.env.NODE_ENV === 'development' && console.log('API: Returning backend ListResponse directly:', response.data);
           return response.data;  // Return {status, data, total}
         }
         // Case 2: Response is already formatted by interceptor
         else if (Array.isArray(response.data)) {
-          console.log('API: Response is array, wrapping in ListResponse format:', response.data);
+          process.env.NODE_ENV === 'development' && console.log('API: Response is array, wrapping in ListResponse format:', response.data);
           return {
             status: 'success',
             message: '',
@@ -235,7 +235,7 @@ export const groupsApi = {
       }
       
       // Fallback: return empty response
-      console.log('API: No valid data found, returning empty response');
+      process.env.NODE_ENV === 'development' && console.log('API: No valid data found, returning empty response');
       return {
         status: 'success',
         message: '',
@@ -243,24 +243,24 @@ export const groupsApi = {
         total: 0
       };
     } catch (error) {
-      console.error('API: Error fetching user groups:', error);
+      process.env.NODE_ENV === 'development' && console.error('API: Error fetching user groups:', error);
       throw error;
     }
   },
 
   getGroupById: async (groupId) => {
     try {
-      console.log(`🌐 API: getGroupById called for groupId: ${groupId}`);
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupById called for groupId: ${groupId}`);
       // Add cache-busting timestamp
       const timestamp = Date.now();
       const response = await api.client.get(`/groups/${groupId}?_t=${timestamp}`);
-      console.log(`🌐 API: getGroupById response for groupId ${groupId}:`, response.data);
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupById response for groupId ${groupId}:`, response.data);
       return {
         status: 'success',
         data: response.data
       };
     } catch (error) {
-      console.error(`🌐 API: getGroupById error for groupId ${groupId}:`, error);
+      process.env.NODE_ENV === 'development' && console.error(`🌐 API: getGroupById error for groupId ${groupId}:`, error);
       throw new APIError(
         error.message || 'Failed to fetch group details',
         error.response?.status || 500
@@ -272,15 +272,15 @@ export const groupsApi = {
     try {
       // Always fetch fresh member data with cache-busting
       const timestamp = Date.now();
-      console.log(`API: Fetching members for group ${groupId} (fresh)`);
+      process.env.NODE_ENV === 'development' && console.log(`API: Fetching members for group ${groupId} (fresh)`);
       const response = await api.client.get(`/groups/${groupId}/members?_t=${timestamp}`);
-      console.log(`API: Got ${response.data?.length || 0} members for group ${groupId}`);
+      process.env.NODE_ENV === 'development' && console.log(`API: Got ${response.data?.length || 0} members for group ${groupId}`);
       return {
         status: 'success',
         data: response.data || []
       };
     } catch (error) {
-      console.error(`API: Error fetching group members for ${groupId}:`, error);
+      process.env.NODE_ENV === 'development' && console.error(`API: Error fetching group members for ${groupId}:`, error);
       throw new APIError(
         error.message || 'Failed to fetch group members',
         error.response?.status || 500
@@ -290,9 +290,9 @@ export const groupsApi = {
 
   createGroup: async (groupData) => {
     try {
-      console.log('API: Creating group with data:', groupData);
+      process.env.NODE_ENV === 'development' && console.log('API: Creating group with data:', groupData);
       const response = await api.client.post('/groups', groupData);
-      console.log('API: Group creation response:', response);
+      process.env.NODE_ENV === 'development' && console.log('API: Group creation response:', response);
       return {
         status: 'success',
         data: response.data
@@ -370,7 +370,7 @@ export const groupsApi = {
 
   fetchTeamsForLeague: async (leagueId) => {
     try {
-      console.log('API: Fetching teams for league:', leagueId);
+      process.env.NODE_ENV === 'development' && console.log('API: Fetching teams for league:', leagueId);
       const response = await api.client.get(`/groups/teams?league=${encodeURIComponent(leagueId)}`);
       return {
         status: 'success',
@@ -406,7 +406,7 @@ export const matchesApi = {
       const response = await api.client.get('/matches/live');
       return response;
     } catch (error) {
-      console.error('Error fetching live matches:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching live matches:', error);
       return { status: 'success', data: [] };
     }
   },
@@ -416,7 +416,7 @@ export const matchesApi = {
       const response = await api.client.get(`/matches/${matchId}`);
       return response;
     } catch (error) {
-      console.error(`Error fetching match ${matchId}:`, error);
+      process.env.NODE_ENV === 'development' && console.error(`Error fetching match ${matchId}:`, error);
       return { status: 'success', data: null };
     }
   },
@@ -445,11 +445,11 @@ export const matchesApi = {
         }
       });
       
-      console.log('Fetching fixtures with params:', params);
+      process.env.NODE_ENV === 'development' && console.log('Fetching fixtures with params:', params);
       const response = await api.client.get('/matches/fixtures', { params });
       return response;
     } catch (error) {
-      console.error('Error fetching fixtures:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching fixtures:', error);
       return { status: 'success', matches: [], total: 0 };
     }
   },
@@ -461,7 +461,7 @@ export const matchesApi = {
       });
       return response;
     } catch (error) {
-      console.error('Error fetching league fixtures:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching league fixtures:', error);
       return { status: 'success', matches: [], total: 0 };
     }
   },
@@ -471,7 +471,7 @@ export const matchesApi = {
       const response = await api.client.get('/matches/statuses');
       return response;
     } catch (error) {
-      console.error('Error fetching match statuses:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching match statuses:', error);
       return { status: 'success', data: [] };
     }
   },
@@ -481,7 +481,7 @@ export const matchesApi = {
       const response = await api.client.get('/matches/upcoming');
       return response;
     } catch (error) {
-      console.error('Error fetching upcoming matches:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching upcoming matches:', error);
       return { status: 'success', matches: [], total: 0 };
     }
   },
@@ -491,7 +491,7 @@ export const matchesApi = {
       const response = await api.client.get(`/matches/top?count=${count}`);
       return response;
     } catch (error) {
-      console.error('Error fetching top matches:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching top matches:', error);
       return { status: 'success', matches: [], total: 0 };
     }
   }
@@ -511,7 +511,7 @@ export const predictionsApi = {
       
       return await api.client.get('/predictions/user', { params: queryParams });
     } catch (error) {
-      console.error('Error fetching user predictions:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching user predictions:', error);
       return { status: 'success', data: [] };
     }
   },
@@ -523,10 +523,10 @@ export const predictionsApi = {
       away_score: predictionData.away_score !== undefined ? predictionData.away_score : predictionData.score2
     };
     
-    console.log('Sending prediction data:', payload);
+    process.env.NODE_ENV === 'development' && console.log('Sending prediction data:', payload);
     
     if (payload.match_id === undefined || payload.home_score === undefined || payload.away_score === undefined) {
-      console.error('Missing required fields:', payload);
+      process.env.NODE_ENV === 'development' && console.error('Missing required fields:', payload);
       throw new Error(`Missing required fields: match_id=${payload.match_id}, home_score=${payload.home_score}, away_score=${payload.away_score}`);
     }
     
@@ -548,7 +548,7 @@ export const predictionsApi = {
       payload.away_score = predictionData.score2;
     }
     
-    console.log('Updating prediction with payload:', payload);
+    process.env.NODE_ENV === 'development' && console.log('Updating prediction with payload:', payload);
     
     return await api.client.put(`/predictions/${predictionId}`, payload);
   },
@@ -593,11 +593,11 @@ export const predictionsApi = {
         }
       });
       
-      console.log(`Fetching leaderboard for group ${groupId} with params:`, queryParams);
+      process.env.NODE_ENV === 'development' && console.log(`Fetching leaderboard for group ${groupId} with params:`, queryParams);
       
       return await api.client.get(`/predictions/leaderboard/${groupId}`, { params: queryParams });
     } catch (error) {
-      console.error('Error fetching group leaderboard:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching group leaderboard:', error);
       return {
         status: 'success',
         data: []
@@ -610,7 +610,7 @@ export const predictionsApi = {
     try {
       return await api.client.get(`/predictions/seasons/${groupId}`);
     } catch (error) {
-      console.error('Error fetching group seasons:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching group seasons:', error);
       return {
         status: 'success',
         data: []
@@ -641,7 +641,7 @@ export const seasonsApi = {
       const params = league ? { league } : {};
       return await api.client.get('/matches/seasons', { params });
     } catch (error) {
-      console.error('Error fetching available seasons:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching available seasons:', error);
       return {
         status: 'success',
         data: league ? [] : {}
@@ -651,11 +651,11 @@ export const seasonsApi = {
 };
 
 // Add debug logging for enhanced scheduler
-console.log('Enhanced Scheduler API loaded:', Object.keys(enhancedSchedulerApi));
+process.env.NODE_ENV === 'development' && console.log('Enhanced Scheduler API loaded:', Object.keys(enhancedSchedulerApi));
 
 // Add debug logging
-console.log('API module loaded, predictionsApi methods:', Object.keys(predictionsApi));
-console.log('API module loaded, groupsApi methods:', Object.keys(groupsApi));
+process.env.NODE_ENV === 'development' && console.log('API module loaded, predictionsApi methods:', Object.keys(predictionsApi));
+process.env.NODE_ENV === 'development' && console.log('API module loaded, groupsApi methods:', Object.keys(groupsApi));
 
 // Export utility functions
 export {

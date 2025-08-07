@@ -19,7 +19,9 @@ const Navigation = () => {
       setIsDropdownOpen(false); // Close dropdown
       navigate('/login');
     } catch (error) {
-      console.error('Logout failed:', error);
+      process.env.NODE_ENV === 'development' && console.error('Logout failed:', error);
+      // Still navigate to login even if logout fails
+      navigate('/login');
     }
   };
 

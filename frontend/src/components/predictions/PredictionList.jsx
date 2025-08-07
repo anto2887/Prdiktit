@@ -34,7 +34,7 @@ const PredictionList = () => {
           fetchUserPredictions()
         ]);
       } catch (err) {
-        console.error('Error loading data:', err);
+        process.env.NODE_ENV === 'development' && console.error('Error loading data:', err);
       } finally {
         setIsInitialLoading(false);
       }

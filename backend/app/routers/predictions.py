@@ -572,219 +572,77 @@ async def reset_prediction_endpoint(
 
 @router.get("/leaderboard/{group_id}", response_model=ListResponse)
 async def get_group_leaderboard(
-    group_id: int = Path(...),
-    season: Optional[str] = Query(None),
-    week: Optional[int] = Query(None),
+    group_id: int,
+    season: Optional[str] = Query(None, description="Season filter"),
+    week: Optional[int] = Query(None, description="Week filter"),
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
-    """
-    Get group leaderboard showing member rankings by total points
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-    
+    """Get leaderboard for a specific group"""
     try:
-        logger.info(f"🔍 DEBUGGING: group_id={group_id}, season={season}, week={week}")
+        # Check if user is member of the group
+        if not is_user_group_member(db, current_user.id, group_id):
+            raise HTTPException(status_code=403, detail="Not a member of this group")
         
-        # Check if user is a member of the group
-        is_member = await check_group_membership(db, group_id, current_user.id)
-        logger.info(f"🔍 User {current_user.id} is member of group {group_id}: {is_member}")
+        # Build cache key
+        cache_key = f"leaderboard:{group_id}:{season}:{week}"
         
-        if not is_member:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not a member of this group"
-            )
+        # Try to get from cache first
+        cached_data = await cache.get(cache_key)
+        if cached_data:
+            return DataResponse(data=cached_data)
         
-        # Get group details to determine league
-        group = db.query(Group).filter(Group.id == group_id).first()
-        if not group:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Group not found"
-            )
-        
-        logger.info(f"🔍 Group found: {group.name}, league: {group.league}")
-        
-        # Normalize season format for database query
-        if season:
-            normalized_season = SeasonManager.normalize_season_for_query(group.league, season)
-        else:
-            normalized_season = SeasonManager.get_current_season(group.league)
-        
-        logger.info(f"🔍 Normalized season: {normalized_season}")
-        logger.info(f"🔍 Will filter predictions to only include fixtures from league: {group.league}")
-        
-        # Skip cache for debugging
-        logger.info("🔍 Skipping cache for debugging")
-        
-        # First, let's check what group members exist
-        from sqlalchemy import func, text, case
-        from ..db.models import group_members, User as UserModel, UserPrediction
-        
-        # Check group members first
-        members_query = db.query(
-            UserModel.id.label('user_id'),
-            UserModel.username
-        ).select_from(
-            UserModel
-        ).join(
-            group_members,
-            UserModel.id == group_members.c.user_id
-        ).filter(
-            group_members.c.group_id == group_id
-        )
-        
-        all_members = members_query.all()
-        logger.info(f"🔍 Found {len(all_members)} group members: {[m.username for m in all_members]}")
-        
-        # Check what seasons exist in predictions
-        seasons_query = db.query(UserPrediction.season).distinct().all()
-        existing_seasons = [s[0] for s in seasons_query if s[0]]
-        logger.info(f"🔍 Existing seasons in database: {existing_seasons}")
-        
-        # Check predictions for group members specifically
-        member_ids = [m.user_id for m in all_members]
-        if member_ids:
-            predictions_query = db.query(
-                UserPrediction.user_id,
-                UserPrediction.season,
-                func.count(UserPrediction.id).label('count')
-            ).filter(
-                UserPrediction.user_id.in_(member_ids)
-            ).group_by(
-                UserPrediction.user_id,
-                UserPrediction.season
-            ).all()
-            
-            logger.info(f"🔍 Predictions by group members:")
-            for pred in predictions_query:
-                username = next((m.username for m in all_members if m.user_id == pred.user_id), f"User{pred.user_id}")
-                logger.info(f"   {username} (ID:{pred.user_id}): {pred.count} predictions in season {pred.season}")
-        
-        # Now build the main query but with better debugging
-        from ..db.models import Fixture
-        
+        # Build query
         query = db.query(
-            UserModel.id.label('user_id'),
-            UserModel.username,
-            func.coalesce(func.sum(UserPrediction.points), 0).label('total_points'),
-            func.count(UserPrediction.id).label('total_predictions'),
-            func.sum(case((UserPrediction.points == 3, 1), else_=0)).label('perfect_scores'),
-            func.sum(case((UserPrediction.points == 1, 1), else_=0)).label('correct_results'),
-            func.sum(case((UserPrediction.points == 0, 1), else_=0)).label('incorrect_predictions')
-        ).select_from(
-            UserModel
+            User.username,
+            User.id.label('user_id'),
+            func.count(Prediction.id).label('total_predictions'),
+            func.sum(Prediction.points).label('total_points'),
+            func.avg(Prediction.points).label('average_points')
         ).join(
-            group_members,
-            UserModel.id == group_members.c.user_id
-        ).outerjoin(
-            UserPrediction,
-            (UserModel.id == UserPrediction.user_id) & (UserPrediction.season == normalized_season)
-        ).outerjoin(
-            Fixture,
-            UserPrediction.fixture_id == Fixture.fixture_id
+            Prediction, User.id == Prediction.user_id
         ).filter(
-            group_members.c.group_id == group_id
-        ).filter(
-            (Fixture.league == group.league) | (UserPrediction.id.is_(None))
+            Prediction.group_id == group_id
         )
         
-        # Apply week filter if provided
+        # Apply filters
+        if season:
+            query = query.join(Fixture, Prediction.fixture_id == Fixture.fixture_id)
+            query = query.filter(Fixture.season == season)
         if week:
-            query = query.filter(UserPrediction.week == week)
-            logger.info(f"🔍 Applied week filter: {week}")
+            query = query.join(Fixture, Prediction.fixture_id == Fixture.fixture_id)
+            query = query.filter(Fixture.week == week)
         
-        # Group by user and order by total points descending
-        query = query.group_by(
-            UserModel.id, 
-            UserModel.username
-        ).order_by(
-            text('total_points DESC'),
-            text('total_predictions DESC'),
-            UserModel.username
+        # Group and order
+        query = query.group_by(User.id, User.username).order_by(
+            func.sum(Prediction.points).desc(),
+            func.avg(Prediction.points).desc()
         )
-        
-        # Log the SQL query for debugging
-        logger.info(f"🔍 SQL Query: {str(query)}")
         
         # Execute query
         results = query.all()
         
-        logger.info(f"🔍 Query returned {len(results)} results")
-        for result in results:
-            logger.info(f"   {result.username}: {result.total_points} points, {result.total_predictions} predictions")
-        
-        # Build leaderboard data
+        # Format results
         leaderboard = []
-        for rank, result in enumerate(results, 1):
-            # Calculate accuracy
-            total_preds = result.total_predictions or 0
-            accuracy = 0
-            if total_preds > 0:
-                correct_preds = (result.perfect_scores or 0) + (result.correct_results or 0)
-                accuracy = round((correct_preds / total_preds) * 100, 1)
-            
-            # Calculate average points per prediction
-            avg_points = 0
-            if total_preds > 0:
-                avg_points = round((result.total_points or 0) / total_preds, 2)
-            
-            leaderboard_entry = {
-                "rank": rank,
-                "user_id": result.user_id,
+        for i, result in enumerate(results, 1):
+            leaderboard.append({
+                "rank": i,
                 "username": result.username,
+                "user_id": result.user_id,
+                "total_predictions": result.total_predictions or 0,
                 "total_points": result.total_points or 0,
-                "total_predictions": total_preds,
-                "perfect_scores": result.perfect_scores or 0,
-                "correct_results": result.correct_results or 0,
-                "incorrect_predictions": result.incorrect_predictions or 0,
-                "accuracy_percentage": accuracy,
-                "average_points": avg_points
-            }
-            leaderboard.append(leaderboard_entry)
-            logger.info(f"🔍 Added to leaderboard: {leaderboard_entry}")
+                "average_points": float(result.average_points or 0)
+            })
         
-        # If no users have predictions, include all group members with zero stats
-        if not leaderboard:
-            logger.info("🔍 No predictions found, including all group members with zero stats")
-            for rank, member in enumerate(all_members, 1):
-                zero_entry = {
-                    "rank": rank,
-                    "user_id": member.user_id,
-                    "username": member.username,
-                    "total_points": 0,
-                    "total_predictions": 0,
-                    "perfect_scores": 0,
-                    "correct_results": 0,
-                    "incorrect_predictions": 0,
-                    "accuracy_percentage": 0,
-                    "average_points": 0
-                }
-                leaderboard.append(zero_entry)
-                logger.info(f"🔍 Added zero-stats member: {zero_entry}")
+        # Cache the result for 5 minutes
+        await cache.set(cache_key, leaderboard, ttl=300)
         
-        logger.info(f"🔍 Final leaderboard has {len(leaderboard)} entries")
+        return DataResponse(data=leaderboard)
         
-        return ListResponse(
-            data=leaderboard,
-            total=len(leaderboard)
-        )
-        
-    except HTTPException:
-        # Re-raise HTTP exceptions as-is
-        raise
     except Exception as e:
-        logger.error(f"🔍 ERROR in leaderboard: {e}")
-        logger.exception("🔍 Full traceback:")
-        
-        # Return empty leaderboard on error
-        return ListResponse(
-            data=[],
-            total=0
-        )
+        logger.error(f"Error fetching leaderboard: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch leaderboard")
 
 
 @router.get("/group/{group_id}/week/{week}", response_model=DataResponse)

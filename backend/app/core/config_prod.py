@@ -5,17 +5,20 @@ from .config import Settings
 class ProductionSettings(Settings):
     # Override development defaults with production values
     CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "").split(",")
-    API_RATE_LIMIT: int = int(os.getenv("API_RATE_LIMIT", "300"))
+    
+    # Rate limiting - Updated to 120 requests per minute
+    API_RATE_LIMIT: int = int(os.getenv("API_RATE_LIMIT", "120"))
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
     
     # Redis with production settings
     REDIS_HOST: str = os.getenv("REDIS_HOST", "redis")
     REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
     REDIS_PASSWORD: str = os.getenv("REDIS_PASSWORD", "")
     
-    # Production logging
-    LOG_LEVEL: str = "INFO"
+    # Production logging - No debug levels
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
-    # Security settings for production
+    # Security settings for production - Must be set via environment
     SECRET_KEY: str = os.getenv("SECRET_KEY")  # Must be set in production
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")  # Must be set in production
     
@@ -35,9 +38,6 @@ class ProductionSettings(Settings):
     CORS_ALLOW_METHODS: list = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
     CORS_ALLOW_HEADERS: list = ["Authorization", "Content-Type", "X-Requested-With"]
     CORS_EXPOSE_HEADERS: list = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
-    
-    # Rate limiting for production
-    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "300"))
     
     # Monitoring and observability
     SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")

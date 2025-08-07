@@ -20,20 +20,21 @@ const AnalyticsPage = () => {
   }, []);
 
   const loadAnalytics = async () => {
-    setLoading(true);
-    setError(null);
-    
     try {
-      // This will be implemented when analytics features are ready
-      // For now, show a placeholder
-      setAnalytics({
-        available: false,
-        message: "Analytics features will be available from Week 5"
+      setLoading(true);
+      const response = await fetch(`/api/v1/analytics/group/${groupId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load analytics: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setAnalytics(data.data || {});
     } catch (err) {
-      console.error('Error loading analytics:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error loading analytics:', err);
       setError('Failed to load analytics');
-      showError('Failed to load analytics');
     } finally {
       setLoading(false);
     }

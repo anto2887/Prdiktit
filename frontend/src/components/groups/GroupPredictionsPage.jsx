@@ -57,7 +57,7 @@ const GroupPredictionsPage = () => {
       await loadGroupPredictions();
       
     } catch (err) {
-      console.error('Error loading group data:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error loading group data:', err);
       setError('Failed to load group data');
       showError('Failed to load group predictions');
     } finally {
@@ -71,49 +71,49 @@ const GroupPredictionsPage = () => {
       // Use the correct season format for MLS (2025 instead of 2024-2025)
       const season = '2025'; // MLS uses calendar year format
       
-      console.log('🔍 === GROUP PREDICTIONS DEBUG START ===');
-      console.log(`🔍 Loading group predictions for group ${groupId}, week ${week}, season ${season}`);
-      console.log('🔍 Group data:', group);
-      console.log('🔍 Selected week:', selectedWeek);
-      console.log('🔍 Current week:', currentWeek);
+      process.env.NODE_ENV === 'development' && console.log('🔍 === GROUP PREDICTIONS DEBUG START ===');
+      process.env.NODE_ENV === 'development' && console.log(`🔍 Loading group predictions for group ${groupId}, week ${week}, season ${season}`);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Group data:', group);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Selected week:', selectedWeek);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Current week:', currentWeek);
       
       const response = await fetch(`/api/v1/predictions/group/${groupId}/week/${week}?season=${season}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
       });
       
-      console.log(`🔍 Group predictions response status: ${response.status}`);
-      console.log(`🔍 Response headers:`, Object.fromEntries(response.headers.entries()));
+      process.env.NODE_ENV === 'development' && console.log(`🔍 Group predictions response status: ${response.status}`);
+      process.env.NODE_ENV === 'development' && console.log(`🔍 Response headers:`, Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`🔍 Group predictions API error: ${response.status} - ${errorText}`);
+        process.env.NODE_ENV === 'development' && console.error(`🔍 Group predictions API error: ${response.status} - ${errorText}`);
         throw new Error(`Failed to load predictions: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('🔍 Group predictions API response:', data);
-      console.log('🔍 Response data type:', typeof data);
-      console.log('🔍 Response data keys:', Object.keys(data));
-      console.log('🔍 Response.data type:', typeof data.data);
-      console.log('🔍 Response.data:', data.data);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Group predictions API response:', data);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Response data type:', typeof data);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Response data keys:', Object.keys(data));
+      process.env.NODE_ENV === 'development' && console.log('🔍 Response.data type:', typeof data.data);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Response.data:', data.data);
       
       const predictionsArray = Array.isArray(data.data) ? data.data : [];
-      console.log('🔍 Processed predictions array:', predictionsArray);
-      console.log('🔍 Predictions array length:', predictionsArray.length);
-      console.log('🔍 Predictions array type:', typeof predictionsArray);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Processed predictions array:', predictionsArray);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Predictions array length:', predictionsArray.length);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Predictions array type:', typeof predictionsArray);
       
       if (predictionsArray.length > 0) {
-        console.log('🔍 First prediction structure:', predictionsArray[0]);
-        console.log('🔍 First prediction keys:', Object.keys(predictionsArray[0]));
+        process.env.NODE_ENV === 'development' && console.log('🔍 First prediction structure:', predictionsArray[0]);
+        process.env.NODE_ENV === 'development' && console.log('🔍 First prediction keys:', Object.keys(predictionsArray[0]));
       }
       
-      console.log('🔍 Setting predictions state with:', predictionsArray);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Setting predictions state with:', predictionsArray);
       setPredictions(predictionsArray);
-      console.log('🔍 === GROUP PREDICTIONS DEBUG END ===');
+      process.env.NODE_ENV === 'development' && console.log('🔍 === GROUP PREDICTIONS DEBUG END ===');
       
     } catch (err) {
-      console.error('🔍 Error loading predictions:', err);
-      console.error('🔍 Error stack:', err.stack);
+      process.env.NODE_ENV === 'development' && console.error('🔍 Error loading predictions:', err);
+      process.env.NODE_ENV === 'development' && console.error('🔍 Error stack:', err.stack);
       setPredictions([]);
     }
   };
@@ -149,14 +149,14 @@ const GroupPredictionsPage = () => {
   if (error) return <ErrorMessage message={error} />;
   if (!group) return <ErrorMessage message="Group not found" />;
 
-  console.log('🔍 === GROUP PREDICTIONS RENDER DEBUG ===');
-  console.log('🔍 Current predictions state:', predictions);
-  console.log('🔍 Predictions length:', predictions.length);
-  console.log('🔍 Predictions type:', typeof predictions);
-  console.log('🔍 Selected week:', selectedWeek);
-  console.log('🔍 Current week:', currentWeek);
-  console.log('🔍 View mode:', viewMode);
-  console.log('🔍 === END RENDER DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 === GROUP PREDICTIONS RENDER DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 Current predictions state:', predictions);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Predictions length:', predictions.length);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Predictions type:', typeof predictions);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Selected week:', selectedWeek);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Current week:', currentWeek);
+  process.env.NODE_ENV === 'development' && console.log('🔍 View mode:', viewMode);
+  process.env.NODE_ENV === 'development' && console.log('🔍 === END RENDER DEBUG ===');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -317,12 +317,12 @@ const EmptyPredictionsState = ({ selectedWeek }) => (
 
 // Predictions display component
 const PredictionsDisplay = ({ predictions, viewMode, selectedWeek }) => {
-  console.log('🔍 === PREDICTIONS DISPLAY DEBUG ===');
-  console.log('🔍 PredictionsDisplay received predictions:', predictions);
-  console.log('🔍 PredictionsDisplay predictions length:', predictions.length);
-  console.log('🔍 PredictionsDisplay viewMode:', viewMode);
-  console.log('🔍 PredictionsDisplay selectedWeek:', selectedWeek);
-  console.log('🔍 === END PREDICTIONS DISPLAY DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 === PREDICTIONS DISPLAY DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsDisplay received predictions:', predictions);
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsDisplay predictions length:', predictions.length);
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsDisplay viewMode:', viewMode);
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsDisplay selectedWeek:', selectedWeek);
+  process.env.NODE_ENV === 'development' && console.log('🔍 === END PREDICTIONS DISPLAY DEBUG ===');
 
   if (viewMode === 'list') {
     return <PredictionsListView predictions={predictions} />;
@@ -333,32 +333,29 @@ const PredictionsDisplay = ({ predictions, viewMode, selectedWeek }) => {
 
 // Grid view for mobile-first design
 const PredictionsGridView = ({ predictions, selectedWeek }) => {
-  console.log('🔍 === PREDICTIONS GRID VIEW DEBUG ===');
-  console.log('🔍 PredictionsGridView received predictions:', predictions);
-  console.log('🔍 PredictionsGridView predictions length:', predictions.length);
+  process.env.NODE_ENV === 'development' && console.log('🔍 === PREDICTIONS GRID VIEW DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsGridView received predictions:', predictions);
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsGridView predictions length:', predictions.length);
   
   // Group predictions by match
   const predictionsByMatch = predictions.reduce((acc, pred) => {
-    console.log('🔍 Processing prediction:', pred);
-    console.log('🔍 Prediction fixture:', pred.fixture);
-    console.log('🔍 Prediction user:', pred.user);
+    process.env.NODE_ENV === 'development' && console.log('🔍 Processing prediction:', pred);
+    process.env.NODE_ENV === 'development' && console.log('🔍 Prediction fixture:', pred.fixture);
+    process.env.NODE_ENV === 'development' && console.log('🔍 Prediction user:', pred.user);
     
-    const matchKey = `${pred.fixture?.home_team} vs ${pred.fixture?.away_team}`;
-    console.log('🔍 Match key:', matchKey);
+    const matchKey = pred.fixture?.id || pred.match_id;
+    process.env.NODE_ENV === 'development' && console.log('🔍 Match key:', matchKey);
     
     if (!acc[matchKey]) {
-      acc[matchKey] = {
-        fixture: pred.fixture,
-        predictions: []
-      };
+      acc[matchKey] = [];
     }
-    acc[matchKey].predictions.push(pred);
+    acc[matchKey].push(pred);
     return acc;
   }, {});
 
-  console.log('🔍 PredictionsByMatch result:', predictionsByMatch);
-  console.log('🔍 Number of matches:', Object.keys(predictionsByMatch).length);
-  console.log('🔍 === END PREDICTIONS GRID VIEW DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsByMatch result:', predictionsByMatch);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Number of matches:', Object.keys(predictionsByMatch).length);
+  process.env.NODE_ENV === 'development' && console.log('🔍 === END PREDICTIONS GRID VIEW DEBUG ===');
 
   return (
     <div className="space-y-4">
