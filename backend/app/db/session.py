@@ -5,6 +5,13 @@ from sqlalchemy.exc import IntegrityError, ProgrammingError
 from .models import Base
 from .database import engine, SessionLocal
 
+# Import all models to ensure they're registered with Base.metadata
+from . import (
+    User, Group, Fixture, Team, UserPrediction, TeamTracker,
+    PendingMembership, UserResults, GroupAuditLog, GroupAnalytics,
+    UserAnalytics, RivalryPair, RivalryWeek, UserStreak, GroupHeatmap
+)
+
 logger = logging.getLogger(__name__)
 
 def create_tables():

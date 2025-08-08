@@ -63,7 +63,7 @@ class Group(Base):
     league = Column(String(50), nullable=False)
     admin_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     invite_code = Column(String(8), unique=True, nullable=False, index=True)
-    created = Column(DateTime, default=datetime.utcnow)
+    created = Column(DateTime, default=utc_now)  # FIXED: Use utc_now consistently
     privacy_type = Column(Enum(GroupPrivacyType), default=GroupPrivacyType.PRIVATE)
     description = Column(Text, nullable=True)
     
@@ -143,8 +143,8 @@ class UserPrediction(Base):
     score2 = Column(Integer, nullable=False, default=0)
     points = Column(Integer, nullable=False, default=0)
     
-    # Keep as timezone-naive for now to match existing data
-    created = Column(DateTime, default=datetime.utcnow, nullable=False)
+    # FIXED: Use utc_now consistently
+    created = Column(DateTime, default=utc_now, nullable=False)
     # CRITICAL: All prediction timestamps in UTC
     submission_time = Column(DateTime, default=utc_now)
     last_modified = Column(DateTime, default=utc_now, onupdate=utc_now)
@@ -183,7 +183,7 @@ class TeamTracker(Base):
     id = Column(Integer, primary_key=True)
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-    added_at = Column(DateTime, default=datetime.utcnow)
+    added_at = Column(DateTime, default=utc_now)  # FIXED: Use utc_now consistently
     
     # Relationships
     group = relationship("Group", back_populates="tracked_teams")
@@ -199,7 +199,7 @@ class PendingMembership(Base):
     group_id = Column(Integer, ForeignKey("groups.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     status = Column(Enum(MembershipStatus), default=MembershipStatus.PENDING)
-    requested_at = Column(DateTime, default=datetime.utcnow)
+    requested_at = Column(DateTime, default=utc_now)  # FIXED: Use utc_now consistently
     processed_at = Column(DateTime, nullable=True)
     processed_by = Column(Integer, ForeignKey("users.id"), nullable=True)
 
@@ -223,7 +223,7 @@ class GroupAuditLog(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     action = Column(String, nullable=False)
     details = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)  # FIXED: Use utc_now consistently
     
     # Relationships
     group = relationship("Group", back_populates="audit_logs")
@@ -240,11 +240,12 @@ class GroupAnalytics(Base):
     analysis_type = Column(String, nullable=False)
     period = Column(String, nullable=False)
     data = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)  # FIXED: Use utc_now consistently
     
     __table_args__ = (
         Index("idx_analytics_group_type", "group_id", "analysis_type"),
-        UniqueConstraint("group_id", "analysis_type", "period", name="_analytics_period_uc")
+        # FIXED: Unique constraint name to avoid conflicts
+        UniqueConstraint("group_id", "analysis_type", "period", name="_group_analytics_period_uc")
     )
 
 
@@ -265,7 +266,8 @@ class UserAnalytics(Base):
     __table_args__ = (
         Index("idx_analytics_user_type", "user_id", "analysis_type"),
         Index("idx_analytics_period", "period"),
-        UniqueConstraint("user_id", "analysis_type", "period", name="_analytics_period_uc")
+        # FIXED: Unique constraint name to avoid conflicts
+        UniqueConstraint("user_id", "analysis_type", "period", name="_user_analytics_period_uc")
     )
 
 
