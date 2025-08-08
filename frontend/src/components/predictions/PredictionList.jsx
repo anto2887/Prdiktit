@@ -18,30 +18,8 @@ const PredictionList = () => {
   const [guideStep, setGuideStep] = useState(0);
   
   useEffect(() => {
-    const loadData = async () => {
-      setIsInitialLoading(true);
-      try {
-        // Get upcoming matches
-        const today = new Date();
-        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-        
-        await Promise.all([
-          fetchFixtures({
-            from: today.toISOString().split('T')[0],
-            to: nextWeek.toISOString().split('T')[0],
-            status: 'NOT_STARTED'
-          }),
-          fetchUserPredictions()
-        ]);
-      } catch (err) {
-        process.env.NODE_ENV === 'development' && console.error('Error loading data:', err);
-      } finally {
-        setIsInitialLoading(false);
-      }
-    };
-
-    loadData();
-  }, [fetchFixtures, fetchUserPredictions]);
+    fetchUserPredictions()
+  }, [fetchFixtures]);
 
   if (isInitialLoading) {
     return (

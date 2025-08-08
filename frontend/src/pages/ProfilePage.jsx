@@ -17,9 +17,8 @@ const ProfilePage = () => {
   const error = profileError || predictionsError;
 
   useEffect(() => {
-    fetchProfile();
     fetchUserPredictions();
-  }, [fetchProfile, fetchUserPredictions]);
+  }, [fetchProfile]);
 
   if (isLoading) {
     return <LoadingSpinner />;

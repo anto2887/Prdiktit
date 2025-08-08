@@ -15,7 +15,7 @@ const PredictionHistory = () => {
 
   useEffect(() => {
     fetchUserPredictions();
-  }, [fetchUserPredictions]);
+  }, []);
 
   // Filter predictions
   const filteredPredictions = userPredictions.filter(prediction => {

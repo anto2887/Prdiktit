@@ -8,10 +8,8 @@ const RecentPredictions = () => {
   const { userPredictions, fetchUserPredictions, loading } = usePredictions();
 
   useEffect(() => {
-    if (!userPredictions || userPredictions.length === 0) {
-      fetchUserPredictions();
-    }
-  }, [userPredictions, fetchUserPredictions]);
+    fetchUserPredictions();
+  }, [userPredictions]);
 
   // Get the 5 most recent predictions
   const recentPredictions = userPredictions

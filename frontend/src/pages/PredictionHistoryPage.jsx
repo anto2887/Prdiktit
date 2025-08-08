@@ -12,7 +12,7 @@ const PredictionHistoryPage = () => {
 
   useEffect(() => {
     fetchUserPredictions();
-  }, [fetchUserPredictions]);
+  }, []);
 
   if (loading) {
     return <LoadingSpinner />;

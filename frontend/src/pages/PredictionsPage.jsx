@@ -17,21 +17,8 @@ const PredictionsPage = () => {
   const errors = [predictionsError, matchesError, groupsError].filter(Boolean);
 
   useEffect(() => {
-    // Fetch initial data
     fetchUserPredictions();
-    fetchUserGroups();
-    
-    // Get upcoming matches for next 7 days
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
-    
-    fetchFixtures({
-      from: today.toISOString(),
-      to: nextWeek.toISOString(),
-      status: 'NOT_STARTED'
-    });
-  }, [fetchUserPredictions, fetchUserGroups, fetchFixtures]);
+  }, [fetchUserGroups, fetchFixtures]);
 
   if (isLoading) {
     return <LoadingSpinner />;
