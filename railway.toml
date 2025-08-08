@@ -13,7 +13,7 @@ source = "frontend"
 
 [services.build]
 builder = "dockerfile"
-dockerfilePath = "frontend/Dockerfile.prod"
+dockerfilePath = "frontend/Dockerfile"
 
 [services.deploy]
 startCommand = "nginx -g 'daemon off;'"
