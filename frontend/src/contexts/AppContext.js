@@ -128,6 +128,11 @@ const appReducer = (state, action) => {
       };
     
     case ActionTypes.SET_AUTH_USER:
+      console.log('🔄 Reducer: SET_AUTH_USER', {
+        payload: action.payload,
+        isAuthenticated: !!action.payload,
+        timestamp: new Date().toISOString()
+      });
       return {
         ...state,
         auth: {
@@ -471,51 +476,55 @@ export const AppProvider = ({ children }) => {
 
   // Check authentication on mount
   useEffect(() => {
+    console.log('🚀 AppProvider: Starting authentication check on mount');
     checkAuth();
   }, []);
 
   // Auth functions
   const checkAuth = useCallback(async () => {
     try {
+      console.log('🔐 checkAuth: Starting authentication check');
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
       process.env.NODE_ENV === 'development' && console.log("Checking authentication...");
       
       const hasToken = localStorage.getItem('accessToken');
-      process.env.NODE_ENV === 'development' && console.log("Has token:", !!hasToken);
+      console.log('🔐 checkAuth: Token check:', { hasToken: !!hasToken, tokenLength: hasToken?.length });
       
       if (!hasToken) {
-        process.env.NODE_ENV === 'development' && console.log("No token found, setting unauthenticated");
+        console.log('❌ checkAuth: No token found, setting unauthenticated');
         dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
         return;
       }
       
-      process.env.NODE_ENV === 'development' && console.log("Verifying token with server...");
+      console.log('🔐 checkAuth: Verifying token with server...');
       const response = await authApi.checkAuthStatus();
-      process.env.NODE_ENV === 'development' && console.log("Auth check response:", response);
+      console.log('🔐 checkAuth: Server response:', response);
       
       if (response && response.status === 'success' && response.data?.authenticated) {
-        process.env.NODE_ENV === 'development' && console.log("Token valid, setting authenticated");
+        console.log('✅ checkAuth: Token valid, setting authenticated');
         // Extract user data from response
         const userData = response.data.user;
         if (userData) {
           dispatch({ type: ActionTypes.SET_AUTH_USER, payload: userData });
         } else {
           // If no user data, set minimal authenticated state
-          process.env.NODE_ENV === 'development' && console.log("No user data in auth check, will fetch profile after login");
+          console.log('⚠️ checkAuth: No user data in auth check, will fetch profile after login');
           dispatch({ type: ActionTypes.SET_AUTH_USER, payload: { authenticated: true }});
         }
       } else {
-        process.env.NODE_ENV === 'development' && console.log("Token invalid, clearing");
+        console.log('❌ checkAuth: Token invalid, clearing');
         dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
         localStorage.removeItem('accessToken');
       }
     } catch (err) {
-      process.env.NODE_ENV === 'development' && console.error('Auth check failed:', err);
+      console.error('❌ checkAuth: Auth check failed:', err);
       // Handle 401 errors differently
       if (err.status === 401 || err.message?.includes('401')) {
+        console.log('❌ checkAuth: 401 error, clearing token and user');
         localStorage.removeItem('accessToken');
         dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
       } else {
+        console.log('❌ checkAuth: Other error, setting auth error');
         dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message || 'Authentication check failed' });
       }
     }
