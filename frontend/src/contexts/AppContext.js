@@ -1421,8 +1421,8 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // Context value
-  const contextValue = {
+  // Context value - memoized to prevent infinite re-renders
+  const contextValue = useMemo(() => ({
     // Auth
     user: state.auth.user,
     isAuthenticated: state.auth.isAuthenticated,
@@ -1524,7 +1524,104 @@ export const AppProvider = ({ children }) => {
 
     // New getUserStats function
     getUserStats,
-  };
+  }), [
+    // Auth dependencies
+    state.auth.user,
+    state.auth.isAuthenticated,
+    state.auth.loading,
+    state.auth.error,
+    login,
+    register,
+    logout,
+    checkAuth,
+    clearAuthError,
+    
+    // User dependencies
+    state.user.profile,
+    state.user.stats,
+    state.user.loading,
+    state.user.error,
+    state.user.statsLoading,
+    state.user.statsError,
+    fetchProfile,
+    updateProfile,
+    clearUserData,
+    getUserStats,
+    
+    // Groups dependencies
+    state.groups.userGroups,
+    state.groups.currentGroup,
+    state.groups.groupMembers,
+    state.groups.loading,
+    state.groups.error,
+    fetchUserGroups,
+    fetchGroupDetails,
+    fetchGroupMembers,
+    createGroup,
+    joinGroup,
+    manageMember,
+    regenerateInviteCode,
+    fetchTeamsForLeague,
+    isAdmin,
+    clearGroupData,
+    updateGroup,
+    leaveGroup,
+    isMember,
+    
+    // Matches dependencies
+    state.matches.fixtures,
+    state.matches.liveMatches,
+    state.matches.selectedMatch,
+    state.matches.loading,
+    state.matches.error,
+    fetchFixtures,
+    refreshLiveMatches,
+    fetchMatchById,
+    getUpcomingMatches,
+    clearMatchData,
+    
+    // Predictions dependencies
+    state.predictions.userPredictions,
+    state.predictions.selectedPrediction,
+    state.predictions.loading,
+    state.predictions.error,
+    fetchUserPredictions,
+    fetchPrediction,
+    createPrediction,
+    updatePrediction,
+    resetPrediction,
+    submitBatchPredictions,
+    clearPredictionData,
+    
+    // Notifications dependencies
+    state.notifications.notifications,
+    addNotification,
+    removeNotification,
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
+    clearAllNotifications,
+    
+    // League dependencies
+    state.league.selectedSeason,
+    state.league.selectedWeek,
+    state.league.selectedGroup,
+    state.league.leaderboard,
+    state.league.loading,
+    state.league.error,
+    state.league.availableSeasons,
+    setSelectedSeason,
+    setSelectedWeek,
+    setSelectedGroup,
+    fetchLeaderboard,
+    clearLeagueData,
+    
+    // Season management dependencies
+    normalizeSeasonForQuery,
+    getSeasonForDisplay,
+    getCurrentSeason
+  ]);
 
   return (
     <AppContext.Provider value={contextValue}>
