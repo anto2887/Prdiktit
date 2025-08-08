@@ -1,5 +1,5 @@
 // src/contexts/AppContext.js
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { authApi, usersApi, groupsApi, matchesApi, predictionsApi } from '../api';
 import SeasonManager from '../utils/seasonManager';
