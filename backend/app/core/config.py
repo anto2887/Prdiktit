@@ -82,22 +82,20 @@ class Settings(BaseSettings):
 # Environment-based configuration loading
 def get_settings():
     """Get settings based on environment"""
-    # Force production configuration for Railway deployment
-    environment = os.getenv("ENVIRONMENT", "production")  # Changed default to production
+    # FORCE PRODUCTION CONFIGURATION - Always use production settings
+    logger.info("🔧 FORCING PRODUCTION CONFIGURATION")
     
-    logger.info(f"🔍 CONFIG DEBUG: Environment variable ENVIRONMENT = '{environment}'")
-    logger.info(f"🔍 CONFIG DEBUG: All environment variables: {dict(os.environ)}")
-    
-    if environment == "production":
+    try:
         from .config_prod import ProductionSettings
-        logger.info("🔍 CONFIG DEBUG: Loading production configuration")
+        logger.info("🔧 Loading production configuration")
         settings = ProductionSettings()
-        logger.info(f"🔍 CONFIG DEBUG: Production CORS_ORIGINS = {settings.CORS_ORIGINS}")
+        logger.info(f"🔧 Production CORS_ORIGINS = {settings.CORS_ORIGINS}")
         return settings
-    else:
-        logger.info("🔍 CONFIG DEBUG: Loading development configuration")
+    except Exception as e:
+        logger.error(f"🔧 Error loading production config: {e}")
+        logger.info("🔧 Falling back to development configuration")
         settings = Settings()
-        logger.info(f"🔍 CONFIG DEBUG: Development CORS_ORIGINS = {settings.CORS_ORIGINS}")
+        logger.info(f"🔧 Development CORS_ORIGINS = {settings.CORS_ORIGINS}")
         return settings
 
 # Initialize settings based on environment
