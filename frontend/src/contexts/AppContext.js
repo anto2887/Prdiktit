@@ -472,7 +472,7 @@ export const AppProvider = ({ children }) => {
   // Check authentication on mount
   useEffect(() => {
     checkAuth();
-  }, []);
+  }, [checkAuth]);
 
   // Auth functions
   const checkAuth = useCallback(async () => {
@@ -511,6 +511,9 @@ export const AppProvider = ({ children }) => {
       } else {
         dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message || 'Authentication check failed' });
       }
+    } finally {
+      // Always set loading to false
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
     }
   }, []);
 
@@ -542,6 +545,9 @@ export const AppProvider = ({ children }) => {
       process.env.NODE_ENV === 'development' && console.error('Login: Error occurred:', err);
       dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message });
       throw err;
+    } finally {
+      // Always set loading to false
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
     }
   }, []);
 
@@ -573,6 +579,9 @@ export const AppProvider = ({ children }) => {
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Logout error:', err);
       dispatch({ type: ActionTypes.CLEAR_AUTH });
+    } finally {
+      // Always set loading to false
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
     }
   }, []);
 
@@ -1508,7 +1517,88 @@ export const AppProvider = ({ children }) => {
 
     // New getUserStats function
     getUserStats,
-  }), [state]); // Simplified dependencies - just depend on the entire state object
+  }), [
+    // Include all dependencies to prevent infinite re-renders
+    state.auth.user,
+    state.auth.isAuthenticated,
+    state.auth.loading,
+    state.auth.error,
+    state.user.profile,
+    state.user.stats,
+    state.user.loading,
+    state.user.error,
+    state.user.statsLoading,
+    state.user.statsError,
+    state.groups.userGroups,
+    state.groups.currentGroup,
+    state.groups.groupMembers,
+    state.groups.loading,
+    state.groups.error,
+    state.matches.fixtures,
+    state.matches.liveMatches,
+    state.matches.selectedMatch,
+    state.matches.loading,
+    state.matches.error,
+    state.predictions.userPredictions,
+    state.predictions.selectedPrediction,
+    state.predictions.loading,
+    state.predictions.error,
+    state.notifications.notifications,
+    state.league.selectedSeason,
+    state.league.selectedWeek,
+    state.league.selectedGroup,
+    state.league.leaderboard,
+    state.league.availableSeasons,
+    state.league.loading,
+    state.league.error,
+    login,
+    register,
+    logout,
+    checkAuth,
+    clearAuthError,
+    fetchProfile,
+    updateProfile,
+    clearUserData,
+    getUserStats,
+    fetchUserGroups,
+    fetchGroupDetails,
+    fetchGroupMembers,
+    createGroup,
+    joinGroup,
+    manageMember,
+    regenerateInviteCode,
+    fetchTeamsForLeague,
+    isAdmin,
+    clearGroupData,
+    updateGroup,
+    leaveGroup,
+    isMember,
+    fetchFixtures,
+    refreshLiveMatches,
+    fetchMatchById,
+    getUpcomingMatches,
+    clearMatchData,
+    fetchUserPredictions,
+    fetchPrediction,
+    createPrediction,
+    updatePrediction,
+    resetPrediction,
+    submitBatchPredictions,
+    clearPredictionData,
+    addNotification,
+    removeNotification,
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
+    clearAllNotifications,
+    setSelectedSeason,
+    setSelectedWeek,
+    setSelectedGroup,
+    fetchLeaderboard,
+    fetchGroupSeasons,
+    clearLeagueData
+  ]);
 
   return (
     <AppContext.Provider value={contextValue}>
