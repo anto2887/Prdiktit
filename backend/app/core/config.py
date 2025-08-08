@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     # 60 minutes * 24 hours * 7 days = 7 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     
-    # CORS - Development defaults (more permissive)
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    # CORS - Use environment variable or empty list as default
+    CORS_ORIGINS: List[str] = []
     
     @validator("CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
@@ -63,10 +63,10 @@ class Settings(BaseSettings):
     API_RATE_LIMIT: int = int(os.getenv("API_RATE_LIMIT", "120"))
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
     
-    # CORS settings - Development defaults (more permissive)
+    # CORS settings - Production defaults (more restrictive)
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_ALLOW_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
-    CORS_ALLOW_HEADERS: List[str] = ["*"]  # Permissive for development
+    CORS_ALLOW_HEADERS: List[str] = ["Authorization", "Content-Type", "X-Requested-With"]
     CORS_EXPOSE_HEADERS: List[str] = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
     
     # Logging - Production defaults (no debug)
