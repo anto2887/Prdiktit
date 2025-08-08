@@ -4,12 +4,13 @@ Updated main application with enhanced logging and unified transaction managemen
 """
 import logging
 import os
+import asyncio
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.config import settings
-from .db.session import create_tables
+from .db.session import create_tables_with_verification
 from .services.init_services import init_services, shutdown_services
 from .middleware.rate_limiter import RateLimitMiddleware
 
@@ -148,6 +149,44 @@ app.add_middleware(
 # Add rate limiting middleware
 app.add_middleware(RateLimitMiddleware)
 
+async def ensure_database_ready(max_retries=3, retry_delay=2):
+    """
+    Ensure database tables are created and ready with retry mechanism
+    """
+    startup_logger = logging.getLogger('startup_sync')
+    
+    for attempt in range(max_retries):
+        try:
+            startup_logger.info(f"🔄 Database setup attempt {attempt + 1}/{max_retries}")
+            
+            # Create and verify tables
+            success = create_tables_with_verification()
+            
+            if success:
+                startup_logger.info("✅ Database tables created and verified successfully")
+                return True
+            else:
+                startup_logger.warning(f"⚠️ Table creation/verification failed on attempt {attempt + 1}")
+                if attempt < max_retries - 1:
+                    startup_logger.info(f"⏳ Waiting {retry_delay} seconds before retry...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    startup_logger.error("❌ All database setup attempts failed")
+                    return False
+                    
+        except Exception as e:
+            startup_logger.error(f"❌ Database setup error on attempt {attempt + 1}: {e}")
+            if attempt < max_retries - 1:
+                startup_logger.info(f"⏳ Waiting {retry_delay} seconds before retry...")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            else:
+                startup_logger.error("❌ All database setup attempts failed")
+                return False
+    
+    return False
+
 # Application startup
 @app.on_event("startup")
 async def startup_event():
@@ -159,21 +198,29 @@ async def startup_event():
         startup_logger.info("🚀 APPLICATION_STARTUP_BEGIN")
         startup_logger.info("📊 Using Unified Transaction Management System")
         
-        # Step 1: Create database tables
-        startup_logger.info("📋 Step 1: Creating database tables...")
+        # Step 1: Ensure database is ready with retry mechanism
+        startup_logger.info("📋 Step 1: Ensuring database tables are ready...")
         if settings.CREATE_TABLES_ON_STARTUP:
-            create_tables()
-            startup_logger.info("✅ Database tables created/verified")
+            database_ready = await ensure_database_ready()
+            if not database_ready:
+                startup_logger.error("❌ CRITICAL: Database setup failed - application cannot start")
+                raise Exception("Database setup failed after all retry attempts")
+            startup_logger.info("✅ Database tables created/verified with retry mechanism")
         else:
             startup_logger.info("⏭️ Table creation skipped (CREATE_TABLES_ON_STARTUP=False)")
         
-        # Step 2: Initialize services
-        startup_logger.info("🔧 Step 2: Initializing services...")
-        await init_services(app)  # ✅ Add app argument
+        # Step 2: Add delay to ensure PostgreSQL has fully committed changes
+        startup_logger.info("⏳ Step 2: Waiting for database changes to fully commit...")
+        await asyncio.sleep(3)  # 3-second delay to ensure PostgreSQL commits
+        startup_logger.info("✅ Database commit delay completed")
+        
+        # Step 3: Initialize services (only after database is confirmed ready)
+        startup_logger.info("🔧 Step 3: Initializing services...")
+        await init_services(app)
         startup_logger.info("✅ Services initialized")
         
-        # Step 3: Run comprehensive startup sync with unified transactions
-        startup_logger.info("🔄 Step 3: Running comprehensive startup synchronization...")
+        # Step 4: Run comprehensive startup sync with unified transactions
+        startup_logger.info("🔄 Step 4: Running comprehensive startup synchronization...")
         try:
             sync_result = await startup_sync_service.run_comprehensive_startup_sync()
             
@@ -191,16 +238,16 @@ async def startup_event():
             startup_logger.error(f"❌ Critical error in startup sync: {sync_error}")
             transaction_logger.error(f"STARTUP_SYNC_CRITICAL_ERROR: {str(sync_error)}")
         
-        # Step 4: Start enhanced scheduler
-        startup_logger.info("⏰ Step 4: Starting Enhanced Smart Scheduler...")
+        # Step 5: Start enhanced scheduler
+        startup_logger.info("⏰ Step 5: Starting Enhanced Smart Scheduler...")
         try:
             enhanced_smart_scheduler.start()
             startup_logger.info("✅ Enhanced Smart Scheduler started successfully")
         except Exception as scheduler_error:
             startup_logger.error(f"❌ Error starting scheduler: {scheduler_error}")
         
-        # Step 5: Final startup verification
-        startup_logger.info("🔍 Step 5: Running startup verification...")
+        # Step 6: Final startup verification
+        startup_logger.info("🔍 Step 6: Running startup verification...")
         try:
             # Test the unified transaction manager
             test_result = unified_transaction_manager.update_match_statuses_and_process_predictions([])
@@ -221,6 +268,8 @@ async def startup_event():
         startup_logger.info("   ✅ Single Session Per Processing Cycle")
         startup_logger.info("   ✅ Enhanced Smart Scheduler")
         startup_logger.info("   ✅ Startup Synchronization")
+        startup_logger.info("   ✅ Database Retry Mechanism")
+        startup_logger.info("   ✅ PostgreSQL Commit Delay")
         
         # Log current time for reference
         current_time = datetime.now(timezone.utc)
@@ -250,7 +299,7 @@ async def shutdown_event():
         
         # Shutdown services
         startup_logger.info("🔧 Shutting down services...")
-        await shutdown_services(app)  # ✅ Add app argument
+        await shutdown_services(app)
         startup_logger.info("✅ Services shutdown complete")
         
         startup_logger.info("🛑 APPLICATION_SHUTDOWN_COMPLETE")
