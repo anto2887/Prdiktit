@@ -469,11 +469,6 @@ export const AppProvider = ({ children }) => {
     dispatch({ type: ActionTypes.CLEAR_NOTIFICATIONS });
   }, []);
 
-  // Check authentication on mount
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-
   // Auth functions
   const checkAuth = useCallback(async () => {
     try {
@@ -1599,6 +1594,11 @@ export const AppProvider = ({ children }) => {
     fetchGroupSeasons,
     clearLeagueData
   ]);
+
+  // Check authentication on mount - placed after all functions are defined
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   return (
     <AppContext.Provider value={contextValue}>
