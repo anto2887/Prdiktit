@@ -154,9 +154,9 @@ const DashboardPage = () => {
     return () => clearInterval(interval);
   }, [
     retryCount, 
-    dataFetchStatus,
     selectedGroup,
     matchesLoading
+    // Removed dataFetchStatus from dependencies to prevent infinite loop
   ]);
 
   // FIXED: Add debug logging for profile state
