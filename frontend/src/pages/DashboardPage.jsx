@@ -221,19 +221,6 @@ const DashboardPage = () => {
         </HelpTooltip>
       </div>
       
-      {/* FIXED: Add debug info in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="mb-4 p-4 bg-gray-100 rounded text-sm">
-          <div><strong>Debug Info:</strong></div>
-          <div>Profile loaded: {!!profile ? 'YES' : 'NO'}</div>
-          <div>Profile ID: {profile?.id || 'N/A'}</div>
-          <div>Username: {profile?.username || 'N/A'}</div>
-          <div>Groups loaded: {userGroups?.length || 0}</div>
-          <div>Selected group: {selectedGroup?.name || 'None'}</div>
-          <div>Data fetch status: {JSON.stringify(dataFetchStatus)}</div>
-        </div>
-      )}
-      
       {/* Stats section */}
       <section className="mb-8">
         <div className="flex justify-between items-center mb-4">
