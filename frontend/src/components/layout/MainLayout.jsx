@@ -8,17 +8,9 @@ import { useAuth } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const MainLayout = () => {
-  const { loading, isAuthenticated, user } = useAuth();
-
-  console.log('🏗️ MainLayout Debug:', {
-    loading,
-    isAuthenticated,
-    user: user ? 'User exists' : 'No user',
-    timestamp: new Date().toISOString()
-  });
+  const { loading } = useAuth();
 
   if (loading) {
-    console.log('🔄 MainLayout: Showing loading spinner');
     return <LoadingSpinner fullScreen />;
   }
 

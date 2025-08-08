@@ -8,7 +8,6 @@ import NotificationContainer from './components/common/NotificationContainer';
 import './styles.css';
 
 function App() {
-  console.log('🔄 App: Rendering App with consolidated AppProvider', new Date().toISOString());
   
   return (
     <ErrorBoundary>

@@ -32,14 +32,7 @@ import {
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 const AppRoutes = () => {
-  const { isAuthenticated, loading, user } = useAuth();
-  
-  console.log('🔍 Routes.jsx - Auth Debug:', {
-    isAuthenticated,
-    loading,
-    user: user ? 'User exists' : 'No user',
-    timestamp: new Date().toISOString()
-  });
+  const { isAuthenticated } = useAuth();
 
   return (
     <Routes>
