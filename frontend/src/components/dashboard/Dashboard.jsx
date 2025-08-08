@@ -11,7 +11,7 @@ import DashboardStats from './DashboardStats';
 import RecentPredictions from './RecentPredictions';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import { OnboardingGuide, HelpTooltip } from '../onboarding/OnboardingGuide';
+import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
 
 const Dashboard = () => {
   const { profile, stats, loading: userLoading, error: userError } = useUser();
