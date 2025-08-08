@@ -153,15 +153,9 @@ const DashboardPage = () => {
     
     return () => clearInterval(interval);
   }, [
-    fetchUserPredictions, 
-    fetchUserGroups, 
-    refreshLiveMatches, 
-    fetchFixtures, 
-    fetchProfile, 
     retryCount, 
     dataFetchStatus,
     selectedGroup,
-    setSelectedGroup,
     matchesLoading
   ]);
 
