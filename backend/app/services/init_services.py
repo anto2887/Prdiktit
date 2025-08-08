@@ -25,9 +25,9 @@ async def import_teams_on_startup(app: FastAPI) -> None:
             
             # Import teams using your existing script logic
             leagues = {
-                "Premier League": {"id": 39, "season": 2024},
-                "La Liga": {"id": 140, "season": 2024},
-                "UEFA Champions League": {"id": 2, "season": 2024},
+                "Premier League": {"id": 39, "season": 2025},
+                "La Liga": {"id": 140, "season": 2025},
+                "UEFA Champions League": {"id": 2, "season": 2025},
                 "MLS": {"id": 253, "season": 2025},
                 "FIFA Club World Cup": {"id": 15, "season": 2025}
             }

@@ -98,58 +98,45 @@ class FootballAPIService:
             
             logger.debug(f"🔗 Making API request to: {endpoint}")
             
-            # Use async context manager properly
+            # Log response status for debugging
             async with session.get(url, params=params) as response:
-                self.last_request_time = datetime.now()
-                
-                # Log response status for debugging
                 logger.debug(f"📡 API Response: {response.status} for {endpoint}")
                 
                 if response.status == 200:
-                    try:
-                        data = await response.json()
-                        
-                        # Check for API errors in response
-                        if 'errors' in data and data['errors']:
-                            logger.error(f"❌ API returned errors: {data['errors']}")
-                            return {}
-                        
+                    data = await response.json()
+                    self.last_request_time = datetime.now()
+                    
+                    # Extract the response data
+                    if 'response' in data:
+                        return data['response']
+                    else:
+                        logger.warning(f"Unexpected API response format for {endpoint}")
                         return data
-                    except Exception as e:
-                        logger.error(f"❌ Error parsing JSON response: {e}")
-                        return {}
                         
-                elif response.status == 403:
-                    logger.error(f"❌ API request failed: 403 Forbidden")
-                    logger.error(f"   Endpoint: {endpoint}")
-                    logger.error(f"   Check API key and subscription status")
-                    return {}
-                    
                 elif response.status == 429:
-                    logger.warning("⚠️ Rate limit exceeded, waiting...")
-                    await asyncio.sleep(60)  # Wait 1 minute for rate limit reset
-                    # Don't retry immediately, return empty to avoid infinite loops
-                    return {}
-                    
-                elif response.status >= 500:
-                    logger.error(f"❌ API server error: {response.status}")
-                    return {}
+                    logger.warning(f"Rate limit hit for {endpoint}, waiting...")
+                    await asyncio.sleep(2)  # Wait 2 seconds before retry
+                    return await self._make_request(endpoint, params)  # Retry once
                     
                 else:
-                    logger.error(f"❌ API request failed: {response.status}")
-                    try:
-                        error_text = await response.text()
-                        logger.error(f"   Response: {error_text[:200]}")
-                    except:
-                        pass
+                    logger.error(f"❌ API request failed for {endpoint}: {response.status}")
+                    error_text = await response.text()
+                    logger.error(f"Error details: {error_text}")
                     return {}
                     
-        except asyncio.TimeoutError:
-            logger.error(f"⏰ API request timeout for endpoint: {endpoint}")
+        except aiohttp.ClientError as e:
+            logger.error(f"❌ Network error for {endpoint}: {e}")
             return {}
         except Exception as e:
-            logger.error(f"❌ Error making API request to {endpoint}: {e}")
+            logger.error(f"❌ Unexpected error for {endpoint}: {e}")
             return {}
+
+    async def make_api_request(self, endpoint: str, params: Dict = None) -> Dict:
+        """
+        Public method to make API requests - wrapper around _make_request
+        This is the method that init_services.py expects to call
+        """
+        return await self._make_request(endpoint, params)
     
     async def get_fixtures_by_date_range(
         self, 
