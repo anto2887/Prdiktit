@@ -122,9 +122,16 @@ async def register_user(
     """
     Register a new user
     """
+    # Add debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"🔍 REGISTER DEBUG: Registration request received for username: {new_user.username}")
+    logger.info(f"🔍 REGISTER DEBUG: Request data: {new_user.dict()}")
+    
     user = await get_user_by_username(db, username=new_user.username)
     
     if user:
+        logger.warning(f"🔍 REGISTER DEBUG: Username {new_user.username} already exists")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Username already exists"
@@ -136,7 +143,9 @@ async def register_user(
     user_data.pop("password")
     user_data["hashed_password"] = hashed_password
     
+    logger.info(f"🔍 REGISTER DEBUG: Creating user with data: {user_data}")
     await create_user(db, **user_data)
+    logger.info(f"🔍 REGISTER DEBUG: User {new_user.username} created successfully")
     
     return {
         "status": "success",

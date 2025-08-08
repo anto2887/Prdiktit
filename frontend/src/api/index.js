@@ -192,7 +192,23 @@ export const authApi = {
     }
     return response;
   },
-  register: (userData) => api.client.post('/auth/register', userData),
+  register: async (userData) => {
+    process.env.NODE_ENV === 'development' && console.log('🔍 REGISTER DEBUG: Starting registration with data:', userData);
+    process.env.NODE_ENV === 'development' && console.log('🔍 REGISTER DEBUG: API base URL:', API_BASE_URL);
+    process.env.NODE_ENV === 'development' && console.log('🔍 REGISTER DEBUG: Full URL will be:', `${API_BASE_URL}/auth/register`);
+    
+    try {
+      const response = await api.client.post('/auth/register', userData);
+      process.env.NODE_ENV === 'development' && console.log('🔍 REGISTER DEBUG: Registration successful:', response);
+      return response;
+    } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error('🔍 REGISTER DEBUG: Registration failed:', error);
+      process.env.NODE_ENV === 'development' && console.error('🔍 REGISTER DEBUG: Error response:', error.response);
+      process.env.NODE_ENV === 'development' && console.error('🔍 REGISTER DEBUG: Error status:', error.response?.status);
+      process.env.NODE_ENV === 'development' && console.error('🔍 REGISTER DEBUG: Error data:', error.response?.data);
+      throw error;
+    }
+  },
   logout: async () => {
     try {
       const response = await api.client.post('/auth/logout');
