@@ -1,10 +1,11 @@
-import time
-from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
-from typing import Dict, Tuple, Optional
 import asyncio
 import json
+import time
 import logging
+from typing import Dict, Tuple, Optional
+from fastapi import Request, Response
+from fastapi.middleware.base import BaseHTTPMiddleware
+from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,25 +23,27 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.lock = asyncio.Lock()
     
     def get_cors_headers(self, request: Request = None) -> Dict[str, str]:
-        """Get CORS headers that match your frontend origin"""
-        origin = "http://localhost:3000"  # Your frontend URL
+        """Get CORS headers using proper configuration from settings"""
+        # Use the CORS configuration from settings
+        allowed_origins = settings.CORS_ORIGINS
+        origin = "*"  # Default fallback
         
         if request and request.headers.get("origin"):
             request_origin = request.headers.get("origin")
-            allowed_origins = [
-                "http://localhost:3000",
-                "http://127.0.0.1:3000", 
-                "http://0.0.0.0:3000"
-            ]
             if request_origin in allowed_origins:
                 origin = request_origin
+            elif "*" in allowed_origins:
+                origin = request_origin
+            else:
+                # If origin not in allowed list, use first allowed origin or "*"
+                origin = allowed_origins[0] if allowed_origins else "*"
         
         return {
             "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-            "Access-Control-Allow-Headers": "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Expose-Headers": "X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset",
+            "Access-Control-Allow-Methods": ", ".join(settings.CORS_ALLOW_METHODS),
+            "Access-Control-Allow-Headers": ", ".join(settings.CORS_ALLOW_HEADERS),
+            "Access-Control-Allow-Credentials": str(settings.CORS_ALLOW_CREDENTIALS).lower(),
+            "Access-Control-Expose-Headers": ", ".join(settings.CORS_EXPOSE_HEADERS),
             "Access-Control-Max-Age": "86400"
         }
     
