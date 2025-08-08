@@ -1096,7 +1096,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_LOADING, payload: false });
     }
-  }, [state.auth.isAuthenticated]);
+  }, []);
 
   const fetchPrediction = useCallback(async (predictionId) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1143,7 +1143,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to create prediction');
       return null;
     }
-  }, [state.auth.isAuthenticated, fetchUserPredictions, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, showSuccess, showError]);
 
   const updatePrediction = useCallback(async (predictionId, predictionData) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1166,7 +1166,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to update prediction');
       return null;
     }
-  }, [state.auth.isAuthenticated, fetchUserPredictions, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, showSuccess, showError]);
 
   const resetPrediction = useCallback(async (predictionId) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1180,16 +1180,16 @@ export const AppProvider = ({ children }) => {
       if (response.status === 'success') {
         await fetchUserPredictions();
         showSuccess('Prediction reset successfully');
-        return true;
+        return response.data;
       } else {
         throw new Error(response.message || 'Failed to reset prediction');
       }
     } catch (err) {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_ERROR, payload: err.message || 'Failed to reset prediction' });
       showError(err.message || 'Failed to reset prediction');
-      return false;
+      return null;
     }
-  }, [state.auth.isAuthenticated, fetchUserPredictions, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, showSuccess, showError]);
 
   const submitBatchPredictions = useCallback(async (predictions) => {
     if (!state.auth.isAuthenticated) return null;
