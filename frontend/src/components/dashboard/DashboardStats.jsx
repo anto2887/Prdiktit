@@ -14,10 +14,10 @@ const DashboardStats = ({ stats }) => {
     accuracy: 0
   });
 
-  // Calculate stats from user predictions
+  // Calculate stats from user predictions - Fixed: Only fetch once on mount
   useEffect(() => {
     fetchUserPredictions();
-  }, [userPredictions]);
+  }, [fetchUserPredictions]);
 
   // Use calculated stats if available, otherwise fall back to props
   const displayStats = {

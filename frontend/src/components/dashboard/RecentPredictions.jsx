@@ -7,9 +7,10 @@ import LoadingSpinner from '../common/LoadingSpinner';
 const RecentPredictions = () => {
   const { userPredictions, fetchUserPredictions, loading } = usePredictions();
 
+  // Fixed: Only fetch when function reference changes, not when data changes
   useEffect(() => {
     fetchUserPredictions();
-  }, [userPredictions]);
+  }, [fetchUserPredictions]);
 
   // Get the 5 most recent predictions
   const recentPredictions = userPredictions

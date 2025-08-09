@@ -47,7 +47,7 @@ const AppRoutes = () => {
       {/* Protected routes with MainLayout */}
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
         {/* Dashboard routes */}
-        <Route path="/dashboard" element={<SettingsPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         
