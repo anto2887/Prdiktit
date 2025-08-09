@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMatches, usePredictions } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -9,22 +9,22 @@ import { formatKickoffTime, formatDeadlineTime, isDateInPast } from '../../utils
 import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
 
 const PredictionList = () => {
-  const { fixtures, fetchFixtures, loading: matchesLoading, error: matchesError } = useMatches();
-  const { userPredictions, fetchUserPredictions, loading: predictionsLoading } = usePredictions();
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const { fixtures, loading: matchesLoading, error: matchesError } = useMatches();
+  const { userPredictions, loading: predictionsLoading } = usePredictions();
   
   // Guide state
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
   
-  useEffect(() => {
-    fetchUserPredictions()
-  }, [fetchFixtures]);
+  // REMOVED: Broken useEffect that was causing dependency issues
+  // Data fetching is now handled by parent PredictionsPage
 
-  if (isInitialLoading) {
+  // Show loading if context is still loading (for real-time updates)
+  if (matchesLoading || predictionsLoading) {
     return (
       <div className="flex justify-center items-center min-h-64">
         <LoadingSpinner />
+        <span className="ml-3 text-gray-500">Updating match data...</span>
       </div>
     );
   }
