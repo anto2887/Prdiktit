@@ -8,7 +8,7 @@ const Profile = () => {
   const { showSuccess, showError } = useNotifications();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    username: profile?.username || '',
+    // Username removed - no longer editable
   });
 
   if (loading) return <LoadingSpinner />;
@@ -49,20 +49,15 @@ const Profile = () => {
         <div className="px-6 py-4">
           {isEditing ? (
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Username - Read Only */}
               <div>
-                <label 
-                  htmlFor="username" 
-                  className="block text-sm font-medium text-gray-700"
-                >
+                <label className="block text-sm font-medium text-gray-700">
                   Username
                 </label>
-                <input
-                  type="text"
-                  id="username"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
+                <div className="mt-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md">
+                  <span className="text-gray-900">{profile?.username}</span>
+                  <span className="text-xs text-gray-500 ml-2">(Cannot be changed)</span>
+                </div>
               </div>
 
               <div className="flex space-x-4">
@@ -76,7 +71,7 @@ const Profile = () => {
                   type="button"
                   onClick={() => {
                     setIsEditing(false);
-                    setFormData({ username: profile?.username || '' });
+                    setFormData({}); // No username in form data
                   }}
                   className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                 >
