@@ -837,7 +837,6 @@ export const AppProvider = ({ children }) => {
       const response = await groupsApi.manageMember(groupId, userId, action);
       
       if (response.status === 'success') {
-        await fetchGroupMembers(groupId);
         showSuccess('Member action completed successfully');
         return true;
       } else {
@@ -860,7 +859,6 @@ export const AppProvider = ({ children }) => {
       const response = await groupsApi.regenerateInviteCode(groupId);
       
       if (response.status === 'success') {
-        await fetchGroupDetails(groupId);
         showSuccess('Invite code regenerated successfully');
         return response;
       } else {
