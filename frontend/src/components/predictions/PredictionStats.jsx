@@ -1,41 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { useUser } from '../../contexts/AppContext';
+import { useWeeklyStats } from '../../hooks/useWeeklyStats';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 
 export const PredictionStats = () => {
-  const { profile, stats, loading, error } = useUser();
-  const [chartData, setChartData] = useState(null);
+  const { profile, stats, loading: userLoading, error: userError } = useUser();
+  const { 
+    recentWeeksPerformance, 
+    seasonTotals, 
+    statistics, 
+    loading: weeklyLoading, 
+    error: weeklyError,
+    hasData 
+  } = useWeeklyStats({ recentWeeksCount: 5 });
 
-  useEffect(() => {
-    if (stats) {
-      // Calculate data for charts
-      prepareChartData();
-    }
-  }, [stats]);
+  // Combined loading and error states
+  const isLoading = userLoading || weeklyLoading;
+  const error = userError || weeklyError;
 
-  const prepareChartData = () => {
-    // This would calculate stats for visualizations
-    // For now we'll just prepare some sample data
-    setChartData({
-      pointsDistribution: [
-        { label: 'Perfect Score (3 pts)', value: stats?.perfect_predictions || 0 },
-        { label: 'Correct Result (1 pt)', value: stats?.correct_results || 0 },
-        { label: 'Incorrect (0 pts)', value: stats?.incorrect_predictions || 0 }
-      ],
-      weeklyPerformance: [
-        { week: 1, points: 5 },
-        { week: 2, points: 8 },
-        { week: 3, points: 4 },
-        { week: 4, points: 9 },
-        { week: 5, points: 7 }
-      ]
-    });
-  };
-
-  if (loading) return <LoadingSpinner />;
+  if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
+
+  // Prepare chart data from real weekly performance
+  const chartData = {
+    pointsDistribution: [
+      { label: 'Perfect Score (3 pts)', value: stats?.perfect_predictions || 0 },
+      { label: 'Correct Result (1 pt)', value: stats?.correct_results || 0 },
+      { label: 'Incorrect (0 pts)', value: stats?.incorrect_predictions || 0 }
+    ],
+    weeklyPerformance: recentWeeksPerformance
+  };
 
   return (
     <div className="space-y-6">
@@ -79,7 +75,7 @@ export const PredictionStats = () => {
         <h2 className="text-lg font-medium text-gray-900 mb-4">Prediction Accuracy</h2>
         
         <div className="space-y-4">
-          {chartData?.pointsDistribution.map((item, index) => (
+          {chartData.pointsDistribution.map((item, index) => (
             <div key={index} className="relative pt-1">
               <div className="flex items-center justify-between mb-2">
                 <div>
@@ -105,29 +101,75 @@ export const PredictionStats = () => {
         </div>
       </div>
       
-      {/* Season Performance */}
+      {/* Weekly Performance */}
       <div className="bg-white p-6 rounded-lg shadow-md">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Weekly Performance</h2>
         
-        <div className="h-64 flex items-end space-x-2">
-          {chartData?.weeklyPerformance.map((week, index) => (
-            <div 
-              key={index} 
-              className="flex flex-col items-center"
-              style={{ width: `${100 / chartData.weeklyPerformance.length}%` }}
-            >
+        {hasData && chartData.weeklyPerformance.length > 0 ? (
+          <div className="h-64 flex items-end space-x-2">
+            {chartData.weeklyPerformance.map((week, index) => (
               <div 
-                className="w-full bg-blue-500 rounded-t"
-                style={{ 
-                  height: `${(week.points / Math.max(...chartData.weeklyPerformance.map(w => w.points))) * 200}px` 
-                }}
-              ></div>
-              <div className="text-xs text-gray-500 mt-2">Week {week.week}</div>
-              <div className="text-sm font-medium">{week.points} pts</div>
-            </div>
-          ))}
-        </div>
+                key={index} 
+                className="flex flex-col items-center"
+                style={{ width: `${100 / chartData.weeklyPerformance.length}%` }}
+              >
+                <div 
+                  className="w-full bg-blue-500 rounded-t"
+                  style={{ 
+                    height: `${Math.max(20, (week.points / Math.max(...chartData.weeklyPerformance.map(w => w.points))) * 200)}px` 
+                  }}
+                ></div>
+                <div className="text-xs text-gray-500 mt-2">Week {week.week}</div>
+                <div className="text-sm font-medium">{week.points} pts</div>
+                <div className="text-xs text-gray-400">{week.predictions} predictions</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-4xl mb-2">📊</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No weekly data yet</h3>
+            <p className="text-gray-600 text-sm">
+              Make some predictions to see your weekly performance here!
+            </p>
+          </div>
+        )}
       </div>
+      
+      {/* Season Summary */}
+      {hasData && (
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Season Summary</h2>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{statistics.totalWeeksWithData}</div>
+              <div className="text-sm text-gray-500">Active Weeks</div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">
+                {statistics.averagePointsPerWeek.toFixed(1)}
+              </div>
+              <div className="text-sm text-gray-500">Avg Points/Week</div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">
+                {statistics.bestWeek ? statistics.bestWeek.points : 0}
+              </div>
+              <div className="text-sm text-gray-500">
+                Best Week {statistics.bestWeek ? `(Week ${statistics.bestWeek.week})` : ''}
+              </div>
+            </div>
+            
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{statistics.consistencyScore}%</div>
+              <div className="text-sm text-gray-500">Consistency</div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Team Performance */}
       <div className="bg-white p-6 rounded-lg shadow-md">
