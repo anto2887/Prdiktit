@@ -44,6 +44,9 @@ async def get_live_matches_endpoint(
         matches = cached_matches
     else:
         matches = await get_live_matches(db)
+        # Serialize live matches to prevent SQLAlchemy object serialization errors
+        from ..utils.serializers import serialize_fixtures_list
+        matches = serialize_fixtures_list(matches)
         # Cache for 1 minute
         await cache.set(cache_key, matches, 60)
     
@@ -109,8 +112,12 @@ async def get_fixtures(
         total = query.count()
         fixtures = query.offset(offset).limit(limit).all()
         
+        # Serialize fixtures to prevent SQLAlchemy object serialization errors
+        from ..utils.serializers import serialize_fixtures_list
+        serialized_fixtures = serialize_fixtures_list(fixtures)
+        
         return DataResponse(
-            data=fixtures,
+            data=serialized_fixtures,
             total=total,
             limit=limit,
             offset=offset
@@ -184,32 +191,52 @@ async def get_upcoming_matches(
             
             logger.info(f"Fetching upcoming matches from {now} to {next_week}")
             
-            matches = await get_fixtures(
+            raw_matches = await get_fixtures(
                 db,
                 status=MatchStatus.NOT_STARTED,
                 from_date=now,
                 to_date=next_week
             )
             
-            logger.info(f"Found {len(matches)} upcoming matches")
+            logger.info(f"Found {len(raw_matches)} upcoming matches")
+            
+            # Serialize matches before caching to prevent SQLAlchemy object caching
+            from ..utils.serializers import serialize_fixtures_list
+            matches = serialize_fixtures_list(raw_matches)
             
             # Cache for 10 minutes
             await cache.set(cache_key, matches, 600)
         
         formatted_matches = []
         for m in matches:
-            formatted_matches.append({
-                "id": m.fixture_id,
-                "homeTeam": {
-                    "name": m.home_team,
-                    "logo": m.home_team_logo
-                },
-                "awayTeam": {
-                    "name": m.away_team,
-                    "logo": m.away_team_logo
-                },
-                "kickoff": m.date.isoformat()
-            })
+            # Handle both raw objects (from cache miss) and dicts (from cache hit)
+            if isinstance(m, dict):
+                formatted_matches.append({
+                    "id": m["fixture_id"],
+                    "homeTeam": {
+                        "name": m["home_team"],
+                        "logo": m["home_team_logo"]
+                    },
+                    "awayTeam": {
+                        "name": m["away_team"],
+                        "logo": m["away_team_logo"]
+                    },
+                    "kickoff": m["date"]
+                })
+            else:
+                # Fallback for raw objects (shouldn't happen with our fix)
+                formatted_matches.append({
+                    "id": m.fixture_id,
+                    "homeTeam": {
+                        "name": m.home_team,
+                        "logo": m.home_team_logo
+                    },
+                    "awayTeam": {
+                        "name": m.away_team,
+                        "logo": m.away_team_logo
+                    },
+                    "kickoff": m.date.isoformat()
+                })
         
         return DataResponse(
             data=formatted_matches
@@ -240,16 +267,20 @@ async def get_match(
     if cached_match:
         match = cached_match
     else:
-        match = await get_fixture_by_id(db, match_id)
+        raw_match = await get_fixture_by_id(db, match_id)
         
-        if not match:
+        if not raw_match:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Match not found"
             )
+        
+        # Serialize match before caching to prevent SQLAlchemy object caching
+        from ..utils.serializers import fixture_to_dict
+        match = fixture_to_dict(raw_match)
             
         # Cache completed matches longer than upcoming ones
-        if match.status in [MatchStatus.FINISHED, MatchStatus.FINISHED_AET, MatchStatus.FINISHED_PEN]:
+        if raw_match.status in [MatchStatus.FINISHED, MatchStatus.FINISHED_AET, MatchStatus.FINISHED_PEN]:
             # Cache for 24 hours
             await cache.set(cache_key, match, 86400)
         else:
@@ -260,16 +291,22 @@ async def get_match(
     deadlines = await get_prediction_deadlines(db)
     
     # Add prediction deadline to match data
-    match_data = match.dict() if hasattr(match, 'dict') else {
-        "fixture_id": match.fixture_id,
-        "home_team": match.home_team,
-        "away_team": match.away_team,
-        "date": match.date.isoformat() if match.date else None,
-        "status": match.status.value if match.status else None,
-        "league": match.league,
-        "season": match.season
-    }
-    match_data["prediction_deadline"] = deadlines.get(str(match.fixture_id))
+    # Handle both cached dict and raw object
+    if isinstance(match, dict):
+        match_data = match.copy()
+        match_data["prediction_deadline"] = deadlines.get(str(match["fixture_id"]))
+    else:
+        # Fallback for raw objects (shouldn't happen with our fix)
+        match_data = {
+            "fixture_id": match.fixture_id,
+            "home_team": match.home_team,
+            "away_team": match.away_team,
+            "date": match.date.isoformat() if match.date else None,
+            "status": match.status.value if match.status else None,
+            "league": match.league,
+            "season": match.season
+        }
+        match_data["prediction_deadline"] = deadlines.get(str(match.fixture_id))
     
     return DataResponse(
         data=match_data

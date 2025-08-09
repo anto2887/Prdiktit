@@ -652,9 +652,24 @@ export const AppProvider = ({ children }) => {
     }
   }, [fetchProfile, showError]);
 
-  // Groups functions
+  // Groups functions with deduplication to prevent continuous dispatching
+  const groupsRequestInProgress = useRef(false);
   const fetchUserGroups = useCallback(async () => {
     if (!state.auth.isAuthenticated) return [];
+    
+    // Prevent multiple simultaneous requests
+    if (groupsRequestInProgress.current) {
+      process.env.NODE_ENV === 'development' && console.log('AppContext: Groups request already in progress, skipping...');
+      return state.groups.userGroups || [];
+    }
+    
+    // If we already have groups and they're not stale, return them
+    if (state.groups.userGroups && state.groups.userGroups.length > 0 && !state.groups.error) {
+      process.env.NODE_ENV === 'development' && console.log('AppContext: Using cached groups data');
+      return state.groups.userGroups;
+    }
+    
+    groupsRequestInProgress.current = true;
     
     try {
       dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: true });
@@ -680,8 +695,9 @@ export const AppProvider = ({ children }) => {
       return [];
     } finally {
       dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: false });
+      groupsRequestInProgress.current = false;
     }
-  }, [state.auth.isAuthenticated]);
+  }, [state.auth.isAuthenticated, state.groups.userGroups, state.groups.error]);
 
   const fetchGroupDetails = useCallback(async (groupId) => {
     process.env.NODE_ENV === 'development' && console.log('🏢 fetchGroupDetails START:', { 

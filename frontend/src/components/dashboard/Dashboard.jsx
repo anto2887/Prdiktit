@@ -30,13 +30,13 @@ const Dashboard = () => {
   const isLoading = userLoading || predictionsLoading;
   const error = userError || predictionsError;
 
-  // FIXED: Ensure groups are fetched when component mounts
+  // FIXED: Ensure groups are fetched when component mounts (only once)
   useEffect(() => {
     if (!userGroups || userGroups.length === 0) {
       process.env.NODE_ENV === 'development' && console.log('Dashboard: Fetching user groups...');
       fetchUserGroups();
     }
-  }, [fetchUserGroups, userGroups]);
+  }, [fetchUserGroups]); // Removed userGroups dependency to prevent infinite loop
 
   // Fetch leaderboards for all user groups
   useEffect(() => {
