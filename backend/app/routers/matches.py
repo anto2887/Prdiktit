@@ -55,38 +55,59 @@ async def get_live_matches_endpoint(
                 logger.warning(f"User {current_user.id} belongs to no groups, returning empty live matches")
                 return ListResponse(data=[], total=0)
             
-            # Collect all tracked teams from user's groups
-            all_tracked_teams = set()
-            for group in user_groups:
-                group_tracked_teams = await get_group_tracked_teams(db, group.id)
-                all_tracked_teams.update(group_tracked_teams)
-            
-            tracked_team_ids = list(all_tracked_teams)
-            logger.info(f"User {current_user.id} has tracked teams: {tracked_team_ids}")
+            # Collect all tracked teams from user's groups with error handling
+            tracked_team_ids = []
+            try:
+                all_tracked_teams = set()
+                for group in user_groups:
+                    try:
+                        group_tracked_teams = await get_group_tracked_teams(db, group.id)
+                        all_tracked_teams.update(group_tracked_teams)
+                    except Exception as group_error:
+                        logger.warning(f"Failed to get tracked teams for group {group.id}: {group_error}")
+                        continue  # Skip this group, continue with others
+                
+                tracked_team_ids = list(all_tracked_teams)
+                logger.info(f"User {current_user.id} has tracked teams: {tracked_team_ids}")
+            except Exception as e:
+                logger.error(f"Failed to collect tracked teams for user {current_user.id}: {e}")
+                tracked_team_ids = []  # Fallback to empty list
             
             # Get all live matches
             raw_matches = await get_live_matches(db)
             logger.info(f"Found {len(raw_matches)} live matches before team filtering")
             
-            # ADDED: Filter by tracked teams
+            # ADDED: Filter by tracked teams with error handling
+            team_filtered_matches = raw_matches  # Default fallback
+            
             if tracked_team_ids:
-                # Get team names for the tracked team IDs
-                from ..db.models import Team
-                tracked_teams = db.query(Team).filter(Team.id.in_(tracked_team_ids)).all()
-                tracked_team_names = [team.team_name for team in tracked_teams]
-                logger.info(f"Tracked team names: {tracked_team_names}")
-                
-                # Filter matches to only include those involving tracked teams
-                team_filtered_matches = [
-                    match for match in raw_matches
-                    if match.home_team in tracked_team_names or match.away_team in tracked_team_names
-                ]
-                
-                logger.info(f"After team filtering: {len(team_filtered_matches)} live matches involving tracked teams")
+                try:
+                    # Get team names for the tracked team IDs with safety limits
+                    tracked_teams = db.query(Team).filter(Team.id.in_(tracked_team_ids)).limit(100).all()
+                    
+                    if tracked_teams:
+                        tracked_team_names = [team.team_name for team in tracked_teams]
+                        logger.info(f"Tracked team names: {tracked_team_names}")
+                        
+                        # Filter matches to only include those involving tracked teams
+                        team_filtered_matches = [
+                            match for match in raw_matches
+                            if match.home_team in tracked_team_names or match.away_team in tracked_team_names
+                        ]
+                        
+                        logger.info(f"After team filtering: {len(team_filtered_matches)} live matches involving tracked teams")
+                    else:
+                        logger.warning(f"No team records found for tracked team IDs: {tracked_team_ids}")
+                        # Keep fallback: team_filtered_matches = raw_matches
+                        
+                except Exception as team_error:
+                    logger.error(f"Team filtering failed for live matches: {team_error}")
+                    # Graceful fallback - use all matches instead of crashing
+                    team_filtered_matches = raw_matches
+                    logger.info(f"Falling back to all matches: {len(team_filtered_matches)} live matches")
             else:
-                # If no tracked teams, show all matches (fallback)
-                team_filtered_matches = raw_matches
-                logger.warning(f"No tracked teams found for user {current_user.id}, showing all live matches")
+                # If no tracked teams, show all matches (normal fallback)
+                logger.info(f"No tracked teams found for user {current_user.id}, showing all live matches")
             
             # Serialize live matches to prevent SQLAlchemy object serialization errors
             from ..utils.serializers import serialize_fixtures_list
@@ -145,14 +166,23 @@ async def get_fixtures(
         user_leagues = [group.league for group in user_groups if group.league]
         logger.info(f"User {current_user.id} belongs to leagues: {user_leagues}")
         
-        # ADDED: Collect all tracked teams from user's groups
-        all_tracked_teams = set()
-        for group in user_groups:
-            group_tracked_teams = await get_group_tracked_teams(db, group.id)
-            all_tracked_teams.update(group_tracked_teams)
-        
-        tracked_team_ids = list(all_tracked_teams)
-        logger.info(f"User {current_user.id} has tracked teams: {tracked_team_ids}")
+        # ADDED: Collect all tracked teams from user's groups with error handling
+        tracked_team_ids = []
+        try:
+            all_tracked_teams = set()
+            for group in user_groups:
+                try:
+                    group_tracked_teams = await get_group_tracked_teams(db, group.id)
+                    all_tracked_teams.update(group_tracked_teams)
+                except Exception as group_error:
+                    logger.warning(f"Failed to get tracked teams for group {group.id}: {group_error}")
+                    continue  # Skip this group, continue with others
+            
+            tracked_team_ids = list(all_tracked_teams)
+            logger.info(f"User {current_user.id} has tracked teams: {tracked_team_ids}")
+        except Exception as e:
+            logger.error(f"Failed to collect tracked teams for user {current_user.id}: {e}")
+            tracked_team_ids = []  # Fallback to empty list
         
         # Parse date strings to datetime objects if provided
         parsed_from_date = None
@@ -195,25 +225,37 @@ async def get_fixtures(
         
         logger.info(f"Found {len(user_league_fixtures)} fixtures matching user's leagues")
         
-        # ADDED: Filter by tracked teams - only show matches involving user's tracked teams
+        # ADDED: Filter by tracked teams with comprehensive error handling
+        team_filtered_fixtures = user_league_fixtures  # Default fallback
+        
         if tracked_team_ids:
-            # Get team names for the tracked team IDs
-            from ..db.models import Team
-            tracked_teams = db.query(Team).filter(Team.id.in_(tracked_team_ids)).all()
-            tracked_team_names = [team.team_name for team in tracked_teams]
-            logger.info(f"Tracked team names: {tracked_team_names}")
-            
-            # Filter fixtures to only include matches involving tracked teams
-            team_filtered_fixtures = [
-                fixture for fixture in user_league_fixtures
-                if fixture.home_team in tracked_team_names or fixture.away_team in tracked_team_names
-            ]
-            
-            logger.info(f"After team filtering: {len(team_filtered_fixtures)} fixtures involving tracked teams")
+            try:
+                # Get team names for the tracked team IDs with timeout protection
+                tracked_teams = db.query(Team).filter(Team.id.in_(tracked_team_ids)).limit(100).all()
+                
+                if tracked_teams:
+                    tracked_team_names = [team.team_name for team in tracked_teams]
+                    logger.info(f"Tracked team names: {tracked_team_names}")
+                    
+                    # Filter fixtures to only include matches involving tracked teams
+                    team_filtered_fixtures = [
+                        fixture for fixture in user_league_fixtures
+                        if fixture.home_team in tracked_team_names or fixture.away_team in tracked_team_names
+                    ]
+                    
+                    logger.info(f"After team filtering: {len(team_filtered_fixtures)} fixtures involving tracked teams")
+                else:
+                    logger.warning(f"No team records found for tracked team IDs: {tracked_team_ids}")
+                    # Keep fallback: team_filtered_fixtures = user_league_fixtures
+                    
+            except Exception as team_error:
+                logger.error(f"Team filtering failed for user {current_user.id}: {team_error}")
+                # Graceful fallback - use league filtering instead of crashing
+                team_filtered_fixtures = user_league_fixtures
+                logger.info(f"Falling back to league filtering: {len(team_filtered_fixtures)} fixtures")
         else:
-            # If no tracked teams, show all league fixtures (fallback)
-            team_filtered_fixtures = user_league_fixtures
-            logger.warning(f"No tracked teams found for user {current_user.id}, showing all league fixtures")
+            # If no tracked teams, show all league fixtures (normal fallback)
+            logger.info(f"No tracked teams found for user {current_user.id}, showing all league fixtures")
         
         # Apply pagination to filtered results
         total = len(team_filtered_fixtures)
@@ -305,14 +347,23 @@ async def get_upcoming_matches(
                 logger.warning(f"User {current_user.id} belongs to no groups, returning empty matches")
                 return DataResponse(data=[], message="No groups found for user")
             
-            # Collect all tracked teams from user's groups
-            all_tracked_teams = set()
-            for group in user_groups:
-                group_tracked_teams = await get_group_tracked_teams(db, group.id)
-                all_tracked_teams.update(group_tracked_teams)
-            
-            tracked_team_ids = list(all_tracked_teams)
-            logger.info(f"User {current_user.id} has tracked teams: {tracked_team_ids}")
+            # Collect all tracked teams from user's groups with error handling
+            tracked_team_ids = []
+            try:
+                all_tracked_teams = set()
+                for group in user_groups:
+                    try:
+                        group_tracked_teams = await get_group_tracked_teams(db, group.id)
+                        all_tracked_teams.update(group_tracked_teams)
+                    except Exception as group_error:
+                        logger.warning(f"Failed to get tracked teams for group {group.id}: {group_error}")
+                        continue  # Skip this group, continue with others
+                
+                tracked_team_ids = list(all_tracked_teams)
+                logger.info(f"User {current_user.id} has tracked teams: {tracked_team_ids}")
+            except Exception as e:
+                logger.error(f"Failed to collect tracked teams for user {current_user.id}: {e}")
+                tracked_team_ids = []  # Fallback to empty list
             
             now = datetime.now(timezone.utc)
             next_week = now + timedelta(days=7)
@@ -328,25 +379,37 @@ async def get_upcoming_matches(
             
             logger.info(f"Found {len(raw_matches)} upcoming matches before team filtering")
             
-            # ADDED: Filter by tracked teams
+            # ADDED: Filter by tracked teams with error handling
+            team_filtered_matches = raw_matches  # Default fallback
+            
             if tracked_team_ids:
-                # Get team names for the tracked team IDs
-                from ..db.models import Team
-                tracked_teams = db.query(Team).filter(Team.id.in_(tracked_team_ids)).all()
-                tracked_team_names = [team.team_name for team in tracked_teams]
-                logger.info(f"Tracked team names: {tracked_team_names}")
-                
-                # Filter matches to only include those involving tracked teams
-                team_filtered_matches = [
-                    match for match in raw_matches
-                    if match.home_team in tracked_team_names or match.away_team in tracked_team_names
-                ]
-                
-                logger.info(f"After team filtering: {len(team_filtered_matches)} matches involving tracked teams")
+                try:
+                    # Get team names for the tracked team IDs with safety limits
+                    tracked_teams = db.query(Team).filter(Team.id.in_(tracked_team_ids)).limit(100).all()
+                    
+                    if tracked_teams:
+                        tracked_team_names = [team.team_name for team in tracked_teams]
+                        logger.info(f"Tracked team names: {tracked_team_names}")
+                        
+                        # Filter matches to only include those involving tracked teams
+                        team_filtered_matches = [
+                            match for match in raw_matches
+                            if match.home_team in tracked_team_names or match.away_team in tracked_team_names
+                        ]
+                        
+                        logger.info(f"After team filtering: {len(team_filtered_matches)} matches involving tracked teams")
+                    else:
+                        logger.warning(f"No team records found for tracked team IDs: {tracked_team_ids}")
+                        # Keep fallback: team_filtered_matches = raw_matches
+                        
+                except Exception as team_error:
+                    logger.error(f"Team filtering failed for upcoming matches: {team_error}")
+                    # Graceful fallback - use all matches instead of crashing
+                    team_filtered_matches = raw_matches
+                    logger.info(f"Falling back to all matches: {len(team_filtered_matches)} matches")
             else:
-                # If no tracked teams, show all matches (fallback)
-                team_filtered_matches = raw_matches
-                logger.warning(f"No tracked teams found for user {current_user.id}, showing all matches")
+                # If no tracked teams, show all matches (normal fallback)
+                logger.info(f"No tracked teams found for user {current_user.id}, showing all matches")
             
             # Serialize matches before caching to prevent SQLAlchemy object caching
             from ..utils.serializers import serialize_fixtures_list
