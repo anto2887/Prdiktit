@@ -847,7 +847,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to perform member action');
       return false;
     }
-  }, [state.auth.isAuthenticated, fetchGroupMembers, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, showSuccess, showError]);
 
   const regenerateInviteCode = useCallback(async (groupId) => {
     if (!state.auth.isAuthenticated || !groupId) return null;
@@ -869,7 +869,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to regenerate invite code');
       return null;
     }
-  }, [state.auth.isAuthenticated, fetchGroupDetails, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, showSuccess, showError]);
 
   const fetchTeamsForLeague = useCallback(async (leagueId) => {
     if (!state.auth.isAuthenticated || !leagueId) {
@@ -932,7 +932,7 @@ export const AppProvider = ({ children }) => {
     });
     
     return isGroupAdmin;
-  }, [state.groups.currentGroup, state.groups.userGroups]);
+  }, [state.groups.userGroups]);
 
   // Matches functions
   const fetchFixtures = useCallback(async (params = {}) => {
