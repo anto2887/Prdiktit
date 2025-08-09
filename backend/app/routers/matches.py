@@ -70,6 +70,7 @@ async def get_fixtures(
     db: Session = Depends(get_db),
     league: Optional[str] = Query(None, description="Filter by league"),
     season: Optional[str] = Query(None, description="Filter by season"),
+    status: Optional[str] = Query(None, description="Filter by match status (e.g., NOT_STARTED, FINISHED)"),
     from_date: Optional[str] = Query(None, description="Filter from date (YYYY-MM-DD)"),
     to_date: Optional[str] = Query(None, description="Filter to date (YYYY-MM-DD)"),
     limit: int = Query(50, ge=1, le=100, description="Number of fixtures to return"),
@@ -77,11 +78,12 @@ async def get_fixtures(
 ):
     """Get fixtures with optional filtering"""
     import logging
+    from datetime import datetime
     logger = logging.getLogger(__name__)
     
     try:
         # Get user's groups and their leagues
-        from ..db.repository import get_user_groups as get_user_groups_from_db
+        from ..db.repository import get_user_groups as get_user_groups_from_db, get_fixtures as get_fixtures_from_repo
         
         user_groups = await get_user_groups_from_db(db, current_user.id)
         
@@ -91,30 +93,58 @@ async def get_fixtures(
         
         # Collect all leagues from user's groups
         user_leagues = [group.league for group in user_groups if group.league]
+        logger.info(f"User {current_user.id} belongs to leagues: {user_leagues}")
         
-        # Build query
-        query = db.query(Fixture).filter(Fixture.league.in_(user_leagues))
+        # Parse date strings to datetime objects if provided
+        parsed_from_date = None
+        parsed_to_date = None
         
-        # Apply filters
-        if league:
-            query = query.filter(Fixture.league == league)
-        if season:
-            query = query.filter(Fixture.season == season)
         if from_date:
-            query = query.filter(Fixture.date >= from_date)
+            try:
+                parsed_from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+                logger.info(f"Parsed from_date: {parsed_from_date}")
+            except ValueError as e:
+                logger.warning(f"Invalid from_date format: {from_date}, error: {e}")
+        
         if to_date:
-            query = query.filter(Fixture.date <= to_date)
+            try:
+                parsed_to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+                logger.info(f"Parsed to_date: {parsed_to_date}")
+            except ValueError as e:
+                logger.warning(f"Invalid to_date format: {to_date}, error: {e}")
         
-        # Order by date
-        query = query.order_by(Fixture.date.asc())
+        # Log the filters being applied
+        logger.info(f"Applying filters - league: {league}, season: {season}, status: {status}, from: {parsed_from_date}, to: {parsed_to_date}")
         
-        # Apply pagination
-        total = query.count()
-        fixtures = query.offset(offset).limit(limit).all()
+        # FIXED: Use repository function instead of manual query building
+        # This ensures all filtering logic works correctly and avoids code duplication
+        all_fixtures = await get_fixtures_from_repo(
+            db=db,
+            league=league,  # Will be None if not specified, repository handles user league filtering
+            season=season,
+            status=status,  # Repository handles MatchStatus enum conversion
+            from_date=parsed_from_date,
+            to_date=parsed_to_date,
+            limit=limit + offset  # Get more to handle pagination after league filtering
+        )
+        
+        # Filter by user's leagues (since repository doesn't handle user-specific league filtering)
+        user_league_fixtures = [
+            fixture for fixture in all_fixtures 
+            if fixture.league in user_leagues
+        ]
+        
+        logger.info(f"Found {len(user_league_fixtures)} fixtures matching user's leagues")
+        
+        # Apply pagination to filtered results
+        total = len(user_league_fixtures)
+        paginated_fixtures = user_league_fixtures[offset:offset + limit]
         
         # Serialize fixtures to prevent SQLAlchemy object serialization errors
         from ..utils.serializers import serialize_fixtures_list
-        serialized_fixtures = serialize_fixtures_list(fixtures)
+        serialized_fixtures = serialize_fixtures_list(paginated_fixtures)
+        
+        logger.info(f"Returning {len(serialized_fixtures)} fixtures to user {current_user.id}")
         
         return DataResponse(
             data=serialized_fixtures,
@@ -125,6 +155,8 @@ async def get_fixtures(
         
     except Exception as e:
         logger.error(f"Error fetching fixtures: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail="Failed to fetch fixtures")
 
 @router.get("/statuses", response_model=DataResponse)

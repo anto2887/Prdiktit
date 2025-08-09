@@ -43,13 +43,24 @@ const PredictionsPage = () => {
           await new Promise(resolve => setTimeout(resolve, 200));
         }
 
-        // STEP 2: Fetch fixtures (depends on groups for filtering)
+        // STEP 2: Fetch upcoming fixtures with proper parameters (like dashboard does)
         if (!dataFetchStatus.fixtures) {
           try {
-            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Fetching fixtures...');
-            await fetchFixtures();
+            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Fetching upcoming fixtures...');
+            
+            // FIXED: Use dynamic date parameters like working dashboard
+            const today = new Date();
+            const nextMonth = new Date(today);
+            nextMonth.setDate(today.getDate() + 30); // Get next 30 days of matches
+            
+            await fetchFixtures({
+              from: today.toISOString().split('T')[0],
+              to: nextMonth.toISOString().split('T')[0],
+              status: 'NOT_STARTED'
+            });
+            
             setDataFetchStatus(prev => ({ ...prev, fixtures: true }));
-            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Fixtures fetched successfully');
+            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Upcoming fixtures fetched successfully');
           } catch (error) {
             process.env.NODE_ENV === 'development' && console.error("PredictionsPage: Failed to fetch fixtures:", error);
           }
