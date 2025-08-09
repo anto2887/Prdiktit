@@ -29,16 +29,20 @@ export const Login = () => {
     setLoading(true);
 
     try {
+      // SECURITY FIX: Only log username, never password
       console.log('Login: Submitting form for user:', formData.username);
       const response = await login(formData.username, formData.password);
-      console.log('Login: Response received:', response);
+      
+      // SECURITY FIX: Log only success status, not full response object
+      console.log('Login: Response status:', response.status);
       
       if (response.status === 'success') {
         showSuccess('Successfully logged in');
         console.log('Login: Success, authentication state should update soon');
       }
     } catch (error) {
-      console.error('Login: Error during login:', error);
+      // SECURITY FIX: Log only error message, not full error object
+      console.error('Login: Error during login:', error.message || 'Unknown error');
       showError(error.message || 'Login failed');
     } finally {
       setLoading(false);
@@ -82,6 +86,7 @@ export const Login = () => {
                   name="username"
                   type="text"
                   required
+                  autoComplete="username"
                   value={formData.username}
                   onChange={(e) => setFormData({...formData, username: e.target.value})}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
@@ -102,6 +107,7 @@ export const Login = () => {
                   name="password"
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
