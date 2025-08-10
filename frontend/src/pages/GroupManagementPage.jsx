@@ -13,18 +13,11 @@ const GroupManagementPage = () => {
   const navigate = useNavigate();
   const { 
     currentGroup, 
-    fetchGroupDetails,
     isAdmin,
     loading, 
     error 
   } = useGroups();
   const { profile } = useUser();
-
-  useEffect(() => {
-    if (groupId) {
-      fetchGroupDetails(parseInt(groupId));
-    }
-  }, [groupId, fetchGroupDetails]);
 
   useEffect(() => {
     // Redirect if user is not admin of this group
