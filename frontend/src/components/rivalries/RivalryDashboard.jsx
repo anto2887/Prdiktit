@@ -27,8 +27,9 @@ const RivalryDashboard = ({ groupId, currentWeek, season = '2024-2025' }) => {
       setLoading(true);
       process.env.NODE_ENV === 'development' && console.log(`Loading rivalries for group ${groupId}...`);
       
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
       const response = await fetch(
-        `/api/v1/analytics/group/${groupId}/rivalries`,
+        `${API_BASE_URL}/analytics/group/${groupId}/rivalries`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
@@ -581,8 +582,9 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
       setLoading(true);
       process.env.NODE_ENV === 'development' && console.log(`Loading compact rivalries for group ${groupId}...`);
       
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
       const response = await fetch(
-        `/api/v1/analytics/group/${groupId}/rivalries`,
+        `${API_BASE_URL}/analytics/group/${groupId}/rivalries`,
         {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
