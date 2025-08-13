@@ -74,6 +74,14 @@ const Sidebar = () => {
                   + Create Group
                 </NavLink>
               </li>
+              <li>
+                <NavLink
+                  to="/groups/join"
+                  className="flex items-center p-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                >
+                  🔗 Join Group
+                </NavLink>
+              </li>
             </ul>
           </div>
         </nav>

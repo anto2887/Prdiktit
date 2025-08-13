@@ -1068,12 +1068,12 @@ export const AppProvider = ({ children }) => {
   }, [state.auth.isAuthenticated, state.matches.fixtures, showError]);
 
   const getUpcomingMatches = useCallback(async () => {
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
+    const now = new Date();
+    const nextWeek = new Date(now);
+    nextWeek.setDate(now.getDate() + 7);
     
     return await fetchFixtures({
-      from: today.toISOString(),
+      from: now.toISOString(),
       to: nextWeek.toISOString(),
       status: 'NOT_STARTED'
     });

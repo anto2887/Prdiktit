@@ -1,5 +1,5 @@
 // frontend/src/components/groups/GroupPredictionsPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -19,6 +19,7 @@ const GroupPredictionsPage = () => {
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [weekMessage, setWeekMessage] = useState(null);
   
   // Guide state
   const [showGuide, setShowGuide] = useState(false);
@@ -28,15 +29,23 @@ const GroupPredictionsPage = () => {
     if (groupId) {
       loadGroupData();
     }
-  }, [groupId, selectedWeek]);
+  }, [groupId, loadGroupData]);
 
-  const loadGroupData = async () => {
+  // Effect to load predictions when group data is available or week changes
+  useEffect(() => {
+    if (group && selectedWeek) {
+      loadGroupPredictions();
+    }
+  }, [selectedWeek, group, loadGroupPredictions]);
+
+  const loadGroupData = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Load group details
-      const groupResponse = await fetch(`/api/v1/groups/${groupId}`, {
+      // Load group details using the same API base URL as other components
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+      const groupResponse = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
       });
       
@@ -50,26 +59,25 @@ const GroupPredictionsPage = () => {
       
       // Set default week if not selected
       if (!selectedWeek) {
-        setSelectedWeek(25); // Use week 25 where we know there's data
+        setSelectedWeek(1); // Start with week 1 as default
       }
-      
-      // Load group predictions for the selected week
-      await loadGroupPredictions();
       
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error loading group data:', err);
-      setError('Failed to load group data');
+      setError('Failed to load predictions data');
       showError('Failed to load group predictions');
     } finally {
       setLoading(false);
     }
-  };
+  }, [groupId, selectedWeek, showError]);
 
-  const loadGroupPredictions = async () => {
+  const loadGroupPredictions = useCallback(async () => {
     try {
+      setWeekMessage(null); // Clear any previous message
       const week = selectedWeek || currentWeek;
       // Use the correct season format for MLS (2025 instead of 2024-2025)
       const season = '2025'; // MLS uses calendar year format
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
       
       process.env.NODE_ENV === 'development' && console.log('🔍 === GROUP PREDICTIONS DEBUG START ===');
       process.env.NODE_ENV === 'development' && console.log(`🔍 Loading group predictions for group ${groupId}, week ${week}, season ${season}`);
@@ -77,7 +85,7 @@ const GroupPredictionsPage = () => {
       process.env.NODE_ENV === 'development' && console.log('🔍 Selected week:', selectedWeek);
       process.env.NODE_ENV === 'development' && console.log('🔍 Current week:', currentWeek);
       
-      const response = await fetch(`/api/v1/predictions/group/${groupId}/week/${week}?season=${season}`, {
+      const response = await fetch(`${API_BASE_URL}/predictions/group/${groupId}/week/${week}?season=${season}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
       });
       
@@ -87,7 +95,15 @@ const GroupPredictionsPage = () => {
       if (!response.ok) {
         const errorText = await response.text();
         process.env.NODE_ENV === 'development' && console.error(`🔍 Group predictions API error: ${response.status} - ${errorText}`);
-        throw new Error(`Failed to load predictions: ${response.status}`);
+        
+        // Handle specific error cases
+        if (response.status === 403) {
+          throw new Error('You are not a member of this group');
+        } else if (response.status === 404) {
+          throw new Error('Group not found');
+        } else {
+          throw new Error(`Failed to load predictions: ${response.status}`);
+        }
       }
       
       const data = await response.json();
@@ -105,6 +121,9 @@ const GroupPredictionsPage = () => {
       if (predictionsArray.length > 0) {
         process.env.NODE_ENV === 'development' && console.log('🔍 First prediction structure:', predictionsArray[0]);
         process.env.NODE_ENV === 'development' && console.log('🔍 First prediction keys:', Object.keys(predictionsArray[0]));
+      } else {
+        // Set message for no predictions
+        setWeekMessage("No predictions available this week to display");
       }
       
       process.env.NODE_ENV === 'development' && console.log('🔍 Setting predictions state with:', predictionsArray);
@@ -115,8 +134,17 @@ const GroupPredictionsPage = () => {
       process.env.NODE_ENV === 'development' && console.error('🔍 Error loading predictions:', err);
       process.env.NODE_ENV === 'development' && console.error('🔍 Error stack:', err.stack);
       setPredictions([]);
+      
+      // Set appropriate message based on error
+      if (err.message.includes('member')) {
+        setWeekMessage("You are not a member of this group");
+      } else if (err.message.includes('not found')) {
+        setWeekMessage("Group not found");
+      } else {
+        setWeekMessage("No predictions available this week to display");
+      }
     }
-  };
+  }, [groupId, selectedWeek, currentWeek, group]);
 
   const getWeekOptions = () => {
     // Get league-specific week ranges
@@ -247,7 +275,7 @@ const GroupPredictionsPage = () => {
       {/* Main Content */}
       <div className="flex-1 p-4">
         {predictions.length === 0 ? (
-          <EmptyPredictionsState selectedWeek={selectedWeek} />
+          <EmptyPredictionsState selectedWeek={selectedWeek} weekMessage={weekMessage} />
         ) : (
           <div id="predictions-display">
             <PredictionsDisplay 
@@ -298,19 +326,16 @@ const GroupPredictionsPage = () => {
 };
 
 // Empty state component
-const EmptyPredictionsState = ({ selectedWeek }) => (
+const EmptyPredictionsState = ({ selectedWeek, weekMessage }) => (
   <div className="text-center py-12">
     <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
       <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2" />
       </svg>
     </div>
-    <h3 className="text-lg font-medium text-gray-900 mb-2">No Predictions Yet</h3>
+    <h3 className="text-lg font-medium text-gray-900 mb-2">No Predictions Available</h3>
     <p className="text-gray-500 text-sm px-4">
-      {selectedWeek && selectedWeek > new Date().getWeek() 
-        ? `Week ${selectedWeek} predictions will be visible after kickoff times.`
-        : 'No group members have made predictions for this week yet.'
-      }
+      {weekMessage || "No predictions available this week to display"}
     </p>
   </div>
 );
@@ -343,13 +368,16 @@ const PredictionsGridView = ({ predictions, selectedWeek }) => {
     process.env.NODE_ENV === 'development' && console.log('🔍 Prediction fixture:', pred.fixture);
     process.env.NODE_ENV === 'development' && console.log('🔍 Prediction user:', pred.user);
     
-    const matchKey = pred.fixture?.id || pred.match_id;
+    const matchKey = pred.fixture?.fixture_id || pred.match_id;
     process.env.NODE_ENV === 'development' && console.log('🔍 Match key:', matchKey);
     
     if (!acc[matchKey]) {
-      acc[matchKey] = [];
+      acc[matchKey] = {
+        fixture: pred.fixture,
+        predictions: []
+      };
     }
-    acc[matchKey].push(pred);
+    acc[matchKey].predictions.push(pred);
     return acc;
   }, {});
 

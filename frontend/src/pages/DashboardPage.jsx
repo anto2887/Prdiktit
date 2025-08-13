@@ -117,12 +117,12 @@ const DashboardPage = () => {
         if (!dataFetchStatus.fixtures) {
           try {
             process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching upcoming fixtures...');
-            const today = new Date();
-            const nextWeek = new Date(today);
-            nextWeek.setDate(today.getDate() + 7);
+            const now = new Date();
+            const nextWeek = new Date(now);
+            nextWeek.setDate(now.getDate() + 7);
             
-            const fromStr = today.toISOString().split('T')[0];
-            const toStr = nextWeek.toISOString().split('T')[0];
+            const fromStr = now.toISOString();
+            const toStr = nextWeek.toISOString();
             
             await fetchFixtures({
               from: fromStr,

@@ -12,13 +12,13 @@ const UpcomingMatches = () => {
   const [upcomingMatches, setUpcomingMatches] = useState([]);
 
   useEffect(() => {
-    // Fetch upcoming matches for next 7 days
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
+    // Fetch upcoming matches for next 7 days (starting from now, not from today)
+    const now = new Date();
+    const nextWeek = new Date(now);
+    nextWeek.setDate(now.getDate() + 7);
 
     fetchFixtures({
-      from: today.toISOString(),
+      from: now.toISOString(),
       to: nextWeek.toISOString(),
       status: 'NOT_STARTED'
     });
@@ -26,8 +26,15 @@ const UpcomingMatches = () => {
 
   useEffect(() => {
     if (fixtures?.length) {
+      // Filter for truly upcoming matches (future dates + NOT_STARTED status)
+      const now = new Date();
+      const upcomingOnly = fixtures.filter(match => {
+        const matchDate = new Date(match.date);
+        return matchDate > now && match.status === 'NOT_STARTED';
+      });
+      
       // Sort by date and take first 5
-      const sorted = [...fixtures]
+      const sorted = upcomingOnly
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .slice(0, 5);
       setUpcomingMatches(sorted);
@@ -121,7 +128,8 @@ const UpcomingMatches = () => {
       {/* Show message if no upcoming matches */}
       {upcomingMatches.length === 0 && (
         <div className="p-6 text-center text-gray-500">
-          No upcoming matches in the next 7 days
+          <p className="mb-2">No upcoming matches available for prediction</p>
+          <p className="text-sm text-gray-400">Check back later for new fixtures</p>
         </div>
       )}
 
