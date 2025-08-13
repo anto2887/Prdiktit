@@ -143,6 +143,42 @@ class Prediction(BaseModel):
     class Config:
         from_attributes = True
 
+# === USER PREDICTION WITH FIXTURE SCHEMAS ===
+class FixtureSummary(BaseModel):
+    fixture_id: int
+    home_team: str
+    away_team: str
+    home_team_logo: Optional[str] = None
+    away_team_logo: Optional[str] = None
+    date: Optional[datetime] = None
+    league: str
+    status: MatchStatus
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+    season: str
+    round: Optional[str] = None
+    venue: Optional[str] = None
+    venue_city: Optional[str] = None
+
+class UserPredictionWithFixture(BaseModel):
+    id: int
+    match_id: int
+    user_id: int
+    home_score: int
+    away_score: int
+    score1: int  # Legacy field for frontend compatibility
+    score2: int  # Legacy field for frontend compatibility
+    points: Optional[int] = None
+    prediction_status: str
+    created: Optional[datetime] = None
+    submission_time: Optional[datetime] = None
+    season: str
+    week: Optional[int] = None
+    fixture: FixtureSummary
+    
+    class Config:
+        from_attributes = True
+
 # === GROUP SCHEMAS ===
 class GroupBase(BaseModel):
     name: str

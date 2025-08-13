@@ -464,6 +464,82 @@ async def get_user_predictions(
         
     return query.order_by(UserPrediction.created.desc()).all()
 
+async def get_user_predictions_with_fixtures(
+    db: Session, 
+    user_id: int,
+    fixture_id: Optional[int] = None,
+    status: Optional[Union[PredictionStatus, str]] = None,
+    season: Optional[str] = None,
+    week: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Get user predictions with fixture data in a single query"""
+    from sqlalchemy.orm import joinedload
+    
+    # Build query with JOIN to get fixture data
+    query = db.query(UserPrediction, Fixture).join(
+        Fixture, UserPrediction.fixture_id == Fixture.fixture_id
+    ).filter(UserPrediction.user_id == user_id)
+    
+    if fixture_id:
+        query = query.filter(UserPrediction.fixture_id == fixture_id)
+    
+    if status:
+        if isinstance(status, str):
+            try:
+                status = PredictionStatus(status)
+            except (ValueError, KeyError):
+                pass
+                
+        if isinstance(status, PredictionStatus):
+            query = query.filter(UserPrediction.prediction_status == status)
+    
+    if season:
+        query = query.filter(UserPrediction.season == season)
+    
+    if week:
+        query = query.filter(UserPrediction.week == week)
+    
+    # Execute query and get results
+    results = query.order_by(UserPrediction.created.desc()).all()
+    
+    # Convert to serializable format
+    predictions = []
+    for pred, fixture in results:
+        prediction_data = {
+            "id": pred.id,
+            "match_id": pred.fixture_id,
+            "user_id": pred.user_id,
+            "home_score": pred.score1,
+            "away_score": pred.score2,
+            "score1": pred.score1,  # Legacy field for frontend compatibility
+            "score2": pred.score2,  # Legacy field for frontend compatibility
+            "points": pred.points,
+            "prediction_status": pred.prediction_status.value if hasattr(pred.prediction_status, 'value') else str(pred.prediction_status),
+            "created": pred.created,
+            "submission_time": pred.submission_time,
+            "season": pred.season,
+            "week": pred.week,
+            "fixture": {
+                "fixture_id": fixture.fixture_id,
+                "home_team": fixture.home_team,
+                "away_team": fixture.away_team,
+                "home_team_logo": fixture.home_team_logo,
+                "away_team_logo": fixture.away_team_logo,
+                "date": fixture.date,
+                "league": fixture.league,
+                "status": fixture.status,
+                "home_score": fixture.home_score,
+                "away_score": fixture.away_score,
+                "season": fixture.season,
+                "round": fixture.round,
+                "venue": fixture.venue,
+                "venue_city": fixture.venue_city
+            }
+        }
+        predictions.append(prediction_data)
+    
+    return predictions
+
 async def create_prediction(db: Session, user_id: int, fixture_id: int, 
                           score1: int, score2: int, season: str, week: int, **kwargs) -> UserPrediction:
     """
