@@ -29,14 +29,14 @@ const GroupPredictionsPage = () => {
     if (groupId) {
       loadGroupData();
     }
-  }, [groupId, loadGroupData]);
+  }, [groupId]); // Remove loadGroupData from dependencies
 
   // Effect to load predictions when group data is available or week changes
   useEffect(() => {
     if (group && selectedWeek) {
       loadGroupPredictions();
     }
-  }, [selectedWeek, group, loadGroupPredictions]);
+  }, [selectedWeek, group]); // Remove loadGroupPredictions from dependencies
 
   const loadGroupData = useCallback(async () => {
     setLoading(true);
@@ -69,7 +69,7 @@ const GroupPredictionsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [groupId, selectedWeek, showError]);
+  }, [groupId, showError]); // Remove selectedWeek dependency
 
   const loadGroupPredictions = useCallback(async () => {
     try {
@@ -122,20 +122,17 @@ const GroupPredictionsPage = () => {
         process.env.NODE_ENV === 'development' && console.log('🔍 First prediction structure:', predictionsArray[0]);
         process.env.NODE_ENV === 'development' && console.log('🔍 First prediction keys:', Object.keys(predictionsArray[0]));
       } else {
-        // Set message for no predictions
         setWeekMessage("No predictions available this week to display");
       }
       
-      process.env.NODE_ENV === 'development' && console.log('🔍 Setting predictions state with:', predictionsArray);
       setPredictions(predictionsArray);
-      process.env.NODE_ENV === 'development' && console.log('🔍 === GROUP PREDICTIONS DEBUG END ===');
       
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('🔍 Error loading predictions:', err);
       process.env.NODE_ENV === 'development' && console.error('🔍 Error stack:', err.stack);
       setPredictions([]);
       
-      // Set appropriate message based on error
+      // Set appropriate week message based on error
       if (err.message.includes('member')) {
         setWeekMessage("You are not a member of this group");
       } else if (err.message.includes('not found')) {
@@ -144,7 +141,7 @@ const GroupPredictionsPage = () => {
         setWeekMessage("No predictions available this week to display");
       }
     }
-  }, [groupId, selectedWeek, currentWeek, group]);
+  }, [groupId, selectedWeek, currentWeek, group]); // Keep only necessary dependencies
 
   const getWeekOptions = () => {
     // Get league-specific week ranges
