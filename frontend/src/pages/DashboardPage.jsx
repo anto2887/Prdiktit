@@ -48,6 +48,18 @@ const DashboardPage = () => {
     fixtures: false
   });
   
+  // FIXED: Reset ref when component mounts to ensure fresh data fetch
+  useEffect(() => {
+    console.log('DashboardPage: Resetting dataFetchStatusRef on mount');
+    dataFetchStatusRef.current = {
+      profile: false,
+      predictions: false,
+      groups: false,
+      matches: false,
+      fixtures: false
+    };
+  }, []); // Empty dependency array = only on mount
+  
   // Guide state
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
@@ -66,6 +78,7 @@ const DashboardPage = () => {
       
       console.log('DashboardPage: About to start STEP 1 - Fetch user profile');
       console.log('DashboardPage: Current dataFetchStatusRef values:', dataFetchStatusRef.current);
+      console.log('DashboardPage: Profile status check:', !dataFetchStatusRef.current.profile);
       // STEP 1: Fetch user profile FIRST (this is critical for admin checks)
       if (!dataFetchStatusRef.current.profile) {
         console.log('DashboardPage: Profile not fetched yet, proceeding...');
