@@ -5,22 +5,22 @@ import { usePredictions } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const RecentPredictions = () => {
-  const { userPredictions, fetchUserPredictions, loading } = usePredictions();
+  const { userPredictions, loading } = usePredictions();
 
   // Debug logging to help identify data flow issues
   React.useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('RecentPredictions: Component mounted');
+      console.log('RecentPredictions: Data state updated');
       console.log('RecentPredictions: userPredictions state:', userPredictions);
       console.log('RecentPredictions: userPredictions length:', userPredictions?.length);
       console.log('RecentPredictions: loading state:', loading);
     }
   }, [userPredictions, loading]);
 
-  // Fixed: Only fetch when function reference changes, not when data changes
-  useEffect(() => {
-    fetchUserPredictions();
-  }, [fetchUserPredictions]);
+  // Removed redundant useEffect - DashboardPage already fetches data successfully
+  // useEffect(() => {
+  //   fetchUserPredictions();
+  // }, [fetchUserPredictions]);
 
   // Get the 5 most recent predictions
   const recentPredictions = (() => {
