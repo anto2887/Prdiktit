@@ -27,8 +27,15 @@ const Dashboard = () => {
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
 
-  const isLoading = userLoading || predictionsLoading;
-  const error = userError || predictionsError;
+  // Only show loading spinner for critical user data, not predictions
+  const isLoading = userLoading;
+  const error = userError;
+  
+  // Debug logging for loading states
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Dashboard: Loading states:', { userLoading, predictionsLoading, isLoading });
+    console.log('Dashboard: Errors:', { userError, predictionsError, error });
+  }
 
   // FIXED: Ensure groups are fetched when component mounts (only once)
   useEffect(() => {
@@ -37,6 +44,8 @@ const Dashboard = () => {
       fetchUserGroups();
     }
   }, [fetchUserGroups]); // Removed userGroups dependency to prevent infinite loop
+
+
 
   // Fetch leaderboards for all user groups
   useEffect(() => {
@@ -77,9 +86,10 @@ const Dashboard = () => {
     process.env.NODE_ENV === 'development' && console.log('=== DASHBOARD DEBUG ===');
     process.env.NODE_ENV === 'development' && console.log('Profile:', profile);
     process.env.NODE_ENV === 'development' && console.log('Groups:', userGroups);
+    process.env.NODE_ENV === 'development' && console.log('Predictions Loading:', predictionsLoading);
     process.env.NODE_ENV === 'development' && console.log('Group leaderboards:', groupLeaderboards);
     process.env.NODE_ENV === 'development' && console.log('Leaderboard loading:', leaderboardLoading);
-  }, [profile, userGroups, groupLeaderboards, leaderboardLoading]);
+  }, [profile, userGroups, predictionsLoading, groupLeaderboards, leaderboardLoading]);
 
   if (isLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;

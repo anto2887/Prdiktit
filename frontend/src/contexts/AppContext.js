@@ -630,7 +630,7 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_USER_PROFILE, payload: { username: "User" }});
       dispatch({ type: ActionTypes.SET_USER_STATS, payload: { total_points: 0, total_predictions: 0, average_points: 0 }});
     }
-  }, []); // FIXED: Remove state dependency to prevent re-creation
+  }, [state.auth.isAuthenticated]); // FIXED: Restore state dependency for proper state access
 
   const updateProfile = useCallback(async (userData) => {
     try {
@@ -697,7 +697,7 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: false });
       groupsRequestInProgress.current = false;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, state.groups.userGroups, state.groups.error]); // FIXED: Restore state dependencies for proper state access
 
   const fetchGroupDetails = useCallback(async (groupId) => {
     process.env.NODE_ENV === 'development' && console.log('🏢 fetchGroupDetails START:', { 
@@ -742,7 +742,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to fetch group details');
       return null;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, state.groups.currentGroup, showError]); // FIXED: Restore state dependencies for proper state access
 
   const fetchGroupMembers = useCallback(async (groupId) => {
     process.env.NODE_ENV === 'development' && console.log('👥 fetchGroupMembers START:', { 
@@ -777,7 +777,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to fetch group members');
       return [];
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Restore state dependencies for proper state access
 
   const createGroup = useCallback(async (groupData) => {
     if (!state.auth.isAuthenticated) return null;
@@ -802,7 +802,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to create group');
       return null;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, fetchUserGroups, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const joinGroup = useCallback(async (inviteCode) => {
     if (!state.auth.isAuthenticated) return null;
@@ -825,7 +825,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to join group');
       return false;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, fetchUserGroups, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const manageMember = useCallback(async (groupId, userId, action) => {
     if (!state.auth.isAuthenticated || !groupId) return false;
@@ -847,7 +847,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to perform member action');
       return false;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const regenerateInviteCode = useCallback(async (groupId) => {
     if (!state.auth.isAuthenticated || !groupId) return null;
@@ -869,7 +869,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to regenerate invite code');
       return null;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const fetchTeamsForLeague = useCallback(async (leagueId) => {
     if (!state.auth.isAuthenticated || !leagueId) {
@@ -895,7 +895,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to fetch teams');
       return { status: 'error', data: [] };
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Restore state dependencies for proper state access
 
   const isAdmin = useCallback((groupId, userId) => {
     if (!groupId || !userId) {
@@ -932,7 +932,7 @@ export const AppProvider = ({ children }) => {
     });
     
     return isGroupAdmin;
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.groups.currentGroup, state.groups.userGroups]); // FIXED: Restore state dependencies for proper state access
 
   // Matches functions
   const fetchFixtures = useCallback(async (params = {}) => {
@@ -1000,7 +1000,7 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_MATCHES_LOADING, payload: false });
       requestInProgress.current[cacheKey] = false;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Restore state dependencies for proper state access
 
   const refreshLiveMatches = useCallback(async () => {
     if (!state.auth.isAuthenticated) return [];
@@ -1030,7 +1030,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_MATCHES_LOADING, payload: false });
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, state.matches.liveMatches]); // FIXED: Restore state dependencies for proper state access
 
   const fetchMatchById = useCallback(async (matchId) => {
     if (!state.auth.isAuthenticated || !matchId) return null;
@@ -1065,7 +1065,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_MATCHES_LOADING, payload: false });
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, state.matches.fixtures, showError]); // FIXED: Restore state dependencies for proper state access
 
   const getUpcomingMatches = useCallback(async () => {
     const now = new Date();
@@ -1077,7 +1077,7 @@ export const AppProvider = ({ children }) => {
       to: nextWeek.toISOString(),
       status: 'NOT_STARTED'
     });
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [fetchFixtures]); // FIXED: Restore function dependency for proper execution
 
   // Predictions functions
   const fetchUserPredictions = useCallback(async (params = {}) => {
@@ -1107,7 +1107,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_LOADING, payload: false });
     }
-  }, []);
+  }, [state.auth.isAuthenticated]); // FIXED: Restore state dependency for proper state access
 
   const fetchPrediction = useCallback(async (predictionId) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1131,7 +1131,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_LOADING, payload: false });
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Restore state dependencies for proper state access
 
   const createPrediction = useCallback(async (predictionData) => {
     if (!state.auth.isAuthenticated) return null;
@@ -1289,7 +1289,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_LEAGUE_LOADING, payload: false });
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.groups.currentGroup, state.groups.userGroups, state.league.selectedSeason, showError]); // FIXED: Restore state dependencies for proper state access
 
   // NEW: Function to fetch available seasons for a group
   const fetchGroupSeasons = useCallback(async (groupId) => {
@@ -1324,7 +1324,7 @@ export const AppProvider = ({ children }) => {
       process.env.NODE_ENV === 'development' && console.error('Error fetching group seasons:', error);
       return [];
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.groups.currentGroup, state.groups.userGroups]); // FIXED: Restore state dependencies for proper state access
 
   // Clear functions
   const clearPredictionData = useCallback(() => {
@@ -1371,7 +1371,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to update group');
       return null;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, fetchGroupDetails, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const leaveGroup = useCallback(async (groupId) => {
     if (!state.auth.isAuthenticated || !groupId) return false;
@@ -1394,13 +1394,13 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to leave group');
       return false;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.auth.isAuthenticated, fetchUserGroups, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   // 2. Add new membership check function
   const isMember = useCallback((groupId) => {
     if (!groupId) return false;
     return state.groups.userGroups.some(g => g.id === groupId);
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [state.groups.userGroups]); // FIXED: Restore state dependencies for proper state access
 
   // Add getUserStats to the AppProvider component
   const getUserStats = useCallback(async (userId) => {
@@ -1527,9 +1527,22 @@ export const AppProvider = ({ children }) => {
     // New getUserStats function
     getUserStats,
   }), [
-    // FIXED: Only include essential dependencies to prevent excessive re-renders
-    state.auth.isAuthenticated, // Only essential auth state
-    // All functions are now stable with empty dependency arrays
+    // FIXED: Include essential state dependencies for proper function execution
+    state.auth.isAuthenticated,
+    state.user.profile,
+    state.user.stats,
+    state.groups.userGroups,
+    state.groups.currentGroup,
+    state.groups.groupMembers,
+    state.matches.fixtures,
+    state.matches.liveMatches,
+    state.predictions.userPredictions,
+    state.league.selectedSeason,
+    state.league.selectedWeek,
+    state.league.selectedGroup,
+    state.league.leaderboard,
+    state.league.availableSeasons,
+    // All functions are now properly dependent on their required state
   ]);
 
   // Check authentication on mount - placed after all functions are defined
