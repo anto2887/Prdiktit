@@ -59,11 +59,16 @@ const DashboardPage = () => {
   // FIXED: Wrap fetchData in useCallback to prevent infinite loops and ensure proper execution
   const fetchData = useCallback(async () => {
     console.log('DashboardPage: fetchData function called');
+    console.log('DashboardPage: About to enter try block');
     try {
+      console.log('DashboardPage: Entered try block');
       process.env.NODE_ENV === 'development' && console.log('DashboardPage: Starting data fetch sequence');
       
+      console.log('DashboardPage: About to start STEP 1 - Fetch user profile');
+      console.log('DashboardPage: Current dataFetchStatusRef values:', dataFetchStatusRef.current);
       // STEP 1: Fetch user profile FIRST (this is critical for admin checks)
       if (!dataFetchStatusRef.current.profile) {
+        console.log('DashboardPage: Profile not fetched yet, proceeding...');
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user profile...');
           await fetchProfile();
@@ -77,6 +82,8 @@ const DashboardPage = () => {
         }
         
         await new Promise(resolve => setTimeout(resolve, 300));
+      } else {
+        console.log('DashboardPage: Profile already fetched, skipping STEP 1');
       }
 
       // STEP 2: Fetch groups data (needed for admin checks)
