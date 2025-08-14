@@ -1,5 +1,5 @@
 // src/pages/DashboardPage.jsx
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   useUser, 
@@ -39,32 +39,14 @@ const DashboardPage = () => {
     fixtures: false
   });
   
-  // FIXED: Create completely isolated, private ref that nothing external can corrupt
-  const privateFetchStatusRef = useRef({
+  // FIXED: Simple state to track what's been fetched
+  const [dataFetchStatus, setDataFetchStatus] = useState({
     profile: false,
     predictions: false,
     groups: false,
     matches: false,
     fixtures: false
   });
-  
-  // FIXED: Reset function that nothing external can interfere with
-  const resetFetchStatus = useCallback(() => {
-    console.log('DashboardPage: Resetting private fetch status on mount');
-    privateFetchStatusRef.current = {
-      profile: false,
-      predictions: false,
-      groups: false,
-      matches: false,
-      fixtures: false
-    };
-    console.log('DashboardPage: Private ref reset complete, new values:', privateFetchStatusRef.current);
-  }, []);
-  
-  // FIXED: Reset ref when component mounts to ensure fresh data fetch
-  useEffect(() => {
-    resetFetchStatus();
-  }, [resetFetchStatus]); // Only depends on the stable reset function
   
   // Guide state
   const [showGuide, setShowGuide] = useState(false);
@@ -83,29 +65,15 @@ const DashboardPage = () => {
       process.env.NODE_ENV === 'development' && console.log('DashboardPage: Starting data fetch sequence');
       
       console.log('DashboardPage: About to start STEP 1 - Fetch user profile');
-      console.log('DashboardPage: Current privateFetchStatusRef values:', privateFetchStatusRef.current);
+      console.log('DashboardPage: Current dataFetchStatus values:', dataFetchStatus);
       
-      // FIXED: Safety check to ensure private ref is initialized
-      if (!privateFetchStatusRef.current) {
-        console.log('DashboardPage: ERROR - privateFetchStatusRef is null, reinitializing...');
-        privateFetchStatusRef.current = {
-          profile: false,
-          predictions: false,
-          groups: false,
-          matches: false,
-          fixtures: false
-        };
-      }
-      
-      console.log('DashboardPage: Profile status check:', !privateFetchStatusRef.current.profile);
       // STEP 1: Fetch user profile FIRST (this is critical for admin checks)
-      if (!privateFetchStatusRef.current.profile) {
+      if (!dataFetchStatus.profile) {
         console.log('DashboardPage: Profile not fetched yet, proceeding...');
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user profile...');
           await fetchProfile();
           setDataFetchStatus(prev => ({ ...prev, profile: true }));
-          privateFetchStatusRef.current.profile = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: User profile fetched successfully');
         } catch (error) {
           process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch profile:", error);
@@ -119,12 +87,11 @@ const DashboardPage = () => {
       }
 
       // STEP 2: Fetch groups data (needed for admin checks)
-      if (!privateFetchStatusRef.current.groups) {
+      if (!dataFetchStatus.groups) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user groups...');
           const groups = await fetchUserGroups();
           setDataFetchStatus(prev => ({ ...prev, groups: true }));
-          privateFetchStatusRef.current.groups = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: User groups fetched:', groups);
           
           if (groups && groups.length > 0 && !selectedGroup) {
@@ -139,13 +106,12 @@ const DashboardPage = () => {
       }
       
       // STEP 3: Fetch predictions
-      if (!privateFetchStatusRef.current.predictions) {
+      if (!dataFetchStatus.predictions) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user predictions...');
           const predictionsResult = await fetchUserPredictions();
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: fetchUserPredictions returned:', predictionsResult);
           setDataFetchStatus(prev => ({ ...prev, predictions: true }));
-          privateFetchStatusRef.current.predictions = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: User predictions fetched successfully');
         } catch (error) {
           process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch predictions:", error);
@@ -155,12 +121,11 @@ const DashboardPage = () => {
       }
       
       // STEP 4: Get live matches
-      if (!privateFetchStatusRef.current.matches) {
+      if (!dataFetchStatus.matches) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching live matches...');
           await refreshLiveMatches();
           setDataFetchStatus(prev => ({ ...prev, matches: true }));
-          privateFetchStatusRef.current.matches = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Live matches fetched successfully');
         } catch (error) {
           process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch live matches:", error);
@@ -170,7 +135,7 @@ const DashboardPage = () => {
       }
       
       // STEP 5: Get upcoming fixtures
-      if (!privateFetchStatusRef.current.fixtures) {
+      if (!dataFetchStatus.fixtures) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching upcoming fixtures...');
           const now = new Date();
@@ -186,7 +151,6 @@ const DashboardPage = () => {
             status: 'NOT_STARTED'
           });
           setDataFetchStatus(prev => ({ ...prev, fixtures: true }));
-          privateFetchStatusRef.current.fixtures = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Data fetch sequence completed');
         } catch (error) {
           process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch fixtures:", error);
@@ -205,8 +169,7 @@ const DashboardPage = () => {
     fetchFixtures,
     selectedGroup,
     setSelectedGroup,
-    setDataFetchStatus,
-    resetFetchStatus
+    setDataFetchStatus
   ]);
 
   useEffect(() => {
@@ -262,23 +225,18 @@ const DashboardPage = () => {
     const newStatus = { ...dataFetchStatus };
     if (userError) {
       newStatus.profile = false;
-      privateFetchStatusRef.current.profile = false;
     }
     if (predictionsError) {
       newStatus.predictions = false;
-      privateFetchStatusRef.current.predictions = false;
     }
     if (matchesError) {
       newStatus.matches = false;
-      privateFetchStatusRef.current.matches = false;
     }
     if (groupsError) {
       newStatus.groups = false;
-      privateFetchStatusRef.current.groups = false;
     }
     if (matchesError || !fixtures.length) {
       newStatus.fixtures = false;
-      privateFetchStatusRef.current.fixtures = false;
     }
     
     setDataFetchStatus(newStatus);
