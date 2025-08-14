@@ -99,7 +99,8 @@ const DashboardPage = () => {
       if (!dataFetchStatusRef.current.predictions) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user predictions...');
-          await fetchUserPredictions();
+          const predictionsResult = await fetchUserPredictions();
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: fetchUserPredictions returned:', predictionsResult);
           setDataFetchStatus(prev => ({ ...prev, predictions: true }));
           dataFetchStatusRef.current.predictions = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: User predictions fetched successfully');
@@ -191,6 +192,16 @@ const DashboardPage = () => {
       username: profile?.username
     });
   }, [profile]);
+
+  // FIXED: Add debug logging for predictions state
+  useEffect(() => {
+    process.env.NODE_ENV === 'development' && console.log('DashboardPage: Predictions state changed:', {
+      userPredictions,
+      predictionsLength: userPredictions?.length || 0,
+      predictionsLoading: predictionsLoading,
+      predictionsError: predictionsError
+    });
+  }, [userPredictions, predictionsLoading, predictionsError]);
 
   // FIXED: Add debug logging for groups state
   useEffect(() => {
@@ -293,6 +304,11 @@ const DashboardPage = () => {
           </HelpTooltip>
         </div>
         <RecentPredictions predictions={userPredictions} />
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-2 text-xs text-gray-500 bg-gray-100 p-2 rounded">
+            Debug: userPredictions passed to RecentPredictions: {userPredictions?.length || 0} items
+          </div>
+        )}
       </section>
       
       {/* League table section */}
