@@ -7,16 +7,84 @@ import LoadingSpinner from '../common/LoadingSpinner';
 const RecentPredictions = () => {
   const { userPredictions, fetchUserPredictions, loading } = usePredictions();
 
+  // Debug logging to help identify data flow issues
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('RecentPredictions: Component mounted');
+      console.log('RecentPredictions: userPredictions state:', userPredictions);
+      console.log('RecentPredictions: userPredictions length:', userPredictions?.length);
+      console.log('RecentPredictions: loading state:', loading);
+    }
+  }, [userPredictions, loading]);
+
   // Fixed: Only fetch when function reference changes, not when data changes
   useEffect(() => {
     fetchUserPredictions();
   }, [fetchUserPredictions]);
 
   // Get the 5 most recent predictions
-  const recentPredictions = userPredictions
-    .slice()
-    .sort((a, b) => new Date(b.created) - new Date(a.created))
-    .slice(0, 5);
+  const recentPredictions = (() => {
+    try {
+      if (!userPredictions || userPredictions.length === 0) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('RecentPredictions: No userPredictions data available');
+        }
+        return [];
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('RecentPredictions: Processing', userPredictions.length, 'predictions');
+        console.log('RecentPredictions: Sample prediction data:', userPredictions[0]);
+      }
+
+      // Create a safe copy and sort with error handling
+      const sortedPredictions = userPredictions
+        .slice()
+        .sort((a, b) => {
+          try {
+            // Validate that both predictions have valid created dates
+            if (!a.created || !b.created) {
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('RecentPredictions: Missing created date:', { a: a.created, b: b.created });
+              }
+              return 0; // Keep original order if dates are missing
+            }
+
+            const dateA = new Date(a.created);
+            const dateB = new Date(b.created);
+
+            // Check if dates are valid
+            if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+              if (process.env.NODE_ENV === 'development') {
+                console.warn('RecentPredictions: Invalid date format detected:', { a: a.created, b: b.created });
+              }
+              return 0; // Keep original order if dates are invalid
+            }
+
+            return dateB - dateA; // Sort by most recent first
+          } catch (error) {
+            if (process.env.NODE_ENV === 'development') {
+              console.error('RecentPredictions: Error sorting predictions by date:', error);
+            }
+            return 0; // Keep original order if sorting fails
+          }
+        })
+        .slice(0, 5);
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('RecentPredictions: Sorted predictions:', sortedPredictions);
+        console.log('RecentPredictions: Final recentPredictions length:', sortedPredictions.length);
+      }
+
+      return sortedPredictions;
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('RecentPredictions: Error processing predictions:', error);
+      }
+      // Fallback: return first 5 predictions without sorting
+      return userPredictions.slice(0, 5);
+    }
+  })();
 
   // Helper function to get status badge styling
   const getStatusBadge = (status, points) => {
@@ -56,6 +124,34 @@ const RecentPredictions = () => {
   }
 
   if (recentPredictions.length === 0) {
+    // Check if we have data but it's not being processed
+    if (userPredictions && userPredictions.length > 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('RecentPredictions: userPredictions exists but recentPredictions is empty. This indicates a processing issue.');
+      }
+      return (
+        <div className="text-center py-8">
+          <div className="text-4xl mb-2">⚠️</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Data Processing Issue</h3>
+          <p className="text-gray-600 text-sm mb-4">
+            Predictions data is available but not being displayed correctly.
+          </p>
+          <div className="text-xs text-gray-500 mb-4">
+            <p>Debug Info:</p>
+            <p>userPredictions length: {userPredictions.length}</p>
+            <p>Sample data: {JSON.stringify(userPredictions[0]?.created || 'No created date')}</p>
+          </div>
+          <Link
+            to="/predictions/history"
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+          >
+            View All Predictions
+          </Link>
+        </div>
+      );
+    }
+
+    // No predictions at all
     return (
       <div className="text-center py-8">
         <div className="text-4xl mb-2">⚽</div>
@@ -75,6 +171,16 @@ const RecentPredictions = () => {
 
   return (
     <div className="space-y-4">
+      {/* Debug Info - Only in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800">
+          <p><strong>Debug Info:</strong></p>
+          <p>userPredictions: {userPredictions?.length || 0} items</p>
+          <p>recentPredictions: {recentPredictions?.length || 0} items</p>
+          <p>Loading: {loading ? 'Yes' : 'No'}</p>
+        </div>
+      )}
+
       {/* Header with view all link */}
       <div className="flex justify-between items-center">
         <h3 className="text-sm font-medium text-gray-700">Latest Predictions</h3>
