@@ -31,13 +31,6 @@ const DashboardPage = () => {
   const { selectedGroup, setSelectedGroup } = useLeagueContext();
 
   const [retryCount, setRetryCount] = useState(0);
-  const [dataFetchStatus, setDataFetchStatus] = useState({
-    profile: false,
-    predictions: false,
-    groups: false,
-    matches: false,
-    fixtures: false
-  });
   
   // FIXED: Simple state to track what's been fetched
   const [dataFetchStatus, setDataFetchStatus] = useState({

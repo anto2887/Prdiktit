@@ -1154,7 +1154,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to create prediction');
       return null;
     }
-  }, [state.auth.isAuthenticated, showSuccess, showError]);
+  }, [fetchUserPredictions, showSuccess, showError]); // FIXED: Add missing function dependencies
 
   const updatePrediction = useCallback(async (predictionId, predictionData) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1177,7 +1177,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to update prediction');
       return null;
     }
-  }, [state.auth.isAuthenticated, showSuccess, showError]);
+  }, [fetchUserPredictions, showSuccess, showError]); // FIXED: Add missing function dependencies
 
   const resetPrediction = useCallback(async (predictionId) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1200,7 +1200,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to reset prediction');
       return null;
     }
-  }, [state.auth.isAuthenticated, showSuccess, showError]);
+  }, [fetchUserPredictions, showSuccess, showError]); // FIXED: Add missing function dependencies
 
   const submitBatchPredictions = useCallback(async (predictions) => {
     if (!state.auth.isAuthenticated) return null;
@@ -1223,7 +1223,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to submit predictions');
       return null;
     }
-  }, []); // FIXED: Remove state dependencies to prevent re-creation
+  }, [fetchUserPredictions, showSuccess, showError]); // FIXED: Add missing function dependencies
 
   // League functions
   const setSelectedSeason = useCallback((season, groupId = null) => {
