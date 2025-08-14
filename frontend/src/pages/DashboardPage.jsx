@@ -1,5 +1,5 @@
 // src/pages/DashboardPage.jsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   useUser, 
@@ -36,6 +36,15 @@ const DashboardPage = () => {
     fixtures: false
   });
   
+  // FIXED: Use ref to prevent circular dependency in useCallback
+  const dataFetchStatusRef = useRef({
+    profile: false,
+    predictions: false,
+    groups: false,
+    matches: false,
+    fixtures: false
+  });
+  
   // Guide state
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
@@ -50,11 +59,12 @@ const DashboardPage = () => {
       process.env.NODE_ENV === 'development' && console.log('DashboardPage: Starting data fetch sequence');
       
       // STEP 1: Fetch user profile FIRST (this is critical for admin checks)
-      if (!dataFetchStatus.profile) {
+      if (!dataFetchStatusRef.current.profile) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user profile...');
           await fetchProfile();
           setDataFetchStatus(prev => ({ ...prev, profile: true }));
+          dataFetchStatusRef.current.profile = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: User profile fetched successfully');
         } catch (error) {
           process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch profile:", error);
@@ -66,11 +76,12 @@ const DashboardPage = () => {
       }
 
       // STEP 2: Fetch groups data (needed for admin checks)
-      if (!dataFetchStatus.groups) {
+      if (!dataFetchStatusRef.current.groups) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user groups...');
           const groups = await fetchUserGroups();
           setDataFetchStatus(prev => ({ ...prev, groups: true }));
+          dataFetchStatusRef.current.groups = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: User groups fetched:', groups);
           
           if (groups && groups.length > 0 && !selectedGroup) {
@@ -85,11 +96,12 @@ const DashboardPage = () => {
       }
       
       // STEP 3: Fetch predictions
-      if (!dataFetchStatus.predictions) {
+      if (!dataFetchStatusRef.current.predictions) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user predictions...');
           await fetchUserPredictions();
           setDataFetchStatus(prev => ({ ...prev, predictions: true }));
+          dataFetchStatusRef.current.predictions = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: User predictions fetched successfully');
         } catch (error) {
           process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch predictions:", error);
@@ -99,11 +111,12 @@ const DashboardPage = () => {
       }
       
       // STEP 4: Get live matches
-      if (!dataFetchStatus.matches) {
+      if (!dataFetchStatusRef.current.matches) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching live matches...');
           await refreshLiveMatches();
           setDataFetchStatus(prev => ({ ...prev, matches: true }));
+          dataFetchStatusRef.current.matches = true;
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Live matches fetched successfully');
         } catch (error) {
           process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch live matches:", error);
@@ -113,7 +126,7 @@ const DashboardPage = () => {
       }
       
       // STEP 5: Get upcoming fixtures
-      if (!dataFetchStatus.fixtures) {
+      if (!dataFetchStatusRef.current.fixtures) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching upcoming fixtures...');
           const now = new Date();
@@ -129,7 +142,8 @@ const DashboardPage = () => {
             status: 'NOT_STARTED'
           });
           setDataFetchStatus(prev => ({ ...prev, fixtures: true }));
-          process.env.NODE_ENV === 'development' && console.log('DashboardPage: Upcoming fixtures fetched successfully');
+          dataFetchStatusRef.current.fixtures = true;
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: Data fetch sequence completed');
         } catch (error) {
           process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch fixtures:", error);
         }
@@ -140,7 +154,6 @@ const DashboardPage = () => {
       process.env.NODE_ENV === 'development' && console.error('DashboardPage: Error in data fetching sequence:', error);
     }
   }, [
-    dataFetchStatus,
     fetchProfile,
     fetchUserGroups,
     fetchUserPredictions,
@@ -191,11 +204,26 @@ const DashboardPage = () => {
   const handleRetry = () => {
     process.env.NODE_ENV === 'development' && console.log('DashboardPage: Retrying failed data fetches...');
     const newStatus = { ...dataFetchStatus };
-    if (userError) newStatus.profile = false;
-    if (predictionsError) newStatus.predictions = false;
-    if (matchesError) newStatus.matches = false;
-    if (groupsError) newStatus.groups = false;
-    if (matchesError || !fixtures.length) newStatus.fixtures = false;
+    if (userError) {
+      newStatus.profile = false;
+      dataFetchStatusRef.current.profile = false;
+    }
+    if (predictionsError) {
+      newStatus.predictions = false;
+      dataFetchStatusRef.current.predictions = false;
+    }
+    if (matchesError) {
+      newStatus.matches = false;
+      dataFetchStatusRef.current.matches = false;
+    }
+    if (groupsError) {
+      newStatus.groups = false;
+      dataFetchStatusRef.current.groups = false;
+    }
+    if (matchesError || !fixtures.length) {
+      newStatus.fixtures = false;
+      dataFetchStatusRef.current.fixtures = false;
+    }
     
     setDataFetchStatus(newStatus);
     setRetryCount(prev => prev + 1);
