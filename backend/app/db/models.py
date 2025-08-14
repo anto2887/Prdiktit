@@ -141,7 +141,7 @@ class UserPrediction(Base):
     season = Column(String, nullable=False)
     score1 = Column(Integer, nullable=False, default=0)
     score2 = Column(Integer, nullable=False, default=0)
-    points = Column(Integer, nullable=False, default=0)
+    points = Column(Integer, nullable=True, default=None)
     
     # FIXED: Use utc_now consistently
     created = Column(DateTime, default=utc_now, nullable=False)

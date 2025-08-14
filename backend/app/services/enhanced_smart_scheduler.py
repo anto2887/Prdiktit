@@ -220,14 +220,21 @@ class EnhancedSmartScheduler:
                     Fixture.date > now
                 ).order_by(Fixture.date.asc()).first()
                 
-                if next_match and next_match.date <= now + timedelta(days=3):
-                    return {
-                        "mode": "upcoming_matches",
-                        "frequency": 1800,  # Every 30 minutes when matches in next 3 days
-                        "fixture_monitoring": False,
-                        "reason": f"Next match in {(next_match.date - now).days} days",
-                        "next_match_date": next_match.date.isoformat()
-                    }
+                if next_match:
+                    # Handle timezone-aware vs timezone-naive comparison
+                    next_match_date = next_match.date
+                    if next_match_date.tzinfo is None:
+                        next_match_date = next_match_date.replace(tzinfo=timezone.utc)
+                    
+                    if next_match_date <= now + timedelta(days=3):
+                        days_until_match = (next_match_date - now).days
+                        return {
+                            "mode": "upcoming_matches",
+                            "frequency": 1800,  # Every 30 minutes when matches in next 3 days
+                            "fixture_monitoring": False,
+                            "reason": f"Next match in {days_until_match} days",
+                            "next_match_date": next_match_date.isoformat()
+                        }
                 else:
                     return {
                         "mode": "minimal",

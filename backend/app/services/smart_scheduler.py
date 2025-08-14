@@ -99,7 +99,13 @@ class SmartMatchScheduler:
             matches_ending_soon = []
             
             for match in todays_matches:
-                time_diff = (match.date - now).total_seconds() / 60  # minutes
+                # Handle timezone-aware vs timezone-naive comparison
+                match_date = match.date
+                if match_date.tzinfo is None:
+                    # If fixture date is naive, assume it's UTC
+                    match_date = match_date.replace(tzinfo=timezone.utc)
+                
+                time_diff = (match_date - now).total_seconds() / 60  # minutes
                 
                 if match.status in [MatchStatus.LIVE, MatchStatus.FIRST_HALF, 
                                   MatchStatus.SECOND_HALF, MatchStatus.HALFTIME]:
@@ -130,8 +136,12 @@ class SmartMatchScheduler:
                 }
             elif todays_matches:
                 # Lower frequency on match days but outside active periods
-                next_match = min(todays_matches, key=lambda m: abs((m.date - now).total_seconds()))
-                time_to_next = (next_match.date - now).total_seconds() / 60
+                next_match = min(todays_matches, key=lambda m: abs((m.date.replace(tzinfo=timezone.utc) if m.date.tzinfo is None else m.date - now).total_seconds()))
+                # Handle timezone-aware vs timezone-naive comparison
+                next_match_date = next_match.date
+                if next_match_date.tzinfo is None:
+                    next_match_date = next_match_date.replace(tzinfo=timezone.utc)
+                time_to_next = (next_match_date - now).total_seconds() / 60
                 
                 if time_to_next > 120:  # More than 2 hours away
                     return {
@@ -150,7 +160,11 @@ class SmartMatchScheduler:
             else:
                 # Upcoming matches in next few days
                 next_match = min(upcoming_matches, key=lambda m: m.date)
-                time_to_next = (next_match.date - now).total_seconds() / 3600  # hours
+                # Handle timezone-aware vs timezone-naive comparison
+                next_match_date = next_match.date
+                if next_match_date.tzinfo is None:
+                    next_match_date = next_match_date.replace(tzinfo=timezone.utc)
+                time_to_next = (next_match_date - now).total_seconds() / 3600  # hours
                 
                 return {
                     "mode": "upcoming_matches",

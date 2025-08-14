@@ -116,24 +116,25 @@ const RecentPredictions = () => {
                    {prediction.fixture?.home_team} vs {prediction.fixture?.away_team}
                  </span>
                  {/* Show prediction status badge */}
-                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                   prediction.prediction_status === 'PROCESSED' ? 
-                     (prediction.points === 3 ? 'bg-green-100 text-green-800' : 
-                      prediction.points === 1 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') :
-                   prediction.prediction_status === 'EDITABLE' ? 'bg-blue-100 text-blue-800' :
-                   prediction.prediction_status === 'SUBMITTED' ? 'bg-orange-100 text-orange-800' :
-                   prediction.prediction_status === 'LOCKED' ? 'bg-gray-100 text-gray-800' :
-                   'bg-gray-100 text-gray-800'
-                 }`}>
-                   {prediction.prediction_status === 'PROCESSED' ? 
-                     (prediction.points === 3 ? 'Perfect' : 
-                      prediction.points === 1 ? 'Partial' : 'Incorrect') :
-                     prediction.prediction_status === 'EDITABLE' ? 'Editable' :
-                     prediction.prediction_status === 'SUBMITTED' ? 'Submitted' :
-                     prediction.prediction_status === 'LOCKED' ? 'Locked' :
-                     prediction.prediction_status
-                   }
-                 </span>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+             prediction.prediction_status === 'PROCESSED' ? 
+               (prediction.points === 3 ? 'bg-green-100 text-green-800' : 
+                prediction.points === 1 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') :
+             prediction.prediction_status === 'EDITABLE' ? 'bg-blue-100 text-blue-800' :
+             prediction.prediction_status === 'SUBMITTED' ? 'bg-orange-100 text-orange-800' :
+             prediction.prediction_status === 'LOCKED' ? 'bg-gray-100 text-gray-800' :
+             'bg-gray-100 text-gray-800'
+           }`}>
+             {prediction.prediction_status === 'PROCESSED' ? 
+               (prediction.points === 3 ? 'Perfect' : 
+                prediction.points === 1 ? 'Partial' : 
+                prediction.points === 0 ? 'Incorrect' : 'Pending') :
+               prediction.prediction_status === 'EDITABLE' ? 'Editable' :
+               prediction.prediction_status === 'SUBMITTED' ? 'Submitted' :
+               prediction.prediction_status === 'LOCKED' ? 'Locked' :
+               prediction.prediction_status
+             }
+           </span>
                </div>
               <div className="text-sm text-gray-500">
                 {prediction.score1} - {prediction.score2} • {formatDate(prediction.created)}
