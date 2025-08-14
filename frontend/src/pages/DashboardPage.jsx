@@ -40,13 +40,7 @@ const DashboardPage = () => {
   });
   
   // FIXED: Use ref to prevent circular dependency in useCallback
-  const dataFetchStatusRef = useRef({
-    profile: false,
-    predictions: false,
-    groups: false,
-    matches: false,
-    fixtures: false
-  });
+  const dataFetchStatusRef = useRef(null);
   
   // FIXED: Reset ref when component mounts to ensure fresh data fetch
   useEffect(() => {
@@ -58,6 +52,7 @@ const DashboardPage = () => {
       matches: false,
       fixtures: false
     };
+    console.log('DashboardPage: Ref reset complete, new values:', dataFetchStatusRef.current);
   }, []); // Empty dependency array = only on mount
   
   // Guide state
@@ -78,6 +73,19 @@ const DashboardPage = () => {
       
       console.log('DashboardPage: About to start STEP 1 - Fetch user profile');
       console.log('DashboardPage: Current dataFetchStatusRef values:', dataFetchStatusRef.current);
+      
+      // FIXED: Safety check to ensure ref is initialized
+      if (!dataFetchStatusRef.current) {
+        console.log('DashboardPage: ERROR - dataFetchStatusRef is null, reinitializing...');
+        dataFetchStatusRef.current = {
+          profile: false,
+          predictions: false,
+          groups: false,
+          matches: false,
+          fixtures: false
+        };
+      }
+      
       console.log('DashboardPage: Profile status check:', !dataFetchStatusRef.current.profile);
       // STEP 1: Fetch user profile FIRST (this is critical for admin checks)
       if (!dataFetchStatusRef.current.profile) {
