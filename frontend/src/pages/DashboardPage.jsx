@@ -1,5 +1,5 @@
 // src/pages/DashboardPage.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   useUser, 
@@ -44,104 +44,114 @@ const DashboardPage = () => {
   const isLoading = userLoading || predictionsLoading || matchesLoading || groupsLoading;
   const errors = [userError, predictionsError, matchesError, groupsError].filter(Boolean);
   
-  useEffect(() => {
-    // FIXED: Fetch data with better error handling and proper sequencing
-    const fetchData = async () => {
-      try {
-        process.env.NODE_ENV === 'development' && console.log('DashboardPage: Starting data fetch sequence');
-        
-        // STEP 1: Fetch user profile FIRST (this is critical for admin checks)
-        if (!dataFetchStatus.profile) {
-          try {
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user profile...');
-            await fetchProfile();
-            setDataFetchStatus(prev => ({ ...prev, profile: true }));
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: User profile fetched successfully');
-          } catch (error) {
-            process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch profile:", error);
-            // Don't continue if profile fetch fails - this is critical
-            return;
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-
-        // STEP 2: Fetch groups data (needed for admin checks)
-        if (!dataFetchStatus.groups) {
-          try {
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user groups...');
-            const groups = await fetchUserGroups();
-            setDataFetchStatus(prev => ({ ...prev, groups: true }));
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: User groups fetched:', groups);
-            
-            if (groups && groups.length > 0 && !selectedGroup) {
-              process.env.NODE_ENV === 'development' && console.log('DashboardPage: Setting default selected group to:', groups[0]);
-              setSelectedGroup(groups[0]);
-            }
-          } catch (error) {
-            process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch groups:", error);
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 300));
+  // FIXED: Wrap fetchData in useCallback to prevent infinite loops and ensure proper execution
+  const fetchData = useCallback(async () => {
+    try {
+      process.env.NODE_ENV === 'development' && console.log('DashboardPage: Starting data fetch sequence');
+      
+      // STEP 1: Fetch user profile FIRST (this is critical for admin checks)
+      if (!dataFetchStatus.profile) {
+        try {
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user profile...');
+          await fetchProfile();
+          setDataFetchStatus(prev => ({ ...prev, profile: true }));
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: User profile fetched successfully');
+        } catch (error) {
+          process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch profile:", error);
+          // Don't continue if profile fetch fails - this is critical
+          return;
         }
         
-        // STEP 3: Fetch predictions
-        if (!dataFetchStatus.predictions) {
-          try {
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user predictions...');
-            await fetchUserPredictions();
-            setDataFetchStatus(prev => ({ ...prev, predictions: true }));
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: User predictions fetched successfully');
-          } catch (error) {
-            process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch predictions:", error);
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-        
-        // STEP 4: Get live matches
-        if (!dataFetchStatus.matches) {
-          try {
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching live matches...');
-            await refreshLiveMatches();
-            setDataFetchStatus(prev => ({ ...prev, matches: true }));
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: Live matches fetched successfully');
-          } catch (error) {
-            process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch live matches:", error);
-          }
-          
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-        
-        // STEP 5: Get upcoming fixtures
-        if (!dataFetchStatus.fixtures) {
-          try {
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching upcoming fixtures...');
-            const now = new Date();
-            const nextWeek = new Date(now);
-            nextWeek.setDate(now.getDate() + 7);
-            
-            const fromStr = now.toISOString();
-            const toStr = nextWeek.toISOString();
-            
-            await fetchFixtures({
-              from: fromStr,
-              to: toStr,
-              status: 'NOT_STARTED'
-            });
-            setDataFetchStatus(prev => ({ ...prev, fixtures: true }));
-            process.env.NODE_ENV === 'development' && console.log('DashboardPage: Upcoming fixtures fetched successfully');
-          } catch (error) {
-            process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch fixtures:", error);
-          }
-        }
-        
-        process.env.NODE_ENV === 'development' && console.log('DashboardPage: Data fetch sequence completed');
-      } catch (error) {
-        process.env.NODE_ENV === 'development' && console.error('DashboardPage: Error in data fetching sequence:', error);
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
-    };
 
+      // STEP 2: Fetch groups data (needed for admin checks)
+      if (!dataFetchStatus.groups) {
+        try {
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user groups...');
+          const groups = await fetchUserGroups();
+          setDataFetchStatus(prev => ({ ...prev, groups: true }));
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: User groups fetched:', groups);
+          
+          if (groups && groups.length > 0 && !selectedGroup) {
+            process.env.NODE_ENV === 'development' && console.log('DashboardPage: Setting default selected group to:', groups[0]);
+            setSelectedGroup(groups[0]);
+          }
+        } catch (error) {
+          process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch groups:", error);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // STEP 3: Fetch predictions
+      if (!dataFetchStatus.predictions) {
+        try {
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user predictions...');
+          await fetchUserPredictions();
+          setDataFetchStatus(prev => ({ ...prev, predictions: true }));
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: User predictions fetched successfully');
+        } catch (error) {
+          process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch predictions:", error);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // STEP 4: Get live matches
+      if (!dataFetchStatus.matches) {
+        try {
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching live matches...');
+          await refreshLiveMatches();
+          setDataFetchStatus(prev => ({ ...prev, matches: true }));
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: Live matches fetched successfully');
+        } catch (error) {
+          process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch live matches:", error);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // STEP 5: Get upcoming fixtures
+      if (!dataFetchStatus.fixtures) {
+        try {
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching upcoming fixtures...');
+          const now = new Date();
+          const nextWeek = new Date(now);
+          nextWeek.setDate(now.getDate() + 7);
+          
+          const fromStr = now.toISOString();
+          const toStr = nextWeek.toISOString();
+          
+          await fetchFixtures({
+            from: fromStr,
+            to: toStr,
+            status: 'NOT_STARTED'
+          });
+          setDataFetchStatus(prev => ({ ...prev, fixtures: true }));
+          process.env.NODE_ENV === 'development' && console.log('DashboardPage: Upcoming fixtures fetched successfully');
+        } catch (error) {
+          process.env.NODE_ENV === 'development' && console.error("DashboardPage: Failed to fetch fixtures:", error);
+        }
+      }
+      
+      process.env.NODE_ENV === 'development' && console.log('DashboardPage: Data fetch sequence completed');
+    } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error('DashboardPage: Error in data fetching sequence:', error);
+    }
+  }, [
+    dataFetchStatus,
+    fetchProfile,
+    fetchUserGroups,
+    fetchUserPredictions,
+    refreshLiveMatches,
+    fetchFixtures,
+    selectedGroup,
+    setSelectedGroup,
+    setDataFetchStatus
+  ]);
+
+  useEffect(() => {
     fetchData();
     
     // Set up polling for live matches every 2 minutes
@@ -153,10 +163,10 @@ const DashboardPage = () => {
     
     return () => clearInterval(interval);
   }, [
+    fetchData,
     retryCount, 
     selectedGroup,
     matchesLoading
-    // Removed dataFetchStatus from dependencies to prevent infinite loop
   ]);
 
   // FIXED: Add debug logging for profile state
