@@ -4,18 +4,18 @@ import { Link } from 'react-router-dom';
 import { usePredictions } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
-const RecentPredictions = () => {
-  const { userPredictions, loading } = usePredictions();
+const RecentPredictions = ({ predictions }) => {
+  const { loading } = usePredictions();
 
   // Debug logging to help identify data flow issues
   React.useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
       console.log('RecentPredictions: Data state updated');
-      console.log('RecentPredictions: userPredictions state:', userPredictions);
-      console.log('RecentPredictions: userPredictions length:', userPredictions?.length);
+      console.log('RecentPredictions: predictions prop:', predictions);
+      console.log('RecentPredictions: predictions length:', predictions?.length);
       console.log('RecentPredictions: loading state:', loading);
     }
-  }, [userPredictions, loading]);
+  }, [predictions, loading]);
 
   // Removed redundant useEffect - DashboardPage already fetches data successfully
   // useEffect(() => {
@@ -25,20 +25,20 @@ const RecentPredictions = () => {
   // Get the 5 most recent predictions
   const recentPredictions = (() => {
     try {
-      if (!userPredictions || userPredictions.length === 0) {
+      if (!predictions || predictions.length === 0) {
         if (process.env.NODE_ENV === 'development') {
-          console.log('RecentPredictions: No userPredictions data available');
+          console.log('RecentPredictions: No predictions data available');
         }
         return [];
       }
 
       if (process.env.NODE_ENV === 'development') {
-        console.log('RecentPredictions: Processing', userPredictions.length, 'predictions');
-        console.log('RecentPredictions: Sample prediction data:', userPredictions[0]);
+        console.log('RecentPredictions: Processing', predictions.length, 'predictions');
+        console.log('RecentPredictions: Sample prediction data:', predictions[0]);
       }
 
       // Create a safe copy and sort with error handling
-      const sortedPredictions = userPredictions
+      const sortedPredictions = predictions
         .slice()
         .sort((a, b) => {
           try {
@@ -82,7 +82,7 @@ const RecentPredictions = () => {
         console.error('RecentPredictions: Error processing predictions:', error);
       }
       // Fallback: return first 5 predictions without sorting
-      return userPredictions.slice(0, 5);
+      return predictions.slice(0, 5);
     }
   })();
 
@@ -125,9 +125,9 @@ const RecentPredictions = () => {
 
   if (recentPredictions.length === 0) {
     // Check if we have data but it's not being processed
-    if (userPredictions && userPredictions.length > 0) {
+    if (predictions && predictions.length > 0) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('RecentPredictions: userPredictions exists but recentPredictions is empty. This indicates a processing issue.');
+        console.warn('RecentPredictions: predictions prop exists but recentPredictions is empty. This indicates a processing issue.');
       }
       return (
         <div className="text-center py-8">
@@ -138,8 +138,8 @@ const RecentPredictions = () => {
           </p>
           <div className="text-xs text-gray-500 mb-4">
             <p>Debug Info:</p>
-            <p>userPredictions length: {userPredictions.length}</p>
-            <p>Sample data: {JSON.stringify(userPredictions[0]?.created || 'No created date')}</p>
+            <p>predictions length: {predictions.length}</p>
+            <p>Sample data: {JSON.stringify(predictions[0]?.created || 'No created date')}</p>
           </div>
           <Link
             to="/predictions/history"
@@ -175,7 +175,7 @@ const RecentPredictions = () => {
       {process.env.NODE_ENV === 'development' && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800">
           <p><strong>Debug Info:</strong></p>
-          <p>userPredictions: {userPredictions?.length || 0} items</p>
+          <p>predictions prop: {predictions?.length || 0} items</p>
           <p>recentPredictions: {recentPredictions?.length || 0} items</p>
           <p>Loading: {loading ? 'Yes' : 'No'}</p>
         </div>
