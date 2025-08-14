@@ -21,6 +21,9 @@ import ErrorMessage from '../components/common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
 
 const DashboardPage = () => {
+  // Basic component mount logging
+  console.log('DashboardPage: Component mounted');
+  
   const { profile, stats, fetchProfile, loading: userLoading, error: userError } = useUser();
   const { userPredictions, fetchUserPredictions, loading: predictionsLoading, error: predictionsError } = usePredictions();
   const { liveMatches, fixtures, refreshLiveMatches, fetchFixtures, loading: matchesLoading, error: matchesError } = useMatches();
@@ -55,6 +58,7 @@ const DashboardPage = () => {
   
   // FIXED: Wrap fetchData in useCallback to prevent infinite loops and ensure proper execution
   const fetchData = useCallback(async () => {
+    console.log('DashboardPage: fetchData function called');
     try {
       process.env.NODE_ENV === 'development' && console.log('DashboardPage: Starting data fetch sequence');
       
@@ -166,6 +170,7 @@ const DashboardPage = () => {
   ]);
 
   useEffect(() => {
+    console.log('DashboardPage: useEffect triggered, calling fetchData()');
     fetchData();
     
     // Set up polling for live matches every 2 minutes
