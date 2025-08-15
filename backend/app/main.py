@@ -15,8 +15,7 @@ from .db.session import create_tables_with_verification
 from .services.init_services import init_services, shutdown_services
 from .middleware.rate_limiter import RateLimitMiddleware
 
-# Import enhanced scheduler and startup sync service
-from .services.enhanced_smart_scheduler import enhanced_smart_scheduler
+# Import startup sync service and unified transaction manager
 from .services.startup_sync_service import startup_sync_service
 from .services.unified_transaction_manager import unified_transaction_manager
 
@@ -239,13 +238,9 @@ async def startup_event():
             startup_logger.error(f"❌ Critical error in startup sync: {sync_error}")
             transaction_logger.error(f"STARTUP_SYNC_CRITICAL_ERROR: {str(sync_error)}")
         
-        # Step 5: Start enhanced scheduler
-        startup_logger.info("⏰ Step 5: Starting Enhanced Smart Scheduler...")
-        try:
-            enhanced_smart_scheduler.start()
-            startup_logger.info("✅ Enhanced Smart Scheduler started successfully")
-        except Exception as scheduler_error:
-            startup_logger.error(f"❌ Error starting scheduler: {scheduler_error}")
+        # Step 5: Scheduler moved to separate service
+        startup_logger.info("⏰ Step 5: Scheduler runs in separate service (backend-scheduler)")
+        startup_logger.info("📊 This service handles HTTP requests only")
         
         # Step 6: Final startup verification
         startup_logger.info("🔍 Step 6: Running startup verification...")
@@ -290,13 +285,9 @@ async def shutdown_event():
     try:
         startup_logger.info("🛑 APPLICATION_SHUTDOWN_BEGIN")
         
-        # Stop the enhanced scheduler
-        startup_logger.info("⏰ Stopping Enhanced Smart Scheduler...")
-        try:
-            enhanced_smart_scheduler.stop()
-            startup_logger.info("✅ Enhanced Smart Scheduler stopped")
-        except Exception as scheduler_error:
-            startup_logger.error(f"❌ Error stopping scheduler: {scheduler_error}")
+        # Scheduler runs in separate service
+        startup_logger.info("⏰ Scheduler runs in separate service (backend-scheduler)")
+        startup_logger.info("📊 No scheduler to stop in this service")
         
         # Shutdown services
         startup_logger.info("🔧 Shutting down services...")
@@ -327,8 +318,8 @@ async def health_check():
     """Enhanced health check with transaction manager status"""
     current_time = datetime.now(timezone.utc)
     
-    # Get scheduler status
-    scheduler_status = enhanced_smart_scheduler.get_status()
+    # Scheduler runs in separate service
+    scheduler_status = "runs_in_separate_service"
     
     return {
         "status": "healthy",
@@ -339,9 +330,9 @@ async def health_check():
             "comprehensive_logging": True,
             "database_verification": True,
             "single_session_processing": True,
-            "enhanced_scheduler": scheduler_status["is_running"]
+            "enhanced_scheduler": "runs_in_separate_service"
         },
-        "scheduler": scheduler_status,
+        "scheduler": "runs_in_separate_service",
         "database": "postgresql",
         "timezone": "UTC"
     }
