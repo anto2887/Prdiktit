@@ -30,7 +30,29 @@ class MatchStatusUpdater:
             "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
         }
         
+        # Rate limiting tracking
+        self.last_api_call = None
+        self.rate_limit_hit = False
+        self.rate_limit_reset_time = None
+        
         logger.info("🚀 MatchStatusUpdater initialized - using UnifiedTransactionManager")
+    
+    def _should_skip_api_call(self) -> bool:
+        """
+        Check if we should skip API calls due to rate limiting
+        """
+        if not self.rate_limit_hit:
+            return False
+        
+        if self.rate_limit_reset_time and datetime.now(timezone.utc) < self.rate_limit_reset_time:
+            logger.info("⏳ Rate limit still active, skipping API call")
+            return True
+        
+        # Reset rate limit flag if time has passed
+        self.rate_limit_hit = False
+        self.rate_limit_reset_time = None
+        logger.info("✅ Rate limit reset, resuming API calls")
+        return False
     
     async def update_recent_matches(self, days_back: int = 3) -> int:
         """
@@ -39,6 +61,11 @@ class MatchStatusUpdater:
         """
         try:
             logger.info(f"🔄 Updating matches from last {days_back} days")
+            
+            # Check rate limiting
+            if self._should_skip_api_call():
+                logger.info("⏭️ Skipping API call due to rate limiting")
+                return 0
             
             # Calculate date range
             end_date = datetime.now(timezone.utc)
@@ -84,6 +111,11 @@ class MatchStatusUpdater:
         """
         try:
             logger.info("🔴 Updating live matches")
+            
+            # Check rate limiting
+            if self._should_skip_api_call():
+                logger.info("⏭️ Skipping live matches API call due to rate limiting")
+                return 0
             
             # Fetch live matches from API
             live_matches_data = await self._fetch_live_matches()
@@ -170,6 +202,12 @@ class MatchStatusUpdater:
                     if response.status == 200:
                         data = await response.json()
                         return data.get('response', [])
+                    elif response.status == 429:
+                        logger.warning("⚠️ API rate limit exceeded (429), setting rate limit flag")
+                        self.rate_limit_hit = True
+                        # Set reset time to 1 minute from now
+                        self.rate_limit_reset_time = datetime.now(timezone.utc) + timedelta(minutes=1)
+                        return []
                     else:
                         logger.error(f"API request failed: {response.status}")
                         return []
@@ -196,6 +234,12 @@ class MatchStatusUpdater:
                     if response.status == 200:
                         data = await response.json()
                         return data.get('response', [])
+                    elif response.status == 429:
+                        logger.warning("⚠️ API rate limit exceeded (429), setting rate limit flag")
+                        self.rate_limit_hit = True
+                        # Set reset time to 1 minute from now
+                        self.rate_limit_reset_time = datetime.now(timezone.utc) + timedelta(minutes=1)
+                        return []
                     else:
                         logger.error(f"API request failed: {response.status}")
                         return []
@@ -221,6 +265,12 @@ class MatchStatusUpdater:
                         data = await response.json()
                         fixtures = data.get('response', [])
                         return fixtures[0] if fixtures else None
+                    elif response.status == 429:
+                        logger.warning("⚠️ API rate limit exceeded (429), setting rate limit flag")
+                        self.rate_limit_hit = True
+                        # Set reset time to 1 minute from now
+                        self.rate_limit_reset_time = datetime.now(timezone.utc) + timedelta(minutes=1)
+                        return None
                     else:
                         logger.error(f"API request failed: {response.status}")
                         return None
