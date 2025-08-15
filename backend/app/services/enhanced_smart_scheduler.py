@@ -299,14 +299,23 @@ class EnhancedSmartScheduler:
                 audit_logger.error(f"PROCESSING_CYCLE_FAILED: duration={cycle_duration:.2f}s, "
                                   f"mode={schedule['mode']}, result={processing_result}")
             
-            # Step 4: Fixture monitoring (if enabled)
+            # Step 4: Fixture monitoring and API updates (if enabled)
             if schedule.get('fixture_monitoring', False):
                 try:
                     # Run fixture monitoring (this uses read-only session)
                     monitor_result = asyncio.run(self.fixture_monitor.monitor_fixtures())
                     logger.info(f"🔍 Fixture monitoring: {monitor_result['status']}")
+                    
+                    # Also trigger API update check to get latest fixture statuses
+                    logger.info("📡 Triggering API update check for fixture monitoring...")
+                    api_result = self.trigger_api_update_check()
+                    if api_result.get('status') == 'success':
+                        logger.info(f"📡 API update check successful: {api_result.get('fixtures_updated', 0)} fixtures updated")
+                    else:
+                        logger.warning(f"⚠️ API update check had issues: {api_result.get('message', 'Unknown error')}")
+                        
                 except Exception as e:
-                    logger.error(f"❌ Error in fixture monitoring: {e}")
+                    logger.error(f"❌ Error in fixture monitoring or API updates: {e}")
             
         except Exception as e:
             logger.error(f"❌ Critical error in processing cycle: {e}")
@@ -339,9 +348,9 @@ class EnhancedSmartScheduler:
             except Exception as e:
                 logger.error(f"❌ Error updating match statuses from API: {e}")
             
-            # Step 2: Run unified processing
-            logger.info("⚙️ Step 2: Running unified prediction and match processing...")
-            processing_result = self.processor.process_all_matches()
+            # Step 2: Run unified processing (async)
+            logger.info("⚙️ Step 2: Running unified prediction and match processing (async)...")
+            processing_result = await self.processor.process_all_matches_async()
             
             # Step 3: Log final results
             if processing_result['status'] == 'success':
@@ -365,6 +374,34 @@ class EnhancedSmartScheduler:
                 "status": "critical_error",
                 "error_message": str(e),
                 "message": f"Critical error in enhanced processing: {str(e)}"
+            }
+    
+    def trigger_api_update_check(self):
+        """
+        Trigger an API update check from sync context
+        This creates a new event loop to run async operations
+        """
+        try:
+            logger.info("🔄 Triggering API update check from sync context...")
+            
+            # Create a new event loop for this operation
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                # Run the async processing
+                result = loop.run_until_complete(self.run_enhanced_processing_with_status_updates())
+                logger.info(f"✅ API update check completed: {result.get('status', 'unknown')}")
+                return result
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            logger.error(f"❌ Error in API update check: {e}")
+            return {
+                "status": "error",
+                "error_message": str(e),
+                "message": f"API update check failed: {str(e)}"
             }
     
     def get_status(self) -> Dict[str, Any]:

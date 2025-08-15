@@ -448,6 +448,26 @@ async def migrate_points_field():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+# Test endpoint to trigger fixture updates from API
+@app.post("/api/v1/admin/test-fixture-updates")
+async def test_fixture_updates():
+    """Test endpoint to trigger fixture updates from API"""
+    try:
+        from .services.enhanced_smart_scheduler import EnhancedSmartScheduler
+        
+        # Create scheduler instance and trigger API update check
+        scheduler = EnhancedSmartScheduler()
+        result = scheduler.trigger_api_update_check()
+        
+        return {
+            "success": True,
+            "message": "Fixture update test completed",
+            "result": result
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 # Remove debug endpoint for production security
 
 if __name__ == "__main__":
