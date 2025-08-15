@@ -309,7 +309,7 @@ class EnhancedSmartScheduler:
                     
                     # Only trigger API updates every 15 minutes to avoid rate limiting
                     current_time = datetime.now(timezone.utc)
-                    if not hasattr(self, 'last_api_update') or \
+                    if self.last_api_update is None or \
                        (current_time - self.last_api_update).total_seconds() > 900:  # 15 minutes
                         
                         logger.info("📡 Triggering API update check for fixture monitoring...")

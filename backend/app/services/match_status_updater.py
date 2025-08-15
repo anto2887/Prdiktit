@@ -36,6 +36,13 @@ class MatchStatusUpdater:
         self.rate_limit_reset_time = None
         
         logger.info("🚀 MatchStatusUpdater initialized - using UnifiedTransactionManager")
+        
+        # Validate API key on startup
+        if not self._validate_api_key():
+            logger.error("❌ CRITICAL: Invalid API key configuration detected!")
+            logger.error("❌ Please check your FOOTBALL_API_KEY environment variable")
+        else:
+            logger.info("✅ API key validation passed")
     
     def _should_skip_api_call(self) -> bool:
         """
@@ -54,6 +61,15 @@ class MatchStatusUpdater:
         logger.info("✅ Rate limit reset, resuming API calls")
         return False
     
+    def _validate_api_key(self) -> bool:
+        """
+        Validate that the API key is properly configured
+        """
+        if not self.api_key or self.api_key == "your_api_key_here":
+            logger.error("❌ Invalid API key configuration")
+            return False
+        return True
+    
     async def update_recent_matches(self, days_back: int = 3) -> int:
         """
         Update recent matches from the last N days
@@ -61,6 +77,11 @@ class MatchStatusUpdater:
         """
         try:
             logger.info(f"🔄 Updating matches from last {days_back} days")
+            
+            # Check API key validity
+            if not self._validate_api_key():
+                logger.error("⏭️ Skipping API call due to invalid API key")
+                return 0
             
             # Check rate limiting
             if self._should_skip_api_call():
@@ -112,6 +133,11 @@ class MatchStatusUpdater:
         try:
             logger.info("🔴 Updating live matches")
             
+            # Check API key validity
+            if not self._validate_api_key():
+                logger.error("⏭️ Skipping live matches API call due to invalid API key")
+                return 0
+            
             # Check rate limiting
             if self._should_skip_api_call():
                 logger.info("⏭️ Skipping live matches API call due to rate limiting")
@@ -154,6 +180,11 @@ class MatchStatusUpdater:
         """
         try:
             logger.info(f"🎯 Updating specific match: {fixture_id}")
+            
+            # Check API key validity
+            if not self._validate_api_key():
+                logger.error(f"⏭️ Skipping specific match update due to invalid API key")
+                return False
             
             # Fetch specific match data from API
             match_data = await self._fetch_match_by_id(fixture_id)
@@ -208,6 +239,9 @@ class MatchStatusUpdater:
                         # Set reset time to 1 minute from now
                         self.rate_limit_reset_time = datetime.now(timezone.utc) + timedelta(minutes=1)
                         return []
+                    elif response.status == 403:
+                        logger.error("❌ API access forbidden (403) - check API key validity")
+                        return []
                     else:
                         logger.error(f"API request failed: {response.status}")
                         return []
@@ -240,6 +274,9 @@ class MatchStatusUpdater:
                         # Set reset time to 1 minute from now
                         self.rate_limit_reset_time = datetime.now(timezone.utc) + timedelta(minutes=1)
                         return []
+                    elif response.status == 403:
+                        logger.error("❌ API access forbidden (403) - check API key validity")
+                        return []
                     else:
                         logger.error(f"API request failed: {response.status}")
                         return []
@@ -270,6 +307,9 @@ class MatchStatusUpdater:
                         self.rate_limit_hit = True
                         # Set reset time to 1 minute from now
                         self.rate_limit_reset_time = datetime.now(timezone.utc) + timedelta(minutes=1)
+                        return None
+                    elif response.status == 403:
+                        logger.error("❌ API access forbidden (403) - check API key validity")
                         return None
                     else:
                         logger.error(f"API request failed: {response.status}")
