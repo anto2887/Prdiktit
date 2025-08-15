@@ -381,32 +381,68 @@ async def migrate_points_field():
         from .db.database import SessionLocal
         db = SessionLocal()
         
-        # Step 1: Update existing data - set points to NULL for unprocessed predictions
-        result1 = db.execute(text("""
-            UPDATE user_predictions 
-            SET points = NULL 
-            WHERE prediction_status != 'PROCESSED'
+        # Check current table structure first
+        result = db.execute(text("""
+            SELECT column_name, is_nullable, column_default 
+            FROM information_schema.columns 
+            WHERE table_name = 'user_predictions' AND column_name = 'points'
         """))
+        column_info = result.fetchone()
         
-        # Step 2: Drop NOT NULL constraint
-        db.execute(text("""
-            ALTER TABLE user_predictions 
-            ALTER COLUMN points DROP NOT NULL
-        """))
+        if not column_info:
+            return {"success": False, "error": "Points column not found in user_predictions table"}
         
-        # Step 3: Drop default value
-        db.execute(text("""
-            ALTER TABLE user_predictions 
-            ALTER COLUMN points DROP DEFAULT
-        """))
+        current_nullable = column_info[1]
+        current_default = column_info[2]
         
-        db.commit()
+        # Step 1: Drop NOT NULL constraint if it exists
+        if current_nullable == 'NO':
+            try:
+                db.execute(text("""
+                    ALTER TABLE user_predictions 
+                    ALTER COLUMN points DROP NOT NULL
+                """))
+                db.commit()  # Commit the constraint change immediately
+            except Exception as constraint_error:
+                db.rollback()
+                return {"success": False, "error": f"Failed to drop NOT NULL constraint: {str(constraint_error)}"}
+        
+        # Step 2: Drop default value if it exists
+        if current_default:
+            try:
+                db.execute(text("""
+                    ALTER TABLE user_predictions 
+                    ALTER COLUMN points DROP DEFAULT
+                """))
+                db.commit()  # Commit the default change immediately
+            except Exception as default_error:
+                db.rollback()
+                return {"success": False, "error": f"Failed to drop default value: {str(default_error)}"}
+        
+        # Step 3: Now update existing data - set points to NULL for unprocessed predictions
+        try:
+            result1 = db.execute(text("""
+                UPDATE user_predictions 
+                SET points = NULL 
+                WHERE prediction_status != 'PROCESSED'
+            """))
+            db.commit()
+        except Exception as update_error:
+            db.rollback()
+            return {"success": False, "error": f"Failed to update data: {str(update_error)}"}
+        
         db.close()
         
         return {
             "success": True,
             "message": "Points field migration completed successfully",
-            "rows_updated": result1.rowcount
+            "rows_updated": result1.rowcount,
+            "column_info": {
+                "was_nullable": current_nullable,
+                "was_default": current_default,
+                "now_nullable": "YES",
+                "now_default": None
+            }
         }
         
     except Exception as e:
