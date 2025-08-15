@@ -378,7 +378,7 @@ async def emergency_sync_match(fixture_id: int):
 async def migrate_points_field():
     """Temporary endpoint to run the points field migration"""
     try:
-        from ..db.database import SessionLocal
+        from .db.database import SessionLocal
         db = SessionLocal()
         
         # Step 1: Update existing data - set points to NULL for unprocessed predictions
