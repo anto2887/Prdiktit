@@ -582,7 +582,7 @@ async def get_group_leaderboard(
     """Get leaderboard for a specific group"""
     try:
         # Check if user is member of the group
-        if not is_user_group_member(db, current_user.id, group_id):
+        if not await check_group_membership(db, current_user.id, group_id):
             raise HTTPException(status_code=403, detail="Not a member of this group")
         
         # Build cache key
