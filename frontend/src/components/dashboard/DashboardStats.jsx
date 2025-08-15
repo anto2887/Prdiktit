@@ -19,6 +19,47 @@ const DashboardStats = ({ stats }) => {
     fetchUserPredictions();
   }, [fetchUserPredictions]);
 
+  // Calculate stats from userPredictions data
+  useEffect(() => {
+    if (userPredictions && userPredictions.length > 0) {
+      const stats = userPredictions.reduce((acc, pred) => {
+        // Count total predictions
+        acc.totalPredictions++;
+        
+        // Only count processed predictions for points and accuracy
+        if (pred.prediction_status === 'PROCESSED' && pred.points !== null) {
+          acc.totalPoints += pred.points || 0;
+          
+          if (pred.points === 3) {
+            acc.perfectScores++;
+          } else if (pred.points === 1) {
+            acc.correctResults++;
+          }
+        }
+        
+        return acc;
+      }, {
+        totalPoints: 0,
+        totalPredictions: 0,
+        perfectScores: 0,
+        correctResults: 0,
+        averagePoints: 0,
+        accuracy: 0
+      });
+      
+      // Calculate derived stats
+      const processedPredictions = userPredictions.filter(p => 
+        p.prediction_status === 'PROCESSED' && p.points !== null
+      ).length;
+      
+      stats.averagePoints = processedPredictions > 0 ? stats.totalPoints / processedPredictions : 0;
+      stats.accuracy = processedPredictions > 0 ? 
+        ((stats.perfectScores + stats.correctResults) / processedPredictions) * 100 : 0;
+      
+      setCalculatedStats(stats);
+    }
+  }, [userPredictions]);
+
   // Use calculated stats if available, otherwise fall back to props
   const displayStats = {
     totalPoints: calculatedStats.totalPoints || stats?.total_points || 0,
