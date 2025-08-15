@@ -8,6 +8,7 @@ import asyncio
 from datetime import datetime, timezone
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from .core.config import settings
 from .db.session import create_tables_with_verification
@@ -371,6 +372,45 @@ async def emergency_sync_match(fixture_id: int):
         }
     except Exception as e:
         return {"success": False, "fixture_id": fixture_id, "error": str(e)}
+
+# Temporary migration endpoint for points field
+@app.post("/api/v1/admin/migrate-points-field")
+async def migrate_points_field():
+    """Temporary endpoint to run the points field migration"""
+    try:
+        from ..db.database import SessionLocal
+        db = SessionLocal()
+        
+        # Step 1: Update existing data - set points to NULL for unprocessed predictions
+        result1 = db.execute(text("""
+            UPDATE user_predictions 
+            SET points = NULL 
+            WHERE prediction_status != 'PROCESSED'
+        """))
+        
+        # Step 2: Drop NOT NULL constraint
+        db.execute(text("""
+            ALTER TABLE user_predictions 
+            ALTER COLUMN points DROP NOT NULL
+        """))
+        
+        # Step 3: Drop default value
+        db.execute(text("""
+            ALTER TABLE user_predictions 
+            ALTER COLUMN points DROP DEFAULT
+        """))
+        
+        db.commit()
+        db.close()
+        
+        return {
+            "success": True,
+            "message": "Points field migration completed successfully",
+            "rows_updated": result1.rowcount
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 # Remove debug endpoint for production security
 
