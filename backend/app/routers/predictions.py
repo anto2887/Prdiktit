@@ -727,20 +727,20 @@ async def get_group_leaderboard(
             UserPrediction.group_id == group_id
         )
         
-        # Apply filters
+        # Apply filters - FIXED: Handle week filter properly
         if season:
             logger.info(f"🔍 Adding season filter: {season}")
             query = query.join(Fixture, UserPrediction.fixture_id == Fixture.fixture_id)
             query = query.filter(Fixture.season == season)
-        if week:
+        if week and week > 0:  # Only apply week filter if it's a valid week number
             logger.info(f"🔍 Adding week filter: {week}")
             query = query.join(Fixture, UserPrediction.fixture_id == Fixture.fixture_id)
             query = query.filter(Fixture.week == week)
         
-        # Group and order
+        # Group and order - FIXED: Handle NULL values properly
         query = query.group_by(User.id, User.username).order_by(
-            func.sum(UserPrediction.points).desc(),
-            func.avg(UserPrediction.points).desc()
+            func.coalesce(func.sum(UserPrediction.points), 0).desc(),
+            func.coalesce(func.avg(UserPrediction.points), 0).desc()
         )
         
         # Execute query
@@ -758,16 +758,51 @@ async def get_group_leaderboard(
             logger.error(f"❌ Query SQL: {sql_statement}")
             raise
         
-        # Format results
+        # Format results - ENHANCED: Add missing stats
         leaderboard = []
         for i, result in enumerate(results, 1):
+            # Calculate additional stats
+            total_points = result.total_points or 0
+            total_predictions = result.total_predictions or 0
+            average_points = float(result.average_points or 0)
+            
+            # Calculate perfect predictions (3 points) and accuracy
+            perfect_predictions = 0
+            accuracy_percentage = 0.0
+            
+            if total_predictions > 0:
+                # Get perfect predictions count
+                perfect_result = db.execute(text("""
+                    SELECT COUNT(*) as count 
+                    FROM user_predictions 
+                    WHERE user_id = :user_id 
+                    AND group_id = :group_id 
+                    AND points = 3
+                """), {"user_id": result.user_id, "group_id": group_id}).fetchone()
+                
+                perfect_predictions = perfect_result.count if perfect_result else 0
+                
+                # Calculate accuracy percentage (predictions with any points)
+                accurate_result = db.execute(text("""
+                    SELECT COUNT(*) as count 
+                    FROM user_predictions 
+                    WHERE user_id = :user_id 
+                    AND group_id = :group_id 
+                    AND points > 0
+                """), {"user_id": result.user_id, "group_id": group_id}).fetchone()
+                
+                accurate_count = accurate_result.count if accurate_result else 0
+                accuracy_percentage = (accurate_count / total_predictions) * 100 if total_predictions > 0 else 0.0
+            
             leaderboard.append({
                 "rank": i,
                 "username": result.username,
                 "user_id": result.user_id,
-                "total_predictions": result.total_predictions or 0,
-                "total_points": result.total_points or 0,
-                "average_points": float(result.average_points or 0)
+                "total_predictions": total_predictions,
+                "total_points": total_points,
+                "average_points": average_points,
+                "perfect_predictions": perfect_predictions,
+                "accuracy_percentage": round(accuracy_percentage, 1)
             })
         
         # Cache the result for 5 minutes
