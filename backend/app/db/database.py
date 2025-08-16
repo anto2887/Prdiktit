@@ -2,6 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 import logging
 import os
+# Import settings directly to avoid circular imports
 from ..core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -33,10 +34,4 @@ engine = create_engine(DATABASE_URL, echo=False)
 # Create session
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def get_db():
-    """Get database session"""
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close() 
+# get_db function moved to session_manager.py to avoid circular imports 

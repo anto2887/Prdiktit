@@ -6,7 +6,7 @@ import logging
 import os
 import asyncio
 from datetime import datetime, timezone
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -301,16 +301,19 @@ async def shutdown_event():
         startup_logger.error(f"❌ Error during shutdown: {str(e)}")
         transaction_logger.error(f"SHUTDOWN_ERROR: {str(e)}")
 
-# Include routers
+# Include routers with dependency injection
 from .routers import auth, predictions, matches, groups, users
 from .routers.analytics import router as analytics_router
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
-app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["predictions"])
-app.include_router(matches.router, prefix="/api/v1/matches", tags=["matches"])
-app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
-app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"])
+# Override dependencies to use our dependency injection container
+from .core.dependencies import get_database_session
+
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"], dependencies=[Depends(get_database_session)])
+app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["predictions"], dependencies=[Depends(get_database_session)])
+app.include_router(matches.router, prefix="/api/v1/matches", tags=["matches"], dependencies=[Depends(get_database_session)])
+app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"], dependencies=[Depends(get_database_session)])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"], dependencies=[Depends(get_database_session)])
+app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"], dependencies=[Depends(get_database_session)])
 
 # Health check endpoint with enhanced information
 @app.get("/health")

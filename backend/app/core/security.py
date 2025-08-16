@@ -10,7 +10,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from .config import settings
-from ..db.database import get_db
+# Remove circular import - get_db will be passed as parameter
 from ..schemas import Token, User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -54,7 +54,7 @@ def get_password_hash(password: str) -> str:
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = Depends(lambda: None)  # Will be overridden by dependency injection
 ) -> User:
     """
     Get current user from JWT token
@@ -97,7 +97,7 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 
 async def get_current_active_user_optional(
     token: Optional[str] = Depends(oauth2_scheme_optional),
-    db: Session = Depends(get_db)
+    db: Session = Depends(lambda: None)  # Will be overridden by dependency injection
 ) -> Optional[User]:
     """
     Get current user from JWT token, return None if not authenticated

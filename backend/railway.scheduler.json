@@ -8,7 +8,8 @@
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 300
+    "healthcheckTimeout": 300,
+    "maxRestarts": 5
   },
   "deploy.envs": {
     "PORT": "8001"

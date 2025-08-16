@@ -11,13 +11,18 @@ The scheduler service runs independently from the main backend service to avoid 
 ## **Files Created**
 
 ### **Core Files**
-- `app/scheduler.py` - Main scheduler entry point
+- `app/scheduler_minimal.py` - Minimal scheduler entry point (avoids circular imports)
 - `app/scheduler_health.py` - Health check server for Railway
+- `app/session_manager.py` - Database session management (avoids circular imports)
+- `app/core/dependencies.py` - Dependency injection container
 - `Dockerfile.scheduler` - Container build file
 - `railway.scheduler.json` - Railway configuration
 
 ### **Modified Files**
-- `app/main.py` - Removed scheduler startup code
+- `app/main.py` - Removed scheduler startup code, added dependency injection
+- `app/core/security.py` - Removed circular imports
+- `app/core/__init__.py` - Added lazy imports
+- `app/db/database.py` - Moved session functions to session_manager.py
 
 ## **Railway Service Setup**
 
@@ -44,10 +49,10 @@ Copy all environment variables from the main backend service:
 ## **How It Works**
 
 ### **1. Scheduler Service**
-- Runs the `EnhancedSmartScheduler`
-- Processes fixtures and predictions
-- Makes API calls to Football API
-- Updates database with results
+- Runs the `MinimalScheduler` (avoids circular imports)
+- Implements circuit breaker pattern to prevent infinite loops
+- Processes basic scheduling tasks
+- Can be extended to handle fixtures and predictions
 
 ### **2. Health Check Server**
 - Provides `/health` endpoint for Railway

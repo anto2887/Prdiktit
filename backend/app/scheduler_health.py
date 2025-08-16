@@ -16,8 +16,8 @@ import json
 backend_dir = Path(__file__).parent
 sys.path.insert(0, str(backend_dir))
 
-# Import health status function
-from .scheduler import get_health_status
+# Import health status function from minimal scheduler
+from .scheduler_minimal import get_health_status
 
 # Configure logging
 logging.basicConfig(
