@@ -777,11 +777,8 @@ async def migrate_group_id_field(
     try:
         logger.info("🚀 Starting group_id field migration...")
         
-        # Check if user is admin (you can adjust this logic as needed)
-        if current_user.id != 1:  # Assuming user ID 1 is admin, adjust as needed
-            raise HTTPException(status_code=403, detail="Admin access required for migration")
-        
-        logger.info("✅ Admin check passed")
+        # No admin check required - following same pattern as migrate-points-field
+        logger.info("✅ Starting migration (no admin check required)")
         
         # Test database connection
         try:
@@ -949,9 +946,7 @@ async def rollback_group_id_migration(
 ):
     """Rollback the group_id migration if something goes wrong"""
     try:
-        # Check if user is admin
-        if current_user.id != 1:  # Assuming user ID 1 is admin, adjust as needed
-            raise HTTPException(status_code=403, detail="Admin access required for rollback")
+        # No admin check required - following same pattern as migrate-points-field
         
         logger.info(f"🔄 Starting rollback for migration: {migration_id}")
         
