@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 from ..core.security import get_current_active_user
-from ..db.database import get_db
+from ..db.session_manager import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..db import (
     get_fixture_by_id,

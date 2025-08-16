@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from ..core.security import get_current_active_user, get_password_hash
-from ..db.database import get_db
+from ..db.session_manager import get_db
 from ..db import (
     get_user_by_id, 
     update_user,

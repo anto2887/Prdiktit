@@ -14,7 +14,7 @@ from ..core.security import (
     get_current_active_user,
     get_current_active_user_optional
 )
-from ..db.database import get_db
+from ..db.session_manager import get_db
 from ..db.repository import get_user_by_username, create_user
 from ..schemas import (
     LoginRequest, LoginResponse, Token, UserCreate, User, BaseResponse

@@ -23,6 +23,10 @@ The scheduler service runs independently from the main backend service to avoid 
 - `app/core/security.py` - Removed circular imports
 - `app/core/__init__.py` - Added lazy imports
 - `app/db/database.py` - Moved session functions to session_manager.py
+- `app/db/__init__.py` - Updated to import get_db from session_manager
+- `app/routers/*.py` - All router files updated to import get_db from session_manager
+- `app/scheduler.py` - Deleted (replaced by scheduler_minimal.py)
+- `app/db/dependencies.py` - Deleted (redundant with core/dependencies.py)
 
 ## **Railway Service Setup**
 

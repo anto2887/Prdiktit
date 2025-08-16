@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from ..core.security import get_current_active_user
-from ..db.database import get_db
+from ..db.session_manager import get_db
 from ..schemas import DataResponse, User
 
 # Add error handling for the MatchProcessor import

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
 from ..core.security import get_current_active_user
-from ..db.database import get_db
+from ..db.session_manager import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..db import (
     group_members, 
