@@ -764,9 +764,21 @@ async def migrate_group_id_field(
 ):
     """Migrate UserPrediction table to add group_id field and populate data"""
     try:
+        logger.info("🚀 Starting group_id field migration...")
+        
         # Check if user is admin (you can adjust this logic as needed)
         if current_user.id != 1:  # Assuming user ID 1 is admin, adjust as needed
             raise HTTPException(status_code=403, detail="Admin access required for migration")
+        
+        logger.info("✅ Admin check passed")
+        
+        # Test database connection
+        try:
+            test_query = db.execute("SELECT 1")
+            logger.info("✅ Database connection test passed")
+        except Exception as db_error:
+            logger.error(f"❌ Database connection failed: {db_error}")
+            raise HTTPException(status_code=500, detail=f"Database connection failed: {str(db_error)}")
         
         logger.info("🚀 Starting group_id field migration...")
         
@@ -903,12 +915,21 @@ async def migrate_group_id_field(
         )
         
     except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
         logger.error(f"❌ Migration failed: {e}")
+        logger.error(f"❌ Full traceback: {error_details}")
         db.rollback()
         raise HTTPException(
             status_code=500, 
-            detail=f"Migration failed: {str(e)}"
+            detail=f"Migration failed: {str(e)} - Type: {type(e).__name__}"
         )
+
+
+@router.get("/test-migration-endpoint")
+async def test_migration_endpoint():
+    """Simple test endpoint to verify the router is working"""
+    return {"message": "Migration endpoint is accessible", "status": "working"}
 
 
 @router.post("/rollback-group-id-migration", response_model=DataResponse)
