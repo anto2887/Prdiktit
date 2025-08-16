@@ -708,6 +708,7 @@ async def get_group_leaderboard(
         
         # Debug: Check if group_id column exists and has data
         try:
+            from sqlalchemy import text
             group_check = db.execute(text("SELECT COUNT(*) as count FROM user_predictions WHERE group_id = :group_id"), {"group_id": group_id}).fetchone()
             logger.info(f"🔍 Found {group_check.count} predictions for group {group_id}")
         except Exception as check_error:
@@ -770,7 +771,7 @@ async def get_group_leaderboard(
             })
         
         # Cache the result for 5 minutes
-        await cache.set(cache_key, leaderboard, ttl=300)
+        await cache.set(cache_key, leaderboard, expiry=300)
         
         return ListResponse(data=leaderboard, total=len(leaderboard))
         
