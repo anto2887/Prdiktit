@@ -4,10 +4,11 @@ import { format, parseISO, formatDistance, formatDistanceToNow, isValid, addDays
  * TIMEZONE HANDLING DOCUMENTATION:
  * 
  * BACKEND STORAGE: All dates stored as UTC in database
- * API RESPONSES: Dates returned as naive UTC strings (no Z suffix)
+ * API RESPONSES: Dates returned as UTC strings (no Z suffix) - FIXED: Now properly treated as UTC
  * FRONTEND DISPLAY: Convert UTC to user's local timezone
  * 
- * CRITICAL: Backend sends "2025-07-26T00:30:00" (naive) but it's actually UTC
+ * FIXED: Backend sends "2025-08-16T23:30:00" (UTC time) and frontend now correctly converts to local time
+ * Example: 23:30 UTC → 5:30 PM MDT (UTC-6)
  */
 
 /**
@@ -31,11 +32,22 @@ export const parseUTCToLocal = (date) => {
       return parsedDate;
     }
     
-    // Handle ISO strings with timezone info
-    if (typeof date === 'string' && (date.includes('T') || date.includes('Z'))) {
-      const parsedDate = new Date(date);
-      if (!isNaN(parsedDate.getTime())) {
-        return parsedDate;
+    // Handle ISO strings - distinguish between UTC and timezone-aware
+    if (typeof date === 'string' && date.includes('T')) {
+      if (date.includes('Z')) {
+        // Has timezone info - parse normally
+        const parsedDate = new Date(date);
+        if (!isNaN(parsedDate.getTime())) {
+          return parsedDate;
+        }
+      } else {
+        // No timezone info - treat as UTC and convert to local
+        // Backend sends "2025-08-16T23:30:00" which is UTC time
+        const utcDate = new Date(date + 'Z');  // Add Z to make it UTC
+        if (!isNaN(utcDate.getTime())) {
+          process.env.NODE_ENV === 'development' && console.log(`🔧 Treating "${date}" as UTC, converted to: ${utcDate.toString()}`);
+          return utcDate;  // JavaScript will convert to local timezone
+        }
       }
     }
     
