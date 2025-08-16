@@ -136,6 +136,35 @@ class SchedulerService:
                 logger.error("❌ Required services not available")
                 return
             
+            # Use the existing enhanced processing method that handles everything
+            logger.info("🚀 Running enhanced processing cycle with API updates...")
+            
+            try:
+                # This method handles: API updates + fixture processing + predictions
+                result = await self.scheduler.run_enhanced_processing_with_status_updates()
+                
+                if result.get('status') == 'success':
+                    logger.info(f"✅ Enhanced processing completed successfully:")
+                    logger.info(f"   - Fixtures updated: {result.get('fixtures_updated', 0)}")
+                    logger.info(f"   - Predictions locked: {result.get('predictions_locked', 0)}")
+                    logger.info(f"   - Predictions processed: {result.get('predictions_processed', 0)}")
+                else:
+                    logger.warning(f"⚠️ Enhanced processing had issues: {result.get('error_message', 'Unknown error')}")
+                    
+            except Exception as e:
+                logger.error(f"❌ Error in enhanced processing: {e}")
+                # Fallback to manual processing if enhanced method fails
+                await self._fallback_processing()
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing fixtures: {e}")
+            raise
+    
+    async def _fallback_processing(self):
+        """Fallback processing if enhanced method fails"""
+        try:
+            logger.info("🔄 Running fallback processing...")
+            
             # Step 1: Update match statuses from Football API
             logger.info("📡 Fetching fresh match data from Football API...")
             
@@ -155,18 +184,18 @@ class SchedulerService:
             
             # Step 2: Get the current schedule and run processing
             try:
-                schedule = self.scheduler._calculate_schedule()
+                schedule = self.scheduler._calculate_dynamic_schedule()
                 logger.info(f"📅 Current schedule: {schedule['mode']} mode - {schedule['reason']}")
                 
                 # Run the processing cycle to handle predictions
                 self.scheduler._run_processing_cycle(schedule)
                 
-                logger.info("✅ Fixture processing completed successfully")
+                logger.info("✅ Fallback processing completed successfully")
             except Exception as e:
-                logger.error(f"❌ Error in scheduler processing: {e}")
+                logger.error(f"❌ Error in fallback processing: {e}")
             
         except Exception as e:
-            logger.error(f"❌ Error processing fixtures: {e}")
+            logger.error(f"❌ Error in fallback processing: {e}")
             raise
 
 # Global scheduler instance

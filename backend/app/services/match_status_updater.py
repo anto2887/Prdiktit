@@ -24,10 +24,11 @@ class MatchStatusUpdater:
     
     def __init__(self):
         self.api_key = settings.FOOTBALL_API_KEY
-        self.base_url = "https://api-football-v1.p.rapidapi.com/v3"
+        # Updated to use API-Sports directly instead of RapidAPI
+        self.base_url = "https://v3.football.api-sports.io"
         self.headers = {
-            "X-RapidAPI-Key": self.api_key,
-            "X-RapidAPI-Host": "api-football-v1.p.rapidapi.com"
+            "x-rapidapi-key": self.api_key,
+            "x-rapidapi-host": "v3.football.api-sports.io"
         }
         
         # Rate limiting tracking
