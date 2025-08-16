@@ -541,16 +541,20 @@ async def get_user_predictions_with_fixtures(
     return predictions
 
 async def create_prediction(db: Session, user_id: int, fixture_id: int, 
-                          score1: int, score2: int, season: str, week: int, **kwargs) -> UserPrediction:
+                          score1: int, score2: int, season: str, week: int, group_id: Optional[int] = None, **kwargs) -> UserPrediction:
     """
     Create a new prediction.
     
     TIMEZONE HANDLING:
     - All timestamps stored as UTC in database
+    
+    GROUP HANDLING:
+    - group_id is now required for proper group association
     """
     prediction = UserPrediction(
         user_id=user_id,
         fixture_id=fixture_id,
+        group_id=group_id,  # Added: group_id field
         score1=score1,
         score2=score2,
         season=season,

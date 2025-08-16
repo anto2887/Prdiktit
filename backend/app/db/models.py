@@ -77,6 +77,7 @@ class Group(Base):
     users = relationship("User", secondary=group_members, back_populates="groups")
     tracked_teams = relationship("TeamTracker", back_populates="group")
     audit_logs = relationship("GroupAuditLog", back_populates="group")
+    predictions = relationship("UserPrediction", back_populates="group")  # Added: predictions relationship
     
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -137,6 +138,7 @@ class UserPrediction(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     fixture_id = Column(Integer, ForeignKey("fixtures.fixture_id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("groups.id"), nullable=True)  # Added: nullable initially for migration
     week = Column(Integer, nullable=False)
     season = Column(String, nullable=False)
     score1 = Column(Integer, nullable=False, default=0)
@@ -160,11 +162,13 @@ class UserPrediction(Base):
     # Relationships
     user = relationship("User", back_populates="predictions")
     fixture = relationship("Fixture", back_populates="predictions")
+    group = relationship("Group", back_populates="predictions")  # Added: group relationship
     
     __table_args__ = (
-        UniqueConstraint("user_id", "fixture_id", name="_user_fixture_uc"),
+        UniqueConstraint("user_id", "fixture_id", "group_id", name="_user_fixture_group_uc"),  # Updated: includes group_id
         Index("idx_predictions_status", "prediction_status"),
-        Index("idx_predictions_fixture", "fixture_id")
+        Index("idx_predictions_fixture", "fixture_id"),
+        Index("idx_predictions_group", "group_id")  # Added: group index for performance
     )
 
 class Team(Base):

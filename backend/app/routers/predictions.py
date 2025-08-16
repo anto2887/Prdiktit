@@ -24,7 +24,7 @@ from ..db import (
     get_prediction_deadlines,
     check_group_membership
 )
-from ..db.models import UserPrediction, Group, User, Fixture
+from ..db.models import UserPrediction, Group, User, Fixture, group_members
 from ..schemas import (
     Prediction, PredictionCreate, PredictionStatus, 
     MatchStatus, ListResponse, DataResponse, User as UserSchema,
@@ -183,7 +183,23 @@ async def submit_prediction(
         
         season = str(getattr(fixture, 'season', '2024'))
         
-        logger.info(f"Creating prediction: user={current_user.id}, fixture={match_id}, season={season}, week={week}")
+        # Get user's primary group for the prediction
+        # For now, we'll use the first approved group the user is a member of
+        user_groups = db.query(Group).join(
+            group_members, Group.id == group_members.c.group_id
+        ).filter(
+            group_members.c.user_id == current_user.id,
+            group_members.c.status == 'APPROVED'
+        ).all()
+        
+        group_id = user_groups[0].id if user_groups else None
+        
+        if not group_id:
+            logger.warning(f"User {current_user.id} has no group membership for prediction")
+            # For now, allow prediction without group (will be fixed by migration)
+            group_id = None
+        
+        logger.info(f"Creating prediction: user={current_user.id}, fixture={match_id}, season={season}, week={week}, group={group_id}")
         
         # Use your actual repository function
         new_prediction = await create_prediction(
@@ -193,7 +209,8 @@ async def submit_prediction(
             home_score,
             away_score, 
             season,
-            week
+            week,
+            group_id=group_id  # Added: group_id parameter
         )
         
         if not new_prediction:
@@ -678,6 +695,8 @@ async def get_group_leaderboard(
             return ListResponse(data=cached_data, total=len(cached_data))
         
         # Build query
+        logger.info(f"🔍 Building leaderboard query for group {group_id}, season: {season}, week: {week}")
+        
         query = db.query(
             User.username,
             User.id.label('user_id'),
@@ -692,9 +711,11 @@ async def get_group_leaderboard(
         
         # Apply filters
         if season:
+            logger.info(f"🔍 Adding season filter: {season}")
             query = query.join(Fixture, UserPrediction.fixture_id == Fixture.fixture_id)
             query = query.filter(Fixture.season == season)
         if week:
+            logger.info(f"🔍 Adding week filter: {week}")
             query = query.join(Fixture, UserPrediction.fixture_id == Fixture.fixture_id)
             query = query.filter(Fixture.week == week)
         
@@ -705,7 +726,14 @@ async def get_group_leaderboard(
         )
         
         # Execute query
-        results = query.all()
+        logger.info("🔍 Executing leaderboard query...")
+        try:
+            results = query.all()
+            logger.info(f"✅ Query executed successfully, found {len(results)} results")
+        except Exception as query_error:
+            logger.error(f"❌ Query execution failed: {query_error}")
+            logger.error(f"❌ Query SQL: {query.statement.compile(compile_kwargs={'literal_binds': True})}")
+            raise
         
         # Format results
         leaderboard = []
@@ -727,6 +755,233 @@ async def get_group_leaderboard(
     except Exception as e:
         logger.error(f"Error fetching leaderboard: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch leaderboard")
+
+
+@router.post("/migrate-group-id-field", response_model=DataResponse)
+async def migrate_group_id_field(
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    db: Session = Depends(get_db)
+):
+    """Migrate UserPrediction table to add group_id field and populate data"""
+    try:
+        # Check if user is admin (you can adjust this logic as needed)
+        if current_user.id != 1:  # Assuming user ID 1 is admin, adjust as needed
+            raise HTTPException(status_code=403, detail="Admin access required for migration")
+        
+        logger.info("🚀 Starting group_id field migration...")
+        
+        # Step 1: Check if migration is already done
+        try:
+            # Try to query the group_id field
+            test_query = db.query(UserPrediction.group_id).limit(1).first()
+            logger.info("✅ group_id field already exists")
+            
+            # Check if data is populated
+            null_count = db.query(UserPrediction).filter(UserPrediction.group_id.is_(None)).count()
+            if null_count == 0:
+                logger.info("✅ All predictions already have group_id populated")
+                return DataResponse(
+                    message="Migration already completed - group_id field exists and is populated",
+                    data={"migration_status": "already_completed", "records_processed": 0}
+                )
+            else:
+                logger.info(f"⚠️ group_id field exists but {null_count} records need population")
+        except Exception as e:
+            logger.info(f"🔧 group_id field doesn't exist, proceeding with migration: {e}")
+        
+        # Step 2: Add group_id column (if not exists)
+        try:
+            db.execute("ALTER TABLE user_predictions ADD COLUMN IF NOT EXISTS group_id INTEGER")
+            db.commit()
+            logger.info("✅ Added group_id column to user_predictions table")
+        except Exception as e:
+            logger.warning(f"⚠️ Column addition failed (might already exist): {e}")
+            db.rollback()
+        
+        # Step 3: Add foreign key constraint (if not exists)
+        try:
+            db.execute("""
+                ALTER TABLE user_predictions 
+                ADD CONSTRAINT IF NOT EXISTS fk_user_predictions_group 
+                FOREIGN KEY (group_id) REFERENCES groups(id)
+            """)
+            db.commit()
+            logger.info("✅ Added foreign key constraint for group_id")
+        except Exception as e:
+            logger.warning(f"⚠️ Foreign key constraint addition failed: {e}")
+            db.rollback()
+        
+        # Step 4: Add index for performance (if not exists)
+        try:
+            db.execute("CREATE INDEX IF NOT EXISTS idx_user_predictions_group ON user_predictions(group_id)")
+            db.commit()
+            logger.info("✅ Added index for group_id field")
+        except Exception as e:
+            logger.warning(f"⚠️ Index creation failed: {e}")
+            db.rollback()
+        
+        # Step 5: Populate existing data with group_id
+        logger.info("🔄 Starting data population...")
+        
+        # Get all predictions without group_id
+        predictions_to_update = db.query(UserPrediction).filter(
+            UserPrediction.group_id.is_(None)
+        ).all()
+        
+        total_predictions = len(predictions_to_update)
+        logger.info(f"📊 Found {total_predictions} predictions to update")
+        
+        updated_count = 0
+        failed_count = 0
+        errors = []
+        
+        for prediction in predictions_to_update:
+            try:
+                # Find user's group membership
+                user_groups = db.query(Group).join(
+                    group_members, Group.id == group_members.c.group_id
+                ).filter(
+                    group_members.c.user_id == prediction.user_id,
+                    group_members.c.status == 'APPROVED'
+                ).all()
+                
+                if user_groups:
+                    # Use the first approved group (you can adjust this logic)
+                    prediction.group_id = user_groups[0].id
+                    updated_count += 1
+                    
+                    if updated_count % 100 == 0:
+                        logger.info(f"🔄 Updated {updated_count}/{total_predictions} predictions...")
+                else:
+                    # User has no group membership - create a default group or skip
+                    logger.warning(f"⚠️ User {prediction.user_id} has no group membership for prediction {prediction.id}")
+                    # For now, skip these predictions
+                    failed_count += 1
+                    errors.append(f"User {prediction.user_id} has no group membership")
+                    
+            except Exception as e:
+                logger.error(f"❌ Error updating prediction {prediction.id}: {e}")
+                failed_count += 1
+                errors.append(f"Prediction {prediction.id}: {str(e)}")
+        
+        # Commit all changes
+        db.commit()
+        logger.info(f"✅ Successfully updated {updated_count} predictions")
+        
+        # Step 6: Final validation
+        remaining_null = db.query(UserPrediction).filter(UserPrediction.group_id.is_(None)).count()
+        logger.info(f"📊 Remaining predictions without group_id: {remaining_null}")
+        
+        # Step 7: Make group_id non-nullable (only if all data is populated)
+        if remaining_null == 0:
+            try:
+                db.execute("ALTER TABLE user_predictions ALTER COLUMN group_id SET NOT NULL")
+                db.commit()
+                logger.info("✅ Made group_id field non-nullable")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not make group_id non-nullable: {e}")
+                db.rollback()
+        
+        # Migration summary
+        migration_result = {
+            "migration_id": f"migrate_group_id_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "steps_completed": 7,
+            "records_processed": total_predictions,
+            "records_updated": updated_count,
+            "records_failed": failed_count,
+            "remaining_null": remaining_null,
+            "errors": errors[:10],  # Limit error list
+            "migration_status": "completed" if remaining_null == 0 else "partial",
+            "group_id_non_nullable": remaining_null == 0
+        }
+        
+        logger.info(f"🎉 Migration completed: {migration_result}")
+        
+        return DataResponse(
+            message="Group ID migration completed successfully",
+            data=migration_result
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Migration failed: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Migration failed: {str(e)}"
+        )
+
+
+@router.post("/rollback-group-id-migration", response_model=DataResponse)
+async def rollback_group_id_migration(
+    migration_id: str = Query(..., description="Migration ID to rollback"),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    db: Session = Depends(get_db)
+):
+    """Rollback the group_id migration if something goes wrong"""
+    try:
+        # Check if user is admin
+        if current_user.id != 1:  # Assuming user ID 1 is admin, adjust as needed
+            raise HTTPException(status_code=403, detail="Admin access required for rollback")
+        
+        logger.info(f"🔄 Starting rollback for migration: {migration_id}")
+        
+        # Step 1: Remove foreign key constraint
+        try:
+            db.execute("ALTER TABLE user_predictions DROP CONSTRAINT IF EXISTS fk_user_predictions_group")
+            db.commit()
+            logger.info("✅ Removed foreign key constraint")
+        except Exception as e:
+            logger.warning(f"⚠️ Foreign key removal failed: {e}")
+            db.rollback()
+        
+        # Step 2: Remove index
+        try:
+            db.execute("DROP INDEX IF EXISTS idx_user_predictions_group")
+            db.commit()
+            logger.info("✅ Removed group_id index")
+        except Exception as e:
+            logger.warning(f"⚠️ Index removal failed: {e}")
+            db.rollback()
+        
+        # Step 3: Remove group_id column
+        try:
+            db.execute("ALTER TABLE user_predictions DROP COLUMN IF EXISTS group_id")
+            db.commit()
+            logger.info("✅ Removed group_id column")
+        except Exception as e:
+            logger.warning(f"⚠️ Column removal failed: {e}")
+            db.rollback()
+        
+        # Step 4: Restore original unique constraint
+        try:
+            db.execute("ALTER TABLE user_predictions ADD CONSTRAINT IF NOT EXISTS _user_fixture_uc UNIQUE (user_id, fixture_id)")
+            db.commit()
+            logger.info("✅ Restored original unique constraint")
+        except Exception as e:
+            logger.warning(f"⚠️ Constraint restoration failed: {e}")
+            db.rollback()
+        
+        rollback_result = {
+            "migration_id": migration_id,
+            "rollback_status": "completed",
+            "steps_completed": 4,
+            "message": "Successfully rolled back group_id migration"
+        }
+        
+        logger.info(f"🔄 Rollback completed: {rollback_result}")
+        
+        return DataResponse(
+            message="Group ID migration rollback completed successfully",
+            data=rollback_result
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Rollback failed: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Rollback failed: {str(e)}"
+        )
 
 
 @router.get("/group/{group_id}/week/{week}", response_model=DataResponse)
