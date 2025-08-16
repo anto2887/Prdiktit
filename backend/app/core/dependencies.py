@@ -10,7 +10,7 @@ from ..db.session_manager import get_db, get_db_sync
 # Database session dependency
 def get_database_session() -> Generator[Session, None, None]:
     """Get database session dependency"""
-    return get_db()
+    yield from get_db()
 
 def get_database_session_sync() -> Session:
     """Get synchronous database session dependency"""
