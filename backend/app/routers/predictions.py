@@ -706,6 +706,14 @@ async def get_group_leaderboard(
         # Build query
         logger.info(f"🔍 Building leaderboard query for group {group_id}, season: {season}, week: {week}")
         
+        # Debug: Check if group_id column exists and has data
+        try:
+            group_check = db.execute(text("SELECT COUNT(*) as count FROM user_predictions WHERE group_id = :group_id"), {"group_id": group_id}).fetchone()
+            logger.info(f"🔍 Found {group_check.count} predictions for group {group_id}")
+        except Exception as check_error:
+            logger.error(f"❌ Error checking group_id column: {check_error}")
+            logger.error(f"❌ Check error type: {type(check_error).__name__}")
+        
         query = db.query(
             User.username,
             User.id.label('user_id'),
@@ -737,11 +745,16 @@ async def get_group_leaderboard(
         # Execute query
         logger.info("🔍 Executing leaderboard query...")
         try:
+            # Debug: Log the actual SQL being generated
+            sql_statement = query.statement.compile(compile_kwargs={'literal_binds': True})
+            logger.info(f"🔍 Generated SQL: {sql_statement}")
+            
             results = query.all()
             logger.info(f"✅ Query executed successfully, found {len(results)} results")
         except Exception as query_error:
             logger.error(f"❌ Query execution failed: {query_error}")
-            logger.error(f"❌ Query SQL: {query.statement.compile(compile_kwargs={'literal_binds': True})}")
+            logger.error(f"❌ Query error type: {type(query_error).__name__}")
+            logger.error(f"❌ Query SQL: {sql_statement}")
             raise
         
         # Format results
@@ -762,8 +775,18 @@ async def get_group_leaderboard(
         return ListResponse(data=leaderboard, total=len(leaderboard))
         
     except Exception as e:
-        logger.error(f"Error fetching leaderboard: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to fetch leaderboard")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"❌ Error fetching leaderboard: {str(e)}")
+        logger.error(f"❌ Exception type: {type(e).__name__}")
+        logger.error(f"❌ Full traceback: {error_details}")
+        
+        # Provide more specific error details to the client
+        error_message = f"Leaderboard query failed: {type(e).__name__}"
+        if str(e):
+            error_message += f" - {str(e)}"
+        
+        raise HTTPException(status_code=500, detail=error_message)
 
 
 @router.post("/migrate-group-id-field", response_model=DataResponse)
