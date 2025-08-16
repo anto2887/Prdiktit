@@ -791,22 +791,39 @@ async def migrate_group_id_field(
         
         # Step 1: Check if migration is already done
         try:
-            # Try to query the group_id field
-            test_query = db.query(UserPrediction.group_id).limit(1).first()
-            logger.info("✅ group_id field already exists")
+            # Check if column exists using raw SQL (safer than ORM when field doesn't exist)
+            from sqlalchemy import text
+            result = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'user_predictions' 
+                AND column_name = 'group_id'
+            """)).fetchone()
             
-            # Check if data is populated
-            null_count = db.query(UserPrediction).filter(UserPrediction.group_id.is_(None)).count()
-            if null_count == 0:
-                logger.info("✅ All predictions already have group_id populated")
-                return DataResponse(
-                    message="Migration already completed - group_id field exists and is populated",
-                    data={"migration_status": "already_completed", "records_processed": 0}
-                )
+            if result:
+                logger.info("✅ group_id field already exists")
+                
+                # Check if data is populated using raw SQL
+                null_count_result = db.execute(text("""
+                    SELECT COUNT(*) as count 
+                    FROM user_predictions 
+                    WHERE group_id IS NULL
+                """)).fetchone()
+                
+                null_count = null_count_result.count if null_count_result else 0
+                
+                if null_count == 0:
+                    logger.info("✅ All predictions already have group_id populated")
+                    return DataResponse(
+                        message="Migration already completed - group_id field exists and is populated",
+                        data={"migration_status": "already_completed", "records_processed": 0}
+                    )
+                else:
+                    logger.info(f"⚠️ group_id field exists but {null_count} records need population")
             else:
-                logger.info(f"⚠️ group_id field exists but {null_count} records need population")
+                logger.info("🔧 group_id field doesn't exist, proceeding with migration")
         except Exception as e:
-            logger.info(f"🔧 group_id field doesn't exist, proceeding with migration: {e}")
+            logger.info(f"🔧 Error checking column existence, proceeding with migration: {e}")
         
         # Step 2: Add group_id column (if not exists)
         try:
@@ -842,53 +859,71 @@ async def migrate_group_id_field(
         # Step 5: Populate existing data with group_id
         logger.info("🔄 Starting data population...")
         
-        # Get all predictions without group_id
-        predictions_to_update = db.query(UserPrediction).filter(
-            UserPrediction.group_id.is_(None)
-        ).all()
+        # Get all predictions without group_id using raw SQL
+        predictions_result = db.execute(text("""
+            SELECT id, user_id 
+            FROM user_predictions 
+            WHERE group_id IS NULL
+        """)).fetchall()
         
-        total_predictions = len(predictions_to_update)
+        total_predictions = len(predictions_result)
         logger.info(f"📊 Found {total_predictions} predictions to update")
         
         updated_count = 0
         failed_count = 0
         errors = []
         
-        for prediction in predictions_to_update:
+        for prediction_row in predictions_result:
             try:
-                # Find user's group membership
-                user_groups = db.query(Group).join(
-                    group_members, Group.id == group_members.c.group_id
-                ).filter(
-                    group_members.c.user_id == prediction.user_id,
-                    group_members.c.status == 'APPROVED'
-                ).all()
+                prediction_id = prediction_row.id
+                user_id = prediction_row.user_id
                 
-                if user_groups:
-                    # Use the first approved group (you can adjust this logic)
-                    prediction.group_id = user_groups[0].id
+                # Find user's group membership using raw SQL
+                user_groups_result = db.execute(text("""
+                    SELECT g.id 
+                    FROM groups g
+                    JOIN group_members gm ON g.id = gm.group_id
+                    WHERE gm.user_id = :user_id AND gm.status = 'APPROVED'
+                    LIMIT 1
+                """), {"user_id": user_id}).fetchall()
+                
+                if user_groups_result:
+                    # Use the first approved group
+                    group_id = user_groups_result[0].id
+                    
+                    # Update the prediction using raw SQL
+                    db.execute(text("""
+                        UPDATE user_predictions 
+                        SET group_id = :group_id 
+                        WHERE id = :prediction_id
+                    """), {"group_id": group_id, "prediction_id": prediction_id})
+                    
                     updated_count += 1
                     
                     if updated_count % 100 == 0:
                         logger.info(f"🔄 Updated {updated_count}/{total_predictions} predictions...")
                 else:
-                    # User has no group membership - create a default group or skip
-                    logger.warning(f"⚠️ User {prediction.user_id} has no group membership for prediction {prediction.id}")
-                    # For now, skip these predictions
+                    # User has no group membership - skip this prediction
+                    logger.warning(f"⚠️ User {user_id} has no group membership for prediction {prediction_id}")
                     failed_count += 1
-                    errors.append(f"User {prediction.user_id} has no group membership")
+                    errors.append(f"User {user_id} has no group membership")
                     
             except Exception as e:
-                logger.error(f"❌ Error updating prediction {prediction.id}: {e}")
+                logger.error(f"❌ Error updating prediction {prediction_id}: {e}")
                 failed_count += 1
-                errors.append(f"Prediction {prediction.id}: {str(e)}")
+                errors.append(f"Prediction {prediction_id}: {str(e)}")
         
         # Commit all changes
         db.commit()
         logger.info(f"✅ Successfully updated {updated_count} predictions")
         
-        # Step 6: Final validation
-        remaining_null = db.query(UserPrediction).filter(UserPrediction.group_id.is_(None)).count()
+        # Step 6: Final validation using raw SQL
+        remaining_null_result = db.execute(text("""
+            SELECT COUNT(*) as count 
+            FROM user_predictions 
+            WHERE group_id IS NULL
+        """)).fetchone()
+        remaining_null = remaining_null_result.count if remaining_null_result else 0
         logger.info(f"📊 Remaining predictions without group_id: {remaining_null}")
         
         # Step 7: Make group_id non-nullable (only if all data is populated)
