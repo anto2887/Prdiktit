@@ -486,6 +486,16 @@ async def create_batch_predictions(
                     except Exception:
                         week = 0
                 
+                # Get user's primary group for the prediction
+                user_groups = db.query(Group).join(
+                    group_members, Group.id == group_members.c.group_id
+                ).filter(
+                    group_members.c.user_id == current_user.id,
+                    group_members.c.status == 'APPROVED'
+                ).all()
+                
+                group_id = user_groups[0].id if user_groups else None
+                
                 prediction = await create_prediction(
                     db,
                     current_user.id,
@@ -493,7 +503,8 @@ async def create_batch_predictions(
                     score1,
                     score2,
                     fixture.season,
-                    week
+                    week,
+                    group_id=group_id
                 )
             
             if prediction:
@@ -780,8 +791,6 @@ async def migrate_group_id_field(
             logger.error(f"❌ Database connection failed: {db_error}")
             raise HTTPException(status_code=500, detail=f"Database connection failed: {str(db_error)}")
         
-        logger.info("🚀 Starting group_id field migration...")
-        
         # Step 1: Check if migration is already done
         try:
             # Try to query the group_id field
@@ -896,7 +905,7 @@ async def migrate_group_id_field(
         
         # Migration summary
         migration_result = {
-            "migration_id": f"migrate_group_id_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+            "migration_id": f"migrate_group_id_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
             "steps_completed": 7,
             "records_processed": total_predictions,
             "records_updated": updated_count,
