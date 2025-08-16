@@ -184,12 +184,11 @@ async def submit_prediction(
         season = str(getattr(fixture, 'season', '2024'))
         
         # Get user's primary group for the prediction
-        # For now, we'll use the first approved group the user is a member of
+        # For now, we'll use the first group the user is a member of
         user_groups = db.query(Group).join(
             group_members, Group.id == group_members.c.group_id
         ).filter(
-            group_members.c.user_id == current_user.id,
-            group_members.c.status == 'APPROVED'
+            group_members.c.user_id == current_user.id
         ).all()
         
         group_id = user_groups[0].id if user_groups else None
@@ -490,8 +489,7 @@ async def create_batch_predictions(
                 user_groups = db.query(Group).join(
                     group_members, Group.id == group_members.c.group_id
                 ).filter(
-                    group_members.c.user_id == current_user.id,
-                    group_members.c.status == 'APPROVED'
+                    group_members.c.user_id == current_user.id
                 ).all()
                 
                 group_id = user_groups[0].id if user_groups else None
@@ -883,7 +881,7 @@ async def migrate_group_id_field(
                     SELECT g.id 
                     FROM groups g
                     JOIN group_members gm ON g.id = gm.group_id
-                    WHERE gm.user_id = :user_id AND gm.status = 'APPROVED'
+                    WHERE gm.user_id = :user_id
                     LIMIT 1
                 """), {"user_id": user_id}).fetchall()
                 
