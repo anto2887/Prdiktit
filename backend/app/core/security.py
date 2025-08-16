@@ -54,7 +54,7 @@ def get_password_hash(password: str) -> str:
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(lambda: None)  # Will be overridden by dependency injection
+    db: Session = None
 ) -> User:
     """
     Get current user from JWT token
@@ -97,7 +97,7 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 
 async def get_current_active_user_optional(
     token: Optional[str] = Depends(oauth2_scheme_optional),
-    db: Session = Depends(lambda: None)  # Will be overridden by dependency injection
+    db: Session = None
 ) -> Optional[User]:
     """
     Get current user from JWT token, return None if not authenticated

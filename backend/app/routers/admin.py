@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ..core.security import get_current_active_user
+from ..core.dependencies import get_current_active_user_dependency
 from ..db.session_manager import get_db
 from ..schemas import DataResponse, User
 
@@ -20,7 +20,7 @@ router = APIRouter()
 
 @router.post("/process-matches", response_model=DataResponse)
 async def process_completed_matches(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -49,7 +49,7 @@ async def process_completed_matches(
 
 @router.post("/lock-predictions", response_model=DataResponse)
 async def lock_match_predictions(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -78,7 +78,7 @@ async def lock_match_predictions(
 
 @router.post("/process-all", response_model=DataResponse)
 async def process_all_tasks(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -107,7 +107,7 @@ async def process_all_tasks(
 
 @router.get("/processing-status", response_model=DataResponse)
 async def get_processing_status(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """

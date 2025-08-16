@@ -4,7 +4,8 @@ from typing import Any, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
-from ..core.security import get_current_active_user, get_password_hash
+from ..core.security import get_password_hash
+from ..core.dependencies import get_current_active_user_dependency
 from ..db.session_manager import get_db
 from ..db import (
     get_user_by_id, 
@@ -29,7 +30,7 @@ router = APIRouter()
 
 @router.get("/profile", response_model=DataResponse)
 async def get_profile(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -85,7 +86,7 @@ async def get_profile(
 @router.put("/profile", response_model=BaseResponse)
 async def update_profile(
     profile_update: UserCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -117,7 +118,7 @@ async def update_profile(
 @router.get("/stats", response_model=DataResponse)
 async def get_user_statistics(
     user_id: int = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -166,7 +167,7 @@ async def get_prediction_history(
     status: PredictionStatus = Query(None),
     fixture_id: int = Query(None),
     group_id: int = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """

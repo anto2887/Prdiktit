@@ -10,10 +10,9 @@ from ..core.config import settings
 from ..core.security import (
     create_access_token, 
     get_password_hash, 
-    verify_password,
-    get_current_active_user,
-    get_current_active_user_optional
+    verify_password
 )
+from ..core.dependencies import get_current_active_user_dependency, get_current_active_user_optional_dependency
 from ..db.session_manager import get_db
 from ..db.repository import get_user_by_username, create_user
 from ..schemas import (
@@ -155,7 +154,7 @@ async def register_user(
 
 @router.get("/status")
 async def auth_status(
-    current_user: Optional[User] = Depends(get_current_active_user_optional)
+    current_user: Optional[User] = Depends(get_current_active_user_optional_dependency())
 ):
     """
     Get current user authentication status
@@ -199,7 +198,7 @@ async def auth_status(
 
 @router.post("/logout")
 async def logout(
-    current_user: Optional[User] = Depends(get_current_active_user_optional)
+    current_user: Optional[User] = Depends(get_current_active_user_optional_dependency())
 ):
     """
     Logout user (client-side token invalidation)

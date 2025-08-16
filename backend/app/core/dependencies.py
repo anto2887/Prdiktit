@@ -5,7 +5,9 @@ Manages dependencies to avoid circular imports
 
 from typing import Generator
 from sqlalchemy.orm import Session
+from fastapi import Depends
 from ..db.session_manager import get_db, get_db_sync
+from ..core.security import oauth2_scheme
 
 # Database session dependency
 def get_database_session() -> Generator[Session, None, None]:
@@ -22,7 +24,7 @@ def get_current_user_dependency():
     from ..core.security import get_current_user
     from ..db.session_manager import get_db
     
-    async def _get_current_user(token: str, db: Session = Depends(get_db)):
+    async def _get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
         return await get_current_user(token=token, db=db)
     
     return _get_current_user
@@ -30,7 +32,6 @@ def get_current_user_dependency():
 def get_current_active_user_dependency():
     """Get current active user dependency with proper database session"""
     from ..core.security import get_current_active_user
-    from ..db.session_manager import get_db
     
     async def _get_current_active_user(current_user = Depends(get_current_user_dependency())):
         return await get_current_active_user(current_user=current_user)

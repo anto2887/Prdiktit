@@ -5,11 +5,12 @@ from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 # Set up logger
 logger = logging.getLogger(__name__)
 
-from ..core.security import get_current_active_user
+from ..core.dependencies import get_current_active_user_dependency
 from ..db.session_manager import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..db import (
@@ -23,10 +24,10 @@ from ..db import (
     get_prediction_deadlines,
     check_group_membership
 )
-from ..db.models import UserPrediction, Group
+from ..db.models import UserPrediction, Group, User, Fixture
 from ..schemas import (
     Prediction, PredictionCreate, PredictionStatus, 
-    MatchStatus, ListResponse, DataResponse, User,
+    MatchStatus, ListResponse, DataResponse, User as UserSchema,
     PredictionUpdate, BaseResponse
 )
 from ..utils.season_manager import SeasonManager
@@ -37,7 +38,7 @@ router = APIRouter()
 @router.post("", response_model=DataResponse)
 async def submit_prediction(
     prediction_data: PredictionCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -237,7 +238,7 @@ async def get_user_predictions_endpoint(
     status: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
     week: Optional[int] = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -370,7 +371,7 @@ async def get_user_predictions_endpoint(
 @router.get("/seasons/{group_id}", response_model=ListResponse)
 async def get_group_seasons(
     group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -405,12 +406,15 @@ async def get_group_seasons(
         raise
     except Exception as e:
         logger.error(f"Error getting group seasons: {e}")
-        return ListResponse(data=[], total=0)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve group seasons"
+        )
 
 @router.post("/batch", response_model=DataResponse)
 async def create_batch_predictions(
     predictions_data: Dict[str, Dict[str, int]],
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -434,9 +438,16 @@ async def create_batch_predictions(
                 int(fixture_id)
             )
             
-            # Extract scores
-            score1 = scores.home
-            score2 = scores.away
+            # Extract scores - handle both possible key formats
+            if 'home' in scores and 'away' in scores:
+                score1 = scores['home']
+                score2 = scores['away']
+            elif 'score1' in scores and 'score2' in scores:
+                score1 = scores['score1']
+                score2 = scores['score2']
+            else:
+                logger.warning(f"Invalid score format for fixture {fixture_id}: {scores}")
+                continue
             
             if existing_prediction:
                 # Update existing prediction
@@ -448,7 +459,15 @@ async def create_batch_predictions(
                 )
             else:
                 # Create new prediction
-                week = int(fixture.round.split(' ')[-1]) if 'round' in fixture.round.lower() else 0
+                week = 0
+                if hasattr(fixture, 'round') and fixture.round:
+                    try:
+                        import re
+                        week_match = re.search(r'\d+', str(fixture.round))
+                        if week_match:
+                            week = int(week_match.group())
+                    except Exception:
+                        week = 0
                 
                 prediction = await create_prediction(
                     db,
@@ -460,16 +479,17 @@ async def create_batch_predictions(
                     week
                 )
             
-            results.append({
-                "prediction_id": prediction.id,
-                "fixture_id": prediction.fixture_id,
-                "score1": prediction.score1,
-                "score2": prediction.score2,
-                "status": prediction.prediction_status.value
-            })
+            if prediction:
+                results.append({
+                    "prediction_id": prediction.id,
+                    "fixture_id": prediction.fixture_id,
+                    "score1": prediction.score1,
+                    "score2": prediction.score2,
+                    "status": prediction.prediction_status.value if hasattr(prediction.prediction_status, 'value') else str(prediction.prediction_status)
+                })
             
         except Exception as e:
-            # Skip any fixtures with errors
+            logger.error(f"Error processing batch prediction for fixture {fixture_id}: {e}")
             continue
     
     # Clear cache
@@ -483,13 +503,18 @@ async def create_batch_predictions(
 @router.get("/{prediction_id}", response_model=DataResponse)
 async def get_prediction(
     prediction_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
     Get prediction by ID
     """
-    prediction = await get_prediction_by_id(db, prediction_id)
+    from sqlalchemy.orm import joinedload
+    
+    # Load prediction with fixture data
+    prediction = db.query(UserPrediction).options(
+        joinedload(UserPrediction.fixture)
+    ).filter(UserPrediction.id == prediction_id).first()
     
     if not prediction:
         raise HTTPException(
@@ -504,22 +529,75 @@ async def get_prediction(
             detail="Access denied"
         )
     
+    # Convert to dictionary with fixture data
+    prediction_data = {
+        "id": prediction.id,
+        "match_id": prediction.fixture_id,
+        "user_id": prediction.user_id,
+        "home_score": prediction.score1,
+        "away_score": prediction.score2,
+        "score1": prediction.score1,
+        "score2": prediction.score2,
+        "points": prediction.points,
+        "prediction_status": prediction.prediction_status.value if hasattr(prediction.prediction_status, 'value') else str(prediction.prediction_status),
+        "created": prediction.created.isoformat() if prediction.created else None,
+        "submission_time": prediction.submission_time.isoformat() if prediction.submission_time else None,
+        "season": prediction.season,
+        "week": prediction.week,
+        "fixture": {
+            "fixture_id": prediction.fixture.fixture_id if prediction.fixture else None,
+            "home_team": prediction.fixture.home_team if prediction.fixture else "Home Team",
+            "away_team": prediction.fixture.away_team if prediction.fixture else "Away Team",
+            "home_team_logo": prediction.fixture.home_team_logo if prediction.fixture else None,
+            "away_team_logo": prediction.fixture.away_team_logo if prediction.fixture else None,
+            "date": prediction.fixture.date.isoformat() if prediction.fixture and prediction.fixture.date else None,
+            "league": prediction.fixture.league if prediction.fixture else "Unknown League",
+            "status": prediction.fixture.status.value if prediction.fixture and hasattr(prediction.fixture.status, 'value') else str(prediction.fixture.status) if prediction.fixture else "UNKNOWN",
+            "home_score": prediction.fixture.home_score if prediction.fixture else None,
+            "away_score": prediction.fixture.away_score if prediction.fixture else None,
+            "season": prediction.fixture.season if prediction.fixture else prediction.season,
+            "round": prediction.fixture.round if prediction.fixture else None,
+            "venue": prediction.fixture.venue if prediction.fixture else None,
+            "venue_city": prediction.fixture.venue_city if prediction.fixture else None
+        } if prediction.fixture else {
+            "fixture_id": prediction.fixture_id,
+            "home_team": "Home Team",
+            "away_team": "Away Team",
+            "home_team_logo": None,
+            "away_team_logo": None,
+            "date": None,
+            "league": "Unknown League",
+            "status": "UNKNOWN",
+            "home_score": None,
+            "away_score": None,
+            "season": prediction.season,
+            "round": None,
+            "venue": None,
+            "venue_city": None
+        }
+    }
+    
     return DataResponse(
-        data=prediction,
+        data=prediction_data,
         message="Prediction retrieved successfully"
     )
 
 @router.post("/reset/{prediction_id}", response_model=DataResponse)
 async def reset_prediction_endpoint(
     prediction_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
     """
     Reset a prediction to editable state
     """
-    prediction = await get_prediction_by_id(db, prediction_id)
+    from sqlalchemy.orm import joinedload
+    
+    # Load prediction with fixture data
+    prediction = db.query(UserPrediction).options(
+        joinedload(UserPrediction.fixture)
+    ).filter(UserPrediction.id == prediction_id).first()
     
     if not prediction:
         raise HTTPException(
@@ -535,6 +613,12 @@ async def reset_prediction_endpoint(
         )
     
     # Check if match has already started or reached kickoff
+    if not prediction.fixture:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fixture data not available"
+        )
+    
     if prediction.fixture.status != MatchStatus.NOT_STARTED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -575,7 +659,7 @@ async def get_group_leaderboard(
     group_id: int,
     season: Optional[str] = Query(None, description="Season filter"),
     week: Optional[int] = Query(None, description="Week filter"),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -591,33 +675,33 @@ async def get_group_leaderboard(
         # Try to get from cache first
         cached_data = await cache.get(cache_key)
         if cached_data:
-            return DataResponse(data=cached_data)
+            return ListResponse(data=cached_data, total=len(cached_data))
         
         # Build query
         query = db.query(
             User.username,
             User.id.label('user_id'),
-            func.count(Prediction.id).label('total_predictions'),
-            func.sum(Prediction.points).label('total_points'),
-            func.avg(Prediction.points).label('average_points')
+            func.count(UserPrediction.id).label('total_predictions'),
+            func.sum(UserPrediction.points).label('total_points'),
+            func.avg(UserPrediction.points).label('average_points')
         ).join(
-            Prediction, User.id == Prediction.user_id
+            UserPrediction, User.id == UserPrediction.user_id
         ).filter(
-            Prediction.group_id == group_id
+            UserPrediction.group_id == group_id
         )
         
         # Apply filters
         if season:
-            query = query.join(Fixture, Prediction.fixture_id == Fixture.fixture_id)
+            query = query.join(Fixture, UserPrediction.fixture_id == Fixture.fixture_id)
             query = query.filter(Fixture.season == season)
         if week:
-            query = query.join(Fixture, Prediction.fixture_id == Fixture.fixture_id)
+            query = query.join(Fixture, UserPrediction.fixture_id == Fixture.fixture_id)
             query = query.filter(Fixture.week == week)
         
         # Group and order
         query = query.group_by(User.id, User.username).order_by(
-            func.sum(Prediction.points).desc(),
-            func.avg(Prediction.points).desc()
+            func.sum(UserPrediction.points).desc(),
+            func.avg(UserPrediction.points).desc()
         )
         
         # Execute query
@@ -638,7 +722,7 @@ async def get_group_leaderboard(
         # Cache the result for 5 minutes
         await cache.set(cache_key, leaderboard, ttl=300)
         
-        return DataResponse(data=leaderboard)
+        return ListResponse(data=leaderboard, total=len(leaderboard))
         
     except Exception as e:
         logger.error(f"Error fetching leaderboard: {str(e)}")
@@ -650,7 +734,7 @@ async def get_group_predictions_for_week(
     group_id: int = Path(...),
     week: int = Path(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -698,7 +782,7 @@ async def get_group_predictions_for_week(
 @router.get("/match/{fixture_id}/summary", response_model=DataResponse)
 async def get_match_prediction_summary(
     fixture_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -740,7 +824,7 @@ async def get_visibility_schedule(
     group_id: int = Path(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """

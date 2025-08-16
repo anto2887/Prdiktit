@@ -10,7 +10,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
 
-from ..core.security import get_current_active_user
+from ..core.dependencies import get_current_active_user_dependency
 from ..db.session_manager import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..services.analytics_service import AnalyticsService
@@ -27,7 +27,7 @@ async def get_user_analytics(
     user_id: int = Path(...),
     season: str = Query(...),
     week: int = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -60,7 +60,7 @@ async def get_group_heatmap(
     group_id: int = Path(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -96,7 +96,7 @@ async def get_group_heatmap(
 @router.get("/group/{group_id}/rivalries", response_model=DataResponse)
 async def get_group_rivalries(
     group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -133,7 +133,7 @@ async def assign_group_rivalries(
     group_id: int = Path(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -181,7 +181,7 @@ async def calculate_weekly_bonuses(
     week: int = Query(...),
     season: str = Query(...),
     league: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -210,7 +210,7 @@ async def calculate_weekly_bonuses(
 async def get_user_bonus_history(
     user_id: int = Path(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -249,7 +249,7 @@ async def get_user_bonus_history(
 async def get_group_bonus_summary(
     group_id: int = Path(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -286,7 +286,7 @@ async def check_rivalry_outcomes(
     group_id: int = Query(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db)
 ):
     """
@@ -329,7 +329,7 @@ async def check_rivalry_outcomes(
 async def invalidate_user_analytics_cache(
     user_id: int = Path(...),
     season: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):

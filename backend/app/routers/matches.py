@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from ..core.security import get_current_active_user
+from ..core.dependencies import get_current_active_user_dependency
 from ..db.session_manager import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..db import (
@@ -29,7 +29,7 @@ router = APIRouter()
 
 @router.get("/live", response_model=ListResponse)
 async def get_live_matches_endpoint(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -137,7 +137,7 @@ async def get_live_matches_endpoint(
 
 @router.get("/fixtures", response_model=DataResponse)
 async def get_fixtures(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     league: Optional[str] = Query(None, description="Filter by league"),
     season: Optional[str] = Query(None, description="Filter by season"),
@@ -282,7 +282,7 @@ async def get_fixtures(
 
 @router.get("/statuses", response_model=DataResponse)
 async def get_match_statuses(
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user_dependency())
 ):
     """
     Get all possible match statuses
@@ -296,7 +296,7 @@ async def get_match_statuses(
 
 @router.get("/deadlines", response_model=DataResponse)
 async def get_prediction_deadlines_endpoint(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -321,7 +321,7 @@ async def get_prediction_deadlines_endpoint(
 
 @router.get("/upcoming", response_model=DataResponse)
 async def get_upcoming_matches(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -469,7 +469,7 @@ async def get_upcoming_matches(
 @router.get("/{match_id}", response_model=DataResponse)
 async def get_match(
     match_id: int,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
