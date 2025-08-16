@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import time
+from aiohttp import web
 
 # Add the backend directory to Python path
 backend_dir = Path(__file__).parent
@@ -114,7 +115,7 @@ class MinimalScheduler:
 minimal_scheduler = MinimalScheduler()
 
 async def main():
-    """Main scheduler function"""
+    """Main scheduler function with health check server"""
     global scheduler_status
     
     try:
@@ -125,6 +126,21 @@ async def main():
         if not minimal_scheduler.start():
             logger.error("❌ Failed to start minimal scheduler")
             return
+        
+        # Start health check server
+        health_app = web.Application()
+        health_app.router.add_get('/health', lambda r: web.json_response(get_health_status()))
+        health_app.router.add_get('/status', lambda r: web.json_response(get_health_status()))
+        
+        runner = web.AppRunner(health_app)
+        await runner.setup()
+        
+        port = int(os.environ.get('PORT', 8001))
+        site = web.TCPSite(runner, '0.0.0.0', port)
+        await site.start()
+        
+        logger.info(f"🏥 Health check server started on port {port}")
+        logger.info(f"🔍 Health endpoint: http://0.0.0.0:{port}/health")
         
         # Keep the service running with error handling
         logger.info("🔄 Minimal scheduler service is now running...")

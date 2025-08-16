@@ -4,7 +4,7 @@
     "dockerfilePath": "Dockerfile.scheduler"
   },
   "deploy": {
-    "startCommand": "python -m app.scheduler_health",
+    "startCommand": "python -m app.scheduler_minimal",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
     "healthcheckPath": "/health",

@@ -28,7 +28,8 @@ from .models import (
 
 # Export commonly used database components
 from .session import create_tables, create_tables_with_verification
-from .database import engine, SessionLocal, get_db
+from .database import engine, SessionLocal
+from .session_manager import get_db
 
 # Export all repository functions from consolidated repository
 from .repository import (

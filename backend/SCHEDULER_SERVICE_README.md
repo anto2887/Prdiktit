@@ -35,7 +35,7 @@ The scheduler service runs independently from the main backend service to avoid 
 ### **2. Configuration**
 - **Port**: `8001`
 - **Resources**: 2-4 vCPU, 4-8 GB RAM
-- **Start Command**: `python -m app.scheduler_health`
+- **Start Command**: `python -m app.scheduler_minimal`
 - **Dockerfile**: `Dockerfile.scheduler`
 - **Railway Config**: `railway.scheduler.json`
 
