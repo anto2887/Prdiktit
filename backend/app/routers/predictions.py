@@ -782,7 +782,8 @@ async def migrate_group_id_field(
         
         # Test database connection
         try:
-            test_query = db.execute("SELECT 1")
+            from sqlalchemy import text
+            test_query = db.execute(text("SELECT 1"))
             logger.info("✅ Database connection test passed")
         except Exception as db_error:
             logger.error(f"❌ Database connection failed: {db_error}")
@@ -809,7 +810,7 @@ async def migrate_group_id_field(
         
         # Step 2: Add group_id column (if not exists)
         try:
-            db.execute("ALTER TABLE user_predictions ADD COLUMN IF NOT EXISTS group_id INTEGER")
+            db.execute(text("ALTER TABLE user_predictions ADD COLUMN IF NOT EXISTS group_id INTEGER"))
             db.commit()
             logger.info("✅ Added group_id column to user_predictions table")
         except Exception as e:
@@ -818,11 +819,11 @@ async def migrate_group_id_field(
         
         # Step 3: Add foreign key constraint (if not exists)
         try:
-            db.execute("""
+            db.execute(text("""
                 ALTER TABLE user_predictions 
                 ADD CONSTRAINT IF NOT EXISTS fk_user_predictions_group 
                 FOREIGN KEY (group_id) REFERENCES groups(id)
-            """)
+            """))
             db.commit()
             logger.info("✅ Added foreign key constraint for group_id")
         except Exception as e:
@@ -831,7 +832,7 @@ async def migrate_group_id_field(
         
         # Step 4: Add index for performance (if not exists)
         try:
-            db.execute("CREATE INDEX IF NOT EXISTS idx_user_predictions_group ON user_predictions(group_id)")
+            db.execute(text("CREATE INDEX IF NOT EXISTS idx_user_predictions_group ON user_predictions(group_id)"))
             db.commit()
             logger.info("✅ Added index for group_id field")
         except Exception as e:
@@ -893,7 +894,7 @@ async def migrate_group_id_field(
         # Step 7: Make group_id non-nullable (only if all data is populated)
         if remaining_null == 0:
             try:
-                db.execute("ALTER TABLE user_predictions ALTER COLUMN group_id SET NOT NULL")
+                db.execute(text("ALTER TABLE user_predictions ALTER COLUMN group_id SET NOT NULL"))
                 db.commit()
                 logger.info("✅ Made group_id field non-nullable")
             except Exception as e:
@@ -952,7 +953,8 @@ async def rollback_group_id_migration(
         
         # Step 1: Remove foreign key constraint
         try:
-            db.execute("ALTER TABLE user_predictions DROP CONSTRAINT IF EXISTS fk_user_predictions_group")
+            from sqlalchemy import text
+            db.execute(text("ALTER TABLE user_predictions DROP CONSTRAINT IF EXISTS fk_user_predictions_group"))
             db.commit()
             logger.info("✅ Removed foreign key constraint")
         except Exception as e:
@@ -961,7 +963,7 @@ async def rollback_group_id_migration(
         
         # Step 2: Remove index
         try:
-            db.execute("DROP INDEX IF EXISTS idx_user_predictions_group")
+            db.execute(text("DROP INDEX IF EXISTS idx_user_predictions_group"))
             db.commit()
             logger.info("✅ Removed group_id index")
         except Exception as e:
@@ -970,7 +972,7 @@ async def rollback_group_id_migration(
         
         # Step 3: Remove group_id column
         try:
-            db.execute("ALTER TABLE user_predictions DROP COLUMN IF EXISTS group_id")
+            db.execute(text("ALTER TABLE user_predictions DROP COLUMN IF EXISTS group_id"))
             db.commit()
             logger.info("✅ Removed group_id column")
         except Exception as e:
@@ -979,7 +981,7 @@ async def rollback_group_id_migration(
         
         # Step 4: Restore original unique constraint
         try:
-            db.execute("ALTER TABLE user_predictions ADD CONSTRAINT IF NOT EXISTS _user_fixture_uc UNIQUE (user_id, fixture_id)")
+            db.execute(text("ALTER TABLE user_predictions ADD CONSTRAINT IF NOT EXISTS _user_fixture_uc UNIQUE (user_id, fixture_id)"))
             db.commit()
             logger.info("✅ Restored original unique constraint")
         except Exception as e:
