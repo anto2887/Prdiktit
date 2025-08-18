@@ -75,12 +75,20 @@ const UpcomingMatches = () => {
               <div className="grid grid-cols-7 items-center gap-2">
                 {/* Home Team */}
                 <div className="col-span-3 flex items-center space-x-2">
-                  <img
-                    src={match.home_team_logo || '/placeholder-logo.svg'}
-                    alt={`${match.home_team} logo`}
-                    className="h-6 w-6 object-contain"
-                    onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
-                  />
+                  {match.home_team_logo ? (
+                    <img
+                      src={match.home_team_logo}
+                      alt={`${match.home_team} logo`}
+                      className="h-6 w-6 object-contain"
+                      onError={(e) => { 
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className="h-6 w-6 bg-gray-200 rounded flex items-center justify-center" style={{ display: match.home_team_logo ? 'none' : 'flex' }}>
+                    <span className="text-gray-500 text-xs">⚽</span>
+                  </div>
                   <span className="font-medium truncate">{match.home_team}</span>
                 </div>
 
@@ -98,12 +106,20 @@ const UpcomingMatches = () => {
                 {/* Away Team */}
                 <div className="col-span-3 flex items-center justify-end space-x-2">
                   <span className="font-medium truncate">{match.away_team}</span>
-                  <img
-                    src={match.away_team_logo || '/placeholder-logo.svg'}
-                    alt={`${match.away_team} logo`}
-                    className="h-6 w-6 object-contain"
-                    onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
-                  />
+                  {match.away_team_logo ? (
+                    <img
+                      src={match.away_team_logo}
+                      alt={`${match.away_team} logo`}
+                      className="h-6 w-6 object-contain"
+                      onError={(e) => { 
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className="h-6 w-6 bg-gray-200 rounded flex items-center justify-center" style={{ display: match.away_team_logo ? 'none' : 'flex' }}>
+                    <span className="text-gray-500 text-xs">⚽</span>
+                  </div>
                 </div>
               </div>
 

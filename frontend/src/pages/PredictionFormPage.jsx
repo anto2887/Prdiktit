@@ -225,35 +225,45 @@ const PredictionFormPage = () => {
             {/* Match details */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="text-center">
-                    <img 
-                      src={currentMatch.home_team_logo || '/placeholder-logo.svg'} 
-                      alt="" 
-                      className="w-12 h-12 mx-auto mb-1"
-                      onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
-                    />
-                    <p className="text-sm font-medium">{currentMatch.home_team}</p>
+                <div className="flex items-center space-x-3 mb-4">
+                    <div className="flex items-center space-x-2">
+                      {currentMatch.home_team_logo ? (
+                        <img 
+                          src={currentMatch.home_team_logo} 
+                          alt={currentMatch.home_team}
+                          className="w-8 h-8 object-contain"
+                          onError={(e) => { 
+                            e.target.style.display = 'none';
+                            e.target.nextElementSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center" style={{ display: currentMatch.home_team_logo ? 'none' : 'flex' }}>
+                        <span className="text-gray-500 text-sm">⚽</span>
+                      </div>
+                      <span className="text-lg font-medium">{currentMatch.home_team}</span>
+                    </div>
+                    
+                    <span className="text-gray-400 text-lg">vs</span>
+                    
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg font-medium">{currentMatch.away_team}</span>
+                      {currentMatch.away_team_logo ? (
+                        <img 
+                          src={currentMatch.away_team_logo} 
+                          alt={currentMatch.away_team}
+                          className="w-8 h-8 object-contain"
+                          onError={(e) => { 
+                            e.target.style.display = 'none';
+                            e.target.nextElementSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center" style={{ display: currentMatch.away_team_logo ? 'none' : 'flex' }}>
+                        <span className="text-gray-500 text-sm">⚽</span>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-gray-900">VS</p>
-                    <p className="text-xs text-gray-500">
-                      {currentMatch.date ? formatKickoffTime(currentMatch.date) : 'TBD'}
-                    </p>
-                  </div>
-                  
-                  <div className="text-center">
-                    <img 
-                      src={currentMatch.away_team_logo || '/placeholder-logo.svg'} 
-                      alt="" 
-                      className="w-12 h-12 mx-auto mb-1"
-                      onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
-                    />
-                    <p className="text-sm font-medium">{currentMatch.away_team}</p>
-                  </div>
-                </div>
-              </div>
               
               <div className="mt-3 text-sm text-gray-600 text-center">
                 <p>{currentMatch.league} • {currentMatch.season}</p>

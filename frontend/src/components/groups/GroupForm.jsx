@@ -71,12 +71,24 @@ const GroupForm = () => {
   }, []); // Empty dependency array ensures this runs only once
 
   const handleLeagueSelect = (leagueId) => {
-    setFormData(prev => ({
-      ...prev,
-      league: leagueId,
-      tracked_teams: [] // Reset teams when league changes
-    }));
-    setStep(2);
+    process.env.NODE_ENV === 'development' && console.log('League selected:', leagueId);
+    
+    // Set the league first, then advance to next step
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        league: leagueId,
+        tracked_teams: [] // Reset teams when league changes
+      };
+      process.env.NODE_ENV === 'development' && console.log('Updated form data:', newFormData);
+      return newFormData;
+    });
+    
+    // Use setTimeout to ensure state update completes before step change
+    setTimeout(() => {
+      process.env.NODE_ENV === 'development' && console.log('Advancing to step 3');
+      setStep(3);
+    }, 0);
   };
 
   const handleTeamsSelected = (teams) => {
@@ -200,7 +212,9 @@ const GroupForm = () => {
         </div>
 
         {/* Step 3: Team Selection */}
-        <div className={`mb-6 ${step !== 3 || !formData.league ? 'hidden' : ''}`}>
+        <div className={`mb-6 ${step !== 3 ? 'hidden' : ''}`}>
+          {process.env.NODE_ENV === 'development' && console.log('Step 3 rendering:', { step, league: formData.league })}
+          
           <div className="flex justify-between items-center mb-2">
             <label className="block text-sm font-medium text-gray-700">
               Select Teams to Track
@@ -209,11 +223,22 @@ const GroupForm = () => {
               <span className="text-gray-400">ℹ️</span>
             </HelpTooltip>
           </div>
-          <TeamSelector
-            selectedLeague={formData.league}
-            onTeamsSelected={handleTeamsSelected}
-            selectedTeams={formData.tracked_teams}
-          />
+          
+          {formData.league ? (
+            <div>
+              {process.env.NODE_ENV === 'development' && console.log('Rendering TeamSelector with league:', formData.league)}
+              <TeamSelector
+                selectedLeague={formData.league}
+                onTeamsSelected={handleTeamsSelected}
+                selectedTeams={formData.tracked_teams}
+              />
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              {process.env.NODE_ENV === 'development' && console.log('No league selected, showing fallback message')}
+              Please select a league first to view available teams.
+            </div>
+          )}
           
           <div className="flex gap-4 mt-6">
             <button

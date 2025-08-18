@@ -112,12 +112,20 @@ const PredictionList = () => {
                     {/* Teams */}
                     <div className="flex justify-between items-center mb-6">
                       <div className="flex flex-col items-center w-5/12">
-                        <img 
-                          src={match.home_team_logo || '/placeholder-logo.svg'} 
-                          alt={`${match.home_team} logo`}
-                          className="w-12 h-12 object-contain mb-2"
-                          onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
-                        />
+                        {match.home_team_logo ? (
+                          <img 
+                            src={match.home_team_logo} 
+                            alt={`${match.home_team} logo`}
+                            className="w-12 h-12 object-contain mb-2"
+                            onError={(e) => { 
+                              e.target.style.display = 'none';
+                              e.target.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center mb-2" style={{ display: match.home_team_logo ? 'none' : 'flex' }}>
+                          <span className="text-gray-500 text-lg">⚽</span>
+                        </div>
                         <span className="text-center font-medium text-sm text-gray-900">
                           {match.home_team}
                         </span>
@@ -128,12 +136,20 @@ const PredictionList = () => {
                       </div>
                       
                       <div className="flex flex-col items-center w-5/12">
-                        <img 
-                          src={match.away_team_logo || '/placeholder-logo.svg'} 
-                          alt={`${match.away_team} logo`}
-                          className="w-12 h-12 object-contain mb-2"
-                          onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
-                        />
+                        {match.away_team_logo ? (
+                          <img 
+                            src={match.away_team_logo} 
+                            alt={`${match.away_team} logo`}
+                            className="w-12 h-12 object-contain mb-2"
+                            onError={(e) => { 
+                              e.target.style.display = 'none';
+                              e.target.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center mb-2" style={{ display: match.away_team_logo ? 'none' : 'flex' }}>
+                          <span className="text-gray-500 text-lg">⚽</span>
+                        </div>
                         <span className="text-center font-medium text-sm text-gray-900">
                           {match.away_team}
                         </span>

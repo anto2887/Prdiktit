@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 
-// Optimized team card component
+// Optimized team card component with improved image handling
 const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadStates, handleImageLoad }) => (
   <div
     className={`relative flex items-center p-3 border rounded-lg cursor-pointer transition-colors group
@@ -26,22 +26,19 @@ const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadState
       {imageLoadStates[team.id] === 'loading' && (
         <div className="w-6 h-6 bg-gray-200 rounded animate-pulse"></div>
       )}
-      <img
-        src={team.logo || '/placeholder-team-logo.svg'}
-        alt={`${team.name} logo`}
-        className={`w-8 h-8 object-contain transition-opacity duration-200 ${
-          imageLoadStates[team.id] === 'loaded' ? 'opacity-100' : 'opacity-0'
-        }`}
-        onLoad={() => handleImageLoad(team.id, true)}
-        onError={(e) => { 
-          e.target.src = '/placeholder-team-logo.svg';
-          handleImageLoad(team.id, false);
-        }}
-        loading="lazy"
-        style={{ 
-          transitionDelay: `${index * 25}ms`
-        }}
-      />
+      {imageLoadStates[team.id] === 'error' && (
+        <div className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center">
+          <span className="text-gray-500 text-xs">⚽</span>
+        </div>
+      )}
+      {imageLoadStates[team.id] === 'loaded' && (
+        <img
+          src={team.logo}
+          alt={`${team.name} logo`}
+          className="w-6 h-6 object-contain"
+          loading="lazy"
+        />
+      )}
     </div>
     <span className="font-medium text-gray-700 text-sm truncate">{team.name}</span>
     
@@ -64,15 +61,19 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
   const { showError } = useNotifications();
 
   useEffect(() => {
+    process.env.NODE_ENV === 'development' && console.log('TeamSelector useEffect triggered:', { selectedLeague, teams: teams.length });
+    
     if (selectedLeague) {
+      process.env.NODE_ENV === 'development' && console.log('Loading teams for league:', selectedLeague);
       loadTeams();
     } else {
+      process.env.NODE_ENV === 'development' && console.log('No league selected, clearing teams');
       setTeams([]);
       setImageLoadStates({});
     }
   }, [selectedLeague]);
 
-  // Staggered image loading to prevent browser freeze
+  // Improved image loading with proper error handling
   const handleImageLoad = useCallback((teamId, success = true) => {
     setImageLoadStates(prev => ({
       ...prev,
@@ -99,12 +100,26 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
       if (response && response.status === 'success' && Array.isArray(response.data)) {
         process.env.NODE_ENV === 'development' && console.log(`Successfully loaded ${response.data.length} teams`);
         setTeams(response.data);
-        // Initialize image load states
+        
+        // Initialize image load states for all teams
         const initialLoadStates = response.data.reduce((acc, team) => ({
           ...acc,
           [team.id]: 'loading'
         }), {});
         setImageLoadStates(initialLoadStates);
+        
+        // Preload images with proper error handling
+        response.data.forEach(team => {
+          if (team.logo) {
+            const img = new Image();
+            img.onload = () => handleImageLoad(team.id, true);
+            img.onerror = () => handleImageLoad(team.id, false);
+            img.src = team.logo;
+          } else {
+            // No logo available, mark as error
+            handleImageLoad(team.id, false);
+          }
+        });
       } else {
         process.env.NODE_ENV === 'development' && console.error("Invalid teams data format:", response.data);
         setTeams([]);
