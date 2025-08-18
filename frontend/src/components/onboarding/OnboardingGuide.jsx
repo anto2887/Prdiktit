@@ -4,106 +4,24 @@ import React, { useState, useEffect } from 'react';
 // Simple HelpTooltip component
 export const HelpTooltip = ({ content, position = 'top', children }) => {
   const [isVisible, setIsVisible] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
-  const [tooltipPlacement, setTooltipPlacement] = useState(position);
-  const [timeoutId, setTimeoutId] = useState(null);
+  const [counter, setCounter] = useState(0);
 
   if (!content) {
     return children || null;
   }
 
-  const handleMouseEnter = (e) => {
-    // Clear any existing timeout
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-
-    // Add a small delay before showing the tooltip
-    const newTimeoutId = setTimeout(() => {
-      const rect = e.currentTarget.getBoundingClientRect();
-      const tooltipWidth = 250;
-      const tooltipHeight = 80;
-      
-      let placement = position;
-      let x = rect.left + rect.width / 2;
-      let y = rect.top + rect.height / 2;
-      
-      // Calculate optimal position to stay within viewport and avoid covering the trigger element
-      if (placement === 'top') {
-        y = rect.top - 15; // Increased offset to avoid covering
-        if (y < tooltipHeight + 20) { // Extra buffer
-          placement = 'bottom';
-          y = rect.bottom + 15;
-        }
-      } else if (placement === 'bottom') {
-        y = rect.bottom + 15;
-        if (y + tooltipHeight > window.innerHeight - 20) {
-          placement = 'top';
-          y = rect.top - 15;
-        }
-      } else if (placement === 'left') {
-        x = rect.left - 15;
-        if (x < tooltipWidth + 20) {
-          placement = 'right';
-          x = rect.right + 15;
-        }
-      } else if (placement === 'right') {
-        x = rect.right + 15;
-        if (x + tooltipWidth > window.innerWidth - 20) {
-          placement = 'left';
-          x = rect.left - 15;
-        }
-      }
-      
-      // Ensure tooltip stays within viewport bounds with extra padding
-      x = Math.max(tooltipWidth / 2 + 20, Math.min(x, window.innerWidth - tooltipWidth / 2 - 20));
-      y = Math.max(tooltipHeight / 2 + 20, Math.min(y, window.innerHeight - tooltipHeight / 2 - 20));
-      
-      // Additional check: ensure tooltip doesn't cover the trigger element
-      const tooltipLeft = x - tooltipWidth / 2;
-      const tooltipRight = x + tooltipWidth / 2;
-      const tooltipTop = y - tooltipHeight / 2;
-      const tooltipBottom = y + tooltipHeight / 2;
-      
-      // If tooltip would cover the trigger element, adjust position
-      if (tooltipLeft < rect.right && tooltipRight > rect.left && 
-          tooltipTop < rect.bottom && tooltipBottom > rect.top) {
-        // Move tooltip further away
-        if (placement === 'top') {
-          y = rect.top - tooltipHeight - 25;
-        } else if (placement === 'bottom') {
-          y = rect.bottom + tooltipHeight + 25;
-        } else if (placement === 'left') {
-          x = rect.left - tooltipWidth - 25;
-        } else if (placement === 'right') {
-          x = rect.right + tooltipWidth + 25;
-        }
-      }
-      
-      setTooltipPosition({ x, y });
-      setTooltipPlacement(placement);
-      setIsVisible(true);
-    }, 300); // 300ms delay
-
-    setTimeoutId(newTimeoutId);
+  const handleMouseEnter = () => {
+    console.log('Mouse enter, setting visible to true, counter:', counter); // Debug log
+    setCounter(prev => prev + 1);
+    setIsVisible(true);
   };
 
   const handleMouseLeave = () => {
-    // Clear any existing timeout
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
+    console.log('Mouse leave, setting visible to false, counter:', counter); // Debug log
     setIsVisible(false);
   };
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
-    };
-  }, [timeoutId]);
+  console.log('HelpTooltip render, isVisible:', isVisible, 'counter:', counter); // Debug log
 
   return (
     <>
@@ -121,19 +39,16 @@ export const HelpTooltip = ({ content, position = 'top', children }) => {
 
       {isVisible && (
         <div 
-          className="fixed z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg max-w-xs"
+          className="fixed top-0 left-0 z-50 px-3 py-2 text-sm text-white bg-red-600 rounded-lg shadow-lg max-w-xs border-2 border-yellow-400"
           style={{
-            left: tooltipPosition.x,
-            top: tooltipPosition.y,
-            transform: 'translate(-50%, -50%)',
             maxWidth: '250px',
             wordWrap: 'break-word',
             whiteSpace: 'normal',
             pointerEvents: 'none'
           }}
         >
-          {content}
-          {/* Arrow removed - no more black dot */}
+          {console.log('Rendering tooltip, isVisible:', isVisible)} {/* Debug log */}
+          Tooltip: {content} (Counter: {counter})
         </div>
       )}
     </>
