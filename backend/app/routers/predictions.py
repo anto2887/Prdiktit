@@ -684,7 +684,6 @@ async def reset_prediction_endpoint(
 async def get_group_leaderboard(
     group_id: int,
     season: Optional[str] = Query(None, description="Season filter"),
-    week: Optional[int] = Query(None, description="Week filter"),
     current_user: UserSchema = Depends(get_current_active_user_dependency()),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
@@ -696,7 +695,7 @@ async def get_group_leaderboard(
             raise HTTPException(status_code=403, detail="Not a member of this group")
         
         # Build cache key
-        cache_key = f"leaderboard:{group_id}:{season}:{week}"
+        cache_key = f"leaderboard:{group_id}:{season}"
         
         # Try to get from cache first
         cached_data = await cache.get(cache_key)
@@ -704,7 +703,7 @@ async def get_group_leaderboard(
             return ListResponse(data=cached_data, total=len(cached_data))
         
         # Build query
-        logger.info(f"🔍 Building leaderboard query for group {group_id}, season: {season}, week: {week}")
+        logger.info(f"🔍 Building leaderboard query for group {group_id}, season: {season}")
         
         # Debug: Check if group_id column exists and has data
         try:
@@ -727,15 +726,11 @@ async def get_group_leaderboard(
             UserPrediction.group_id == group_id
         )
         
-        # Apply filters - FIXED: Handle week filter properly
+        # Apply filters - SIMPLIFIED: Only season filter
         if season:
             logger.info(f"🔍 Adding season filter: {season}")
             query = query.join(Fixture, UserPrediction.fixture_id == Fixture.fixture_id)
             query = query.filter(Fixture.season == season)
-        if week and week > 0:  # Only apply week filter if it's a valid week number
-            logger.info(f"🔍 Adding week filter: {week}")
-            query = query.join(Fixture, UserPrediction.fixture_id == Fixture.fixture_id)
-            query = query.filter(Fixture.week == week)
         
         # Group and order - FIXED: Handle NULL values properly
         query = query.group_by(User.id, User.username).order_by(

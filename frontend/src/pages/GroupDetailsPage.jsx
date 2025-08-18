@@ -53,9 +53,7 @@ const GroupDetailsPage = () => {
   const {
     fetchLeaderboard,
     setSelectedSeason,
-    setSelectedWeek,
     selectedSeason,
-    selectedWeek,
     leaderboard,
     loading: leaderboardLoading
   } = useLeagueContext();
@@ -135,8 +133,7 @@ const GroupDetailsPage = () => {
     process.env.NODE_ENV === 'development' && console.log('🎯 Effect: Initialize season data triggered', { 
       hasCurrentGroup: !!currentGroup,
       hasInitialized: hasInitializedSeasonRef.current,
-      selectedSeason,
-      selectedWeek
+      selectedSeason
     });
     
     if (currentGroup && !hasInitializedSeasonRef.current) {
@@ -144,7 +141,7 @@ const GroupDetailsPage = () => {
       hasInitializedSeasonRef.current = true;
       initializeSeasonData();
     }
-  }, [currentGroup, selectedSeason, selectedWeek]);
+  }, [currentGroup, selectedSeason]);
 
   const initializeSeasonData = async () => {
     try {
@@ -157,14 +154,7 @@ const GroupDetailsPage = () => {
         setSelectedSeason(defaultSeason);
       }
       
-      // Set default week if not already set (default to week 1)
-      if (!selectedWeek) {
-        const defaultWeek = 1; // Default to week 1 instead of calling non-existent function
-        process.env.NODE_ENV === 'development' && console.log('📅 Setting default week:', defaultWeek);
-        setSelectedWeek(defaultWeek);
-      }
-      
-      // Load leaderboard for the selected season/week
+      // Load leaderboard for the selected season
       if (selectedSeason) {
         await loadLeaderboard();
       }
@@ -180,7 +170,6 @@ const GroupDetailsPage = () => {
   useEffect(() => {
     process.env.NODE_ENV === 'development' && console.log('🎯 Effect: Load leaderboard triggered', { 
       selectedSeason,
-      selectedWeek,
       hasCurrentGroup: !!currentGroup,
       hasInitialized: hasInitializedSeasonRef.current
     });
@@ -190,12 +179,12 @@ const GroupDetailsPage = () => {
       hasFetchedRef.current.leaderboard = true;
       loadLeaderboard();
     }
-  }, [selectedSeason, selectedWeek, currentGroup]);
+  }, [selectedSeason, currentGroup]);
 
   const loadLeaderboard = async () => {
     try {
-      process.env.NODE_ENV === 'development' && console.log('📊 Loading leaderboard for season:', selectedSeason, 'week:', selectedWeek);
-      await fetchLeaderboard(currentGroup.id, selectedSeason, selectedWeek);
+      process.env.NODE_ENV === 'development' && console.log('📊 Loading leaderboard for season:', selectedSeason);
+      await fetchLeaderboard(currentGroup.id, { season: selectedSeason });
     } catch (error) {
       process.env.NODE_ENV === 'development' && console.error('❌ Error loading leaderboard:', error);
       showError('Failed to load leaderboard');
@@ -205,12 +194,6 @@ const GroupDetailsPage = () => {
   const handleSeasonChange = (newSeason) => {
     process.env.NODE_ENV === 'development' && console.log('📅 Season changed:', newSeason);
     setSelectedSeason(newSeason);
-    hasFetchedRef.current.leaderboard = false;
-  };
-
-  const handleWeekChange = (newWeek) => {
-    process.env.NODE_ENV === 'development' && console.log('📅 Week changed:', newWeek);
-    setSelectedWeek(newWeek);
     hasFetchedRef.current.leaderboard = false;
   };
 
@@ -333,20 +316,6 @@ const GroupDetailsPage = () => {
                 disabled={seasonLoading}
                 className="w-full sm:w-auto"
               />
-              
-              <div className="w-full sm:w-auto">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Week</label>
-                <select
-                  value={selectedWeek || ''}
-                  onChange={(e) => handleWeekChange(e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">All Weeks</option>
-                  {Array.from({ length: 38 }, (_, i) => i + 1).map(week => (
-                    <option key={week} value={week}>Week {week}</option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             {/* Season Display Info */}
@@ -354,7 +323,6 @@ const GroupDetailsPage = () => {
               <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                 <p className="text-sm text-blue-800">
                   Showing {currentGroup.league} season: <strong>{SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}</strong>
-                  {selectedWeek && ` • Week ${selectedWeek}`}
                 </p>
               </div>
             )}
@@ -434,8 +402,7 @@ const GroupDetailsPage = () => {
                         <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                           {selectedSeason ? (
                             <>
-                              No predictions found for {SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}
-                              {selectedWeek && ` week ${selectedWeek}`}.
+                              No predictions found for {SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}.
                               <br />
                               <span className="text-sm">Members will appear here once they make predictions.</span>
                             </>
@@ -555,8 +522,8 @@ const GroupDetailsPage = () => {
             highlight: null
           },
           {
-            title: "Season & Week Filters",
-            content: "Use the season selector and week filter to view standings for specific time periods. Different leagues have different season formats.",
+                    title: "Season Filter",
+        content: "Use the season selector to view standings for specific time periods. Different leagues have different season formats.",
             action: "Got it!",
             highlight: null
           }

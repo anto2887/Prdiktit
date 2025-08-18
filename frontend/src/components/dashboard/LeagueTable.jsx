@@ -6,9 +6,7 @@ import ErrorMessage from '../common/ErrorMessage';
 const LeagueTable = ({ 
   group, 
   selectedSeason = '2024-2025',
-  selectedWeek = null,
   setSelectedSeason = () => {},
-  setSelectedWeek = () => {},
   fetchGroupMembers // Pass this as a prop instead of using context
 }) => {
   const [members, setMembers] = useState([]);
@@ -20,7 +18,7 @@ const LeagueTable = ({
     if (group && group.id && fetchGroupMembers) {
       loadMemberData();
     }
-  }, [group, selectedSeason, selectedWeek]);
+  }, [group, selectedSeason]);
 
   const loadMemberData = async () => {
     if (!group || !group.id || !fetchGroupMembers) return;
@@ -61,19 +59,6 @@ const LeagueTable = ({
           >
             <option value="2024-2025">2024-2025</option>
             <option value="2023-2024">2023-2024</option>
-          </select>
-        </div>
-        
-        <div className="w-full sm:w-auto">
-          <select
-            value={selectedWeek || ''}
-            onChange={(e) => setSelectedWeek(e.target.value ? parseInt(e.target.value) : null)}
-            className="w-full p-2 border rounded"
-          >
-            <option value="">All Weeks</option>
-            {Array.from({ length: 38 }, (_, i) => i + 1).map(week => (
-              <option key={week} value={week}>Week {week}</option>
-            ))}
           </select>
         </div>
       </div>

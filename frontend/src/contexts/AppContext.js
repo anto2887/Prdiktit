@@ -52,7 +52,6 @@ const ActionTypes = {
   
   // League actions
   SET_SELECTED_SEASON: 'SET_SELECTED_SEASON',
-  SET_SELECTED_WEEK: 'SET_SELECTED_WEEK',
   SET_SELECTED_GROUP: 'SET_SELECTED_GROUP',
   SET_LEADERBOARD: 'SET_LEADERBOARD',
   SET_LEAGUE_LOADING: 'SET_LEAGUE_LOADING',
@@ -108,7 +107,6 @@ const initialState = {
   },
   league: {
     selectedSeason: null, // Will be set dynamically based on group league
-    selectedWeek: null,
     selectedGroup: null,
     leaderboard: [],
     availableSeasons: [],
@@ -328,12 +326,6 @@ const appReducer = (state, action) => {
       return {
         ...state,
         league: { ...state.league, selectedSeason: action.payload }
-      };
-    
-    case ActionTypes.SET_SELECTED_WEEK:
-      return {
-        ...state,
-        league: { ...state.league, selectedWeek: action.payload }
       };
     
     case ActionTypes.SET_SELECTED_GROUP:
@@ -1232,9 +1224,7 @@ export const AppProvider = ({ children }) => {
     // The GroupDetailsPage will handle refreshing the leaderboard when season changes
   }, []);
 
-  const setSelectedWeek = useCallback((week) => {
-    dispatch({ type: ActionTypes.SET_SELECTED_WEEK, payload: week });
-  }, []);
+
 
   const setSelectedGroup = useCallback((group) => {
     dispatch({ type: ActionTypes.SET_SELECTED_GROUP, payload: group });
@@ -1506,14 +1496,12 @@ export const AppProvider = ({ children }) => {
 
     // League
     selectedSeason: state.league.selectedSeason,
-    selectedWeek: state.league.selectedWeek,
     selectedGroup: state.league.selectedGroup,
     leaderboard: state.league.leaderboard,
     availableSeasons: state.league.availableSeasons,
     leagueLoading: state.league.loading,
     leagueError: state.league.error,
     setSelectedSeason,
-    setSelectedWeek,
     setSelectedGroup,
     fetchLeaderboard,
     fetchGroupSeasons,
@@ -1538,7 +1526,6 @@ export const AppProvider = ({ children }) => {
     state.matches.liveMatches,
     state.predictions.userPredictions,
     state.league.selectedSeason,
-    state.league.selectedWeek,
     state.league.selectedGroup,
     state.league.leaderboard,
     state.league.availableSeasons,
@@ -1724,13 +1711,11 @@ export const useLeagueContext = () => {
   return {
     // FIXED: Access properties directly from context (they're already flattened)
     selectedSeason: context.selectedSeason,
-    selectedWeek: context.selectedWeek,
     selectedGroup: context.selectedGroup,
     leaderboard: context.leaderboard,
     loading: context.leagueLoading,
     error: context.leagueError,
     setSelectedSeason: context.setSelectedSeason,
-    setSelectedWeek: context.setSelectedWeek,
     setSelectedGroup: context.setSelectedGroup,
     fetchLeaderboard: context.fetchLeaderboard,
     fetchTeams: context.fetchTeamsForLeague
@@ -1745,9 +1730,7 @@ export const useGroupDetails = () => {
   
   return {
     selectedSeason: context.selectedSeason,
-    selectedWeek: context.selectedWeek,
     setSelectedSeason: context.setSelectedSeason,
-    setSelectedWeek: context.setSelectedWeek,
     members: context.groupMembers,
     loading: context.groupsLoading,
     error: context.groupsError,

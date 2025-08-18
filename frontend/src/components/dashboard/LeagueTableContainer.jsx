@@ -12,9 +12,7 @@ const LeagueTableContainer = () => {
     loading,
     error,
     selectedSeason,
-    selectedWeek,
-    setSelectedSeason,
-    setSelectedWeek
+    setSelectedSeason
   } = useGroupDetails();
 
   if (loading) return <LoadingSpinner />;
@@ -32,19 +30,6 @@ const LeagueTableContainer = () => {
           >
             <option value="2024-2025">2024-2025</option>
             <option value="2023-2024">2023-2024</option>
-          </select>
-        </div>
-        
-        <div className="w-full sm:w-auto">
-          <select
-            value={selectedWeek || ''}
-            onChange={(e) => setSelectedWeek(e.target.value ? parseInt(e.target.value) : null)}
-            className="w-full p-2 border rounded"
-          >
-            <option value="">All Weeks</option>
-            {Array.from({ length: 38 }, (_, i) => i + 1).map(week => (
-              <option key={week} value={week}>Week {week}</option>
-            ))}
           </select>
         </div>
       </div>
