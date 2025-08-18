@@ -1,55 +1,49 @@
 import React, { useState, useEffect } from 'react';
+import SeasonManager from '../../utils/seasonManager';
 import { useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 
 const LeagueTable = ({ 
   group, 
-  selectedSeason = '2024-2025',
-  setSelectedSeason = () => {},
-  fetchGroupMembers // Pass this as a prop instead of using context
+  members, 
+  selectedSeason = null,
+  onSeasonChange,
+  showError,
+  className = "" 
 }) => {
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const { showError } = useNotifications();
+  const [availableSeasons, setAvailableSeasons] = useState([]);
+  const [localSelectedSeason, setLocalSelectedSeason] = useState(selectedSeason);
+  const { showError: showAppError } = useNotifications();
 
+  // Get available seasons for the group's league
   useEffect(() => {
-    if (group && group.id && fetchGroupMembers) {
-      loadMemberData();
-    }
-  }, [group, selectedSeason]);
-
-  const loadMemberData = async () => {
-    if (!group || !group.id || !fetchGroupMembers) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      process.env.NODE_ENV === 'development' && console.log(`Loading members for group: ${group.id}`);
-      const members = await fetchGroupMembers(group.id);
+    if (group && group.league) {
+      const seasons = SeasonManager.getAvailableSeasons(group.league, 5);
+      setAvailableSeasons(seasons);
       
-      if (Array.isArray(members)) {
-        setMembers(members);
-      } else {
-        setMembers([]);
+      // Set default season if none selected
+      if (!localSelectedSeason && seasons.length > 0) {
+        setLocalSelectedSeason(seasons[0].value);
       }
-    } catch (err) {
-      process.env.NODE_ENV === 'development' && console.error('Error loading group members', err);
-      setError('Failed to load league members. Please try refreshing the page.');
-      // Only show error notification if we're not in initial loading phase
-      // This prevents the brief error flash when navigating to group pages
-      if (group && showError) {
-        showError('Failed to load league members');
-      }
-    } finally {
-      setLoading(false);
+    }
+  }, [group, localSelectedSeason]);
+
+  // Update local state when prop changes
+  useEffect(() => {
+    if (selectedSeason !== localSelectedSeason) {
+      setLocalSelectedSeason(selectedSeason);
+    }
+  }, [selectedSeason]);
+
+  const handleSeasonChange = (event) => {
+    const newSeason = event.target.value;
+    setLocalSelectedSeason(newSeason);
+    if (onSeasonChange) {
+      onSeasonChange(newSeason);
     }
   };
 
-  if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorMessage message={error} />;
   if (!group) return <ErrorMessage message="League not found" />;
 
   return (
@@ -57,12 +51,15 @@ const LeagueTable = ({
       <div className="mb-6 flex flex-wrap gap-4">
         <div className="w-full sm:w-auto">
           <select
-            value={selectedSeason}
-            onChange={(e) => setSelectedSeason(e.target.value)}
+            value={localSelectedSeason}
+            onChange={handleSeasonChange}
             className="w-full p-2 border rounded"
           >
-            <option value="2024-2025">2024-2025</option>
-            <option value="2023-2024">2023-2024</option>
+            {availableSeasons.map((season) => (
+              <option key={season.value} value={season.value}>
+                {season.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>

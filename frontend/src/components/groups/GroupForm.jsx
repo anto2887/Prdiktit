@@ -5,6 +5,7 @@ import { useGroups, useNotifications } from '../../contexts/AppContext';
 import TeamSelector from './TeamSelector';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { HelpTooltip } from '../onboarding/OnboardingGuide';
+import SeasonManager from '../../utils/seasonManager';
 
 const GroupForm = () => {
   const [step, setStep] = useState(1);
@@ -14,17 +15,60 @@ const GroupForm = () => {
     tracked_teams: []
   });
   const [loading, setLoading] = useState(false);
+  const [leagues, setLeagues] = useState([]);
+  const [leaguesLoading, setLeaguesLoading] = useState(true);
   const navigate = useNavigate();
   const { createGroup } = useGroups();
   const { showSuccess, showError } = useNotifications();
 
-  const leagues = [
-    { id: 'Premier League', name: 'Premier League', season: '2024-25' },
-    { id: 'La Liga', name: 'La Liga', season: '2024-25' },
-    { id: 'UEFA Champions League', name: 'Champions League', season: '2024-25' },
-    { id: 'MLS', name: 'MLS', season: '2025' },
-    { id: 'FIFA Club World Cup', name: 'FIFA Club World Cup', season: '2025' }
-  ];
+  // Initialize leagues with dynamic seasons to avoid circular dependencies
+  useEffect(() => {
+    const initializeLeagues = () => {
+      setLeaguesLoading(true);
+      try {
+        const leagueConfigs = [
+          { id: 'Premier League', name: 'Premier League' },
+          { id: 'La Liga', name: 'La Liga' },
+          { id: 'UEFA Champions League', name: 'Champions League' },
+          { id: 'MLS', name: 'MLS' },
+          { id: 'FIFA Club World Cup', name: 'FIFA Club World Cup' }
+        ];
+
+        const leaguesWithSeasons = leagueConfigs.map(league => {
+          let season;
+          if (league.id === 'MLS' || league.id === 'FIFA Club World Cup') {
+            // Calendar year leagues - use current year
+            season = new Date().getFullYear().toString();
+          } else {
+            // European leagues - use SeasonManager for current season
+            season = SeasonManager.getCurrentSeason(league.id);
+          }
+
+          return {
+            ...league,
+            season: season
+          };
+        });
+
+        setLeagues(leaguesWithSeasons);
+      } catch (error) {
+        console.error('Error initializing leagues:', error);
+        // Fallback to hardcoded seasons if SeasonManager fails
+        setLeagues([
+          { id: 'Premier League', name: 'Premier League', season: '2025-2026' },
+          { id: 'La Liga', name: 'La Liga', season: '2025-2026' },
+          { id: 'UEFA Champions League', name: 'Champions League', season: '2025-2026' },
+          { id: 'MLS', name: 'MLS', season: '2025' },
+          { id: 'FIFA Club World Cup', name: 'FIFA Club World Cup', season: '2025' }
+        ]);
+      } finally {
+        setLeaguesLoading(false);
+      }
+    };
+
+    // Only initialize once to avoid infinite loops
+    initializeLeagues();
+  }, []); // Empty dependency array ensures this runs only once
 
   const handleLeagueSelect = (leagueId) => {
     setFormData(prev => ({
@@ -127,24 +171,36 @@ const GroupForm = () => {
             </HelpTooltip>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {leagues.map(league => (
-              <button
-                key={league.id}
-                onClick={() => handleLeagueSelect(league.id)}
-                className={`p-4 border rounded-lg transition-colors flex flex-col items-center justify-center
-                  ${formData.league === league.id 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-blue-300'}`}
-              >
-                <span className="font-medium">{league.name}</span>
-                <span className="text-sm text-gray-600 mt-1">Season {league.season}</span>
-              </button>
-            ))}
+            {leaguesLoading ? (
+              <LoadingSpinner />
+            ) : (
+              leagues.map(league => (
+                <button
+                  key={league.id}
+                  onClick={() => handleLeagueSelect(league.id)}
+                  className={`p-4 border rounded-lg transition-colors flex flex-col items-center justify-center
+                    ${formData.league === league.id 
+                      ? 'border-blue-500 bg-blue-50' 
+                      : 'border-gray-200 hover:border-blue-300'}`}
+                >
+                  <span className="font-medium">{league.name}</span>
+                  <span className="text-sm text-gray-600 mt-1">Season {league.season}</span>
+                </button>
+              ))
+            )}
           </div>
+          
+          {/* Back button */}
+          <button
+            onClick={() => setStep(1)}
+            className="mt-4 w-full bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+          >
+            Back
+          </button>
         </div>
 
         {/* Step 3: Team Selection */}
-        <div className={`mb-6 ${step !== 2 || !formData.league ? 'hidden' : ''}`}>
+        <div className={`mb-6 ${step !== 3 || !formData.league ? 'hidden' : ''}`}>
           <div className="flex justify-between items-center mb-2">
             <label className="block text-sm font-medium text-gray-700">
               Select Teams to Track
@@ -159,14 +215,22 @@ const GroupForm = () => {
             selectedTeams={formData.tracked_teams}
           />
           
-          <button
-            onClick={handleSubmit}
-            disabled={!formData.name || !formData.league || formData.tracked_teams.length === 0}
-            className="mt-6 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 
-                     disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            Create League
-          </button>
+          <div className="flex gap-4 mt-6">
+            <button
+              onClick={() => setStep(2)}
+              className="flex-1 bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+            >
+              Back
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!formData.name || !formData.league || formData.tracked_teams.length === 0}
+              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 
+                       disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              Create League
+            </button>
+          </div>
         </div>
       </div>
     </div>

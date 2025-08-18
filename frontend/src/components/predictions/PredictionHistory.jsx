@@ -3,15 +3,39 @@ import React, { useState, useEffect } from 'react';
 import { usePredictions, useUser } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import SeasonManager from '../../utils/seasonManager';
 
 const PredictionHistory = () => {
   const { userPredictions, fetchUserPredictions, loading, error } = usePredictions();
   const { profile } = useUser();
+  const [availableSeasons, setAvailableSeasons] = useState([]);
+  const [selectedSeason, setSelectedSeason] = useState('');
   const [filters, setFilters] = useState({
     season: '',
-    week: '',
-    status: ''
+    status: '',
+    week: ''
   });
+
+  // Get available seasons for the user's primary group or default to Premier League
+  useEffect(() => {
+    const getSeasons = () => {
+      try {
+        // Default to Premier League if no group context available
+        const seasons = SeasonManager.getAvailableSeasons('Premier League', 5);
+        setAvailableSeasons(seasons);
+      } catch (error) {
+        console.error('Error getting available seasons:', error);
+        // Fallback to hardcoded seasons
+        setAvailableSeasons([
+          { value: '2025-2026', label: '2025-26' },
+          { value: '2024-2025', label: '2024-25' },
+          { value: '2023-2024', label: '2023-24' }
+        ]);
+      }
+    };
+
+    getSeasons();
+  }, []);
 
   useEffect(() => {
     fetchUserPredictions();
@@ -106,13 +130,16 @@ const PredictionHistory = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Season</label>
               <select
-                value={filters.season}
-                onChange={(e) => setFilters({...filters, season: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
+                value={selectedSeason}
+                onChange={(e) => setSelectedSeason(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-2"
               >
                 <option value="">All Seasons</option>
-                <option value="2024-2025">2024-2025</option>
-                <option value="2023-2024">2023-2024</option>
+                {availableSeasons.map((season) => (
+                  <option key={season.value} value={season.value}>
+                    {season.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>

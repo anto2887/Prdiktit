@@ -3,8 +3,25 @@ import React, { useState, useEffect } from 'react';
 import { useAuth, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import SeasonManager from '../../utils/seasonManager';
 
-const RivalryDashboard = ({ groupId, currentWeek, season = '2024-2025' }) => {
+const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
+  const [currentSeason, setCurrentSeason] = useState(season);
+
+  // Get current season dynamically if not provided
+  useEffect(() => {
+    if (!currentSeason) {
+      try {
+        const season = SeasonManager.getCurrentSeason('Premier League');
+        setCurrentSeason(season);
+      } catch (error) {
+        console.error('Error getting current season:', error);
+        // Fallback to hardcoded season
+        setCurrentSeason('2025-2026');
+      }
+    }
+  }, [currentSeason]);
+  
   const { user } = useAuth();
   const { showError, showSuccess } = useNotifications();
   

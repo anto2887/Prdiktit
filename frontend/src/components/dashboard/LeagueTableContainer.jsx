@@ -1,8 +1,9 @@
 // src/components/dashboard/LeagueTableContainer.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGroupDetails } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import SeasonManager from '../../utils/seasonManager';
 
 // This component uses the new GroupDetailsContext
 const LeagueTableContainer = () => {
@@ -14,6 +15,21 @@ const LeagueTableContainer = () => {
     selectedSeason,
     setSelectedSeason
   } = useGroupDetails();
+  
+  const [availableSeasons, setAvailableSeasons] = useState([]);
+
+  // Get available seasons for the group's league
+  useEffect(() => {
+    if (group && group.league) {
+      const seasons = SeasonManager.getAvailableSeasons(group.league, 5);
+      setAvailableSeasons(seasons);
+      
+      // Set default season if none selected
+      if (!selectedSeason && seasons.length > 0) {
+        setSelectedSeason(seasons[0].value);
+      }
+    }
+  }, [group, selectedSeason, setSelectedSeason]);
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
@@ -24,12 +40,15 @@ const LeagueTableContainer = () => {
       <div className="mb-6 flex flex-wrap gap-4">
         <div className="w-full sm:w-auto">
           <select
-            value={selectedSeason}
+            value={selectedSeason || ''}
             onChange={(e) => setSelectedSeason(e.target.value)}
             className="w-full p-2 border rounded"
           >
-            <option value="2024-2025">2024-2025</option>
-            <option value="2023-2024">2023-2024</option>
+            {availableSeasons.map((season) => (
+              <option key={season.value} value={season.value}>
+                {season.label}
+              </option>
+            ))}
           </select>
         </div>
       </div>

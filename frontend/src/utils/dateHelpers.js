@@ -1,58 +1,59 @@
 // src/utils/dateHelpers.js
 
 /**
- * Get the week number for a given date within a football season
- * @param {Date|string} date - The date to get week number for
- * @param {string} season - Season string (e.g., "2024-2025")
+ * Get the week number for a given date within a season
+ * @param {Date} date - Date to check
+ * @param {string} season - Season string (e.g., "2025-2026")
  * @returns {number} Week number (1-38 for Premier League)
  */
-export const getWeekNumber = (date, season = "2024-2025") => {
-  const matchDate = new Date(date);
+export const getWeekNumber = (date, season = null) => {
+  if (!season) {
+    season = getCurrentSeason();
+  }
+  
   const seasonStart = getSeasonStartDate(season);
+  const timeDiff = date.getTime() - seasonStart.getTime();
+  const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
   
-  if (matchDate < seasonStart) return 0;
+  if (daysDiff < 0) return 0; // Before season starts
+  if (daysDiff > 266) return 39; // After season ends (38 weeks + buffer)
   
-  // Calculate weeks since season start
-  const weeksSinceStart = Math.floor((matchDate - seasonStart) / (7 * 24 * 60 * 60 * 1000));
-  
-  // Premier League typically has 38 gameweeks
-  return Math.min(Math.max(1, weeksSinceStart + 1), 38);
+  return Math.floor(daysDiff / 7) + 1;
 };
 
 /**
- * Get all week numbers for a given season
- * @param {string} season - Season string (e.g., "2024-2025")
- * @returns {number[]} Array of week numbers [1, 2, ..., 38]
+ * Get the total number of weeks in a season
+ * @param {string} season - Season string (e.g., "2025-2026")
+ * @returns {number} Total weeks in season
  */
-export const getSeasonWeeks = (season = "2024-2025") => {
-  return Array.from({ length: 38 }, (_, i) => i + 1);
+export const getSeasonWeeks = (season = null) => {
+  if (!season) {
+    season = getCurrentSeason();
+  }
+  
+  // Premier League has 38 weeks, but we'll make this configurable
+  const seasonWeeks = {
+    "2025-2026": 38,
+    "2024-2025": 38,
+    "2023-2024": 38,
+  };
+  
+  return seasonWeeks[season] || 38;
 };
 
 /**
  * Check if a date falls within a specific week of a season
- * @param {Date|string} date - Date to check
- * @param {number} weekNumber - Week number to check against
- * @param {string} season - Season string
+ * @param {Date} date - Date to check
+ * @param {number} weekNumber - Week number to check
+ * @param {string} season - Season string (e.g., "2025-2026")
  * @returns {boolean} True if date is in the specified week
  */
-export const isDateInWeek = (date, weekNumber, season = "2024-2025") => {
-  return getWeekNumber(date, season) === weekNumber;
-};
-
-/**
- * Get the start date for a football season
- * @param {string} season - Season string (e.g., "2024-2025")
- * @returns {Date} Season start date
- */
-export const getSeasonStartDate = (season = "2024-2025") => {
-  // Map season strings to their start dates
-  const seasonStartDates = {
-    "2024-2025": new Date("2024-08-17"), // Premier League 2024-25 start
-    "2023-2024": new Date("2023-08-12"), // Premier League 2023-24 start
-    "2025-2026": new Date("2025-08-16"), // Estimated future start
-  };
+export const isDateInWeek = (date, weekNumber, season = null) => {
+  if (!season) {
+    season = getCurrentSeason();
+  }
   
-  return seasonStartDates[season] || seasonStartDates["2024-2025"];
+  return getWeekNumber(date, season) === weekNumber;
 };
 
 /**
@@ -70,6 +71,24 @@ export const getCurrentSeason = () => {
   } else {
     return `${currentYear}-${currentYear + 1}`;
   }
+};
+
+/**
+ * Get season start dates for different seasons
+ */
+export const getSeasonStartDate = (season = null) => {
+  const seasonStartDates = {
+    "2025-2026": new Date("2025-08-17"), // Premier League 2025-26 start
+    "2024-2025": new Date("2024-08-17"), // Premier League 2024-25 start
+    "2023-2024": new Date("2023-08-12"), // Premier League 2023-24 start
+  };
+  
+  // If no season provided, use current season
+  if (!season) {
+    season = getCurrentSeason();
+  }
+  
+  return seasonStartDates[season] || seasonStartDates["2025-2026"];
 };
 
 /**
