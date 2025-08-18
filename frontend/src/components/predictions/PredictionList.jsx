@@ -63,14 +63,12 @@ const PredictionList = () => {
             <HelpTooltip content="View your timezone settings and match times">
               <TimezoneIndicator showDetails={true} />
             </HelpTooltip>
-            <HelpTooltip content="View your prediction history and results">
-              <Link
-                to="/predictions/history"
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                View History →
-              </Link>
-            </HelpTooltip>
+            <Link
+              to="/predictions/history"
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+            >
+              View History →
+            </Link>
             <HelpTooltip content="Start the guided tour to learn about making predictions">
               <button
                 onClick={() => setShowGuide(true)}

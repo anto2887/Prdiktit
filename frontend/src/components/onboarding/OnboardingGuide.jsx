@@ -6,59 +6,104 @@ export const HelpTooltip = ({ content, position = 'top', children }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const [tooltipPlacement, setTooltipPlacement] = useState(position);
+  const [timeoutId, setTimeoutId] = useState(null);
 
   if (!content) {
     return children || null;
   }
 
   const handleMouseEnter = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const tooltipWidth = 250;
-    const tooltipHeight = 80;
-    
-    let placement = position;
-    let x = rect.left + rect.width / 2;
-    let y = rect.top + rect.height / 2;
-    
-    // Calculate optimal position to stay within viewport
-    if (placement === 'top') {
-      y = rect.top - 10;
-      if (y < tooltipHeight) {
-        placement = 'bottom';
-        y = rect.bottom + 10;
-      }
-    } else if (placement === 'bottom') {
-      y = rect.bottom + 10;
-      if (y + tooltipHeight > window.innerHeight) {
-        placement = 'top';
-        y = rect.top - 10;
-      }
-    } else if (placement === 'left') {
-      x = rect.left - 10;
-      if (x < tooltipWidth) {
-        placement = 'right';
-        x = rect.right + 10;
-      }
-    } else if (placement === 'right') {
-      x = rect.right + 10;
-      if (x + tooltipWidth > window.innerWidth) {
-        placement = 'left';
-        x = rect.left - 10;
-      }
+    // Clear any existing timeout
+    if (timeoutId) {
+      clearTimeout(timeoutId);
     }
-    
-    // Ensure tooltip stays within viewport bounds
-    x = Math.max(tooltipWidth / 2 + 10, Math.min(x, window.innerWidth - tooltipWidth / 2 - 10));
-    y = Math.max(tooltipHeight / 2 + 10, Math.min(y, window.innerHeight - tooltipHeight / 2 - 10));
-    
-    setTooltipPosition({ x, y });
-    setTooltipPlacement(placement);
-    setIsVisible(true);
+
+    // Add a small delay before showing the tooltip
+    const newTimeoutId = setTimeout(() => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const tooltipWidth = 250;
+      const tooltipHeight = 80;
+      
+      let placement = position;
+      let x = rect.left + rect.width / 2;
+      let y = rect.top + rect.height / 2;
+      
+      // Calculate optimal position to stay within viewport and avoid covering the trigger element
+      if (placement === 'top') {
+        y = rect.top - 15; // Increased offset to avoid covering
+        if (y < tooltipHeight + 20) { // Extra buffer
+          placement = 'bottom';
+          y = rect.bottom + 15;
+        }
+      } else if (placement === 'bottom') {
+        y = rect.bottom + 15;
+        if (y + tooltipHeight > window.innerHeight - 20) {
+          placement = 'top';
+          y = rect.top - 15;
+        }
+      } else if (placement === 'left') {
+        x = rect.left - 15;
+        if (x < tooltipWidth + 20) {
+          placement = 'right';
+          x = rect.right + 15;
+        }
+      } else if (placement === 'right') {
+        x = rect.right + 15;
+        if (x + tooltipWidth > window.innerWidth - 20) {
+          placement = 'left';
+          x = rect.left - 15;
+        }
+      }
+      
+      // Ensure tooltip stays within viewport bounds with extra padding
+      x = Math.max(tooltipWidth / 2 + 20, Math.min(x, window.innerWidth - tooltipWidth / 2 - 20));
+      y = Math.max(tooltipHeight / 2 + 20, Math.min(y, window.innerHeight - tooltipHeight / 2 - 20));
+      
+      // Additional check: ensure tooltip doesn't cover the trigger element
+      const tooltipLeft = x - tooltipWidth / 2;
+      const tooltipRight = x + tooltipWidth / 2;
+      const tooltipTop = y - tooltipHeight / 2;
+      const tooltipBottom = y + tooltipHeight / 2;
+      
+      // If tooltip would cover the trigger element, adjust position
+      if (tooltipLeft < rect.right && tooltipRight > rect.left && 
+          tooltipTop < rect.bottom && tooltipBottom > rect.top) {
+        // Move tooltip further away
+        if (placement === 'top') {
+          y = rect.top - tooltipHeight - 25;
+        } else if (placement === 'bottom') {
+          y = rect.bottom + tooltipHeight + 25;
+        } else if (placement === 'left') {
+          x = rect.left - tooltipWidth - 25;
+        } else if (placement === 'right') {
+          x = rect.right + tooltipWidth + 25;
+        }
+      }
+      
+      setTooltipPosition({ x, y });
+      setTooltipPlacement(placement);
+      setIsVisible(true);
+    }, 300); // 300ms delay
+
+    setTimeoutId(newTimeoutId);
   };
 
   const handleMouseLeave = () => {
+    // Clear any existing timeout
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
     setIsVisible(false);
   };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [timeoutId]);
 
   return (
     <>
@@ -76,7 +121,7 @@ export const HelpTooltip = ({ content, position = 'top', children }) => {
 
       {isVisible && (
         <div 
-          className="fixed z-[999999] px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg max-w-xs"
+          className="fixed z-50 px-3 py-2 text-sm text-white bg-gray-900 rounded-lg shadow-lg max-w-xs"
           style={{
             left: tooltipPosition.x,
             top: tooltipPosition.y,
