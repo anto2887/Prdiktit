@@ -68,6 +68,9 @@ const GroupDetailsPage = () => {
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
   
+  // Local loading state to prevent error flash
+  const [localLoading, setLocalLoading] = useState(true);
+  
   // Prevent multiple fetches
   const hasFetchedRef = useRef({});
   const hasInitializedSeasonRef = useRef(false);
@@ -108,12 +111,21 @@ const GroupDetailsPage = () => {
       hasFetched: hasFetchedRef.current.groupData
     });
     
-    if (groupId && !groupsLoading && !hasFetchedRef.current.groupData) {
+    if (groupId && !hasFetchedRef.current.groupData) {
       process.env.NODE_ENV === 'development' && console.log('📊 Loading group data...');
       hasFetchedRef.current.groupData = true;
       loadGroupData();
     }
   }, [groupId, currentGroup, groupsLoading]);
+
+  // Effect: Update local loading state based on context loading
+  useEffect(() => {
+    if (groupsLoading) {
+      setLocalLoading(true);
+    } else if (currentGroup || membersError) {
+      setLocalLoading(false);
+    }
+  }, [groupsLoading, currentGroup, membersError]);
 
   const loadGroupData = async () => {
     try {
@@ -124,7 +136,11 @@ const GroupDetailsPage = () => {
       ]);
     } catch (error) {
       process.env.NODE_ENV === 'development' && console.error('❌ Error loading group data:', error);
-      showError('Failed to load group data');
+      // Only show error notification if we're not in initial loading phase
+      // This prevents the brief error flash when navigating to group pages
+      if (currentGroup) {
+        showError('Failed to load group data');
+      }
     }
   };
 
@@ -198,7 +214,7 @@ const GroupDetailsPage = () => {
   };
 
   // Loading states
-  if (userLoading || groupsLoading) {
+  if (userLoading || localLoading) {
     return <LoadingSpinner />;
   }
 

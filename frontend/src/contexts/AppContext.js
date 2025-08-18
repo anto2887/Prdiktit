@@ -731,7 +731,11 @@ export const AppProvider = ({ children }) => {
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('🏢 fetchGroupDetails ERROR:', err);
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: err.message || 'Failed to fetch group details' });
-      showError(err.message || 'Failed to fetch group details');
+      // Only show error notification if we're not in initial loading phase
+      // This prevents the brief error flash when navigating to group pages
+      if (state.groups.currentGroup) {
+        showError(err.message || 'Failed to fetch group details');
+      }
       return null;
     }
   }, [state.auth.isAuthenticated, state.groups.currentGroup, showError]); // FIXED: Restore state dependencies for proper state access
@@ -766,7 +770,11 @@ export const AppProvider = ({ children }) => {
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error(`👥 fetchGroupMembers ERROR for group ${groupId}:`, err);
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: err.message || 'Failed to fetch group members' });
-      showError(err.message || 'Failed to fetch group members');
+      // Only show error notification if we're not in initial loading phase
+      // This prevents the brief error flash when navigating to group pages
+      if (state.groups.currentGroup) {
+        showError(err.message || 'Failed to fetch group members');
+      }
       return [];
     }
   }, [state.auth.isAuthenticated, showError]); // FIXED: Restore state dependencies for proper state access

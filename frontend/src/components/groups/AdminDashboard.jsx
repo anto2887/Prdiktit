@@ -35,7 +35,11 @@ const AdminDashboard = () => {
       setMembers(membersData.filter(m => m.status === 'APPROVED'));
       setPendingRequests(membersData.filter(m => m.status === 'PENDING'));
     } catch (err) {
-      showError('Failed to load group data');
+      // Only show error notification if we're not in initial loading phase
+      // This prevents the brief error flash when navigating to group pages
+      if (currentGroup) {
+        showError('Failed to load group data');
+      }
     }
   };
 

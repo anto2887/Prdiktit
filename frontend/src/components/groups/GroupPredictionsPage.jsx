@@ -65,11 +65,15 @@ const GroupPredictionsPage = () => {
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error loading group data:', err);
       setError('Failed to load predictions data');
-      showError('Failed to load group predictions');
+      // Only show error notification if we're not in initial loading phase
+      // This prevents the brief error flash when navigating to group pages
+      if (group) {
+        showError('Failed to load group predictions');
+      }
     } finally {
       setLoading(false);
     }
-  }, [groupId, showError]); // Remove selectedWeek dependency
+  }, [groupId, showError, group]); // Add group to dependencies
 
   const loadGroupPredictions = useCallback(async () => {
     try {

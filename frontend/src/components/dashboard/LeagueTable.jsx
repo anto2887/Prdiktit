@@ -38,7 +38,11 @@ const LeagueTable = ({
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error loading group members', err);
       setError('Failed to load league members. Please try refreshing the page.');
-      if (showError) showError('Failed to load league members');
+      // Only show error notification if we're not in initial loading phase
+      // This prevents the brief error flash when navigating to group pages
+      if (group && showError) {
+        showError('Failed to load league members');
+      }
     } finally {
       setLoading(false);
     }
