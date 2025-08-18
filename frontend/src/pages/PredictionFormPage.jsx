@@ -99,109 +99,60 @@ const PredictionFormPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    process.env.NODE_ENV === 'development' && console.log('Form submission - Raw values:', { homeScore, awayScore });
-    
-    // Check if scores are provided (including 0)
-    if (homeScore === '' || awayScore === '') {
-      showError('Please enter scores for both teams');
+    if (!match) {
+      showError('No match selected');
       return;
     }
-
-    // Validate scores are numbers
-    const homeScoreNum = parseInt(homeScore);
-    const awayScoreNum = parseInt(awayScore);
     
-    process.env.NODE_ENV === 'development' && console.log('Parsed numbers:', { homeScoreNum, awayScoreNum });
-    
-    if (isNaN(homeScoreNum) || isNaN(awayScoreNum)) {
-      showError('Scores must be valid numbers');
-      return;
-    }
-
-    if (homeScoreNum < 0 || awayScoreNum < 0 || homeScoreNum > 20 || awayScoreNum > 20) {
-      showError('Scores must be between 0 and 20');
-      return;
-    }
-
-    const predictionData = {
-      match_id: match?.fixture_id || parseInt(matchId),
-      home_score: homeScoreNum,
-      away_score: awayScoreNum
-    };
-
-    process.env.NODE_ENV === 'development' && console.log('Final prediction data being sent:', predictionData);
-
     try {
+      const predictionData = {
+        fixture_id: match.fixture_id,
+        score1: parseInt(homeScore),
+        score2: parseInt(awayScore)
+      };
+      
       if (id || existingPrediction) {
         // Update existing prediction
-        const predictionId = id || existingPrediction.id;
-        process.env.NODE_ENV === 'development' && console.log('Updating prediction with ID:', predictionId);
-        await updatePrediction(predictionId, {
-          home_score: homeScoreNum,
-          away_score: awayScoreNum
-        });
-        showSuccess('Prediction updated successfully');
+        const updatedPrediction = await updatePrediction(id || existingPrediction.id, predictionData);
+        if (updatedPrediction) {
+          showSuccess('Prediction updated successfully');
+          navigate('/predictions');
+        }
       } else {
         // Create new prediction
-        process.env.NODE_ENV === 'development' && console.log('Creating new prediction with data:', predictionData);
-        await createPrediction(predictionData);
-        showSuccess('Prediction created successfully');
-        
-        // Trigger dashboard refresh by dispatching custom event
-        window.dispatchEvent(new CustomEvent('predictionsUpdated'));
-        localStorage.setItem('predictions_updated', Date.now().toString());
+        const newPrediction = await createPrediction(predictionData);
+        if (newPrediction) {
+          showSuccess('Prediction saved successfully');
+          navigate('/predictions');
+        }
       }
-      
-      // Force a refresh of predictions data with a small delay
-      setTimeout(async () => {
-        await fetchUserPredictions();
-      }, 500);
-      
-      navigate('/dashboard'); // Navigate to dashboard to see the updated predictions
     } catch (err) {
-      process.env.NODE_ENV === 'development' && console.error('Prediction submission error:', err);
-      process.env.NODE_ENV === 'development' && console.error('Error details:', {
-        message: err.message,
-        response: err.response,
-        status: err.status
-      });
+      process.env.NODE_ENV === 'development' && console.error('Error saving prediction:', err);
       showError(err.message || 'Failed to save prediction');
     }
   };
 
-  // Show loading only during initial data fetch
-  if (isInitialLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-64">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  // Show error if there's an error
-  const error = predictionError || matchError;
-  if (error) {
-    return <ErrorMessage message={error} />;
-  }
-
-  // Use the match from state or selectedMatch
+  // Use either the match from state or the selected match
   const currentMatch = match || selectedMatch;
   
-  if (!currentMatch && !isInitialLoading) {
-    return (
-      <ErrorMessage 
-        message="Match not found. Please try again." 
-        onRetry={() => window.location.reload()}
-      />
-    );
-  }
-
-  // Check if prediction deadline has passed (kickoff time)
+  // Check if deadline has passed
   const isDeadlinePassed = currentMatch?.prediction_deadline 
     ? isDateInPast(currentMatch.prediction_deadline)
     : currentMatch?.date 
       ? isDateInPast(currentMatch.date)
       : false;
+
+  if (isInitialLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (matchError) {
+    return <ErrorMessage message={matchError} />;
+  }
+
+  if (!currentMatch) {
+    return <ErrorMessage message="Match not found" />;
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-6">
@@ -224,48 +175,47 @@ const PredictionFormPage = () => {
           <>
             {/* Match details */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3 mb-4">
-                    <div className="flex items-center space-x-2">
-                      {currentMatch.home_team_logo ? (
-                        <img 
-                          src={currentMatch.home_team_logo} 
-                          alt={currentMatch.home_team}
-                          className="w-8 h-8 object-contain"
-                          onError={(e) => { 
-                            e.target.style.display = 'none';
-                            e.target.nextElementSibling.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
-                      <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center" style={{ display: currentMatch.home_team_logo ? 'none' : 'flex' }}>
-                        <span className="text-gray-500 text-sm">⚽</span>
-                      </div>
-                      <span className="text-lg font-medium">{currentMatch.home_team}</span>
-                    </div>
-                    
-                    <span className="text-gray-400 text-lg">vs</span>
-                    
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg font-medium">{currentMatch.away_team}</span>
-                      {currentMatch.away_team_logo ? (
-                        <img 
-                          src={currentMatch.away_team_logo} 
-                          alt={currentMatch.away_team}
-                          className="w-8 h-8 object-contain"
-                          onError={(e) => { 
-                            e.target.style.display = 'none';
-                            e.target.nextElementSibling.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
-                      <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center" style={{ display: currentMatch.away_team_logo ? 'none' : 'flex' }}>
-                        <span className="text-gray-500 text-sm">⚽</span>
-                      </div>
-                    </div>
+              <div className="flex items-center justify-center space-x-8 mb-4">
+                <div className="flex items-center space-x-2">
+                  {currentMatch.home_team_logo ? (
+                    <img 
+                      src={currentMatch.home_team_logo} 
+                      alt={currentMatch.home_team}
+                      className="w-8 h-8 object-contain"
+                      onError={(e) => { 
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center" style={{ display: currentMatch.home_team_logo ? 'none' : 'flex' }}>
+                    <span className="text-gray-500 text-sm">⚽</span>
                   </div>
+                  <span className="text-lg font-medium">{currentMatch.home_team}</span>
+                </div>
+                
+                <span className="text-gray-400 text-lg">vs</span>
+                
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg font-medium">{currentMatch.away_team}</span>
+                  {currentMatch.away_team_logo ? (
+                    <img 
+                      src={currentMatch.away_team_logo} 
+                      alt={currentMatch.away_team}
+                      className="w-8 h-8 object-contain"
+                      onError={(e) => { 
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center" style={{ display: currentMatch.away_team_logo ? 'none' : 'flex' }}>
+                    <span className="text-gray-500 text-sm">⚽</span>
+                  </div>
+                </div>
+              </div>
               
-              <div className="mt-3 text-sm text-gray-600 text-center">
+              <div className="text-sm text-gray-600 text-center">
                 <p>{currentMatch.league} • {currentMatch.season}</p>
                 {(() => {
                   const deadline = currentMatch.prediction_deadline || currentMatch.date;
