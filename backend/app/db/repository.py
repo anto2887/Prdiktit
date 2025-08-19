@@ -781,9 +781,30 @@ async def create_group(db: Session, admin_id: int, **group_data) -> Group:
         if 'invite_code' not in group_data:
             group_data['invite_code'] = str(uuid.uuid4())[:8].upper()
         
+        # Calculate activation weeks for new groups
+        # For now, assume current week is 1 (can be refined later)
+        current_week = 1
+        created_week = current_week
+        activation_week = created_week + 5  # Features unlock 5 weeks after creation
+        
+        # Calculate next rivalry week based on league
+        league = group_data.get('league', 'Premier League')
+        if league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
+            # Full seasons - first rivalry week around week 7-8
+            next_rivalry_week = max(activation_week, 7)
+        elif league in ['Champions League', 'Europa League']:
+            # Short tournaments - first rivalry week around week 3-4
+            next_rivalry_week = max(activation_week, 3)
+        else:
+            # Default fallback
+            next_rivalry_week = activation_week + 2
+        
         group = Group(
             admin_id=admin_id,
             created=datetime.now(timezone.utc),
+            created_week=created_week,
+            activation_week=activation_week,
+            next_rivalry_week=next_rivalry_week,
             **group_data
         )
         

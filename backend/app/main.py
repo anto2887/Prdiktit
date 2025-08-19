@@ -442,6 +442,354 @@ async def migrate_points_field():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+# Migration endpoint for group activation system
+@app.post("/api/v1/admin/migrate-group-activation-system")
+async def migrate_group_activation_system():
+    """Migration endpoint to add group-relative activation system fields"""
+    try:
+        from .db.database import SessionLocal
+        from sqlalchemy import text
+        import logging
+        
+        # Set up logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info("🚀 Starting Group Activation System Migration...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Step 1: Check if migration is already done
+            logger.info("📊 Checking current table structure...")
+            
+            columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name IN ('created_week', 'activation_week', 'next_rivalry_week')
+            """)).fetchall()
+            
+            existing_columns = [col[0] for col in columns_check]
+            logger.info(f"📋 Existing columns found: {existing_columns}")
+            
+            if len(existing_columns) == 3:
+                logger.info("✅ Migration already completed - all columns exist")
+                return {
+                    "success": True, 
+                    "message": "Migration already completed",
+                    "existing_columns": existing_columns
+                }
+            
+            # Step 2: Add new columns
+            logger.info("🔧 Adding new columns to groups table...")
+            
+            columns_to_add = [
+                ('created_week', 'INTEGER'),
+                ('activation_week', 'INTEGER'), 
+                ('next_rivalry_week', 'INTEGER')
+            ]
+            
+            for col_name, col_type in columns_to_add:
+                if col_name not in existing_columns:
+                    try:
+                        logger.info(f"➕ Adding column: {col_name} {col_type}")
+                        db.execute(text(f"ALTER TABLE groups ADD COLUMN {col_name} {col_type}"))
+                        db.commit()
+                        logger.info(f"✅ Successfully added column: {col_name}")
+                    except Exception as col_error:
+                        db.rollback()
+                        logger.error(f"❌ Failed to add column {col_name}: {col_error}")
+                        return {"success": False, "error": f"Failed to add column {col_name}: {str(col_error)}"}
+                else:
+                    logger.info(f"⏭️ Column {col_name} already exists, skipping")
+            
+            # Step 3: Populate existing groups with activation data
+            logger.info("🔄 Starting data population for existing groups...")
+            
+            # Get all existing groups
+            groups_result = db.execute(text("SELECT id, created, league FROM groups")).fetchall()
+            total_groups = len(groups_result)
+            logger.info(f"📊 Found {total_groups} groups to process")
+            
+            updated_count = 0
+            failed_count = 0
+            errors = []
+            
+            for group_id, created_date, league in groups_result:
+                try:
+                    logger.info(f"🔄 Processing group {group_id} (league: {league})")
+                    
+                    # Calculate created_week based on created date
+                    # For now, assume season starts around August 1st
+                    if created_date:
+                        from datetime import datetime
+                        created_datetime = created_date if isinstance(created_date, datetime) else datetime.fromisoformat(str(created_date))
+                        
+                        # Simple week calculation (can be refined later)
+                        if created_datetime.month >= 8:  # August or later
+                            created_week = 1  # Start of season
+                        else:
+                            created_week = 38  # End of previous season
+                    else:
+                        created_week = 1  # Default fallback
+                        logger.warning(f"⚠️ Group {group_id} has no created date, using default week 1")
+                    
+                    # Calculate activation_week (5 weeks after creation)
+                    activation_week = created_week + 5
+                    
+                    # Calculate next_rivalry_week (first rivalry week after activation)
+                    # For now, use simple logic - can be refined in Phase 3
+                    if league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
+                        # Full seasons - first rivalry week around week 7-8
+                        next_rivalry_week = max(activation_week, 7)
+                    elif league in ['Champions League', 'Europa League']:
+                        # Short tournaments - first rivalry week around week 3-4
+                        next_rivalry_week = max(activation_week, 3)
+                    else:
+                        # Default fallback
+                        next_rivalry_week = activation_week + 2
+                    
+                    logger.info(f"📅 Group {group_id}: created_week={created_week}, activation_week={activation_week}, next_rivalry_week={next_rivalry_week}")
+                    
+                    # Update the group
+                    update_result = db.execute(text("""
+                        UPDATE groups 
+                        SET created_week = :created_week, 
+                            activation_week = :activation_week, 
+                            next_rivalry_week = :next_rivalry_week
+                        WHERE id = :group_id
+                    """), {
+                        'created_week': created_week,
+                        'activation_week': activation_week,
+                        'next_rivalry_week': next_rivalry_week,
+                        'group_id': group_id
+                    })
+                    
+                    if update_result.rowcount > 0:
+                        updated_count += 1
+                        logger.info(f"✅ Successfully updated group {group_id}")
+                    else:
+                        failed_count += 1
+                        logger.warning(f"⚠️ No rows updated for group {group_id}")
+                        
+                except Exception as group_error:
+                    failed_count += 1
+                    error_msg = f"Failed to process group {group_id}: {str(group_error)}"
+                    errors.append(error_msg)
+                    logger.error(f"❌ {error_msg}")
+                    continue
+            
+            # Step 4: Create indexes for performance
+            logger.info("🔍 Creating performance indexes...")
+            
+            try:
+                db.execute(text("CREATE INDEX IF NOT EXISTS idx_groups_activation_week ON groups(activation_week)"))
+                db.execute(text("CREATE INDEX IF NOT EXISTS idx_groups_next_rivalry_week ON groups(next_rivalry_week)"))
+                db.commit()
+                logger.info("✅ Performance indexes created successfully")
+            except Exception as index_error:
+                db.rollback()
+                logger.warning(f"⚠️ Failed to create indexes: {index_error}")
+            
+            # Step 5: Final verification
+            logger.info("🔍 Final verification...")
+            
+            verification_result = db.execute(text("""
+                SELECT COUNT(*) as total_groups,
+                       COUNT(created_week) as with_created_week,
+                       COUNT(activation_week) as with_activation_week,
+                       COUNT(next_rivalry_week) as with_next_rivalry_week
+                FROM groups
+            """)).fetchone()
+            
+            logger.info(f"📊 Verification results: {verification_result}")
+            
+            if verification_result.with_created_week == total_groups and \
+               verification_result.with_activation_week == total_groups and \
+               verification_result.with_next_rivalry_week == total_groups:
+                logger.info("🎉 Migration completed successfully!")
+                
+                return {
+                    "success": True,
+                    "message": "Group Activation System migration completed successfully",
+                    "summary": {
+                        "total_groups": total_groups,
+                        "successfully_updated": updated_count,
+                        "failed_updates": failed_count,
+                        "errors": errors[:10] if errors else [],  # Limit error list
+                        "verification": {
+                            "total_groups": verification_result.total_groups,
+                            "with_created_week": verification_result.with_created_week,
+                            "with_activation_week": verification_result.with_activation_week,
+                            "with_next_rivalry_week": verification_result.with_next_rivalry_week
+                        }
+                    }
+                }
+            else:
+                logger.error("❌ Migration verification failed - not all groups have required fields")
+                return {
+                    "success": False,
+                    "error": "Migration verification failed",
+                    "verification": verification_result
+                }
+                
+        except Exception as db_error:
+            logger.error(f"❌ Database error during migration: {db_error}")
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"💥 Migration failed with error: {e}")
+        return {"success": False, "error": str(e)}
+
+# Rollback endpoint for group activation system migration
+@app.post("/api/v1/admin/rollback-group-activation-system")
+async def rollback_group_activation_system():
+    """Rollback endpoint to remove group activation system fields if needed"""
+    try:
+        from .db.database import SessionLocal
+        from sqlalchemy import text
+        import logging
+        
+        # Set up logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info("🔄 Starting Group Activation System Rollback...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Step 1: Check current state
+            logger.info("📊 Checking current table structure...")
+            
+            columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name IN ('created_week', 'activation_week', 'next_rivalry_week')
+            """)).fetchall()
+            
+            existing_columns = [col[0] for col in columns_check]
+            logger.info(f"📋 Columns to remove: {existing_columns}")
+            
+            if not existing_columns:
+                logger.info("✅ No columns to rollback - migration not applied")
+                return {
+                    "success": True, 
+                    "message": "No rollback needed - migration not applied",
+                    "existing_columns": []
+                }
+            
+            # Step 2: Remove indexes first
+            logger.info("🔍 Removing performance indexes...")
+            
+            try:
+                db.execute(text("DROP INDEX IF EXISTS idx_groups_activation_week"))
+                db.execute(text("DROP INDEX IF EXISTS idx_groups_next_rivalry_week"))
+                db.commit()
+                logger.info("✅ Performance indexes removed successfully")
+            except Exception as index_error:
+                db.rollback()
+                logger.warning(f"⚠️ Failed to remove indexes: {index_error}")
+            
+            # Step 3: Remove columns
+            logger.info("🔧 Removing columns from groups table...")
+            
+            for col_name in existing_columns:
+                try:
+                    logger.info(f"➖ Removing column: {col_name}")
+                    db.execute(text(f"ALTER TABLE groups DROP COLUMN {col_name}"))
+                    db.commit()
+                    logger.info(f"✅ Successfully removed column: {col_name}")
+                except Exception as col_error:
+                    db.rollback()
+                    logger.error(f"❌ Failed to remove column {col_name}: {col_error}")
+                    return {"success": False, "error": f"Failed to remove column {col_name}: {str(col_error)}"}
+            
+            # Step 4: Final verification
+            logger.info("🔍 Final verification...")
+            
+            verification_result = db.execute(text("""
+                SELECT COUNT(*) as total_groups
+                FROM groups
+            """)).fetchone()
+            
+            logger.info(f"📊 Verification results: {verification_result}")
+            logger.info("🎉 Rollback completed successfully!")
+            
+            return {
+                "success": True,
+                "message": "Group Activation System rollback completed successfully",
+                "removed_columns": existing_columns,
+                "verification": {
+                    "total_groups": verification_result.total_groups
+                }
+            }
+                
+        except Exception as db_error:
+            logger.error(f"❌ Database error during rollback: {db_error}")
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"💥 Rollback failed with error: {e}")
+        return {"success": False, "error": str(e)}
+
+# Test endpoint for group activation system migration
+@app.get("/api/v1/admin/test-group-activation-migration")
+async def test_group_activation_migration():
+    """Test endpoint to check group activation system migration status"""
+    try:
+        from .db.database import SessionLocal
+        from sqlalchemy import text
+        
+        db = SessionLocal()
+        
+        try:
+            # Check if new columns exist
+            columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name IN ('created_week', 'activation_week', 'next_rivalry_week')
+            """)).fetchall()
+            
+            existing_columns = [col[0] for col in columns_check]
+            
+            # Check sample data
+            sample_groups = db.execute(text("""
+                SELECT id, name, league, created_week, activation_week, next_rivalry_week
+                FROM groups 
+                LIMIT 3
+            """)).fetchall()
+            
+            return {
+                "success": True,
+                "message": "Group activation system migration status check",
+                "existing_columns": existing_columns,
+                "migration_complete": len(existing_columns) == 3,
+                "sample_groups": [
+                    {
+                        "id": group[0],
+                        "name": group[1],
+                        "league": group[2],
+                        "created_week": group[3],
+                        "activation_week": group[4],
+                        "next_rivalry_week": group[5]
+                    }
+                    for group in sample_groups
+                ]
+            }
+            
+        except Exception as db_error:
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 # Test endpoint to trigger fixture updates from API
 @app.post("/api/v1/admin/test-fixture-updates")
 async def test_fixture_updates():

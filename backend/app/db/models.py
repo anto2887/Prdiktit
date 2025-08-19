@@ -72,6 +72,11 @@ class Group(Base):
     analytics_activation_week = Column(Integer, nullable=True)
     current_week = Column(Integer, nullable=False, default=1)
     
+    # NEW: Group-relative activation system fields
+    created_week = Column(Integer, nullable=True)  # Week when group was created
+    activation_week = Column(Integer, nullable=True)  # Week when features unlock for this group
+    next_rivalry_week = Column(Integer, nullable=True)  # Next rivalry week after activation
+    
     # Relationships
     admin = relationship("User", back_populates="admin_groups", foreign_keys=[admin_id])
     users = relationship("User", secondary=group_members, back_populates="groups")
