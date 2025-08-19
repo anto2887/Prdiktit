@@ -345,8 +345,11 @@ async def health_check():
 async def manual_process_matches():
     """Manual endpoint to trigger match processing for testing"""
     try:
+        from .services.enhanced_smart_scheduler import EnhancedSmartScheduler
+        
         # Use the enhanced scheduler's processing method
-        result = await enhanced_smart_scheduler.run_enhanced_processing_with_status_updates()
+        scheduler = EnhancedSmartScheduler()
+        result = await scheduler.run_enhanced_processing_with_status_updates()
         return {"success": True, "result": result}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -809,7 +812,7 @@ async def test_rivalry_activation():
             test_results = []
             
             for group in groups:
-                logger.info(f"🧪 Testing rivalry activation for group {group.id}: {group.name}")
+                logging.info(f"🧪 Testing rivalry activation for group {group.id}: {group.name}")
                 
                 # Test different weeks
                 test_weeks = [1, 5, 6, 10, 14, 18]
@@ -832,7 +835,7 @@ async def test_rivalry_activation():
                     })
                 
                 test_results.append(group_results)
-                logger.info(f"✅ Group {group.id} test completed")
+                logging.info(f"✅ Group {group.id} test completed")
             
             return {
                 "success": True,
@@ -841,13 +844,13 @@ async def test_rivalry_activation():
             }
             
         except Exception as db_error:
-            logger.error(f"❌ Database error during rivalry test: {db_error}")
+            logging.error(f"❌ Database error during rivalry test: {db_error}")
             return {"success": False, "error": f"Database error: {str(db_error)}"}
         finally:
             db.close()
             
     except Exception as e:
-        logger.error(f"❌ Error testing rivalry activation: {e}")
+        logging.error(f"❌ Error testing rivalry activation: {e}")
         return {"success": False, "error": str(e)}
 
 # Test endpoint for analytics service group-relative activation
@@ -869,7 +872,7 @@ async def test_analytics_activation():
             test_results = []
             
             for group in groups:
-                logger.info(f"🧪 Testing analytics activation for group {group.id}: {group.name}")
+                logging.info(f"🧪 Testing analytics activation for group {group.id}: {group.name}")
                 
                 # Get a sample user from this group
                 from .db.models import group_members
@@ -903,9 +906,9 @@ async def test_analytics_activation():
                         })
                     
                     test_results.append(group_results)
-                    logger.info(f"✅ Group {group.id} analytics test completed")
+                    logging.info(f"✅ Group {group.id} analytics test completed")
                 else:
-                    logger.warning(f"⚠️ No approved users found in group {group.id}")
+                    logging.warning(f"⚠️ No approved users found in group {group.id}")
             
             return {
                 "success": True,
@@ -914,13 +917,13 @@ async def test_analytics_activation():
             }
             
         except Exception as db_error:
-            logger.error(f"❌ Database error during analytics test: {db_error}")
+            logging.error(f"❌ Database error during analytics test: {db_error}")
             return {"success": False, "error": f"Database error: {str(db_error)}"}
         finally:
             db.close()
             
     except Exception as e:
-        logger.error(f"❌ Error testing analytics activation: {e}")
+        logging.error(f"❌ Error testing analytics activation: {e}")
         return {"success": False, "error": str(e)}
 
 # Test endpoint for bonus service group-relative activation
@@ -942,7 +945,7 @@ async def test_bonus_activation():
             test_results = []
             
             for group in groups:
-                logger.info(f"🧪 Testing bonus activation for group {group.id}: {group.name}")
+                logging.info(f"🧪 Testing bonus activation for group {group.id}: {group.name}")
                 
                 # Test different weeks
                 test_weeks = [1, 5, 6, 10, 14, 18]
@@ -963,7 +966,7 @@ async def test_bonus_activation():
                     })
                 
                 test_results.append(group_results)
-                logger.info(f"✅ Group {group.id} bonus test completed")
+                logging.info(f"✅ Group {group.id} bonus test completed")
             
             return {
                 "success": True,
@@ -972,13 +975,13 @@ async def test_bonus_activation():
             }
             
         except Exception as db_error:
-            logger.error(f"❌ Database error during bonus test: {db_error}")
+            logging.error(f"❌ Database error during bonus test: {db_error}")
             return {"success": False, "error": f"Database error: {str(db_error)}"}
         finally:
             db.close()
             
     except Exception as e:
-        logger.error(f"❌ Error testing bonus activation: {e}")
+        logging.error(f"❌ Error testing bonus activation: {e}")
         return {"success": False, "error": str(e)}
 
 # Test endpoint to trigger fixture updates from API
