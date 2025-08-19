@@ -22,6 +22,83 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Helper functions for season handling
+def get_season_info_for_league(league):
+    """Get season information for a specific league"""
+    if league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
+        return {
+            'total_weeks': 38,
+            'season_start_month': 8,  # August
+            'rivalry_frequency': 4,
+            'activation_delay': 5
+        }
+    elif league in ['Champions League', 'Europa League']:
+        return {
+            'total_weeks': 15,
+            'season_start_month': 9,  # September
+            'rivalry_frequency': 3,
+            'activation_delay': 3
+        }
+    elif league == 'MLS':
+        return {
+            'total_weeks': 34,
+            'season_start_month': 3,  # March
+            'rivalry_frequency': 4,
+            'activation_delay': 5
+        }
+    else:
+        return {
+            'total_weeks': 30,
+            'season_start_month': 8,
+            'rivalry_frequency': 4,
+            'activation_delay': 5
+        }
+
+def calculate_actual_week_in_season(created_datetime, season_info):
+    """Calculate actual week in season based on creation date"""
+    from datetime import datetime
+    
+    # Assume season starts on the 1st of the season_start_month
+    current_year = created_datetime.year
+    season_start = datetime(current_year, season_info['season_start_month'], 1)
+    
+    # If created before season start, use previous year
+    if created_datetime < season_start:
+        season_start = datetime(current_year - 1, season_info['season_start_month'], 1)
+    
+    # Calculate weeks since season start
+    days_diff = (created_datetime - season_start).days
+    week_in_season = (days_diff // 7) + 1
+    
+    # Ensure week is within season bounds
+    week_in_season = max(1, min(week_in_season, season_info['total_weeks']))
+    
+    return week_in_season
+
+def calculate_activation_week_with_boundaries(created_week, league):
+    """Calculate activation week with season boundary handling"""
+    season_info = get_season_info_for_league(league)
+    activation_week = created_week + season_info['activation_delay']
+    
+    # If activation would be after season ends, activate at season end
+    if activation_week > season_info['total_weeks']:
+        return season_info['total_weeks']
+    
+    return activation_week
+
+def calculate_next_rivalry_week_with_season_handling(activation_week, league):
+    """Calculate next rivalry week with proper season handling"""
+    season_info = get_season_info_for_league(league)
+    
+    # First rivalry week should be at or after activation
+    next_rivalry_week = max(activation_week, activation_week + 1)
+    
+    # Ensure it's within season bounds
+    if next_rivalry_week > season_info['total_weeks']:
+        next_rivalry_week = season_info['total_weeks']
+    
+    return next_rivalry_week
+
 # =============================================================================
 # USER REPOSITORY FUNCTIONS
 # =============================================================================
@@ -781,23 +858,21 @@ async def create_group(db: Session, admin_id: int, **group_data) -> Group:
         if 'invite_code' not in group_data:
             group_data['invite_code'] = str(uuid.uuid4())[:8].upper()
         
-        # Calculate activation weeks for new groups
-        # For now, assume current week is 1 (can be refined later)
-        current_week = 1
-        created_week = current_week
-        activation_week = created_week + 5  # Features unlock 5 weeks after creation
-        
-        # Calculate next rivalry week based on league
+        # Calculate activation weeks for new groups with proper season handling
         league = group_data.get('league', 'Premier League')
-        if league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
-            # Full seasons - first rivalry week around week 7-8
-            next_rivalry_week = max(activation_week, 7)
-        elif league in ['Champions League', 'Europa League']:
-            # Short tournaments - first rivalry week around week 3-4
-            next_rivalry_week = max(activation_week, 3)
-        else:
-            # Default fallback
-            next_rivalry_week = activation_week + 2
+        
+        # Get season info for this league
+        season_info = get_season_info_for_league(league)
+        
+        # Calculate actual week in season based on current date
+        current_date = datetime.now(timezone.utc)
+        created_week = calculate_actual_week_in_season(current_date, season_info)
+        
+        # Calculate activation week with season boundary handling
+        activation_week = calculate_activation_week_with_boundaries(created_week, league)
+        
+        # Calculate next rivalry week with proper season handling
+        next_rivalry_week = calculate_next_rivalry_week_with_season_handling(activation_week, league)
         
         group = Group(
             admin_id=admin_id,
