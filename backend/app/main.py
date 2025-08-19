@@ -790,6 +790,197 @@ async def test_group_activation_migration():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+# Test endpoint for rivalry service group-relative activation
+@app.get("/api/v1/admin/test-rivalry-activation")
+async def test_rivalry_activation():
+    """Test endpoint to verify rivalry service group-relative activation"""
+    try:
+        from .services.rivalry_service import RivalryService
+        from .db.database import SessionLocal
+        from .db.models import Group
+        
+        db = SessionLocal()
+        
+        try:
+            rivalry_service = RivalryService(db)
+            
+            # Get all groups to test
+            groups = db.query(Group).all()
+            test_results = []
+            
+            for group in groups:
+                logger.info(f"🧪 Testing rivalry activation for group {group.id}: {group.name}")
+                
+                # Test different weeks
+                test_weeks = [1, 5, 6, 10, 14, 18]
+                group_results = {
+                    'group_id': group.id,
+                    'group_name': group.name,
+                    'league': group.league,
+                    'created_week': group.created_week,
+                    'activation_week': group.activation_week,
+                    'next_rivalry_week': group.next_rivalry_week,
+                    'week_tests': []
+                }
+                
+                for week in test_weeks:
+                    is_rivalry_week = rivalry_service._is_rivalry_week_for_group(group.id, week, "2025-2026")
+                    group_results['week_tests'].append({
+                        'week': week,
+                        'is_rivalry_week': is_rivalry_week,
+                        'weeks_since_activation': week - (group.activation_week or 0) if group.activation_week else None
+                    })
+                
+                test_results.append(group_results)
+                logger.info(f"✅ Group {group.id} test completed")
+            
+            return {
+                "success": True,
+                "message": "Rivalry activation tests completed",
+                "test_results": test_results
+            }
+            
+        except Exception as db_error:
+            logger.error(f"❌ Database error during rivalry test: {db_error}")
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Error testing rivalry activation: {e}")
+        return {"success": False, "error": str(e)}
+
+# Test endpoint for analytics service group-relative activation
+@app.get("/api/v1/admin/test-analytics-activation")
+async def test_analytics_activation():
+    """Test endpoint to verify analytics service group-relative activation"""
+    try:
+        from .services.analytics_service import AnalyticsService
+        from .db.database import SessionLocal
+        from .db.models import Group, User
+        
+        db = SessionLocal()
+        
+        try:
+            analytics_service = AnalyticsService(db)
+            
+            # Get all groups to test
+            groups = db.query(Group).all()
+            test_results = []
+            
+            for group in groups:
+                logger.info(f"🧪 Testing analytics activation for group {group.id}: {group.name}")
+                
+                # Get a sample user from this group
+                from .db.models import group_members
+                user_result = db.execute(text("""
+                    SELECT user_id FROM group_members 
+                    WHERE group_id = :group_id AND status = 'APPROVED' 
+                    LIMIT 1
+                """), {'group_id': group.id}).first()
+                
+                if user_result:
+                    user_id = user_result[0]
+                    
+                    # Test different weeks
+                    test_weeks = [1, 5, 6, 10, 14, 18]
+                    group_results = {
+                        'group_id': group.id,
+                        'group_name': group.name,
+                        'league': group.league,
+                        'activation_week': group.activation_week,
+                        'user_id': user_id,
+                        'week_tests': []
+                    }
+                    
+                    for week in test_weeks:
+                        activation_info = await analytics_service._check_analytics_activation(user_id, week, group.id)
+                        group_results['week_tests'].append({
+                            'week': week,
+                            'available': activation_info['available'],
+                            'activation_week': activation_info['activation_week'],
+                            'reason': activation_info['reason']
+                        })
+                    
+                    test_results.append(group_results)
+                    logger.info(f"✅ Group {group.id} analytics test completed")
+                else:
+                    logger.warning(f"⚠️ No approved users found in group {group.id}")
+            
+            return {
+                "success": True,
+                "message": "Analytics activation tests completed",
+                "test_results": test_results
+            }
+            
+        except Exception as db_error:
+            logger.error(f"❌ Database error during analytics test: {db_error}")
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Error testing analytics activation: {e}")
+        return {"success": False, "error": str(e)}
+
+# Test endpoint for bonus service group-relative activation
+@app.get("/api/v1/admin/test-bonus-activation")
+async def test_bonus_activation():
+    """Test endpoint to verify bonus service group-relative activation"""
+    try:
+        from .services.bonus_service import BonusPointsService
+        from .db.database import SessionLocal
+        from .db.models import Group
+        
+        db = SessionLocal()
+        
+        try:
+            bonus_service = BonusPointsService(db)
+            
+            # Get all groups to test
+            groups = db.query(Group).all()
+            test_results = []
+            
+            for group in groups:
+                logger.info(f"🧪 Testing bonus activation for group {group.id}: {group.name}")
+                
+                # Test different weeks
+                test_weeks = [1, 5, 6, 10, 14, 18]
+                group_results = {
+                    'group_id': group.id,
+                    'group_name': group.name,
+                    'league': group.league,
+                    'activation_week': group.activation_week,
+                    'week_tests': []
+                }
+                
+                for week in test_weeks:
+                    bonus_available = await bonus_service._check_bonus_activation(group.id, week)
+                    group_results['week_tests'].append({
+                        'week': week,
+                        'bonus_available': bonus_available,
+                        'weeks_since_activation': week - (group.activation_week or 0) if group.activation_week else None
+                    })
+                
+                test_results.append(group_results)
+                logger.info(f"✅ Group {group.id} bonus test completed")
+            
+            return {
+                "success": True,
+                "message": "Bonus activation tests completed",
+                "test_results": test_results
+            }
+            
+        except Exception as db_error:
+            logger.error(f"❌ Database error during bonus test: {db_error}")
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Error testing bonus activation: {e}")
+        return {"success": False, "error": str(e)}
+
 # Test endpoint to trigger fixture updates from API
 @app.post("/api/v1/admin/test-fixture-updates")
 async def test_fixture_updates():

@@ -12,7 +12,7 @@ from sqlalchemy import func, and_, case
 
 from ..db.models import (
     UserAnalytics, UserPrediction, Fixture, User, Group, 
-    GroupHeatmap, UserStreak, PredictionStatus, MatchStatus
+    GroupHeatmap, UserStreak, PredictionStatus, MatchStatus, group_members
 )
 from ..db.repository import get_group_members
 from ..services.cache_service import RedisCache
@@ -25,14 +25,22 @@ class AnalyticsService:
     def __init__(self, db: Session, cache: Optional[RedisCache] = None):
         self.db = db
         self.cache = cache
-        self.activation_week = 5  # Analytics activate at week 5
+        # Analytics activation is now group-relative, not global
+        # Default fallback for backward compatibility
+        self.default_activation_week = 5
     
-    async def calculate_user_analytics(self, user_id: int, season: str, current_week: int) -> Dict:
-        """Calculate comprehensive user analytics"""
+    async def calculate_user_analytics(self, user_id: int, season: str, current_week: int, group_id: Optional[int] = None) -> Dict:
+        """Calculate comprehensive user analytics with group-relative activation"""
         
-        if current_week < self.activation_week:
-            logger.info(f"Analytics not yet available - current week {current_week} < activation week {self.activation_week}")
-            return {'analytics_available': False, 'activation_week': self.activation_week}
+        # Check if analytics are available for this user/group
+        activation_info = await self._check_analytics_activation(user_id, current_week, group_id)
+        if not activation_info['available']:
+            logger.info(f"Analytics not yet available for user {user_id} in group {group_id}: {activation_info['reason']}")
+            return {
+                'analytics_available': False, 
+                'activation_week': activation_info['activation_week'],
+                'reason': activation_info['reason']
+            }
         
         logger.info(f"📊 Calculating analytics for user {user_id}, season {season}")
         
@@ -69,7 +77,7 @@ class AnalyticsService:
             # Overall summary
             analytics['summary'] = await self._generate_summary(user_id, season, current_week)
             
-            # Cache the results
+                        # Cache the results
             if self.cache:
                 await self.cache.set(cache_key, analytics, expiry=3600)  # 1 hour cache
             
@@ -82,6 +90,66 @@ class AnalyticsService:
         except Exception as e:
             logger.error(f"❌ Error calculating analytics for user {user_id}: {e}")
             raise
+    
+    async def _check_analytics_activation(self, user_id: int, current_week: int, group_id: Optional[int] = None) -> Dict:
+        """Check if analytics are activated for a user/group using group-relative activation"""
+        try:
+            logger.info(f"🔍 Checking analytics activation for user {user_id} in group {group_id}")
+            
+            if group_id:
+                # Check group-specific activation
+                group = self.db.query(Group).filter(Group.id == group_id).first()
+                if group and group.activation_week:
+                    if current_week < group.activation_week:
+                        return {
+                            'available': False,
+                            'activation_week': group.activation_week,
+                            'reason': f'Group features unlock at week {group.activation_week}'
+                        }
+                    else:
+                        return {
+                            'available': True,
+                            'activation_week': group.activation_week,
+                            'reason': 'Group features activated'
+                        }
+            
+            # Fallback: Check if user is in any group with activated features
+            user_groups = self.db.query(Group).join(
+                group_members, Group.id == group_members.c.group_id
+            ).filter(
+                group_members.c.user_id == user_id
+            ).all()
+            
+            for group in user_groups:
+                if group.activation_week and current_week >= group.activation_week:
+                    return {
+                        'available': True,
+                        'activation_week': group.activation_week,
+                        'reason': f'User in activated group: {group.name}'
+                    }
+            
+            # Default fallback for backward compatibility
+            if current_week < self.default_activation_week:
+                return {
+                    'available': False,
+                    'activation_week': self.default_activation_week,
+                    'reason': f'Default activation at week {self.default_activation_week}'
+                }
+            
+            return {
+                'available': True,
+                'activation_week': self.default_activation_week,
+                'reason': 'Default activation passed'
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error checking analytics activation for user {user_id}: {e}")
+            # Fallback to default behavior
+            return {
+                'available': current_week >= self.default_activation_week,
+                'activation_week': self.default_activation_week,
+                'reason': f'Error occurred, using default: {str(e)}'
+            }
     
     async def _calculate_performance_trends(self, user_id: int, season: str, current_week: int) -> Dict:
         """Calculate performance trends over the last 5 weeks"""

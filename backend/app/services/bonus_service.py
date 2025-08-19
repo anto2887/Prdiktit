@@ -10,7 +10,7 @@ from collections import defaultdict
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 
-from ..db.models import UserPrediction, User, PredictionStatus
+from ..db.models import UserPrediction, User, PredictionStatus, Group
 from ..db.repository import get_group_members
 
 logger = logging.getLogger(__name__)
@@ -32,6 +32,19 @@ class BonusPointsService:
         logger.info(f"🎁 Calculating weekly bonuses for week {week}, season {season}")
         
         try:
+            # Check if bonuses are available for this group (group-relative activation)
+            if group_id:
+                bonus_available = await self._check_bonus_activation(group_id, week)
+                if not bonus_available:
+                    logger.info(f"🎁 Bonuses not yet available for group {group_id} at week {week}")
+                    return {
+                        'bonuses_available': False,
+                        'reason': 'Group features not yet activated',
+                        'perfect_weeks': 0,
+                        'flawless_weeks': 0,
+                        'users_processed': 0
+                    }
+            
             # Get all users to check (group-specific or all users)
             if group_id:
                 group_members = await get_group_members(self.db, group_id)
@@ -353,3 +366,31 @@ class BonusPointsService:
         except Exception as e:
             logger.error(f"❌ Error in weekly bonus processing: {e}")
             raise
+    
+    async def _check_bonus_activation(self, group_id: int, current_week: int) -> bool:
+        """Check if bonuses are activated for a group using group-relative activation"""
+        try:
+            logger.info(f"🔍 Checking bonus activation for group {group_id} at week {current_week}")
+            
+            from ..db.models import Group
+            group = self.db.query(Group).filter(Group.id == group_id).first()
+            if not group:
+                logger.warning(f"Group {group_id} not found for bonus activation check")
+                return False
+            
+            # Check if group has activation data
+            if not group.activation_week:
+                logger.warning(f"Group {group_id} missing activation data")
+                return False
+            
+            # Check if features are activated for this group
+            if current_week < group.activation_week:
+                logger.info(f"Group {group_id} features not yet activated (week {current_week} < {group.activation_week})")
+                return False
+            
+            logger.info(f"✅ Group {group_id} bonuses activated at week {current_week}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Error checking bonus activation for group {group_id}: {e}")
+            return False

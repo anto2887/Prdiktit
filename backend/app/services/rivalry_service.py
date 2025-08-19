@@ -61,6 +61,68 @@ class RivalryService:
                 interval * 4        # ~Week 30-31
             ]
     
+    def _is_rivalry_week_for_group(self, group_id: int, week: int, season: str) -> bool:
+        """Check if this is a rivalry week for a specific group using group-relative activation"""
+        try:
+            logger.info(f"🔍 Checking if week {week} is rivalry week for group {group_id}")
+            
+            # Get group's activation and rivalry schedule
+            group = self.db.query(Group).filter(Group.id == group_id).first()
+            if not group:
+                logger.warning(f"Group {group_id} not found")
+                return False
+            
+            # Check if group has activation data
+            if not group.activation_week or not group.next_rivalry_week:
+                logger.warning(f"Group {group_id} missing activation data: activation_week={group.activation_week}, next_rivalry_week={group.next_rivalry_week}")
+                return False
+            
+            # Check if features are activated for this group
+            if week < group.activation_week:
+                logger.info(f"Group {group_id} features not yet activated (week {week} < {group.activation_week})")
+                return False
+            
+            # Check if this is a rivalry week
+            if week == group.next_rivalry_week:
+                logger.info(f"✅ Week {week} is rivalry week for group {group_id}")
+                return True
+            
+            # Check if this is a subsequent rivalry week (every 4 weeks after first activation)
+            weeks_since_activation = week - group.activation_week
+            if weeks_since_activation >= 4 and (weeks_since_activation % 4 == 0):
+                logger.info(f"✅ Week {week} is subsequent rivalry week for group {group_id} (every 4 weeks)")
+                return True
+            
+            logger.info(f"❌ Week {week} is not a rivalry week for group {group_id}")
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Error checking rivalry week for group {group_id}: {e}")
+            return False
+    
+    async def _update_next_rivalry_week(self, group_id: int, current_week: int) -> None:
+        """Update the next rivalry week for a group (every 4 weeks after activation)"""
+        try:
+            logger.info(f"🔄 Updating next rivalry week for group {group_id}")
+            
+            group = self.db.query(Group).filter(Group.id == group_id).first()
+            if not group or not group.activation_week:
+                logger.warning(f"Cannot update rivalry week for group {group_id} - missing activation data")
+                return
+            
+            # Calculate next rivalry week (4 weeks from current week)
+            next_rivalry_week = current_week + 4
+            
+            # Update the group
+            group.next_rivalry_week = next_rivalry_week
+            self.db.commit()
+            
+            logger.info(f"✅ Updated group {group_id} next rivalry week to {next_rivalry_week}")
+            
+        except Exception as e:
+            logger.error(f"❌ Error updating next rivalry week for group {group_id}: {e}")
+            self.db.rollback()
+    
     async def assign_rivalries(self, group_id: int, week: int, season: str, league: str) -> List[Dict]:
         """
         Auto-assign rivals based on performance proximity
@@ -68,10 +130,9 @@ class RivalryService:
         """
         logger.info(f"🥊 Assigning rivalries for group {group_id}, week {week}, league {league}")
         
-        # Check if this is a rivalry week for this league
-        rivalry_weeks = self._get_rivalry_weeks(league, season)
-        if week not in rivalry_weeks:
-            logger.info(f"Week {week} is not a rivalry week for {league}. Rivalry weeks: {rivalry_weeks}")
+        # Check if this is a rivalry week for this specific group using group-relative activation
+        if not self._is_rivalry_week_for_group(group_id, week, season):
+            logger.info(f"Week {week} is not a rivalry week for group {group_id}")
             return []
         
         try:
@@ -87,6 +148,9 @@ class RivalryService:
             
             # Create rivalry pairs
             rivalries = await self._create_rivalry_pairs(group_id, standings, week, season)
+            
+            # Update next rivalry week for this group (every 4 weeks after activation)
+            await self._update_next_rivalry_week(group_id, week)
             
             logger.info(f"✅ Created {len(rivalries)} rivalry pairs for group {group_id}")
             return rivalries
