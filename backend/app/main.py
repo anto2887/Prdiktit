@@ -862,217 +862,103 @@ async def test_group_activation_migration():
     except Exception as e:
         return {"success": False, "error": str(e)}
 
-# Test endpoint for rivalry service group-relative activation
-@app.get("/api/v1/admin/test-rivalry-activation")
-async def test_rivalry_activation():
-    """Test endpoint to verify rivalry service group-relative activation"""
+# Test endpoints removed - no longer needed after Phase 2 completion
+# These were used for testing the group activation system during development
+# All functionality is now integrated into the main services
+
+# Migration endpoint for populating group activation data
+@app.post("/api/v1/admin/populate-group-activation-data")
+async def populate_group_activation_data():
+    """Migrate existing groups to populate activation data fields"""
     try:
-        from .services.rivalry_service import RivalryService
         from .db.database import SessionLocal
         from .db.models import Group
+        from sqlalchemy import text
         
         db = SessionLocal()
         
         try:
-            rivalry_service = RivalryService(db)
+            logging.info("🚀 Starting group activation data population migration")
             
-            # Get all groups to test
-            groups = db.query(Group).all()
-            test_results = []
+            # Check if columns exist
+            columns_check = db.execute(text("""
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name IN ('created_week', 'activation_week', 'next_rivalry_week')
+            """)).fetchall()
             
-            for group in groups:
-                logging.info(f"🧪 Testing rivalry activation for group {group.id}: {group.name}")
-                
-                # Test different weeks - extend to cover full seasons
-                if group.league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
-                    test_weeks = [1, 5, 6, 10, 14, 18, 22, 26, 30, 34, 38]  # Full season
-                elif group.league in ['Champions League', 'Europa League']:
-                    test_weeks = [1, 3, 6, 9, 12, 15]  # Short tournament
-                elif group.league == 'MLS':
-                    test_weeks = [1, 5, 6, 10, 14, 18, 22, 26, 30, 34]  # 34 weeks
-                else:
-                    test_weeks = [1, 5, 6, 10, 14, 18, 22, 26, 30]  # Default
-                
-                group_results = {
-                    'group_id': group.id,
-                    'group_name': group.name,
-                    'league': group.league,
-                    'created_week': group.created_week,
-                    'activation_week': group.activation_week,
-                    'next_rivalry_week': group.next_rivalry_week,
-                    'week_tests': []
-                }
-                
-                for week in test_weeks:
-                    is_rivalry_week = rivalry_service._is_rivalry_week_for_group(group.id, week, "2025-2026")
-                    group_results['week_tests'].append({
-                        'week': week,
-                        'is_rivalry_week': is_rivalry_week,
-                        'weeks_since_activation': week - (group.activation_week or 0) if group.activation_week else None
-                    })
-                
-                test_results.append(group_results)
-                logging.info(f"✅ Group {group.id} test completed")
+            existing_columns = [col[0] for col in columns_check]
+            required_columns = ['created_week', 'activation_week', 'next_rivalry_week']
+            
+            if not all(col in existing_columns for col in required_columns):
+                logging.error("❌ Required columns not found. Run group activation migration first.")
+                return {"success": False, "error": "Required columns not found. Run group activation migration first."}
+            
+            # Get all groups that need activation data
+            groups_to_update = db.query(Group).filter(
+                (Group.created_week.is_(None)) | 
+                (Group.activation_week.is_(None)) | 
+                (Group.next_rivalry_week.is_(None))
+            ).all()
+            
+            if not groups_to_update:
+                logging.info("✅ All groups already have activation data")
+                return {"success": True, "message": "All groups already have activation data"}
+            
+            logging.info(f"📊 Found {len(groups_to_update)} groups needing activation data")
+            
+            updated_count = 0
+            for group in groups_to_update:
+                try:
+                    # Calculate activation data using helper functions
+                    from .db.repository import get_season_info_for_league, calculate_actual_week_in_season
+                    
+                    season_info = get_season_info_for_league(group.league, group.created)
+                    if not season_info:
+                        logging.warning(f"⚠️ Could not determine season info for group {group.id} ({group.league})")
+                        continue
+                    
+                    # Calculate created week
+                    created_week = calculate_actual_week_in_season(group.created, season_info['start_date'])
+                    
+                    # Calculate activation week (5 weeks after creation)
+                    activation_week = created_week + 5
+                    
+                    # Calculate next rivalry week (1 week after activation)
+                    next_rivalry_week = activation_week + 1
+                    
+                    # Update the group
+                    group.created_week = created_week
+                    group.activation_week = activation_week
+                    group.next_rivalry_week = next_rivalry_week
+                    
+                    updated_count += 1
+                    logging.info(f"✅ Updated group {group.id} ({group.name}): created_week={created_week}, activation_week={activation_week}, next_rivalry_week={next_rivalry_week}")
+                    
+                except Exception as group_error:
+                    logging.error(f"❌ Error updating group {group.id}: {group_error}")
+                    continue
+            
+            # Commit all changes
+            db.commit()
+            
+            logging.info(f"🎉 Successfully updated {updated_count} groups with activation data")
             
             return {
                 "success": True,
-                "message": "Rivalry activation tests completed",
-                "test_results": test_results
+                "message": f"Successfully populated activation data for {updated_count} groups",
+                "groups_updated": updated_count,
+                "total_groups_processed": len(groups_to_update)
             }
             
         except Exception as db_error:
-            logging.error(f"❌ Database error during rivalry test: {db_error}")
+            logging.error(f"❌ Database error during activation data population: {db_error}")
+            db.rollback()
             return {"success": False, "error": f"Database error: {str(db_error)}"}
         finally:
             db.close()
             
     except Exception as e:
-        logging.error(f"❌ Error testing rivalry activation: {e}")
-        return {"success": False, "error": str(e)}
-
-# Test endpoint for analytics service group-relative activation
-@app.get("/api/v1/admin/test-analytics-activation")
-async def test_analytics_activation():
-    """Test endpoint to verify analytics service group-relative activation"""
-    try:
-        from .services.analytics_service import AnalyticsService
-        from .db.database import SessionLocal
-        from .db.models import Group, User
-        
-        db = SessionLocal()
-        
-        try:
-            analytics_service = AnalyticsService(db)
-            
-            # Get all groups to test
-            groups = db.query(Group).all()
-            test_results = []
-            
-            for group in groups:
-                logging.info(f"🧪 Testing analytics activation for group {group.id}: {group.name}")
-                
-                # Get a sample user from this group
-                from .db.models import group_members
-                user_result = db.execute(text("""
-                    SELECT user_id FROM group_members 
-                    WHERE group_id = :group_id AND role IN ('ADMIN', 'MEMBER') 
-                    LIMIT 1
-                """), {'group_id': group.id}).first()
-                
-                if user_result:
-                    user_id = user_result[0]
-                    
-                    # Test different weeks - extend to cover full seasons
-                    if group.league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
-                        test_weeks = [1, 5, 6, 10, 14, 18, 22, 26, 30, 34, 38]  # Full season
-                    elif group.league in ['Champions League', 'Europa League']:
-                        test_weeks = [1, 3, 6, 9, 12, 15]  # Short tournament
-                    elif group.league == 'MLS':
-                        test_weeks = [1, 5, 6, 10, 14, 18, 22, 26, 30, 34]  # 34 weeks
-                    else:
-                        test_weeks = [1, 5, 6, 10, 14, 18, 22, 26, 30]  # Default
-                    group_results = {
-                        'group_id': group.id,
-                        'group_name': group.name,
-                        'league': group.league,
-                        'activation_week': group.activation_week,
-                        'user_id': user_id,
-                        'week_tests': []
-                    }
-                    
-                    for week in test_weeks:
-                        activation_info = await analytics_service._check_analytics_activation(user_id, week, group.id)
-                        group_results['week_tests'].append({
-                            'week': week,
-                            'available': activation_info['available'],
-                            'activation_week': activation_info['activation_week'],
-                            'reason': activation_info['reason']
-                        })
-                    
-                    test_results.append(group_results)
-                    logging.info(f"✅ Group {group.id} analytics test completed")
-                else:
-                    logging.warning(f"⚠️ No approved users found in group {group.id}")
-            
-            return {
-                "success": True,
-                "message": "Analytics activation tests completed",
-                "test_results": test_results
-            }
-            
-        except Exception as db_error:
-            logging.error(f"❌ Database error during analytics test: {db_error}")
-            return {"success": False, "error": f"Database error: {str(db_error)}"}
-        finally:
-            db.close()
-            
-    except Exception as e:
-        logging.error(f"❌ Error testing analytics activation: {e}")
-        return {"success": False, "error": str(e)}
-
-# Test endpoint for bonus service group-relative activation
-@app.get("/api/v1/admin/test-bonus-activation")
-async def test_bonus_activation():
-    """Test endpoint to verify bonus service group-relative activation"""
-    try:
-        from .services.bonus_service import BonusPointsService
-        from .db.database import SessionLocal
-        from .db.models import Group
-        
-        db = SessionLocal()
-        
-        try:
-            bonus_service = BonusPointsService(db)
-            
-            # Get all groups to test
-            groups = db.query(Group).all()
-            test_results = []
-            
-            for group in groups:
-                logging.info(f"🧪 Testing bonus activation for group {group.id}: {group.name}")
-                
-                # Test different weeks - extend to cover full seasons
-                if group.league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
-                    test_weeks = [1, 5, 6, 10, 14, 18, 22, 26, 30, 34, 38]  # Full season
-                elif group.league in ['Champions League', 'Europa League']:
-                    test_weeks = [1, 3, 6, 9, 12, 15]  # Short tournament
-                elif group.league == 'MLS':
-                    test_weeks = [1, 5, 6, 10, 14, 18, 22, 26, 30, 34]  # 34 weeks
-                else:
-                    test_weeks = [1, 5, 6, 10, 14, 18, 22, 26, 30]  # Default
-                group_results = {
-                    'group_id': group.id,
-                    'group_name': group.name,
-                    'league': group.league,
-                    'activation_week': group.activation_week,
-                    'week_tests': []
-                }
-                
-                for week in test_weeks:
-                    bonus_available = await bonus_service._check_bonus_activation(group.id, week)
-                    group_results['week_tests'].append({
-                        'week': week,
-                        'bonus_available': bonus_available,
-                        'weeks_since_activation': week - (group.activation_week or 0) if group.activation_week else None
-                    })
-                
-                test_results.append(group_results)
-                logging.info(f"✅ Group {group.id} bonus test completed")
-            
-            return {
-                "success": True,
-                "message": "Bonus activation tests completed",
-                "test_results": test_results
-            }
-            
-        except Exception as db_error:
-            logging.error(f"❌ Database error during bonus test: {db_error}")
-            return {"success": False, "error": f"Database error: {str(db_error)}"}
-        finally:
-            db.close()
-            
-    except Exception as e:
-        logging.error(f"❌ Error testing bonus activation: {e}")
+        logging.error(f"❌ Error populating group activation data: {e}")
         return {"success": False, "error": str(e)}
 
 # Test endpoint to trigger fixture updates from API

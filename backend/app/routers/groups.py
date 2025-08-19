@@ -48,14 +48,14 @@ async def get_user_groups_endpoint(
     cache: RedisCache = Depends(get_cache)
 ):
     """
-    Get current user's groups
+    Get current user's groups with enhanced activation data
     """
     import logging
     logger = logging.getLogger(__name__)
     
     try:
         # Try to get from cache
-        cache_key = f"user_groups:{current_user.id}"
+        cache_key = f"user_groups_enhanced:{current_user.id}"
         cached_groups = await cache.get(cache_key)
         
         if cached_groups:
@@ -65,7 +65,7 @@ async def get_user_groups_endpoint(
             db_groups = await get_user_groups_from_db(db, current_user.id)
             logger.info(f"Retrieved {len(db_groups)} groups from repository for user {current_user.id}")
             
-            # Convert to list of dicts (for better serialization)
+            # Convert to list of dicts with enhanced activation data
             groups = []
             for group in db_groups:
                 # Get member count
@@ -89,6 +89,9 @@ async def get_user_groups_endpoint(
                     # If user is admin but not in group_members table, they should be admin
                     user_role = MemberRole.ADMIN.value
                 
+                # Calculate activation data
+                activation_data = await calculate_group_activation_data(group, db)
+                
                 # Convert to dict with all fields the frontend expects
                 group_dict = {
                     "id": group.id,
@@ -101,15 +104,25 @@ async def get_user_groups_endpoint(
                     "description": group.description,
                     "member_count": member_count,
                     "role": user_role,
-                    "is_admin": is_group_admin
+                    "is_admin": is_group_admin,
+                    # Enhanced activation data
+                    "created_week": activation_data.get("created_week"),
+                    "activation_week": activation_data.get("activation_week"),
+                    "next_rivalry_week": activation_data.get("next_rivalry_week"),
+                    "current_week": activation_data.get("current_week"),
+                    "weeks_until_activation": activation_data.get("weeks_until_activation"),
+                    "weeks_until_next_rivalry": activation_data.get("weeks_until_next_rivalry"),
+                    "activation_progress": activation_data.get("activation_progress"),
+                    "is_activated": activation_data.get("is_activated"),
+                    "is_rivalry_week": activation_data.get("is_rivalry_week")
                 }
                 
                 groups.append(group_dict)
                 logger.debug(f"Processed group: {group.name} (ID: {group.id}) for user {current_user.id}")
             
-            # Cache for 10 minutes
-            await cache.set(cache_key, groups, 600)
-            logger.info(f"Processed and cached {len(groups)} groups for user {current_user.id}")
+            # Cache for 5 minutes (shorter TTL for activation data)
+            await cache.set(cache_key, groups, 300)
+            logger.info(f"Processed and cached {len(groups)} enhanced groups for user {current_user.id}")
         
         # FIXED: Return the response in the exact format the frontend expects
         response = ListResponse(
@@ -119,7 +132,7 @@ async def get_user_groups_endpoint(
             total=len(groups)
         )
         
-        logger.info(f"Returning {len(groups)} groups to frontend for user {current_user.id}")
+        logger.info(f"Returning {len(groups)} enhanced groups to frontend for user {current_user.id}")
         return response
         
     except Exception as e:
@@ -135,6 +148,97 @@ async def get_user_groups_endpoint(
             data=[],
             total=0
         )
+
+async def calculate_group_activation_data(group, db):
+    """
+    Calculate activation data for a group including weeks and progress
+    """
+    try:
+        from ..db.repository import get_season_info_for_league, calculate_actual_week_in_season
+        
+        # Get current date and season info
+        current_date = datetime.now(timezone.utc)
+        season_info = get_season_info_for_league(group.league, current_date)
+        
+        if not season_info:
+            # Fallback if season info not available
+            return {
+                "created_week": None,
+                "activation_week": None,
+                "next_rivalry_week": None,
+                "current_week": 1,
+                "weeks_until_activation": 5,
+                "weeks_until_next_rivalry": 6,
+                "activation_progress": 0,
+                "is_activated": False,
+                "is_rivalry_week": False
+            }
+        
+        # Calculate current week
+        current_week = calculate_actual_week_in_season(current_date, season_info['start_date'])
+        
+        # Check if group has activation data, if not use calculated values
+        if group.created_week is None:
+            # Calculate based on group creation date
+            created_week = calculate_actual_week_in_season(group.created, season_info['start_date'])
+            activation_week = created_week + 5
+            next_rivalry_week = activation_week + 1
+        else:
+            # Use stored values
+            created_week = group.created_week
+            activation_week = group.activation_week
+            next_rivalry_week = group.next_rivalry_week
+        
+        # Calculate progress and timing
+        weeks_until_activation = max(0, (activation_week or 0) - current_week)
+        weeks_until_next_rivalry = max(0, (next_rivalry_week or 0) - current_week)
+        
+        # Calculate activation progress (0-100%)
+        if activation_week and current_week:
+            activation_progress = min(100, max(0, (current_week / activation_week) * 100))
+        else:
+            activation_progress = 0
+        
+        # Determine activation status
+        is_activated = current_week >= (activation_week or 0)
+        
+        # Check if this is currently a rivalry week
+        is_rivalry_week = False
+        if is_activated and next_rivalry_week:
+            # Check if current week matches next rivalry week or follows the 4-week pattern
+            if current_week == next_rivalry_week:
+                is_rivalry_week = True
+            elif activation_week:
+                weeks_since_activation = current_week - activation_week
+                if weeks_since_activation >= 4 and (weeks_since_activation % 4 == 0):
+                    is_rivalry_week = True
+        
+        return {
+            "created_week": created_week,
+            "activation_week": activation_week,
+            "next_rivalry_week": next_rivalry_week,
+            "current_week": current_week,
+            "weeks_until_activation": weeks_until_activation,
+            "weeks_until_next_rivalry": weeks_until_next_rivalry,
+            "activation_progress": activation_progress,
+            "is_activated": is_activated,
+            "is_rivalry_week": is_rivalry_week
+        }
+        
+    except Exception as e:
+        logger.error(f"Error calculating activation data for group {group.id}: {e}")
+        # Return fallback data
+        return {
+            "created_week": None,
+            "activation_week": None,
+            "next_rivalry_week": None,
+            "current_week": 1,
+            "weeks_until_activation": 5,
+            "weeks_until_next_rivalry": 6,
+            "activation_progress": 0,
+            "is_activated": False,
+            "is_rivalry_week": False
+        }
 
 @router.get("/teams", response_model=ListResponse)
 async def get_teams(
