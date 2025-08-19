@@ -19,6 +19,7 @@ import LeagueTable from '../components/dashboard/LeagueTable';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
+import GroupActivationProgress from '../components/common/GroupActivationProgress';
 
 const DashboardPage = () => {
   // Basic component mount logging
@@ -266,6 +267,13 @@ const DashboardPage = () => {
         </HelpTooltip>
       </div>
       
+      {/* Group Activation Progress - Show for current selected group */}
+      {selectedGroup && (
+        <section className="mb-8">
+          <GroupActivationProgress groupId={selectedGroup.id} />
+        </section>
+      )}
+
       {/* Stats section */}
       <section className="mb-8">
         <div className="flex justify-between items-center mb-4">

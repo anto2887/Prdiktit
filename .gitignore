@@ -66,6 +66,10 @@ terraform.rc
 # Other
 repomix-output.txt
 
+# Project documentation files
+changelog
+projectguide
+
 # Frontend
 frontend/node_modules/
 frontend/.env.development

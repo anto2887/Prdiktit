@@ -12,6 +12,8 @@ import SeasonManager from '../utils/seasonManager';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
+import GroupActivationProgress from '../components/common/GroupActivationProgress';
+import ContextAwareNavigation from '../components/common/ContextAwareNavigation';
 
 const GroupDetailsPage = () => {
   const { groupId } = useParams();
@@ -290,6 +292,12 @@ const GroupDetailsPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Group Activation Progress */}
+      <GroupActivationProgress groupId={parseInt(groupId)} />
+
+      {/* Context-Aware Navigation */}
+      <ContextAwareNavigation groupId={parseInt(groupId)} currentPath={location.pathname} />
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 mb-6">

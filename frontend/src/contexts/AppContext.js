@@ -64,6 +64,12 @@ const ActionTypes = {
   // Season management actions
   SET_AVAILABLE_SEASONS: 'SET_AVAILABLE_SEASONS',
   CLEAR_LEAGUE_DATA: 'CLEAR_LEAGUE_DATA',
+  
+  // Group activation actions
+  SET_GROUP_ACTIVATION_LOADING: 'SET_GROUP_ACTIVATION_LOADING',
+  SET_GROUP_ACTIVATION_STATE: 'SET_GROUP_ACTIVATION_STATE',
+  SET_GROUP_ACTIVATION_ERROR: 'SET_GROUP_ACTIVATION_ERROR',
+  CLEAR_GROUP_ACTIVATION_DATA: 'CLEAR_GROUP_ACTIVATION_DATA',
 };
 
 // Initial state
@@ -110,6 +116,18 @@ const initialState = {
     selectedGroup: null,
     leaderboard: [],
     availableSeasons: [],
+    loading: false,
+    error: null
+  },
+  groupActivation: {
+    isActive: false,
+    activationWeek: null,
+    nextRivalryWeek: null,
+    currentWeek: null,
+    weeksUntilActivation: null,
+    weeksUntilNextRivalry: null,
+    activationProgress: 0,
+    rivalryProgress: 0,
     loading: false,
     error: null
   }
@@ -382,6 +400,31 @@ const appReducer = (state, action) => {
       return {
         ...state,
         user: { ...state.user, statsError: action.payload }
+      };
+    
+    // Group activation cases
+    case ActionTypes.SET_GROUP_ACTIVATION_LOADING:
+      return {
+        ...state,
+        groupActivation: { ...state.groupActivation, loading: action.payload }
+      };
+    
+    case ActionTypes.SET_GROUP_ACTIVATION_STATE:
+      return {
+        ...state,
+        groupActivation: { ...state.groupActivation, ...action.payload, loading: false, error: null }
+      };
+    
+    case ActionTypes.SET_GROUP_ACTIVATION_ERROR:
+      return {
+        ...state,
+        groupActivation: { ...state.groupActivation, error: action.payload, loading: false }
+      };
+    
+    case ActionTypes.CLEAR_GROUP_ACTIVATION_DATA:
+      return {
+        ...state,
+        groupActivation: { ...initialState.groupActivation }
       };
     
     default:
@@ -1400,6 +1443,65 @@ export const AppProvider = ({ children }) => {
     return state.groups.userGroups.some(g => g.id === groupId);
   }, [state.groups.userGroups]); // FIXED: Restore state dependencies for proper state access
 
+  // Group activation functions
+  const fetchGroupActivationState = useCallback(async (groupId) => {
+    if (!state.auth.isAuthenticated || !groupId) {
+      return null;
+    }
+    
+    try {
+      dispatch({ type: ActionTypes.SET_GROUP_ACTIVATION_LOADING, payload: true });
+      dispatch({ type: ActionTypes.SET_GROUP_ACTIVATION_ERROR, payload: null });
+      
+      // Get current group details to access activation fields
+      const group = state.groups.currentGroup || state.groups.userGroups.find(g => g.id === groupId);
+      if (!group) {
+        throw new Error('Group not found');
+      }
+      
+      // Calculate current week based on group creation and current date
+      const currentDate = new Date();
+      const groupCreatedDate = new Date(group.created);
+      const daysSinceCreation = Math.floor((currentDate - groupCreatedDate) / (1000 * 60 * 60 * 24));
+      const currentWeek = Math.floor(daysSinceCreation / 7) + 1;
+      
+      // Get activation data from group
+      const activationWeek = group.activation_week || 6;
+      const nextRivalryWeek = group.next_rivalry_week || 7;
+      
+      // Calculate progress and timing
+      const isActive = currentWeek >= activationWeek;
+      const weeksUntilActivation = Math.max(0, activationWeek - currentWeek);
+      const weeksUntilNextRivalry = Math.max(0, nextRivalryWeek - currentWeek);
+      
+      // Calculate progress percentages
+      const activationProgress = Math.min(100, Math.max(0, ((currentWeek - 1) / (activationWeek - 1)) * 100));
+      const rivalryProgress = isActive ? Math.min(100, Math.max(0, ((currentWeek - activationWeek) / 4) * 100)) : 0;
+      
+      const activationState = {
+        isActive,
+        activationWeek,
+        nextRivalryWeek,
+        currentWeek,
+        weeksUntilActivation,
+        weeksUntilNextRivalry,
+        activationProgress,
+        rivalryProgress
+      };
+      
+      dispatch({ type: ActionTypes.SET_GROUP_ACTIVATION_STATE, payload: activationState });
+      return activationState;
+      
+    } catch (err) {
+      dispatch({ type: ActionTypes.SET_GROUP_ACTIVATION_ERROR, payload: err.message || 'Failed to fetch group activation state' });
+      return null;
+    }
+  }, [state.auth.isAuthenticated, state.groups.currentGroup, state.groups.userGroups]);
+
+  const clearGroupActivationData = useCallback(() => {
+    dispatch({ type: ActionTypes.CLEAR_GROUP_ACTIVATION_DATA });
+  }, []);
+
   // Add getUserStats to the AppProvider component
   const getUserStats = useCallback(async (userId) => {
     try {
@@ -1467,6 +1569,11 @@ export const AppProvider = ({ children }) => {
     leaveGroup,
     isMember,
 
+    // Group Activation
+    groupActivation: state.groupActivation,
+    fetchGroupActivationState,
+    clearGroupActivationData,
+
     // Matches
     fixtures: state.matches.fixtures,
     liveMatches: state.matches.liveMatches,
@@ -1530,6 +1637,7 @@ export const AppProvider = ({ children }) => {
     state.groups.userGroups,
     state.groups.currentGroup,
     state.groups.groupMembers,
+    state.groupActivation,
     state.matches.fixtures,
     state.matches.liveMatches,
     state.predictions.userPredictions,
@@ -1538,6 +1646,8 @@ export const AppProvider = ({ children }) => {
     state.league.leaderboard,
     state.league.availableSeasons,
     // All functions are now properly dependent on their required state
+    fetchGroupActivationState,
+    clearGroupActivationData,
   ]);
 
   // Check authentication on mount - placed after all functions are defined
@@ -1743,6 +1853,19 @@ export const useGroupDetails = () => {
     loading: context.groupsLoading,
     error: context.groupsError,
     group: context.currentGroup
+  };
+};
+
+export const useGroupActivation = () => {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useGroupActivation must be used within an AppProvider');
+  }
+  
+  return {
+    groupActivation: context.groupActivation,
+    fetchGroupActivationState: context.fetchGroupActivationState,
+    clearGroupActivationData: context.clearGroupActivationData
   };
 };
 
