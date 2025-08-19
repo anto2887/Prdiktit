@@ -403,7 +403,7 @@ const GroupDetailsPage = () => {
                             {entry.total_predictions}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-green-600 font-medium">
-                            {entry.perfect_scores}
+                            {entry.perfect_predictions}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
                             {entry.accuracy_percentage}%
