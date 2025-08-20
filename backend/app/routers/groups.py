@@ -151,27 +151,46 @@ async def get_user_groups_endpoint(
 
 async def calculate_group_activation_data(group, db):
     """
-    Calculate activation data for a group including weeks and progress
+    Calculate activation data for a group using real database values
     """
     import logging
     logger = logging.getLogger(__name__)
     
     try:
-        # For now, use simple fallback values to get the endpoint working
-        # We can enhance this later with proper season calculations
+        # Use real database values instead of hardcoded fallbacks
+        created_week = group.created_week
+        activation_week = group.activation_week
+        next_rivalry_week = group.next_rivalry_week
+        current_week = group.current_week
         
-        # Basic fallback data
-        created_week = 1
-        activation_week = 6
-        next_rivalry_week = 7
-        current_week = 3  # Assume we're in week 3 for now
+        # If database values are missing, calculate them
+        if not all([created_week, activation_week, next_rivalry_week, current_week]):
+            logger.warning(f"Group {group.id} missing activation data, calculating fallback values")
+            
+            # Calculate current week based on actual season
+            from datetime import datetime
+            current_date = datetime.utcnow()
+            
+            # Import helper functions from main.py
+            from ..main import get_season_info_for_league, calculate_actual_week_in_season
+            
+            season_info = get_season_info_for_league(group.league)
+            current_week = calculate_actual_week_in_season(current_date, season_info)
+            
+            # Use reasonable defaults for missing values
+            created_week = created_week or 1
+            activation_week = activation_week or (created_week + 5)
+            next_rivalry_week = next_rivalry_week or (activation_week + 1)
         
-        # Calculate progress and timing
+        # Calculate progress and timing using real values
         weeks_until_activation = max(0, activation_week - current_week)
         weeks_until_next_rivalry = max(0, next_rivalry_week - current_week)
         
         # Calculate activation progress (0-100%)
-        activation_progress = min(100, max(0, (current_week / activation_week) * 100))
+        if current_week >= activation_week:
+            activation_progress = 100.0
+        else:
+            activation_progress = min(100, max(0, ((current_week - created_week) / (activation_week - created_week)) * 100))
         
         # Determine activation status
         is_activated = current_week >= activation_week
@@ -186,7 +205,7 @@ async def calculate_group_activation_data(group, db):
                 if weeks_since_activation >= 4 and (weeks_since_activation % 4 == 0):
                     is_rivalry_week = True
         
-        logger.info(f"Using fallback activation data for group {group.id}: created_week={created_week}, activation_week={activation_week}, current_week={current_week}")
+        logger.info(f"Group {group.id} using real data: created_week={created_week}, activation_week={activation_week}, current_week={current_week}, progress={activation_progress}%")
         
         return {
             "created_week": created_week,
@@ -202,7 +221,7 @@ async def calculate_group_activation_data(group, db):
         
     except Exception as e:
         logger.error(f"Error calculating activation data for group {group.id}: {e}")
-        # Return fallback data
+        # Return fallback data only if there's an error
         return {
             "created_week": 1,
             "activation_week": 6,
