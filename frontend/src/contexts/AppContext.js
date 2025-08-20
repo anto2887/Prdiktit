@@ -52,6 +52,8 @@ const ActionTypes = {
   SET_LEAGUE_ERROR: 'SET_LEAGUE_ERROR',
   SET_LEADERBOARD: 'SET_LEADERBOARD',
   SET_AVAILABLE_SEASONS: 'SET_AVAILABLE_SEASONS',
+  SET_SELECTED_SEASON: 'SET_SELECTED_SEASON',
+  SET_SELECTED_GROUP: 'SET_SELECTED_GROUP',
   CLEAR_LEAGUE_DATA: 'CLEAR_LEAGUE_DATA',
   
   // New user stats actions
@@ -325,6 +327,24 @@ const appReducer = (state, action) => {
         league: { 
           ...state.league, 
           availableSeasons: action.payload 
+        }
+      };
+    
+    case ActionTypes.SET_SELECTED_SEASON:
+      return {
+        ...state,
+        league: { 
+          ...state.league, 
+          selectedSeason: action.payload 
+        }
+      };
+    
+    case ActionTypes.SET_SELECTED_GROUP:
+      return {
+        ...state,
+        league: { 
+          ...state.league, 
+          selectedGroup: action.payload 
         }
       };
     
