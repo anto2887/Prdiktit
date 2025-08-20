@@ -19,6 +19,10 @@ from .middleware.rate_limiter import RateLimitMiddleware
 from .services.startup_sync_service import startup_sync_service
 from .services.unified_transaction_manager import unified_transaction_manager
 
+# Import models for admin endpoints
+from .db.models import Group
+from .db.session_manager import get_db
+
 # Configure comprehensive logging with transaction support
 def setup_logging():
     """Set up comprehensive logging for the application with transaction logging"""
@@ -369,81 +373,6 @@ async def emergency_sync_match(fixture_id: int):
         }
     except Exception as e:
         return {"success": False, "fixture_id": fixture_id, "error": str(e)}
-
-# Temporary migration endpoint for points field
-@app.post("/api/v1/admin/migrate-points-field")
-async def migrate_points_field():
-    """Temporary endpoint to run the points field migration"""
-    try:
-        from .db.database import SessionLocal
-        db = SessionLocal()
-        
-        # Check current table structure first
-        result = db.execute(text("""
-            SELECT column_name, is_nullable, column_default 
-            FROM information_schema.columns 
-            WHERE table_name = 'user_predictions' AND column_name = 'points'
-        """))
-        column_info = result.fetchone()
-        
-        if not column_info:
-            return {"success": False, "error": "Points column not found in user_predictions table"}
-        
-        current_nullable = column_info[1]
-        current_default = column_info[2]
-        
-        # Step 1: Drop NOT NULL constraint if it exists
-        if current_nullable == 'NO':
-            try:
-                db.execute(text("""
-                    ALTER TABLE user_predictions 
-                    ALTER COLUMN points DROP NOT NULL
-                """))
-                db.commit()  # Commit the constraint change immediately
-            except Exception as constraint_error:
-                db.rollback()
-                return {"success": False, "error": f"Failed to drop NOT NULL constraint: {str(constraint_error)}"}
-        
-        # Step 2: Drop default value if it exists
-        if current_default:
-            try:
-                db.execute(text("""
-                    ALTER TABLE user_predictions 
-                    ALTER COLUMN points DROP DEFAULT
-                """))
-                db.commit()  # Commit the default change immediately
-            except Exception as default_error:
-                db.rollback()
-                return {"success": False, "error": f"Failed to drop default value: {str(default_error)}"}
-        
-        # Step 3: Now update existing data - set points to NULL for unprocessed predictions
-        try:
-            result1 = db.execute(text("""
-                UPDATE user_predictions 
-                SET points = NULL 
-                WHERE prediction_status != 'PROCESSED'
-            """))
-            db.commit()
-        except Exception as update_error:
-            db.rollback()
-            return {"success": False, "error": f"Failed to update data: {str(update_error)}"}
-        
-        db.close()
-        
-        return {
-            "success": True,
-            "message": "Points field migration completed successfully",
-            "rows_updated": result1.rowcount,
-            "column_info": {
-                "was_nullable": current_nullable,
-                "was_default": current_default,
-                "now_nullable": "YES",
-                "now_default": None
-            }
-        }
-        
-    except Exception as e:
-        return {"success": False, "error": str(e)}
 
 # Helper functions for season handling
 def get_season_info_for_league(league):
@@ -875,6 +804,7 @@ async def populate_group_activation_data():
     import logging
     logger = logging.getLogger(__name__)
     
+    db = None
     try:
         # Get database session
         db = next(get_db())
@@ -977,29 +907,8 @@ async def populate_group_activation_data():
         logger.error(f"Error in populate_group_activation_data: {e}")
         return {"status": "error", "message": str(e), "data": []}
     finally:
-        db.close()
-
-# Test endpoint to trigger fixture updates from API
-@app.post("/api/v1/admin/test-fixture-updates")
-async def test_fixture_updates():
-    """Test endpoint to trigger fixture updates from API"""
-    try:
-        from .services.enhanced_smart_scheduler import EnhancedSmartScheduler
-        
-        # Create scheduler instance and trigger API update check
-        scheduler = EnhancedSmartScheduler()
-        result = scheduler.trigger_api_update_check()
-        
-        return {
-            "success": True,
-            "message": "Fixture update test completed",
-            "result": result
-        }
-        
-    except Exception as e:
-        return {"success": False, "error": str(e)}
-
-# Remove debug endpoint for production security
+        if db:
+            db.close()
 
 if __name__ == "__main__":
     import uvicorn
