@@ -59,7 +59,7 @@ const JoinGroupPage = () => {
           },
           {
             title: "Start Competing",
-            content: "Once joined, you'll be able to make predictions and compete with other league members!",
+            content: "Once joined, you&apos;ll be able to make predictions and compete with other league members!",
             action: "Got it!",
             highlight: null
           }

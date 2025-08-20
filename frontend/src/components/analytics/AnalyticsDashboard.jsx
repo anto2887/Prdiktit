@@ -165,7 +165,7 @@ const AnalyticsActivationMessage = ({ currentWeek, activationWeek }) => (
     </div>
     
     <div className="text-left bg-gray-50 rounded-lg p-6">
-      <h3 className="font-semibold text-gray-900 mb-3">What you'll get:</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">What you&apos;ll get:</h3>
       <ul className="space-y-2 text-sm text-gray-600">
         <li className="flex items-center space-x-2">
           <span className="text-green-500">✓</span>

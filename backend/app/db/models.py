@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean, Column, ForeignKey, Integer, String, 
-    DateTime, Enum, Text, Table, JSON, UniqueConstraint, Index, Float, CheckConstraint
+    DateTime, Enum, Text, Table, JSON, UniqueConstraint, Index, Float, CheckConstraint, Numeric
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -76,6 +76,9 @@ class Group(Base):
     created_week = Column(Integer, nullable=True)  # Week when group was created
     activation_week = Column(Integer, nullable=True)  # Week when features unlock for this group
     next_rivalry_week = Column(Integer, nullable=True)  # Next rivalry week after activation
+    
+    # Comeback Challenge system field
+    comeback_challenge_activated = Column(Boolean, nullable=False, default=False)  # Whether Comeback Challenge is active for this group
     
     # Relationships
     admin = relationship("User", back_populates="admin_groups", foreign_keys=[admin_id])
@@ -292,6 +295,10 @@ class RivalryPair(Base):
     is_champion_challenge = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=utc_now, nullable=False)
     ended_at = Column(DateTime, nullable=True)
+    
+    # Comeback Challenge fields
+    comeback_challenge_benchmark = Column(Numeric(10, 2), nullable=True)  # Average of 2 users above
+    comeback_challenge_status = Column(String(20), nullable=False, default='active')  # 'active', 'completed', 'failed'
     
     # Relationships
     user1 = relationship("User", foreign_keys=[user1_id])

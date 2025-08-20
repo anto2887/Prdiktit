@@ -50,6 +50,9 @@ const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadState
   </div>
 ));
 
+// Add display name for the memoized component
+TeamCard.displayName = 'TeamCard';
+
 const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) => {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);

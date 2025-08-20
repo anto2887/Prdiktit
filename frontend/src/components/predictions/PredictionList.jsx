@@ -243,7 +243,7 @@ const PredictionList = () => {
           },
           {
             title: "Your Predictions",
-            content: "Matches you've already predicted will show your score prediction. You can edit predictions until the deadline.",
+            content: "Matches you&apos;ve already predicted will show your score prediction. You can edit predictions until the deadline.",
             action: "Next",
             highlight: null
           },

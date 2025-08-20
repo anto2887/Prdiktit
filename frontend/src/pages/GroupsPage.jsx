@@ -64,7 +64,7 @@ const GroupsPage = () => {
       {userGroups.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            You're not in any leagues yet
+            You&apos;re not in any leagues yet
           </h3>
           <p className="text-gray-500 mb-4">
             Join a league to start making predictions
@@ -122,7 +122,7 @@ const GroupsPage = () => {
           },
           {
             title: "Create Your Own",
-            content: "Create a new league and invite friends using the 'Create League' button. You'll get a unique invite code to share.",
+            content: "Create a new league and invite friends using the &apos;Create League&apos; button. You&apos;ll get a unique invite code to share.",
             action: "Next",
             highlight: null
           },

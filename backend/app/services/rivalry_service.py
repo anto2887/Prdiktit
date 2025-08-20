@@ -137,7 +137,7 @@ class RivalryService:
         
         try:
             # Get current group standings
-            standings = await self._get_group_standings(group_id, season, week)
+            standings = await self._get_group_standings(group_id, season)
             
             if len(standings) < 2:
                 logger.warning(f"Group {group_id} has fewer than 2 members, skipping rivalry assignment")
@@ -159,58 +159,52 @@ class RivalryService:
             logger.error(f"❌ Error assigning rivalries for group {group_id}: {e}")
             raise
     
-    async def _get_group_standings(self, group_id: int, season: str, current_week: int) -> List[Dict]:
-        """Get current group standings for rivalry assignment"""
-        
-        # Get group members
-        members = await get_group_members(self.db, group_id)
-        
-        standings = []
-        
-        for member in members:
-            if member.get('status') != 'APPROVED':
-                continue
-                
-            user_id = member['user_id']
-            
-            # Calculate user's total points up to current week
-            points_result = self.db.query(
-                func.coalesce(func.sum(UserPrediction.points), 0).label('total_points'),
-                func.count(UserPrediction.id).label('prediction_count')
+    async def _get_group_standings(self, group_id: int, season: str) -> List[Dict]:
+        """Get group standings for a specific season"""
+        try:
+            # Get all group members with their total points
+            standings_query = self.db.query(
+                User.id.label('user_id'),
+                User.username,
+                func.coalesce(func.sum(UserPrediction.points), 0).label('total_points')
+            ).join(
+                group_members, User.id == group_members.c.user_id
+            ).outerjoin(
+                UserPrediction, and_(
+                    User.id == UserPrediction.user_id,
+                    UserPrediction.group_id == group_id,
+                    UserPrediction.season == season,
+                    UserPrediction.prediction_status == PredictionStatus.PROCESSED
+                )
             ).filter(
-                UserPrediction.user_id == user_id,
-                UserPrediction.season == season,
-                UserPrediction.week < current_week,  # Up to but not including current week
-                UserPrediction.prediction_status == PredictionStatus.PROCESSED
-            ).first()
+                group_members.c.group_id == group_id,
+                group_members.c.status == 'APPROVED'
+            ).group_by(
+                User.id, User.username
+            ).order_by(
+                func.coalesce(func.sum(UserPrediction.points), 0).desc()
+            )
             
-            total_points = int(points_result.total_points or 0)
-            prediction_count = int(points_result.prediction_count or 0)
+            standings = standings_query.all()
             
-            # Calculate average points per prediction
-            avg_points = total_points / prediction_count if prediction_count > 0 else 0
+            # Convert to list of dictionaries
+            standings_list = []
+            for standing in standings:
+                standings_list.append({
+                    'user_id': standing.user_id,
+                    'username': standing.username,
+                    'total_points': int(standing.total_points or 0)
+                })
             
-            standings.append({
-                'user_id': user_id,
-                'username': member['username'],
-                'total_points': total_points,
-                'prediction_count': prediction_count,
-                'avg_points': round(avg_points, 2)
-            })
-        
-        # Sort by total points (descending), then by avg points, then by username
-        standings.sort(key=lambda x: (-x['total_points'], -x['avg_points'], x['username']))
-        
-        # Add ranking
-        for i, standing in enumerate(standings):
-            standing['rank'] = i + 1
-        
-        logger.info(f"📊 Group {group_id} standings: {[(s['rank'], s['username'], s['total_points']) for s in standings]}")
-        
-        return standings
+            logger.info(f"📊 Retrieved standings for group {group_id}: {len(standings_list)} users")
+            return standings_list
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting group standings: {e}")
+            return []
     
     async def _create_rivalry_pairs(self, group_id: int, standings: List[Dict], week: int, season: str) -> List[Dict]:
-        """Create rivalry pairs using Champion Challenge for odd groups"""
+        """Create rivalry pairs using Comeback Challenge for odd groups"""
         
         total_players = len(standings)
         rivalries = []
@@ -221,10 +215,12 @@ class RivalryService:
         
         if total_players % 2 == 0:
             # Even number - create standard pairs
+            logger.info(f"Group {group_id} has even number of players ({total_players}), creating standard rivalries")
             rivalries = await self._create_standard_pairs(group_id, standings, week, season)
         else:
-            # Odd number - use Champion Challenge
-            rivalries = await self._create_champion_challenge_pairs(group_id, standings, week, season)
+            # Odd number - use Comeback Challenge
+            logger.info(f"Group {group_id} has odd number of players ({total_players}), creating Comeback Challenge rivalries")
+            rivalries = await self._assign_comeback_challenge(group_id, standings, week, season)
         
         return rivalries
     
@@ -436,9 +432,15 @@ class RivalryService:
         bonus_awarded = False
         winner_id = None
         
-        if rivalry.is_champion_challenge:
-            # Champion Challenge: Champion must beat ALL challengers
+        # Check if this is a Comeback Challenge rivalry
+        if rivalry.comeback_challenge_benchmark is not None:
+            # Process as Comeback Challenge rivalry
+            comeback_outcome = await self._process_comeback_challenge_outcome(rivalry, week, season)
+            return comeback_outcome
+        elif rivalry.is_champion_challenge:
+            # Legacy Champion Challenge: Champion must beat ALL challengers
             # This is handled at a higher level by checking all champion rivalries together
+            logger.info(f"Processing legacy Champion Challenge rivalry {rivalry.id}")
             pass
         else:
             # Standard rivalry: Higher score wins
@@ -516,9 +518,196 @@ class RivalryService:
                 'is_active': rivalry.is_active,
                 'is_champion_challenge': rivalry.is_champion_challenge,
                 'created_at': rivalry.created_at.isoformat() if rivalry.created_at else None,
-                'ended_at': rivalry.ended_at.isoformat() if rivalry.ended_at else None
+                'ended_at': rivalry.ended_at.isoformat() if rivalry.ended_at else None,
+                # Comeback Challenge fields
+                'comeback_challenge_benchmark': float(rivalry.comeback_challenge_benchmark) if rivalry.comeback_challenge_benchmark else None,
+                'comeback_challenge_status': rivalry.comeback_challenge_status,
+                'is_comeback_challenge': rivalry.comeback_challenge_benchmark is not None
             }
             
             rivalries_list.append(rivalry_data)
         
         return rivalries_list
+
+    # Comeback Challenge Methods
+    async def _calculate_comeback_challenge_benchmark(self, group_id: int, user_id: int, season: str) -> float:
+        """Calculate the benchmark score for Comeback Challenge (average of 2 users above)"""
+        try:
+            logger.info(f"📊 Calculating Comeback Challenge benchmark for user {user_id} in group {group_id}")
+            
+            # Get group standings
+            standings = await self._get_group_standings(group_id, season)
+            if not standings:
+                logger.warning(f"No standings found for group {group_id}")
+                return 0.0
+            
+            # Find user's position
+            user_position = None
+            for i, user in enumerate(standings):
+                if user['user_id'] == user_id:
+                    user_position = i
+                    break
+            
+            if user_position is None:
+                logger.warning(f"User {user_id} not found in group {group_id} standings")
+                return 0.0
+            
+            # Get 2 users above this user
+            users_above = []
+            for i in range(max(0, user_position - 2), user_position):
+                if i < len(standings):
+                    users_above.append(standings[i])
+            
+            if len(users_above) == 0:
+                logger.info(f"User {user_id} is at the top, no benchmark needed")
+                return 0.0
+            
+            # Calculate average points of users above
+            total_points = sum(user['total_points'] for user in users_above)
+            benchmark = total_points / len(users_above)
+            
+            logger.info(f"📊 Comeback Challenge benchmark for user {user_id}: {benchmark} (average of {len(users_above)} users above)")
+            return round(benchmark, 2)
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating Comeback Challenge benchmark: {e}")
+            return 0.0
+
+    async def _assign_comeback_challenge(self, group_id: int, standings: List[Dict], week: int, season: str) -> List[Dict]:
+        """Assign Comeback Challenge to users who need it (odd-numbered groups)"""
+        try:
+            logger.info(f"🎯 Assigning Comeback Challenge for group {group_id} with {len(standings)} users")
+            
+            rivalries = []
+            
+            if len(standings) < 3:
+                logger.info(f"Group {group_id} has only {len(standings)} users, no Comeback Challenge possible")
+                return await self._create_standard_pairs(group_id, standings, week, season)
+            
+            # Check if group has odd number of users (Comeback Challenge only for odd groups)
+            if len(standings) % 2 == 0:
+                logger.info(f"Group {group_id} has even number of users ({len(standings)}), no Comeback Challenge")
+                return await self._create_standard_pairs(group_id, standings, week, season)
+            
+            # Comeback Challenge: Middle user gets special treatment
+            comeback_user_position = len(standings) // 2
+            comeback_user = standings[comeback_user_position]
+            
+            logger.info(f"🎯 User {comeback_user['username']} (position {comeback_user_position + 1}) gets Comeback Challenge")
+            
+            # Calculate benchmark for Comeback Challenge user
+            benchmark = await self._calculate_comeback_challenge_benchmark(group_id, comeback_user['user_id'], season)
+            
+            # Create Comeback Challenge rivalry with user above
+            if comeback_user_position > 0:
+                user_above = standings[comeback_user_position - 1]
+                
+                rivalry = await self._create_rivalry_pair(
+                    group_id, comeback_user['user_id'], user_above['user_id'], 
+                    week, season, is_champion_challenge=True
+                )
+                
+                # Set Comeback Challenge specific fields
+                rivalry.comeback_challenge_benchmark = benchmark
+                rivalry.comeback_challenge_status = 'active'
+                self.db.commit()
+                
+                rivalries.append({
+                    'type': 'comeback_challenge',
+                    'comeback_user': comeback_user,
+                    'challenger': user_above,
+                    'benchmark': benchmark,
+                    'rivalry_id': rivalry.id
+                })
+                
+                logger.info(f"🥊 Comeback Challenge: {comeback_user['username']} vs {user_above['username']} (benchmark: {benchmark})")
+            
+            # Create standard rivalries for remaining users
+            remaining_users = [user for i, user in enumerate(standings) if i != comeback_user_position]
+            standard_rivalries = await self._create_standard_pairs(group_id, remaining_users, week, season)
+            rivalries.extend(standard_rivalries)
+            
+            # Activate Comeback Challenge for this group
+            group = self.db.query(Group).filter(Group.id == group_id).first()
+            if group:
+                group.comeback_challenge_activated = True
+                self.db.commit()
+                logger.info(f"✅ Activated Comeback Challenge for group {group_id}")
+            
+            return rivalries
+            
+        except Exception as e:
+            logger.error(f"❌ Error assigning Comeback Challenge: {e}")
+            # Fallback to standard pairs
+            return await self._create_standard_pairs(group_id, standings, week, season)
+
+    async def _process_comeback_challenge_outcome(self, rivalry: RivalryPair, week: int, season: str) -> Dict:
+        """Process outcome for a Comeback Challenge rivalry"""
+        try:
+            logger.info(f"🎯 Processing Comeback Challenge outcome for rivalry {rivalry.id}")
+            
+            # Get week points for both users
+            user1_points = await self._get_user_week_points(rivalry.user1_id, week, season)
+            user2_points = await self._get_user_week_points(rivalry.user2_id, week, season)
+            
+            # Determine which user is the Comeback Challenge user
+            comeback_user_id = None
+            challenger_user_id = None
+            
+            if rivalry.comeback_challenge_benchmark is not None:
+                # This is a Comeback Challenge rivalry
+                comeback_user_id = rivalry.user1_id
+                challenger_user_id = rivalry.user2_id
+                comeback_points = user1_points
+                challenger_points = user2_points
+            else:
+                # This is a regular rivalry
+                comeback_user_id = rivalry.user2_id
+                challenger_user_id = rivalry.user1_id
+                comeback_points = user2_points
+                challenger_points = user1_points
+            
+            # Check if Comeback Challenge user beat the benchmark
+            benchmark = rivalry.comeback_challenge_benchmark or 0
+            comeback_success = comeback_points >= benchmark
+            
+            bonus_awarded = False
+            winner_id = None
+            
+            if comeback_success:
+                # Comeback Challenge user succeeded - they get bonus points
+                await self._award_rivalry_bonus(comeback_user_id, week, season)
+                bonus_awarded = True
+                winner_id = comeback_user_id
+                
+                # Update rivalry status
+                rivalry.comeback_challenge_status = 'completed'
+                self.db.commit()
+                
+                logger.info(f"🏆 Comeback Challenge user {comeback_user_id} succeeded! Beat benchmark {benchmark} with {comeback_points} points")
+            else:
+                # Comeback Challenge user failed
+                rivalry.comeback_challenge_status = 'failed'
+                self.db.commit()
+                
+                logger.info(f"❌ Comeback Challenge user {comeback_user_id} failed. Got {comeback_points} points, needed {benchmark}")
+            
+            return {
+                'rivalry_id': rivalry.id,
+                'comeback_user_id': comeback_user_id,
+                'challenger_user_id': challenger_user_id,
+                'comeback_points': comeback_points,
+                'challenger_points': challenger_points,
+                'benchmark': benchmark,
+                'comeback_success': comeback_success,
+                'bonus_awarded': bonus_awarded,
+                'winner_id': winner_id
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error processing Comeback Challenge outcome: {e}")
+            return {
+                'rivalry_id': rivalry.id,
+                'error': str(e),
+                'bonus_awarded': False
+            }

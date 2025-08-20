@@ -56,13 +56,15 @@ const ActionTypes = {
   SET_SELECTED_GROUP: 'SET_SELECTED_GROUP',
   CLEAR_LEAGUE_DATA: 'CLEAR_LEAGUE_DATA',
   
+  // Comeback Challenge actions
+  SET_COMEBACK_CHALLENGE_LOADING: 'SET_COMEBACK_CHALLENGE_LOADING',
+  SET_COMEBACK_CHALLENGE_ERROR: 'SET_COMEBACK_CHALLENGE_ERROR',
+  SET_COMEBACK_CHALLENGE_DATA: 'SET_COMEBACK_CHALLENGE_DATA',
+  CLEAR_COMEBACK_CHALLENGE_DATA: 'CLEAR_COMEBACK_CHALLENGE_DATA',
+  
   // New user stats actions
   SET_USER_STATS_LOADING: 'SET_USER_STATS_LOADING',
   SET_USER_STATS_ERROR: 'SET_USER_STATS_ERROR',
-  
-  // Season management actions
-  SET_AVAILABLE_SEASONS: 'SET_AVAILABLE_SEASONS',
-  CLEAR_LEAGUE_DATA: 'CLEAR_LEAGUE_DATA',
 };
 
 // Initial state
@@ -109,6 +111,11 @@ const initialState = {
     selectedGroup: null,
     leaderboard: [],
     availableSeasons: [],
+    loading: false,
+    error: null
+  },
+  comebackChallenge: {
+    data: null,
     loading: false,
     error: null
   }
@@ -355,6 +362,31 @@ const appReducer = (state, action) => {
           ...initialState.league,
           selectedSeason: null // Reset to null, will be set based on group
         }
+      };
+    
+    // Comeback Challenge cases
+    case ActionTypes.SET_COMEBACK_CHALLENGE_LOADING:
+      return {
+        ...state,
+        comebackChallenge: { ...state.comebackChallenge, loading: action.payload }
+      };
+    
+    case ActionTypes.SET_COMEBACK_CHALLENGE_ERROR:
+      return {
+        ...state,
+        comebackChallenge: { ...state.comebackChallenge, error: action.payload, loading: false }
+      };
+    
+    case ActionTypes.SET_COMEBACK_CHALLENGE_DATA:
+      return {
+        ...state,
+        comebackChallenge: { ...state.comebackChallenge, data: action.payload }
+      };
+    
+    case ActionTypes.CLEAR_COMEBACK_CHALLENGE_DATA:
+      return {
+        ...state,
+        comebackChallenge: { ...initialState.comebackChallenge }
       };
     
     // New user stats cases
@@ -1501,15 +1533,46 @@ export const AppProvider = ({ children }) => {
     setSelectedGroup,
     fetchLeaderboard,
     fetchGroupSeasons,
-    clearLeagueData,
     
+    // Comeback Challenge
+    comebackChallenge: {
+      data: state.comebackChallenge.data,
+      loading: state.comebackChallenge.loading,
+      error: state.comebackChallenge.error
+    },
+    fetchComebackChallengeData: async (groupId) => {
+      try {
+        dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_LOADING, payload: true });
+        
+        const response = await fetch(`/api/v1/admin/comeback-challenge-status/${groupId}`);
+        const data = await response.json();
+        
+        if (data.success) {
+          dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_DATA, payload: data });
+        } else {
+          dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_ERROR, payload: data.error });
+        }
+        
+        return data;
+      } catch (error) {
+        const errorMessage = error.message || 'Failed to fetch Comeback Challenge data';
+        dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_ERROR, payload: errorMessage });
+        throw error;
+      } finally {
+        dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_LOADING, payload: false });
+      }
+    },
+    clearComebackChallengeData: () => {
+      dispatch({ type: ActionTypes.CLEAR_COMEBACK_CHALLENGE_DATA });
+    },
+    clearLeagueData,
+
     // Season management utilities
     normalizeSeasonForQuery: (league, season) => SeasonManager.normalizeSeasonForQuery(league, season),
     getSeasonForDisplay: (league, season) => SeasonManager.getSeasonForDisplay(league, season),
     getCurrentSeason: (league) => SeasonManager.getCurrentSeason(league),
 
-    // New getUserStats function
-    getUserStats,
+
   }), [
     // Auth state
     state.auth.user,
@@ -1555,6 +1618,11 @@ export const AppProvider = ({ children }) => {
     state.league.availableSeasons,
     state.league.loading,
     state.league.error,
+    
+    // Comeback Challenge state
+    state.comebackChallenge.data,
+    state.comebackChallenge.loading,
+    state.comebackChallenge.error,
     
     // All functions are now properly dependent on their required state
   ]);

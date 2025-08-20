@@ -1,11 +1,13 @@
 // frontend/src/pages/AnalyticsPage.jsx
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useNotifications } from '../contexts/AppContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
 
 const AnalyticsPage = () => {
+  const { groupId } = useParams();
   const { showError, showSuccess } = useNotifications();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);

@@ -170,13 +170,13 @@ const OnboardingGuide = ({
   const defaultSteps = [
     {
       title: "Welcome to Football Predictions!",
-      content: "Let's take a quick tour to get you started with making predictions and competing with friends.",
+              content: "Let&apos;s take a quick tour to get you started with making predictions and competing with friends.",
       action: "Get Started",
       highlight: null
     },
     {
       title: "Make Your Predictions",
-      content: "Predict the exact scores of upcoming matches. You'll earn 3 points for perfect predictions and 1 point for correct results.",
+              content: "Predict the exact scores of upcoming matches. You&apos;ll earn 3 points for perfect predictions and 1 point for correct results.",
       action: "Next",
       highlight: "prediction-form"
     },
@@ -193,7 +193,7 @@ const OnboardingGuide = ({
       highlight: "analytics-section"
     },
     {
-      title: "You're All Set!",
+              title: "You&apos;re All Set!",
       content: "Start making predictions and climb the leaderboards. Good luck!",
       action: "Start Predicting",
       highlight: null

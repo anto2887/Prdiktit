@@ -1,6 +1,6 @@
 // frontend/src/components/rivalries/RivalryDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuth, useNotifications } from '../../contexts/AppContext';
+import { useAuth, useNotifications, useGroups } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import SeasonManager from '../../utils/seasonManager';
@@ -24,11 +24,13 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
   
   const { user } = useAuth();
   const { showError, showSuccess } = useNotifications();
+  const { currentGroup } = useGroups();
   
   const [rivalries, setRivalries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('current');
+  const [comebackChallengeData, setComebackChallengeData] = useState(null);
 
   const ACTIVATION_WEEK = 5;
   const rivalriesActive = currentWeek >= ACTIVATION_WEEK;
@@ -36,6 +38,7 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
   useEffect(() => {
     if (groupId && rivalriesActive) {
       loadRivalries();
+      loadComebackChallengeData();
     }
   }, [groupId, currentWeek, season]);
 
@@ -78,6 +81,35 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
       setRivalries([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadComebackChallengeData = async () => {
+    try {
+      if (!groupId) return;
+      
+      process.env.NODE_ENV === 'development' && console.log(`Loading Comeback Challenge data for group ${groupId}...`);
+      
+      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+      const response = await fetch(
+        `${API_BASE_URL}/admin/comeback-challenge-status/${groupId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setComebackChallengeData(data);
+          process.env.NODE_ENV === 'development' && console.log('Comeback Challenge data loaded:', data);
+        }
+      }
+    } catch (err) {
+      process.env.NODE_ENV === 'development' && console.error('Error loading Comeback Challenge data:', err);
+      // Don't show error to user for this - it's optional data
     }
   };
 
@@ -128,6 +160,55 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
           )}
         </div>
       </div>
+
+      {/* Comeback Challenge Section */}
+      {comebackChallengeData && comebackChallengeData.group && comebackChallengeData.group.comeback_challenge_activated && (
+        <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <span className="text-3xl">🎯</span>
+              <div>
+                <h3 className="text-lg font-semibold text-purple-900">Comeback Challenge Active</h3>
+                <p className="text-sm text-purple-700">
+                  Special challenge for users in the middle of the standings
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-purple-600">Challenge Status</div>
+              <div className="text-lg font-bold text-purple-800">
+                {comebackChallengeData.rivalries.filter(r => r.is_comeback_challenge).length} Active
+              </div>
+            </div>
+          </div>
+          
+          {/* Comeback Challenge Rivalries */}
+          {comebackChallengeData.rivalries.filter(r => r.is_comeback_challenge).map((rivalry, index) => (
+            <div key={rivalry.rivalry_id} className="mt-4 p-4 bg-white rounded-lg border border-purple-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="text-center">
+                    <div className="text-sm text-purple-600">Comeback User</div>
+                    <div className="font-medium text-purple-900">{rivalry.user1.username}</div>
+                  </div>
+                  <div className="text-2xl text-purple-500">🥊</div>
+                  <div className="text-center">
+                    <div className="text-sm text-purple-600">Challenger</div>
+                    <div className="font-medium text-purple-900">{rivalry.user2.username}</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-purple-600">Target Score</div>
+                  <div className="text-lg font-bold text-purple-800">
+                    {rivalry.comeback_challenge_benchmark || 'N/A'}
+                  </div>
+                  <div className="text-xs text-purple-500">Average of 2 users above</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Navigation tabs */}
       <div className="mb-6">
@@ -435,7 +516,7 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
       {/* Current week scores (if rivalry week) */}
       {isRivalryWeek && rivalry.current_week_scores && (
         <div className="mb-4 p-3 bg-white rounded-lg border">
-          <div className="text-sm font-medium text-gray-700 mb-2">This Week's Performance</div>
+          <div className="text-sm font-medium text-gray-700 mb-2">This Week&apos;s Performance</div>
           <div className="flex justify-between text-sm">
             <span>{rivalry.user1_name}: {rivalry.current_week_scores.user1_points} pts</span>
             <span>{rivalry.user2_name}: {rivalry.current_week_scores.user2_points} pts</span>

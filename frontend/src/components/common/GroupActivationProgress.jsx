@@ -97,6 +97,7 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
                 <li>• Advanced analytics become available</li>
                 <li>• Bonus point opportunities</li>
                 <li>• Enhanced group features</li>
+                <li>• Comeback Challenge activation 🆕</li>
               </ul>
             </div>
           )}
@@ -155,6 +156,10 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
             <div className="bg-purple-50 border border-purple-200 rounded-md p-3">
               <h4 className="text-sm font-medium text-purple-800 mb-1">🏆 Leaderboards</h4>
               <p className="text-xs text-purple-600">Enhanced competitive tracking</p>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+              <h4 className="text-sm font-medium text-yellow-800 mb-1">🎯 Comeback Challenge</h4>
+              <p className="text-xs text-yellow-600">Special challenges for middle users</p>
             </div>
           </div>
         </div>

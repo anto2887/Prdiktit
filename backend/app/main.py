@@ -910,6 +910,305 @@ async def populate_group_activation_data():
         if db:
             db.close()
 
+# Comeback Challenge Migration Endpoint
+@app.post("/api/v1/admin/migrate-comeback-challenge-system")
+async def migrate_comeback_challenge_system():
+    """Migration endpoint to add Comeback Challenge system fields"""
+    try:
+        from .db.database import SessionLocal
+        from sqlalchemy import text
+        import logging
+        
+        # Set up logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info("🚀 Starting Comeback Challenge System Migration...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Step 1: Check if migration is already done
+            logger.info("📊 Checking current table structure...")
+            
+            # Check rivalry_pairs table for new fields
+            rivalry_columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'rivalry_pairs' AND column_name IN ('comeback_challenge_benchmark', 'comeback_challenge_status')
+            """)).fetchall()
+            
+            existing_rivalry_columns = [col[0] for col in rivalry_columns_check]
+            logger.info(f"📋 Existing rivalry_pairs columns found: {existing_rivalry_columns}")
+            
+            # Check groups table for comeback challenge field
+            groups_columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name = 'comeback_challenge_activated'
+            """)).fetchall()
+            
+            existing_groups_columns = [col[0] for col in groups_columns_check]
+            logger.info(f"📋 Existing groups columns found: {existing_groups_columns}")
+            
+            all_columns_exist = (
+                len(existing_rivalry_columns) == 2 and 
+                len(existing_groups_columns) == 1
+            )
+            
+            if all_columns_exist:
+                logger.info("✅ Migration already completed - all columns exist")
+                return {
+                    "success": True, 
+                    "message": "Migration already completed",
+                    "existing_rivalry_columns": existing_rivalry_columns,
+                    "existing_groups_columns": existing_groups_columns
+                }
+            
+            # Step 2: Add new columns to rivalry_pairs table
+            logger.info("🔧 Adding new columns to rivalry_pairs table...")
+            
+            rivalry_columns_to_add = [
+                ('comeback_challenge_benchmark', 'DECIMAL(10,2)'),
+                ('comeback_challenge_status', 'VARCHAR(20)')
+            ]
+            
+            for col_name, col_type in rivalry_columns_to_add:
+                if col_name not in existing_rivalry_columns:
+                    try:
+                        logger.info(f"➕ Adding column: {col_name} {col_type}")
+                        db.execute(text(f"ALTER TABLE rivalry_pairs ADD COLUMN {col_name} {col_type}"))
+                        db.commit()
+                        logger.info(f"✅ Successfully added column: {col_name}")
+                    except Exception as col_error:
+                        db.rollback()
+                        logger.error(f"❌ Failed to add column {col_name}: {col_error}")
+                        return {"success": False, "error": f"Failed to add column {col_name}: {str(col_error)}"}
+                else:
+                    logger.info(f"⏭️ Column {col_name} already exists, skipping")
+            
+            # Step 3: Add new column to groups table
+            logger.info("🔧 Adding new column to groups table...")
+            
+            if 'comeback_challenge_activated' not in existing_groups_columns:
+                try:
+                    logger.info("➕ Adding column: comeback_challenge_activated BOOLEAN")
+                    db.execute(text("ALTER TABLE groups ADD COLUMN comeback_challenge_activated BOOLEAN DEFAULT FALSE"))
+                    db.commit()
+                    logger.info("✅ Successfully added column: comeback_challenge_activated")
+                except Exception as col_error:
+                    db.rollback()
+                    logger.error(f"❌ Failed to add column comeback_challenge_activated: {col_error}")
+                    return {"success": False, "error": f"Failed to add column comeback_challenge_activated: {str(col_error)}"}
+            else:
+                logger.info("⏭️ Column comeback_challenge_activated already exists, skipping")
+            
+            # Step 4: Set default values for existing data
+            logger.info("🔄 Setting default values for existing data...")
+            
+            try:
+                # Set default comeback_challenge_status for existing rivalry pairs
+                db.execute(text("""
+                    UPDATE rivalry_pairs 
+                    SET comeback_challenge_status = 'active' 
+                    WHERE comeback_challenge_status IS NULL
+                """))
+                
+                # Set default comeback_challenge_activated for existing groups
+                db.execute(text("""
+                    UPDATE groups 
+                    SET comeback_challenge_activated = FALSE 
+                    WHERE comeback_challenge_activated IS NULL
+                """))
+                
+                db.commit()
+                logger.info("✅ Successfully set default values")
+            except Exception as default_error:
+                db.rollback()
+                logger.error(f"❌ Failed to set default values: {default_error}")
+                return {"success": False, "error": f"Failed to set default values: {str(default_error)}"}
+            
+            logger.info("🎉 Comeback Challenge System Migration completed successfully!")
+            
+            return {
+                "success": True,
+                "message": "Comeback Challenge System Migration completed successfully",
+                "new_rivalry_columns": [col for col, _ in rivalry_columns_to_add if col not in existing_rivalry_columns],
+                "new_groups_columns": ['comeback_challenge_activated'] if 'comeback_challenge_activated' not in existing_groups_columns else []
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error during migration: {e}")
+            db.rollback()
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Critical error in migration endpoint: {e}")
+        return {"success": False, "error": str(e)}
+
+# Testing endpoint for Comeback Challenge
+@app.post("/api/v1/admin/test-comeback-challenge")
+async def test_comeback_challenge():
+    """Test endpoint for Comeback Challenge functionality"""
+    try:
+        from .db.database import SessionLocal
+        import logging
+        
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info("🧪 Testing Comeback Challenge functionality...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Test 1: Check if new columns exist
+            logger.info("📊 Test 1: Checking new columns...")
+            
+            columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'rivalry_pairs' AND column_name IN ('comeback_challenge_benchmark', 'comeback_challenge_status')
+            """)).fetchall()
+            
+            if len(columns_check) == 2:
+                logger.info("✅ Test 1 PASSED: New columns exist")
+            else:
+                logger.error("❌ Test 1 FAILED: New columns missing")
+                return {"success": False, "test": "columns_check", "error": "New columns not found"}
+            
+            # Test 2: Check if groups table has comeback_challenge_activated
+            logger.info("📊 Test 2: Checking groups table...")
+            
+            groups_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name = 'comeback_challenge_activated'
+            """)).fetchall()
+            
+            if len(groups_check) == 1:
+                logger.info("✅ Test 2 PASSED: Groups table updated")
+            else:
+                logger.error("❌ Test 2 FAILED: Groups table not updated")
+                return {"success": False, "test": "groups_check", "error": "Groups table not updated"}
+            
+            # Test 3: Check sample data
+            logger.info("📊 Test 3: Checking sample data...")
+            
+            sample_rivalries = db.execute(text("""
+                SELECT id, comeback_challenge_status 
+                FROM rivalry_pairs 
+                LIMIT 5
+            """)).fetchall()
+            
+            if sample_rivalries:
+                logger.info(f"✅ Test 3 PASSED: Found {len(sample_rivalries)} sample rivalries")
+                for rivalry in sample_rivalries:
+                    logger.info(f"   Rivalry {rivalry[0]}: status = {rivalry[1]}")
+            else:
+                logger.warning("⚠️ Test 3 WARNING: No rivalries found")
+            
+            logger.info("🎉 All Comeback Challenge tests passed!")
+            
+            return {
+                "success": True,
+                "message": "All Comeback Challenge tests passed",
+                "tests_passed": 3,
+                "sample_data": len(sample_rivalries)
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error during testing: {e}")
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Critical error in testing endpoint: {e}")
+        return {"success": False, "error": str(e)}
+
+# Comeback Challenge Status Endpoint
+@app.get("/api/v1/admin/comeback-challenge-status/{group_id}")
+async def get_comeback_challenge_status(group_id: int):
+    """Get Comeback Challenge status for a specific group"""
+    try:
+        from .db.database import SessionLocal
+        import logging
+        
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"📊 Getting Comeback Challenge status for group {group_id}...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Get group information
+            group_result = db.execute(text("""
+                SELECT id, name, league, comeback_challenge_activated
+                FROM groups 
+                WHERE id = :group_id
+            """), {"group_id": group_id}).fetchone()
+            
+            if not group_result:
+                return {"success": False, "error": "Group not found"}
+            
+            group_id, group_name, league, comeback_challenge_activated = group_result
+            
+            # Get rivalry pairs for this group
+            rivalries_result = db.execute(text("""
+                SELECT id, user1_id, user2_id, is_champion_challenge, comeback_challenge_benchmark, comeback_challenge_status
+                FROM rivalry_pairs 
+                WHERE group_id = :group_id AND is_active = true
+            """), {"group_id": group_id}).fetchall()
+            
+            # Get user information for rivalries
+            rivalries_with_users = []
+            for rivalry in rivalries_result:
+                rivalry_id, user1_id, user2_id, is_champion_challenge, benchmark, status = rivalry
+                
+                # Get usernames
+                user1_result = db.execute(text("SELECT username FROM users WHERE id = :user_id"), {"user_id": user1_id}).fetchone()
+                user2_result = db.execute(text("SELECT username FROM users WHERE id = :user_id"), {"user_id": user2_id}).fetchone()
+                
+                user1_name = user1_result[0] if user1_result else "Unknown"
+                user2_name = user2_result[0] if user2_result else "Unknown"
+                
+                rivalries_with_users.append({
+                    "rivalry_id": rivalry_id,
+                    "user1": {"id": user1_id, "username": user1_name},
+                    "user2": {"id": user2_id, "username": user2_name},
+                    "is_champion_challenge": is_champion_challenge,
+                    "comeback_challenge_benchmark": float(benchmark) if benchmark else None,
+                    "comeback_challenge_status": status
+                })
+            
+            logger.info(f"✅ Retrieved status for group {group_id}: {len(rivalries_with_users)} active rivalries")
+            
+            return {
+                "success": True,
+                "group": {
+                    "id": group_id,
+                    "name": group_name,
+                    "league": league,
+                    "comeback_challenge_activated": comeback_challenge_activated
+                },
+                "rivalries": rivalries_with_users,
+                "total_rivalries": len(rivalries_with_users)
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting status: {e}")
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Critical error in status endpoint: {e}")
+        return {"success": False, "error": str(e)}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

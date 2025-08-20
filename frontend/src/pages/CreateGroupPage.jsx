@@ -65,7 +65,7 @@ const CreateGroupPage = () => {
           },
           {
             title: "Invite Friends",
-            content: "Once created, you'll get an invite code to share with friends. They can join using this code!",
+            content: "Once created, you&apos;ll get an invite code to share with friends. They can join using this code!",
             action: "Got it!",
             highlight: null
           }

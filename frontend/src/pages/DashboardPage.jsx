@@ -480,7 +480,7 @@ const DashboardPage = React.memo(() => {
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="text-center py-12">
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                You're not in any leagues yet
+                You&apos;re not in any leagues yet
               </h3>
               <p className="text-gray-500 mb-6">
                 Join a league to start making predictions and competing with friends
@@ -514,7 +514,7 @@ const DashboardPage = React.memo(() => {
         steps={[
           {
             title: "Welcome to Your Dashboard!",
-            content: "This is your central hub for all football prediction activities. Let's explore what you can do here.",
+            content: "This is your central hub for all football prediction activities. Let&apos;s explore what you can do here.",
             action: "Next",
             highlight: null
           },
@@ -526,7 +526,7 @@ const DashboardPage = React.memo(() => {
           },
           {
             title: "Recent Predictions",
-            content: "See your latest predictions and their results. Track how well you're performing in recent matches.",
+            content: "See your latest predictions and their results. Track how well you&apos;re performing in recent matches.",
             action: "Next",
             highlight: null
           },

@@ -31,92 +31,93 @@ const GroupManagement = () => {
   const mountedRef = useRef(false);
   const dataLoadedRef = useRef(false);
 
+  const loadGroupData = async () => {
+    if (loadingRef.current || dataLoadedRef.current) {
+      process.env.NODE_ENV === 'development' && console.log('GroupManagement: Skipping load - already loading or loaded');
+      return;
+    }
+
+    if (!profile || !groupId) {
+      process.env.NODE_ENV === 'development' && console.log('GroupManagement: Missing profile or groupId', { profile: !!profile, groupId });
+      return;
+    }
+    
+    loadingRef.current = true;
+    
+    try {
+      process.env.NODE_ENV === 'development' && console.log('Loading group details for:', groupId);
+      process.env.NODE_ENV === 'development' && console.log('Current user profile:', profile);
+      
+      // Fetch group details first
+      const groupDetails = await fetchGroupDetails(groupId);
+      if (!groupDetails) {
+        showError('Failed to load group details');
+        return;
+      }
+      
+      process.env.NODE_ENV === 'development' && console.log('Group details loaded:', groupDetails);
+      process.env.NODE_ENV === 'development' && console.log('Group admin_id:', groupDetails.admin_id);
+      process.env.NODE_ENV === 'development' && console.log('Current user id:', profile.id);
+      
+      // FIXED: Better admin check with type conversion
+      const isUserAdmin = parseInt(groupDetails.admin_id) === parseInt(profile.id);
+      process.env.NODE_ENV === 'development' && console.log('Is user admin?', isUserAdmin);
+      
+      if (!isUserAdmin) {
+        // FIXED: Also check if user has admin role in the group
+        const userRole = groupDetails.role;
+        process.env.NODE_ENV === 'development' && console.log('User role in group:', userRole);
+        
+        if (userRole !== 'ADMIN') {
+          showError('You are not authorized to manage this group');
+          navigate(`/groups/${groupId}`);
+          return;
+        }
+      }
+      
+      process.env.NODE_ENV === 'development' && console.log('Fetching group members for:', groupId);
+      
+      // Fetch members
+      const membersData = await fetchGroupMembers(groupId);
+      process.env.NODE_ENV === 'development' && console.log('Received members data:', membersData);
+      
+      if (Array.isArray(membersData)) {
+        // Separate approved and pending members
+        const approvedMembers = membersData.filter(m => 
+          !m.status || m.status === 'APPROVED'
+        );
+        const pendingMembers = membersData.filter(m => 
+          m.status === 'PENDING'
+        );
+        
+        process.env.NODE_ENV === 'development' && console.log('Approved members:', approvedMembers.length);
+        process.env.NODE_ENV === 'development' && console.log('Pending members:', pendingMembers.length);
+        
+        setMembers(approvedMembers);
+        setPendingRequests(pendingMembers);
+      } else {
+        process.env.NODE_ENV === 'development' && console.warn('Members data is not an array:', membersData);
+        setMembers([]);
+        setPendingRequests([]);
+      }
+      
+      dataLoadedRef.current = true;
+    } catch (err) {
+      process.env.NODE_ENV === 'development' && console.error('GroupManagement: Error loading group data:', err);
+      if (mountedRef.current) {
+        showError('Failed to load group data');
+      }
+    } finally {
+      if (mountedRef.current) {
+        setLocalLoading(false);
+      }
+      loadingRef.current = false;
+    }
+  };
+
   useEffect(() => {
     mountedRef.current = true;
     
-    const loadGroupData = async () => {
-      if (loadingRef.current || dataLoadedRef.current) {
-        process.env.NODE_ENV === 'development' && console.log('GroupManagement: Skipping load - already loading or loaded');
-        return;
-      }
-
-      if (!profile || !groupId) {
-        process.env.NODE_ENV === 'development' && console.log('GroupManagement: Missing profile or groupId', { profile: !!profile, groupId });
-        return;
-      }
-      
-      loadingRef.current = true;
-      
-      try {
-        process.env.NODE_ENV === 'development' && console.log('Loading group details for:', groupId);
-        process.env.NODE_ENV === 'development' && console.log('Current user profile:', profile);
-        
-        // Fetch group details first
-        const groupDetails = await fetchGroupDetails(groupId);
-        if (!groupDetails) {
-          showError('Failed to load group details');
-          return;
-        }
-        
-        process.env.NODE_ENV === 'development' && console.log('Group details loaded:', groupDetails);
-        process.env.NODE_ENV === 'development' && console.log('Group admin_id:', groupDetails.admin_id);
-        process.env.NODE_ENV === 'development' && console.log('Current user id:', profile.id);
-        
-        // FIXED: Better admin check with type conversion
-        const isUserAdmin = parseInt(groupDetails.admin_id) === parseInt(profile.id);
-        process.env.NODE_ENV === 'development' && console.log('Is user admin?', isUserAdmin);
-        
-        if (!isUserAdmin) {
-          // FIXED: Also check if user has admin role in the group
-          const userRole = groupDetails.role;
-          process.env.NODE_ENV === 'development' && console.log('User role in group:', userRole);
-          
-          if (userRole !== 'ADMIN') {
-            showError('You are not authorized to manage this group');
-            navigate(`/groups/${groupId}`);
-            return;
-          }
-        }
-        
-        process.env.NODE_ENV === 'development' && console.log('Fetching group members for:', groupId);
-        
-        // Fetch members
-        const membersData = await fetchGroupMembers(groupId);
-        process.env.NODE_ENV === 'development' && console.log('Received members data:', membersData);
-        
-        if (Array.isArray(membersData)) {
-          // Separate approved and pending members
-          const approvedMembers = membersData.filter(m => 
-            !m.status || m.status === 'APPROVED'
-          );
-          const pendingMembers = membersData.filter(m => 
-            m.status === 'PENDING'
-          );
-          
-          process.env.NODE_ENV === 'development' && console.log('Approved members:', approvedMembers.length);
-          process.env.NODE_ENV === 'development' && console.log('Pending members:', pendingMembers.length);
-          
-          setMembers(approvedMembers);
-          setPendingRequests(pendingMembers);
-        } else {
-          process.env.NODE_ENV === 'development' && console.warn('Members data is not an array:', membersData);
-          setMembers([]);
-          setPendingRequests([]);
-        }
-        dataLoadedRef.current = true;
-      } catch (err) {
-        process.env.NODE_ENV === 'development' && console.error('GroupManagement: Error loading group data:', err);
-        if (mountedRef.current) {
-          showError('Failed to load group data');
-        }
-      } finally {
-        if (mountedRef.current) {
-          setLocalLoading(false);
-        }
-        loadingRef.current = false;
-      }
-    };
-
     if (!dataLoadedRef.current) {
       loadGroupData();
     }
@@ -124,7 +125,7 @@ const GroupManagement = () => {
     return () => {
       mountedRef.current = false;
     };
-  }, [groupId, profile?.id]);
+  }, [groupId, profile?.id, fetchGroupDetails, fetchGroupMembers, showError, navigate]);
 
   const reloadGroupData = async () => {
     if (loadingRef.current) return;
