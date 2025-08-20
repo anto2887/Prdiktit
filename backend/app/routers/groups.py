@@ -441,6 +441,7 @@ async def get_group_by_id_endpoint(
     except HTTPException:
         raise
     except Exception as e:
+        import logging
         logging.error(f"Error getting group by ID: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
