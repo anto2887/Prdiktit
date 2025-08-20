@@ -11,39 +11,36 @@ const AppContext = createContext(null);
 const ActionTypes = {
   // Auth actions
   SET_AUTH_LOADING: 'SET_AUTH_LOADING',
-  SET_AUTH_USER: 'SET_AUTH_USER',
+  SET_AUTH_SUCCESS: 'SET_AUTH_SUCCESS',
   SET_AUTH_ERROR: 'SET_AUTH_ERROR',
-  CLEAR_AUTH: 'CLEAR_AUTH',
+  SET_AUTH_LOGOUT: 'SET_AUTH_LOGOUT',
   
   // User actions
-  SET_USER_LOADING: 'SET_USER_LOADING',
   SET_USER_PROFILE: 'SET_USER_PROFILE',
   SET_USER_STATS: 'SET_USER_STATS',
+  SET_USER_LOADING: 'SET_USER_LOADING',
   SET_USER_ERROR: 'SET_USER_ERROR',
-  CLEAR_USER_DATA: 'CLEAR_USER_DATA',
   
   // Groups actions
   SET_GROUPS_LOADING: 'SET_GROUPS_LOADING',
+  SET_GROUPS_ERROR: 'SET_GROUPS_ERROR',
   SET_USER_GROUPS: 'SET_USER_GROUPS',
   SET_CURRENT_GROUP: 'SET_CURRENT_GROUP',
   SET_GROUP_MEMBERS: 'SET_GROUP_MEMBERS',
-  SET_GROUPS_ERROR: 'SET_GROUPS_ERROR',
-  CLEAR_GROUPS_DATA: 'CLEAR_GROUPS_DATA',
+  CLEAR_GROUP_DATA: 'CLEAR_GROUP_DATA',
   
   // Matches actions
   SET_MATCHES_LOADING: 'SET_MATCHES_LOADING',
+  SET_MATCHES_ERROR: 'SET_MATCHES_ERROR',
   SET_FIXTURES: 'SET_FIXTURES',
   SET_LIVE_MATCHES: 'SET_LIVE_MATCHES',
   SET_SELECTED_MATCH: 'SET_SELECTED_MATCH',
-  SET_MATCHES_ERROR: 'SET_MATCHES_ERROR',
-  CLEAR_MATCHES_DATA: 'CLEAR_MATCHES_DATA',
   
   // Predictions actions
   SET_PREDICTIONS_LOADING: 'SET_PREDICTIONS_LOADING',
+  SET_PREDICTIONS_ERROR: 'SET_PREDICTIONS_ERROR',
   SET_USER_PREDICTIONS: 'SET_USER_PREDICTIONS',
   SET_SELECTED_PREDICTION: 'SET_SELECTED_PREDICTION',
-  SET_PREDICTIONS_ERROR: 'SET_PREDICTIONS_ERROR',
-  CLEAR_PREDICTIONS_DATA: 'CLEAR_PREDICTIONS_DATA',
   
   // Notifications actions
   ADD_NOTIFICATION: 'ADD_NOTIFICATION',
@@ -51,11 +48,11 @@ const ActionTypes = {
   CLEAR_NOTIFICATIONS: 'CLEAR_NOTIFICATIONS',
   
   // League actions
-  SET_SELECTED_SEASON: 'SET_SELECTED_SEASON',
-  SET_SELECTED_GROUP: 'SET_SELECTED_GROUP',
-  SET_LEADERBOARD: 'SET_LEADERBOARD',
   SET_LEAGUE_LOADING: 'SET_LEAGUE_LOADING',
   SET_LEAGUE_ERROR: 'SET_LEAGUE_ERROR',
+  SET_LEADERBOARD: 'SET_LEADERBOARD',
+  SET_AVAILABLE_SEASONS: 'SET_AVAILABLE_SEASONS',
+  CLEAR_LEAGUE_DATA: 'CLEAR_LEAGUE_DATA',
   
   // New user stats actions
   SET_USER_STATS_LOADING: 'SET_USER_STATS_LOADING',
@@ -64,12 +61,6 @@ const ActionTypes = {
   // Season management actions
   SET_AVAILABLE_SEASONS: 'SET_AVAILABLE_SEASONS',
   CLEAR_LEAGUE_DATA: 'CLEAR_LEAGUE_DATA',
-  
-  // Group activation actions
-  SET_GROUP_ACTIVATION_LOADING: 'SET_GROUP_ACTIVATION_LOADING',
-  SET_GROUP_ACTIVATION_STATE: 'SET_GROUP_ACTIVATION_STATE',
-  SET_GROUP_ACTIVATION_ERROR: 'SET_GROUP_ACTIVATION_ERROR',
-  CLEAR_GROUP_ACTIVATION_DATA: 'CLEAR_GROUP_ACTIVATION_DATA',
 };
 
 // Initial state
@@ -118,18 +109,6 @@ const initialState = {
     availableSeasons: [],
     loading: false,
     error: null
-  },
-  groupActivation: {
-    isActive: false,
-    activationWeek: null,
-    nextRivalryWeek: null,
-    currentWeek: null,
-    weeksUntilActivation: null,
-    weeksUntilNextRivalry: null,
-    activationProgress: 0,
-    rivalryProgress: 0,
-    loading: false,
-    error: null
   }
 };
 
@@ -143,7 +122,7 @@ const appReducer = (state, action) => {
         auth: { ...state.auth, loading: action.payload }
       };
     
-    case ActionTypes.SET_AUTH_USER:
+    case ActionTypes.SET_AUTH_SUCCESS:
       return {
         ...state,
         auth: {
@@ -161,7 +140,7 @@ const appReducer = (state, action) => {
         auth: { ...state.auth, error: action.payload, loading: false }
       };
     
-    case ActionTypes.CLEAR_AUTH:
+    case ActionTypes.SET_AUTH_LOGOUT:
       return {
         ...state,
         auth: { ...initialState.auth },
@@ -193,12 +172,6 @@ const appReducer = (state, action) => {
       return {
         ...state,
         user: { ...state.user, error: action.payload, loading: false }
-      };
-    
-    case ActionTypes.CLEAR_USER_DATA:
-      return {
-        ...state,
-        user: { ...initialState.user }
       };
     
     // Groups cases
@@ -242,7 +215,7 @@ const appReducer = (state, action) => {
         groups: { ...state.groups, error: action.payload, loading: false }
       };
     
-    case ActionTypes.CLEAR_GROUPS_DATA:
+    case ActionTypes.CLEAR_GROUP_DATA:
       return {
         ...state,
         groups: { ...initialState.groups }
@@ -279,12 +252,6 @@ const appReducer = (state, action) => {
         matches: { ...state.matches, error: action.payload, loading: false }
       };
     
-    case ActionTypes.CLEAR_MATCHES_DATA:
-      return {
-        ...state,
-        matches: { ...initialState.matches }
-      };
-    
     // Predictions cases
     case ActionTypes.SET_PREDICTIONS_LOADING:
       return {
@@ -308,12 +275,6 @@ const appReducer = (state, action) => {
       return {
         ...state,
         predictions: { ...state.predictions, error: action.payload, loading: false }
-      };
-    
-    case ActionTypes.CLEAR_PREDICTIONS_DATA:
-      return {
-        ...state,
-        predictions: { ...initialState.predictions }
       };
     
     // Notifications cases
@@ -340,24 +301,6 @@ const appReducer = (state, action) => {
       };
     
     // League cases
-    case ActionTypes.SET_SELECTED_SEASON:
-      return {
-        ...state,
-        league: { ...state.league, selectedSeason: action.payload }
-      };
-    
-    case ActionTypes.SET_SELECTED_GROUP:
-      return {
-        ...state,
-        league: { ...state.league, selectedGroup: action.payload }
-      };
-    
-    case ActionTypes.SET_LEADERBOARD:
-      return {
-        ...state,
-        league: { ...state.league, leaderboard: action.payload, loading: false, error: null }
-      };
-    
     case ActionTypes.SET_LEAGUE_LOADING:
       return {
         ...state,
@@ -370,7 +313,12 @@ const appReducer = (state, action) => {
         league: { ...state.league, error: action.payload, loading: false }
       };
     
-    // Season management cases
+    case ActionTypes.SET_LEADERBOARD:
+      return {
+        ...state,
+        league: { ...state.league, leaderboard: action.payload, loading: false, error: null }
+      };
+    
     case ActionTypes.SET_AVAILABLE_SEASONS:
       return {
         ...state,
@@ -400,31 +348,6 @@ const appReducer = (state, action) => {
       return {
         ...state,
         user: { ...state.user, statsError: action.payload }
-      };
-    
-    // Group activation cases
-    case ActionTypes.SET_GROUP_ACTIVATION_LOADING:
-      return {
-        ...state,
-        groupActivation: { ...state.groupActivation, loading: action.payload }
-      };
-    
-    case ActionTypes.SET_GROUP_ACTIVATION_STATE:
-      return {
-        ...state,
-        groupActivation: { ...state.groupActivation, ...action.payload, loading: false, error: null }
-      };
-    
-    case ActionTypes.SET_GROUP_ACTIVATION_ERROR:
-      return {
-        ...state,
-        groupActivation: { ...state.groupActivation, error: action.payload, loading: false }
-      };
-    
-    case ActionTypes.CLEAR_GROUP_ACTIVATION_DATA:
-      return {
-        ...state,
-        groupActivation: { ...initialState.groupActivation }
       };
     
     default:
@@ -513,7 +436,7 @@ export const AppProvider = ({ children }) => {
       const hasToken = localStorage.getItem('accessToken');
       
       if (!hasToken) {
-        dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
+        dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: null });
         return;
       }
       
@@ -523,13 +446,13 @@ export const AppProvider = ({ children }) => {
         // Extract user data from response
         const userData = response.data.user;
         if (userData) {
-          dispatch({ type: ActionTypes.SET_AUTH_USER, payload: userData });
+          dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: userData });
         } else {
           // If no user data, set minimal authenticated state
-          dispatch({ type: ActionTypes.SET_AUTH_USER, payload: { authenticated: true }});
+          dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: { authenticated: true }});
         }
       } else {
-        dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
+        dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: null });
         localStorage.removeItem('accessToken');
       }
     } catch (err) {
@@ -537,7 +460,7 @@ export const AppProvider = ({ children }) => {
       // Handle 401 errors differently
       if (err.status === 401 || err.message?.includes('401')) {
         localStorage.removeItem('accessToken');
-        dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
+        dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: null });
       } else {
         dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message || 'Authentication check failed' });
       }
@@ -562,7 +485,7 @@ export const AppProvider = ({ children }) => {
         process.env.NODE_ENV === 'development' && console.log('Login: Setting user data:', userData);
         
         if (userData) {
-          dispatch({ type: ActionTypes.SET_AUTH_USER, payload: userData });
+          dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: userData });
           process.env.NODE_ENV === 'development' && console.log('Login: User authenticated successfully');
           return response;
         } else {
@@ -605,10 +528,10 @@ export const AppProvider = ({ children }) => {
     try {
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
       await authApi.logout();
-      dispatch({ type: ActionTypes.CLEAR_AUTH });
+      dispatch({ type: ActionTypes.SET_AUTH_LOGOUT });
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Logout error:', err);
-      dispatch({ type: ActionTypes.CLEAR_AUTH });
+      dispatch({ type: ActionTypes.SET_AUTH_LOGOUT });
     } finally {
       // Always set loading to false
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
@@ -1379,7 +1302,7 @@ export const AppProvider = ({ children }) => {
 
   const clearGroupData = useCallback(() => {
     process.env.NODE_ENV === 'development' && console.log('Clearing all group data');
-    dispatch({ type: ActionTypes.CLEAR_GROUPS_DATA });
+    dispatch({ type: ActionTypes.CLEAR_GROUP_DATA });
   }, []);
 
   const clearUserData = useCallback(() => {
@@ -1443,65 +1366,6 @@ export const AppProvider = ({ children }) => {
     return state.groups.userGroups.some(g => g.id === groupId);
   }, [state.groups.userGroups]); // FIXED: Restore state dependencies for proper state access
 
-  // Group activation functions
-  const fetchGroupActivationState = useCallback(async (groupId) => {
-    if (!state.auth.isAuthenticated || !groupId) {
-      return null;
-    }
-    
-    try {
-      dispatch({ type: ActionTypes.SET_GROUP_ACTIVATION_LOADING, payload: true });
-      dispatch({ type: ActionTypes.SET_GROUP_ACTIVATION_ERROR, payload: null });
-      
-      // Get current group details to access activation fields
-      const group = state.groups.currentGroup || state.groups.userGroups.find(g => g.id === groupId);
-      if (!group) {
-        throw new Error('Group not found');
-      }
-      
-      // Calculate current week based on group creation and current date
-      const currentDate = new Date();
-      const groupCreatedDate = new Date(group.created);
-      const daysSinceCreation = Math.floor((currentDate - groupCreatedDate) / (1000 * 60 * 60 * 24));
-      const currentWeek = Math.floor(daysSinceCreation / 7) + 1;
-      
-      // Get activation data from group
-      const activationWeek = group.activation_week || 6;
-      const nextRivalryWeek = group.next_rivalry_week || 7;
-      
-      // Calculate progress and timing
-      const isActive = currentWeek >= activationWeek;
-      const weeksUntilActivation = Math.max(0, activationWeek - currentWeek);
-      const weeksUntilNextRivalry = Math.max(0, nextRivalryWeek - currentWeek);
-      
-      // Calculate progress percentages
-      const activationProgress = Math.min(100, Math.max(0, ((currentWeek - 1) / (activationWeek - 1)) * 100));
-      const rivalryProgress = isActive ? Math.min(100, Math.max(0, ((currentWeek - activationWeek) / 4) * 100)) : 0;
-      
-      const activationState = {
-        isActive,
-        activationWeek,
-        nextRivalryWeek,
-        currentWeek,
-        weeksUntilActivation,
-        weeksUntilNextRivalry,
-        activationProgress,
-        rivalryProgress
-      };
-      
-      dispatch({ type: ActionTypes.SET_GROUP_ACTIVATION_STATE, payload: activationState });
-      return activationState;
-      
-    } catch (err) {
-      dispatch({ type: ActionTypes.SET_GROUP_ACTIVATION_ERROR, payload: err.message || 'Failed to fetch group activation state' });
-      return null;
-    }
-  }, [state.auth.isAuthenticated, state.groups.currentGroup, state.groups.userGroups]);
-
-  const clearGroupActivationData = useCallback(() => {
-    dispatch({ type: ActionTypes.CLEAR_GROUP_ACTIVATION_DATA });
-  }, []);
-
   // Add getUserStats to the AppProvider component
   const getUserStats = useCallback(async (userId) => {
     try {
@@ -1526,23 +1390,25 @@ export const AppProvider = ({ children }) => {
   // Context value - memoized to prevent infinite re-renders
   const contextValue = useMemo(() => ({
     // Auth
-    user: state.auth.user,
-    isAuthenticated: state.auth.isAuthenticated,
-    authLoading: state.auth.loading,
-    authError: state.auth.error,
+    auth: {
+      user: state.auth.user,
+      loading: state.auth.loading,
+      error: state.auth.error,
+      isAuthenticated: state.auth.isAuthenticated
+    },
     login,
-    register,
     logout,
     checkAuth,
-    clearAuthError,
-
+    
     // User
-    profile: state.user.profile,
-    stats: state.user.stats,
-    userLoading: state.user.loading,
-    userError: state.user.error,
-    statsLoading: state.user.statsLoading,
-    statsError: state.user.statsError,
+    user: {
+      profile: state.user.profile,
+      stats: state.user.stats,
+      loading: state.user.loading,
+      error: state.user.error,
+      statsLoading: state.user.statsLoading,
+      statsError: state.user.statsError
+    },
     fetchProfile,
     updateProfile,
     clearUserData,
@@ -1568,11 +1434,6 @@ export const AppProvider = ({ children }) => {
     updateGroup,
     leaveGroup,
     isMember,
-
-    // Group Activation
-    groupActivation: state.groupActivation,
-    fetchGroupActivationState,
-    clearGroupActivationData,
 
     // Matches
     fixtures: state.matches.fixtures,
@@ -1630,24 +1491,52 @@ export const AppProvider = ({ children }) => {
     // New getUserStats function
     getUserStats,
   }), [
-    // FIXED: Include essential state dependencies for proper function execution
+    // Auth state
+    state.auth.user,
+    state.auth.loading,
+    state.auth.error,
     state.auth.isAuthenticated,
+    
+    // User state
     state.user.profile,
     state.user.stats,
+    state.user.loading,
+    state.user.error,
+    state.user.statsLoading,
+    state.user.statsError,
+    
+    // Groups state
     state.groups.userGroups,
     state.groups.currentGroup,
     state.groups.groupMembers,
-    state.groupActivation,
+    state.groups.loading,
+    state.groups.error,
+    
+    // Matches state
     state.matches.fixtures,
     state.matches.liveMatches,
+    state.matches.selectedMatch,
+    state.matches.loading,
+    state.matches.error,
+    
+    // Predictions state
     state.predictions.userPredictions,
+    state.predictions.selectedPrediction,
+    state.predictions.loading,
+    state.predictions.error,
+    
+    // Notifications state
+    state.notifications.notifications,
+    
+    // League state
     state.league.selectedSeason,
     state.league.selectedGroup,
     state.league.leaderboard,
     state.league.availableSeasons,
+    state.league.loading,
+    state.league.error,
+    
     // All functions are now properly dependent on their required state
-    fetchGroupActivationState,
-    clearGroupActivationData,
   ]);
 
   // Check authentication on mount - placed after all functions are defined
@@ -1688,10 +1577,10 @@ export const useAuth = () => {
   }
   
   return {
-    user: context.user,
-    loading: context.authLoading,
-    error: context.authError,
-    isAuthenticated: context.isAuthenticated,
+    user: context.auth.user,
+    loading: context.auth.loading,
+    error: context.auth.error,
+    isAuthenticated: context.auth.isAuthenticated,
     login: context.login,
     register: context.register,
     logout: context.logout,
@@ -1707,12 +1596,12 @@ export const useUser = () => {
   }
   
   return {
-    profile: context.profile,
-    stats: context.stats,
-    loading: context.userLoading,
-    error: context.userError,
-    statsLoading: context.statsLoading,
-    statsError: context.statsError,
+    profile: context.user.profile,
+    stats: context.user.stats,
+    loading: context.user.loading,
+    error: context.user.error,
+    statsLoading: context.user.statsLoading,
+    statsError: context.user.statsError,
     fetchProfile: context.fetchProfile,
     updateProfile: context.updateProfile,
     clearUserData: context.clearUserData,
@@ -1853,19 +1742,6 @@ export const useGroupDetails = () => {
     loading: context.groupsLoading,
     error: context.groupsError,
     group: context.currentGroup
-  };
-};
-
-export const useGroupActivation = () => {
-  const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useGroupActivation must be used within an AppProvider');
-  }
-  
-  return {
-    groupActivation: context.groupActivation,
-    fetchGroupActivationState: context.fetchGroupActivationState,
-    clearGroupActivationData: context.clearGroupActivationData
   };
 };
 

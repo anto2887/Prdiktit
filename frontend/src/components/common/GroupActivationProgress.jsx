@@ -1,41 +1,39 @@
-import React, { useEffect, useState } from 'react';
-import { useGroupActivation } from '../../contexts/AppContext';
+import React, { useState, useEffect } from 'react';
+import { useGroups } from '../../contexts/AppContext';
 
 const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
-  const { groupActivation, fetchGroupActivationState } = useGroupActivation();
+  const { userGroups, currentGroup } = useGroups();
   const [isVisible, setIsVisible] = useState(true);
 
-  useEffect(() => {
-    if (groupId) {
-      fetchGroupActivationState(groupId);
-    }
-  }, [groupId, fetchGroupActivationState]);
+  // Get the group data from either currentGroup or userGroups
+  const group = currentGroup || userGroups.find(g => g.id === groupId);
 
   // Auto-hide after 10 seconds if features are already active
   useEffect(() => {
-    if (groupActivation.isActive && groupActivation.weeksUntilNextRivalry === 0) {
+    if (group && group.is_activated && group.weeks_until_next_rivalry === 0) {
       const timer = setTimeout(() => setIsVisible(false), 10000);
       return () => clearTimeout(timer);
     }
-  }, [groupActivation.isActive, groupActivation.weeksUntilNextRivalry]);
+  }, [group]);
 
-  if (!groupActivation || !isVisible) {
+  if (!group || !isVisible) {
     return null;
   }
 
+  // Extract activation data from the group object (API data)
   const {
-    isActive,
-    activationWeek,
-    nextRivalryWeek,
-    currentWeek,
-    weeksUntilActivation,
-    weeksUntilNextRivalry,
-    activationProgress,
-    rivalryProgress
-  } = groupActivation;
+    is_activated,
+    activation_week,
+    next_rivalry_week,
+    current_week,
+    weeks_until_activation,
+    weeks_until_next_rivalry,
+    activation_progress,
+    is_rivalry_week
+  } = group;
 
   // Don't show if no activation data
-  if (!activationWeek) {
+  if (!activation_week) {
     return null;
   }
 
@@ -43,7 +41,7 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800">
-          {isActive ? '🎉 Group Features Active!' : '⏳ Group Features Unlocking Soon'}
+          {is_activated ? '🎉 Group Features Active!' : '⏳ Group Features Unlocking Soon'}
         </h3>
         <button
           onClick={() => setIsVisible(false)}
@@ -53,28 +51,28 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
         </button>
       </div>
 
-      {!isActive ? (
+      {!is_activated ? (
         // Pre-activation state
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm text-gray-600">
             <span>Progress to activation</span>
-            <span>{weeksUntilActivation} weeks remaining</span>
+            <span>{weeks_until_activation} weeks remaining</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div
               className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${activationProgress}%` }}
+              style={{ width: `${activation_progress}%` }}
             />
           </div>
           <p className="text-sm text-gray-600">
-            Features will unlock at week {activationWeek} (currently week {currentWeek})
+            Features will unlock at week {activation_week} (currently week {current_week})
           </p>
           
           {/* Activation countdown */}
-          {weeksUntilActivation > 0 && (
+          {weeks_until_activation > 0 && (
             <div className="bg-blue-100 border border-blue-300 rounded-md p-3">
               <p className="text-sm text-blue-800 font-medium">
-                🚀 {weeksUntilActivation === 1 ? 'Next week' : `${weeksUntilActivation} weeks`} until:
+                🚀 {weeks_until_activation === 1 ? 'Next week' : `${weeks_until_activation} weeks`} until:
               </p>
               <ul className="text-sm text-blue-700 mt-1 space-y-1">
                 <li>• Rivalry challenges unlock</li>
@@ -98,14 +96,14 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm text-gray-600">
                 <span>Next rivalry week</span>
-                <span>{weeksUntilNextRivalry === 0 ? 'This week!' : `${weeksUntilNextRivalry} weeks away`}</span>
+                <span>{weeks_until_next_rivalry === 0 ? 'This week!' : `${weeks_until_next_rivalry} weeks away`}</span>
               </div>
               
-              {weeksUntilNextRivalry > 0 ? (
+              {weeks_until_next_rivalry > 0 ? (
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div
                     className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${rivalryProgress}%` }}
+                    style={{ width: `${Math.min(100, Math.max(0, ((current_week - activation_week) / 4) * 100))}%` }}
                   />
                 </div>
               ) : (

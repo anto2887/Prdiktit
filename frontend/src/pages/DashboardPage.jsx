@@ -19,7 +19,6 @@ import LeagueTable from '../components/dashboard/LeagueTable';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
-import GroupActivationProgress from '../components/common/GroupActivationProgress';
 
 const DashboardPage = () => {
   // Basic component mount logging
@@ -267,10 +266,76 @@ const DashboardPage = () => {
         </HelpTooltip>
       </div>
       
-      {/* Group Activation Progress - Show for current selected group */}
-      {selectedGroup && (
+      {/* Group Activation Progress - Show for all user groups */}
+      {userGroups && userGroups.length > 0 && (
         <section className="mb-8">
-          <GroupActivationProgress groupId={selectedGroup.id} />
+          <h2 className="text-xl font-semibold text-gray-800 mb-4">
+            📊 Group Progress Overview
+          </h2>
+          <div className="space-y-4">
+            {userGroups.map((group) => (
+              <div key={group.id} className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-medium text-gray-800">
+                    {group.name} ({group.league})
+                  </h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    group.is_activated 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
+                    {group.is_activated ? 'Active' : 'Unlocking Soon'}
+                  </span>
+                </div>
+                
+                {!group.is_activated ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <span>Progress to activation</span>
+                      <span>{group.weeks_until_activation} weeks remaining</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${group.activation_progress}%` }}
+                      />
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Features will unlock at week {group.activation_week} (currently week {group.current_week})
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                      <p className="text-sm text-green-800 font-medium">
+                        ✅ All group features are now active!
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-sm text-gray-600">
+                      <span>Next rivalry week</span>
+                      <span>{group.weeks_until_next_rivalry === 0 ? 'This week!' : `${group.weeks_until_next_rivalry} weeks away`}</span>
+                    </div>
+                    
+                    {group.weeks_until_next_rivalry > 0 ? (
+                      <div className="w-full bg-gray-200 rounded-full h-3">
+                        <div
+                          className="bg-gradient-to-r from-purple-500 to-pink-500 h-3 rounded-full transition-all duration-500 ease-out"
+                          style={{ width: `${Math.min(100, Math.max(0, ((group.current_week - group.activation_week) / 4) * 100))}%` }}
+                        />
+                      </div>
+                    ) : (
+                      <div className="bg-purple-100 border border-purple-300 rounded-md p-3">
+                        <p className="text-sm text-purple-800 font-medium">
+                          ⚔️ Rivalry Week is here! Challenge your group members!
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
