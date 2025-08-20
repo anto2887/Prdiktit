@@ -394,10 +394,10 @@ async def get_group_by_id_endpoint(
 ):
     """Get a specific group by ID with activation data"""
     try:
-        # Check if user is a member of the group
-        group_member = db.query(GroupMember).filter(
-            GroupMember.group_id == group_id,
-            GroupMember.user_id == current_user.id
+        # Check if user is a member of the group using the group_members table
+        group_member = db.query(group_members).filter(
+            group_members.c.group_id == group_id,
+            group_members.c.user_id == current_user.id
         ).first()
         
         if not group_member:
@@ -411,6 +411,10 @@ async def get_group_by_id_endpoint(
         # Calculate activation data for this group
         activation_data = await calculate_group_activation_data(group, db)
         
+        # Get user's role from the group_members table
+        user_role = group_member.role.value if hasattr(group_member.role, 'value') else str(group_member.role)
+        is_admin = user_role == "ADMIN"
+        
         # Build group response with activation data
         group_data = {
             "id": group.id,
@@ -418,12 +422,12 @@ async def get_group_by_id_endpoint(
             "league": group.league,
             "admin_id": group.admin_id,
             "invite_code": group.invite_code,
-            "created_at": group.created_at,
-            "privacy_type": group.privacy_type,
+            "created_at": group.created.isoformat() if group.created else None,
+            "privacy_type": group.privacy_type.value if group.privacy_type else None,
             "description": group.description,
-            "member_count": db.query(GroupMember).filter(GroupMember.group_id == group_id).count(),
-            "role": group_member.role,
-            "is_admin": group_member.role == "ADMIN",
+            "member_count": db.query(group_members).filter(group_members.c.group_id == group_id).count(),
+            "role": user_role,
+            "is_admin": is_admin,
             # Include activation data
             "created_week": activation_data.get("created_week"),
             "activation_week": activation_data.get("activation_week"),
