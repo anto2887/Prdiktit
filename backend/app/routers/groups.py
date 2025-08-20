@@ -367,7 +367,7 @@ async def join_group(
             detail=f"Failed to join group: {str(e)}"
         )
 
-@router.get("/{group_id}", response_model=GroupResponse)
+@router.get("/{group_id}", response_model=DataResponse)
 async def get_group_by_id_endpoint(
     group_id: int,
     current_user: User = Depends(get_current_active_user_dependency()),
@@ -385,7 +385,7 @@ async def get_group_by_id_endpoint(
             raise HTTPException(status_code=403, detail="You are not a member of this group")
         
         # Get the group with activation data
-        group = db.query(Group).filter(Group.id == group_id).first()
+        group = db.query(GroupModel).filter(GroupModel.id == group_id).first()
         if not group:
             raise HTTPException(status_code=404, detail="Group not found")
         
