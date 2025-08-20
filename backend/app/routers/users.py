@@ -1,8 +1,12 @@
 # app/routers/users.py
+import logging
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 from ..core.security import get_password_hash
 from ..core.dependencies import get_current_active_user_dependency

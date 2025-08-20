@@ -1,10 +1,14 @@
 # app/routers/auth.py
+import logging
 from datetime import timedelta
 from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 from ..core.config import settings
 from ..core.security import (

@@ -1,6 +1,10 @@
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 from ..core.dependencies import get_current_active_user_dependency
 from ..db.session_manager import get_db

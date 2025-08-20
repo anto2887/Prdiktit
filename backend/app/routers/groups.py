@@ -1,10 +1,14 @@
 # app/routers/groups.py
+import logging
 from typing import Any, List, Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 from ..core.dependencies import get_current_active_user_dependency
 from ..db.session_manager import get_db

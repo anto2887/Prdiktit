@@ -1,5 +1,5 @@
 // src/pages/DashboardPage.jsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   useUser, 
@@ -20,7 +20,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
 
-const DashboardPage = () => {
+const DashboardPage = React.memo(() => {
   // Basic component mount logging
   console.log('DashboardPage: Component mounted');
   
@@ -45,12 +45,40 @@ const DashboardPage = () => {
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
 
-  // Combined loading and error states
-  const isLoading = userLoading || predictionsLoading || matchesLoading || groupsLoading;
-  const errors = [userError, predictionsError, matchesError, groupsError].filter(Boolean);
+  // FIXED: Memoize combined loading and error states to prevent unnecessary re-renders
+  const isLoading = useMemo(() => 
+    userLoading || predictionsLoading || matchesLoading || groupsLoading,
+    [userLoading, predictionsLoading, matchesLoading, groupsLoading]
+  );
   
-  // FIXED: Wrap fetchData in useCallback to prevent infinite loops and ensure proper execution
+  const errors = useMemo(() => 
+    [userError, predictionsError, matchesError, groupsError].filter(Boolean),
+    [userError, predictionsError, matchesError, groupsError]
+  );
+  
+  // FIXED: Use refs for stable references and prevent circular dependencies
+  const renderCountRef = useRef(0);
+  const selectedGroupRef = useRef(selectedGroup);
+  const dataFetchStatusRef = useRef(dataFetchStatus);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    selectedGroupRef.current = selectedGroup;
+  }, [selectedGroup]);
+  
+  useEffect(() => {
+    dataFetchStatusRef.current = dataFetchStatus;
+  }, [dataFetchStatus]);
+
+  // FIXED: Wrap fetchData in useCallback with stable dependencies only
   const fetchData = useCallback(async () => {
+    // Render protection
+    renderCountRef.current++;
+    if (renderCountRef.current > 10) {
+      console.warn('DashboardPage: Too many renders detected, stopping fetchData execution');
+      return;
+    }
+
     console.log('DashboardPage: fetchData function called');
     console.log('DashboardPage: About to enter try block');
     try {
@@ -58,10 +86,10 @@ const DashboardPage = () => {
       process.env.NODE_ENV === 'development' && console.log('DashboardPage: Starting data fetch sequence');
       
       console.log('DashboardPage: About to start STEP 1 - Fetch user profile');
-      console.log('DashboardPage: Current dataFetchStatus values:', dataFetchStatus);
+      console.log('DashboardPage: Current dataFetchStatus values:', dataFetchStatusRef.current);
       
       // STEP 1: Fetch user profile FIRST (this is critical for admin checks)
-      if (!dataFetchStatus.profile) {
+      if (!dataFetchStatusRef.current.profile) {
         console.log('DashboardPage: Profile not fetched yet, proceeding...');
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user profile...');
@@ -80,14 +108,15 @@ const DashboardPage = () => {
       }
 
       // STEP 2: Fetch groups data (needed for admin checks)
-      if (!dataFetchStatus.groups) {
+      if (!dataFetchStatusRef.current.groups) {
         try {
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: Fetching user groups...');
           const groups = await fetchUserGroups();
           setDataFetchStatus(prev => ({ ...prev, groups: true }));
           process.env.NODE_ENV === 'development' && console.log('DashboardPage: User groups fetched:', groups);
           
-          if (groups && groups.length > 0 && !selectedGroup) {
+          // FIXED: Use ref to check current value instead of state dependency
+          if (groups && groups.length > 0 && !selectedGroupRef.current) {
             process.env.NODE_ENV === 'development' && console.log('DashboardPage: Setting default selected group to:', groups[0]);
             setSelectedGroup(groups[0]);
           }
@@ -159,15 +188,21 @@ const DashboardPage = () => {
     fetchUserGroups,
     fetchUserPredictions,
     refreshLiveMatches,
-    fetchFixtures,
-    selectedGroup,
-    setSelectedGroup,
-    setDataFetchStatus
+    fetchFixtures
+    // FIXED: Removed selectedGroup, setSelectedGroup, setDataFetchStatus to prevent circular dependencies
   ]);
+
+  // FIXED: Use ref for stable fetchData reference and prevent infinite loops
+  const fetchDataRef = useRef(fetchData);
+  fetchDataRef.current = fetchData;
 
   useEffect(() => {
     console.log('DashboardPage: useEffect triggered, calling fetchData()');
-    fetchData();
+    
+    // Reset render counter on mount
+    renderCountRef.current = 0;
+    
+    fetchDataRef.current();
     
     // Set up polling for live matches every 2 minutes
     const interval = setInterval(() => {
@@ -176,12 +211,16 @@ const DashboardPage = () => {
       }
     }, 120000);
     
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      // Reset render counter on unmount
+      renderCountRef.current = 0;
+    };
   }, [
-    fetchData,
-    retryCount, 
-    selectedGroup,
-    matchesLoading
+    retryCount,
+    matchesLoading,
+    refreshLiveMatches
+    // FIXED: Removed fetchData and selectedGroup to prevent infinite loops
   ]);
 
   // FIXED: Add debug logging for profile state
@@ -213,9 +252,10 @@ const DashboardPage = () => {
     });
   }, [userGroups, selectedGroup]);
 
-  const handleRetry = () => {
+  // FIXED: Memoize retry handler to prevent unnecessary re-renders
+  const handleRetry = useCallback(() => {
     process.env.NODE_ENV === 'development' && console.log('DashboardPage: Retrying failed data fetches...');
-    const newStatus = { ...dataFetchStatus };
+    const newStatus = { ...dataFetchStatusRef.current };
     if (userError) {
       newStatus.profile = false;
     }
@@ -234,7 +274,7 @@ const DashboardPage = () => {
     
     setDataFetchStatus(newStatus);
     setRetryCount(prev => prev + 1);
-  };
+  }, [userError, predictionsError, matchesError, groupsError, fixtures.length]);
 
   if (isLoading && retryCount === 0 && !profile) {
     return <LoadingSpinner />;
@@ -506,6 +546,6 @@ const DashboardPage = () => {
       />
     </div>
   );
-};
+});
 
 export default DashboardPage;

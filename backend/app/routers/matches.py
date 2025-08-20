@@ -1,10 +1,14 @@
 # app/routers/matches.py
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
+
+# Set up logger for this module
+logger = logging.getLogger(__name__)
 
 from ..core.dependencies import get_current_active_user_dependency
 from ..db.session_manager import get_db
