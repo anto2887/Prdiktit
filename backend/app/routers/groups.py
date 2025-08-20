@@ -367,69 +367,63 @@ async def join_group(
             detail=f"Failed to join group: {str(e)}"
         )
 
-@router.get("/{group_id}", response_model=DataResponse)
-async def get_group_details(
-    group_id: int = Path(...),
+@router.get("/{group_id}", response_model=GroupResponse)
+async def get_group_by_id_endpoint(
+    group_id: int,
     current_user: User = Depends(get_current_active_user_dependency()),
-    db: Session = Depends(get_db),
-    cache: RedisCache = Depends(get_cache)
+    db: Session = Depends(get_db)
 ):
-    """
-    Get group details
-    """
-    # Try to get from cache
-    cache_key = f"group:{group_id}"
-    cached_group = await cache.get(cache_key)
-    
-    if cached_group:
-        group = cached_group
-    else:
-        # Get the actual group from the database
-        group_obj = await get_group_by_id(db, group_id)
-        
-        if not group_obj:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Group not found"
-            )
-            
+    """Get a specific group by ID with activation data"""
+    try:
         # Check if user is a member of the group
-        is_member = await check_group_membership(db, group_id, current_user.id)
+        group_member = db.query(GroupMember).filter(
+            GroupMember.group_id == group_id,
+            GroupMember.user_id == current_user.id
+        ).first()
         
-        if not is_member:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not a member of this group"
-            )
+        if not group_member:
+            raise HTTPException(status_code=403, detail="You are not a member of this group")
         
-        # Get user's role in the group
-        role = await get_user_role_in_group(db, group_id, current_user.id)
+        # Get the group with activation data
+        group = db.query(Group).filter(Group.id == group_id).first()
+        if not group:
+            raise HTTPException(status_code=404, detail="Group not found")
         
-        # Get tracked teams
-        tracked_teams = await get_group_tracked_teams(db, group_id)
+        # Calculate activation data for this group
+        activation_data = await calculate_group_activation_data(group, db)
         
-        # Convert to dict
-        group = {
-            "id": group_obj.id,
-            "name": group_obj.name,
-            "league": group_obj.league,
-            "description": group_obj.description,
-            "privacy_type": group_obj.privacy_type.value if group_obj.privacy_type else None,
-            "admin_id": group_obj.admin_id,
-            "invite_code": group_obj.invite_code,
-            "created_at": group_obj.created.isoformat() if group_obj.created else None,
-            "member_count": db.query(group_members).filter(group_members.c.group_id == group_id).count(),
-            "role": role.value if role else None,
-            "analytics": None,  # To be implemented later
-            "tracked_teams": tracked_teams
+        # Build group response with activation data
+        group_data = {
+            "id": group.id,
+            "name": group.name,
+            "league": group.league,
+            "admin_id": group.admin_id,
+            "invite_code": group.invite_code,
+            "created_at": group.created_at,
+            "privacy_type": group.privacy_type,
+            "description": group.description,
+            "member_count": db.query(GroupMember).filter(GroupMember.group_id == group_id).count(),
+            "role": group_member.role,
+            "is_admin": group_member.role == "ADMIN",
+            # Include activation data
+            "created_week": activation_data.get("created_week"),
+            "activation_week": activation_data.get("activation_week"),
+            "next_rivalry_week": activation_data.get("next_rivalry_week"),
+            "current_week": activation_data.get("current_week"),
+            "weeks_until_activation": activation_data.get("weeks_until_activation"),
+            "weeks_until_next_rivalry": activation_data.get("weeks_until_next_rivalry"),
+            "activation_progress": activation_data.get("activation_progress"),
+            "is_activated": activation_data.get("is_activated"),
+            "is_rivalry_week": activation_data.get("is_rivalry_week")
         }
         
-        # Cache for 10 minutes
-        await cache.set(cache_key, group, 600)
-    
-    return DataResponse(
-        data=group
-    )
+        return {"status": "success", "message": "Group details retrieved successfully", "data": group_data}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.error(f"Error getting group by ID: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.put("/{group_id}", response_model=DataResponse)
 async def update_group_endpoint(

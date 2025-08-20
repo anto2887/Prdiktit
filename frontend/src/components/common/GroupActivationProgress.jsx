@@ -7,7 +7,7 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
 
   // Get the group data from either currentGroup or userGroups
   const group = currentGroup || userGroups.find(g => g.id === groupId);
-
+  
   // Auto-hide after 10 seconds if features are already active
   useEffect(() => {
     if (group && group.is_activated && group.weeks_until_next_rivalry === 0) {
@@ -32,9 +32,27 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
     is_rivalry_week
   } = group;
 
-  // Don't show if no activation data
-  if (!activation_week) {
-    return null;
+  // Don't show if no activation data or if data is incomplete
+  if (!activation_week || !current_week || activation_progress === undefined) {
+    console.warn('GroupActivationProgress: Missing or incomplete activation data for group', groupId, group);
+    return (
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-yellow-800">
+            ⚠️ Activation Data Loading
+          </h3>
+          <button
+            onClick={() => setIsVisible(false)}
+            className="text-yellow-400 hover:text-yellow-600 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+        <p className="text-sm text-yellow-700">
+          Group activation information is being calculated. Please refresh the page in a few moments.
+        </p>
+      </div>
+    );
   }
 
   return (
