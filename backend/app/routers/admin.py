@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import inspect, text
 
 # Set up logger for this module
 logger = logging.getLogger(__name__)
@@ -163,4 +164,110 @@ async def get_processing_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting processing status: {str(e)}"
+        )
+
+@router.post("/migrate-oauth2-system")
+async def migrate_oauth2_system(db: Session = Depends(get_db)):
+    """Migrate database schema to support OAuth2 authentication"""
+    try:
+        logger.info("🔄 Starting OAuth2 system migration...")
+        
+        # Check if migration is already done
+        inspector = inspect(db.bind)
+        existing_columns = [col['name'] for col in inspector.get_columns('users')]
+        
+        if 'oauth_provider' in existing_columns and 'oauth_id' in existing_columns and 'is_oauth_user' in existing_columns:
+            logger.info("✅ OAuth2 migration already completed")
+            return {
+                "success": True,
+                "message": "OAuth2 migration already completed",
+                "migration_type": "oauth2_system",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        
+        # Add OAuth2 columns to users table
+        logger.info("🔧 Adding OAuth2 columns to users table...")
+        
+        # Add oauth_provider column
+        db.execute(text("""
+            ALTER TABLE users 
+            ADD COLUMN oauth_provider VARCHAR(50)
+        """))
+        
+        # Add oauth_id column
+        db.execute(text("""
+            ALTER TABLE users 
+            ADD COLUMN oauth_id VARCHAR(255)
+        """))
+        
+        # Add is_oauth_user column
+        db.execute(text("""
+            ALTER TABLE users 
+            ADD COLUMN is_oauth_user BOOLEAN DEFAULT FALSE
+        """))
+        
+        # Make hashed_password nullable for OAuth users
+        db.execute(text("""
+            ALTER TABLE users 
+            ALTER COLUMN hashed_password DROP NOT NULL
+        """))
+        
+        # Create indexes for OAuth fields
+        logger.info("🔧 Creating OAuth2 indexes...")
+        db.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_users_oauth_provider ON users(oauth_provider)
+        """))
+        
+        db.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_users_oauth_id ON users(oauth_id)
+        """))
+        
+        db.execute(text("""
+            CREATE INDEX IF NOT EXISTS idx_users_is_oauth_user ON users(is_oauth_user)
+        """))
+        
+        # Create unique constraint for OAuth users
+        db.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS unique_oauth_user 
+            ON users(oauth_provider, oauth_id) 
+            WHERE oauth_provider IS NOT NULL AND oauth_id IS NOT NULL
+        """))
+        
+        # Add check constraint for OAuth or password requirement
+        db.execute(text("""
+            ALTER TABLE users 
+            ADD CONSTRAINT oauth_or_password_constraint 
+            CHECK (
+                (is_oauth_user = false AND hashed_password IS NOT NULL) OR 
+                (is_oauth_user = true AND oauth_provider IS NOT NULL AND oauth_id IS NOT NULL)
+            )
+        """))
+        
+        # Commit the migration
+        db.commit()
+        
+        logger.info("✅ OAuth2 system migration completed successfully")
+        
+        return {
+            "success": True,
+            "message": "OAuth2 system migration completed successfully",
+            "migration_type": "oauth2_system",
+            "changes": [
+                "Added oauth_provider column",
+                "Added oauth_id column", 
+                "Added is_oauth_user column",
+                "Made hashed_password nullable",
+                "Created OAuth2 indexes",
+                "Added unique constraint for OAuth users",
+                "Added check constraint for OAuth/password requirement"
+            ],
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ OAuth2 migration failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"OAuth2 migration failed: {str(e)}"
         )

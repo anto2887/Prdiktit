@@ -59,6 +59,29 @@ class Settings(BaseSettings):
             logger.warning("FOOTBALL_API_KEY is not set! API requests will fail.")
         return v
     
+    # OAuth2 settings
+    GOOGLE_CLIENT_ID: Optional[str] = os.getenv("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET: Optional[str] = os.getenv("GOOGLE_CLIENT_SECRET")
+    OAUTH_REDIRECT_URI: Optional[str] = os.getenv("OAUTH_REDIRECT_URI")
+    
+    @validator("GOOGLE_CLIENT_ID")
+    def validate_google_client_id(cls, v):
+        if not v:
+            logger.warning("GOOGLE_CLIENT_ID is not set! OAuth2 will not work.")
+        return v
+    
+    @validator("GOOGLE_CLIENT_SECRET")
+    def validate_google_client_secret(cls, v):
+        if not v:
+            logger.warning("GOOGLE_CLIENT_SECRET is not set! OAuth2 will not work.")
+        return v
+    
+    @validator("OAUTH_REDIRECT_URI")
+    def validate_oauth_redirect_uri(cls, v):
+        if not v:
+            logger.warning("OAUTH_REDIRECT_URI is not set! OAuth2 will not work.")
+        return v
+    
     # Rate limiting - Updated to 120 requests per minute
     API_RATE_LIMIT: int = int(os.getenv("API_RATE_LIMIT", "120"))
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))

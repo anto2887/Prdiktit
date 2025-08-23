@@ -45,15 +45,32 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=True)
-    hashed_password = Column(String, nullable=False)
+    hashed_password = Column(String, nullable=True)  # Made nullable for OAuth users
     is_active = Column(Boolean, default=True)
     # FIXED: Use timezone-aware UTC
     created_at = Column(DateTime, default=utc_now)
+    
+    # OAuth2 fields
+    oauth_provider = Column(String(50), nullable=True, index=True)  # 'google', 'facebook', 'apple'
+    oauth_id = Column(String(255), nullable=True, index=True)  # Provider's unique user ID
+    is_oauth_user = Column(Boolean, default=False, index=True)  # Flag for OAuth users
     
     # Relationships
     predictions = relationship("UserPrediction", back_populates="user")
     groups = relationship("Group", secondary=group_members, back_populates="users")
     admin_groups = relationship("Group", back_populates="admin", foreign_keys="Group.admin_id")
+    
+    # OAuth validation
+    __table_args__ = (
+        # Ensure OAuth users have provider and ID
+        CheckConstraint(
+            "(is_oauth_user = false AND hashed_password IS NOT NULL) OR "
+            "(is_oauth_user = true AND oauth_provider IS NOT NULL AND oauth_id IS NOT NULL)",
+            name="oauth_or_password_constraint"
+        ),
+        # Ensure unique OAuth ID per provider
+        UniqueConstraint('oauth_provider', 'oauth_id', name='unique_oauth_user'),
+    )
 
 class Group(Base):
     __tablename__ = "groups"

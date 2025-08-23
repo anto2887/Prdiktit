@@ -229,3 +229,28 @@ class TeamInfo(BaseModel):
 class JoinGroupRequest(BaseModel):
     """Schema for joining a group with invite code"""
     invite_code: str = Field(..., min_length=8, max_length=8, description="8-character group invite code")
+
+# === OAUTH SCHEMAS ===
+class OAuthCallbackRequest(BaseModel):
+    """Schema for OAuth callback data"""
+    code: str
+    state: Optional[str] = None
+
+class UsernameSelectionRequest(BaseModel):
+    """Schema for username selection during OAuth registration"""
+    username: str = Field(..., min_length=3, max_length=30, description="Username for the new account")
+    email: str = Field(..., description="Email from OAuth provider")
+    oauth_id: str = Field(..., description="OAuth provider's unique user ID")
+    oauth_provider: str = Field(default="google", description="OAuth provider name")
+
+class OAuthUserData(BaseModel):
+    """Schema for OAuth user data"""
+    sub: str = Field(..., description="OAuth provider's unique user ID")
+    email: str = Field(..., description="User's email address")
+    name: Optional[str] = Field(None, description="User's display name")
+    picture: Optional[str] = Field(None, description="User's profile picture URL")
+
+class UsernameAvailabilityResponse(BaseModel):
+    """Schema for username availability check response"""
+    available: bool
+    reason: str

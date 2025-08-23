@@ -308,6 +308,7 @@ async def shutdown_event():
 # Include routers with dependency injection
 from .routers import auth, predictions, matches, groups, users
 from .routers.analytics import router as analytics_router
+from .routers import oauth
 
 # Override dependencies to use our dependency injection container
 from .core.dependencies import get_database_session
@@ -318,6 +319,7 @@ app.include_router(matches.router, prefix="/api/v1/matches", tags=["matches"], d
 app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"], dependencies=[Depends(get_database_session)])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"], dependencies=[Depends(get_database_session)])
 app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"], dependencies=[Depends(get_database_session)])
+app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["oauth"], dependencies=[Depends(get_database_session)])
 
 # Health check endpoint with enhanced information
 @app.get("/health")
