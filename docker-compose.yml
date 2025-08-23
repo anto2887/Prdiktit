@@ -48,7 +48,7 @@ services:
       - SECRET_KEY=developmentsecretkey
       - JWT_SECRET_KEY=developmentjwtsecretkey
       - CREATE_TABLES_ON_STARTUP=True
-      - CORS_ORIGINS=http://localhost:3000
+      - CORS_ORIGINS=https://prdiktit.com,http://localhost:3000
       - FOOTBALL_API_KEY=2e229688fb1a199c6243f07a2b6e4b54
       - API_V1_STR=/api/v1
     networks:
@@ -67,7 +67,7 @@ services:
       - backend
     environment:
       - NODE_ENV=development
-      - REACT_APP_API_URL=http://localhost:8000/api/v1
+      - REACT_APP_API_URL=/api/v1
       - REACT_APP_ENV=development
     networks:
       - app-network

@@ -44,7 +44,7 @@ const GroupPredictionsPage = () => {
     
     try {
       // Load group details using the same API base URL as other components
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
       const groupResponse = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
       });
@@ -81,7 +81,7 @@ const GroupPredictionsPage = () => {
       const week = selectedWeek || currentWeek;
       // Use the correct season format for MLS (2025 instead of 2024-2025)
       const season = '2025'; // MLS uses calendar year format
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
       
       process.env.NODE_ENV === 'development' && console.log('🔍 === GROUP PREDICTIONS DEBUG START ===');
       process.env.NODE_ENV === 'development' && console.log(`🔍 Loading group predictions for group ${groupId}, week ${week}, season ${season}`);

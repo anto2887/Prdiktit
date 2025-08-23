@@ -47,7 +47,7 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
       setLoading(true);
       process.env.NODE_ENV === 'development' && console.log(`Loading rivalries for group ${groupId}...`);
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
       const response = await fetch(
         `${API_BASE_URL}/analytics/group/${groupId}/rivalries`,
         {
@@ -90,7 +90,7 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
       
       process.env.NODE_ENV === 'development' && console.log(`Loading Comeback Challenge data for group ${groupId}...`);
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
       const response = await fetch(
         `${API_BASE_URL}/admin/comeback-challenge-status/${groupId}`,
         {
@@ -680,7 +680,7 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
       setLoading(true);
       process.env.NODE_ENV === 'development' && console.log(`Loading compact rivalries for group ${groupId}...`);
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
       const response = await fetch(
         `${API_BASE_URL}/analytics/group/${groupId}/rivalries`,
         {

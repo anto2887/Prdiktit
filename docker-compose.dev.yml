@@ -51,7 +51,7 @@ services:
       - SECRET_KEY=developmentsecretkey
       - JWT_SECRET_KEY=developmentjwtsecretkey
       - CREATE_TABLES_ON_STARTUP=True
-      - CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000","http://0.0.0.0:3000","http://frontend:3000"]
+      - CORS_ORIGINS=["https://prdiktit.com","http://localhost:3000","http://127.0.0.1:3000","http://0.0.0.0:3000","http://frontend:3000"]
       - CORS_ALLOW_CREDENTIALS=true
       - CORS_ALLOW_METHODS=["GET","POST","PUT","DELETE","OPTIONS","PATCH"]
       - CORS_ALLOW_HEADERS=["*"]
@@ -79,9 +79,9 @@ services:
       - backend
     environment:
       - NODE_ENV=development
-      - REACT_APP_API_URL=http://localhost:8000/api/v1
+      - REACT_APP_API_URL=/api/v1
       - REACT_APP_ENV=development
-      - API_PROXY=http://backend:8000
+              - API_PROXY=https://backend-production-4894.up.railway.app
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
       - WDS_SOCKET_HOST=localhost

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { enhancedSchedulerApi, enhancedSchedulerUtils } from './enhancedScheduler';
 import SeasonManager from '../utils/seasonManager';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
 
 // Add debug logging
 process.env.NODE_ENV === 'development' && console.log('API module initializing with base URL:', API_BASE_URL);
