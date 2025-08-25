@@ -6,7 +6,7 @@ from google.oauth2 import id_token
 from google.auth.exceptions import GoogleAuthError
 from ..core.config import settings
 from ..db.models import User
-from ..db.database import get_db
+from ..db.session_manager import get_db
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)

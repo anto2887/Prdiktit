@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
-from ..db.database import get_db
+from ..db.session_manager import get_db
 from ..services.oauth_service import oauth_service
 from ..core.security import create_access_token
 from ..db.models import User
