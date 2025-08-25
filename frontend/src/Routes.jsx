@@ -11,6 +11,7 @@ import {
   HomePage,
   LoginPage,
   RegisterPage,
+  OAuthCallbackPage,
   DashboardPage,
   ProfilePage,
   SettingsPage,
@@ -43,6 +44,7 @@ const AppRoutes = () => {
       <Route path="/register" element={
         isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />
       } />
+      <Route path="/auth/oauth/google/callback" element={<OAuthCallbackPage />} />
       
       {/* Protected routes with MainLayout */}
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>

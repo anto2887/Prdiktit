@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, useNotifications } from '../../contexts';
 import LoadingSpinner from '../common/LoadingSpinner';
+import OAuthLogin from './OAuthLogin';
 
 export const Login = () => {
   const [formData, setFormData] = useState({
@@ -136,6 +137,22 @@ export const Login = () => {
                   Or continue with
                 </span>
               </div>
+            </div>
+
+            <div className="mt-6">
+              <OAuthLogin 
+                onSuccess={(data) => {
+                  if (data.access_token) {
+                    // Store the token and redirect
+                    localStorage.setItem('access_token', data.access_token);
+                    showSuccess('Successfully logged in with Google');
+                    navigate(from, { replace: true });
+                  }
+                }}
+                onError={(error) => {
+                  showError(error || 'OAuth login failed');
+                }}
+              />
             </div>
 
             <div className="mt-6 grid gap-3">
