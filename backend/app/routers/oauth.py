@@ -85,12 +85,12 @@ async def google_oauth_callback(
         
         logger.info(f"OAuth data received for email: {oauth_data['email']}")
         
-        # Check if user already exists
+                # Check if user already exists
         existing_user = await oauth_service.find_user_by_oauth(db, oauth_data['sub'])
         if existing_user:
             logger.info(f"Existing OAuth user found: {existing_user.username}")
             # Generate JWT token for existing user
-            access_token = create_access_token(data={"sub": existing_user.username})
+            access_token = create_access_token(subject=existing_user.username)
             return {"access_token": access_token, "token_type": "bearer", "user_exists": True}
         
         # Check if email is already used by a password user
@@ -164,7 +164,7 @@ async def complete_oauth_registration(
             )
         
         # Generate JWT token
-        access_token = create_access_token(data={"sub": new_user.username})
+        access_token = create_access_token(subject=new_user.username)
         
         logger.info(f"Successfully created OAuth user: {new_user.username}")
         
