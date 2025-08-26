@@ -20,7 +20,8 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
     
     setIsChecking(true);
     try {
-      const response = await fetch(`/api/v1/oauth/check-username/${username}`);
+      // Use backend URL from environment variable for username availability check
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/oauth/check-username/${username}`);
       const data = await response.json();
       
       setIsAvailable(data.available);
@@ -44,7 +45,8 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch('/api/v1/oauth/google/complete', {
+      // Use backend URL from environment variable for user registration
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/oauth/google/complete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
