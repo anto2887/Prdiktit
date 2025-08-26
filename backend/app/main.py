@@ -313,6 +313,9 @@ from .routers import oauth
 # Override dependencies to use our dependency injection container
 from .core.dependencies import get_database_session
 
+# Get logger for router inclusion logging
+logger = logging.getLogger(__name__)
+
 logger.info("🔐 Main App: Including routers...")
 
 logger.info("🔐 Main App: Including auth router...")
