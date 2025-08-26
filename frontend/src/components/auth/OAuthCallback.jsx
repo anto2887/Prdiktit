@@ -57,8 +57,15 @@ const OAuthCallback = ({ onSuccess, onError }) => {
     }
   };
 
-  const handleUsernameComplete = (userData) => {
-    onSuccess?.(userData);
+  const handleUsernameComplete = async (userData) => {
+    try {
+      // Process the completed OAuth registration through the OAuth function
+      // This ensures proper authentication state is set
+      await onSuccess?.(userData);
+    } catch (error) {
+      console.error('Error completing OAuth registration:', error);
+      setError('Failed to complete registration');
+    }
   };
 
   const handleUsernameCancel = () => {

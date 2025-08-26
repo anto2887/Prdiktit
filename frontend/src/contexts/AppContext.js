@@ -12,6 +12,7 @@ const ActionTypes = {
   // Auth actions
   SET_AUTH_LOADING: 'SET_AUTH_LOADING',
   SET_AUTH_SUCCESS: 'SET_AUTH_SUCCESS',
+  SET_OAUTH_AUTH_SUCCESS: 'SET_OAUTH_AUTH_SUCCESS',
   SET_AUTH_ERROR: 'SET_AUTH_ERROR',
   SET_AUTH_LOGOUT: 'SET_AUTH_LOGOUT',
   
@@ -138,6 +139,18 @@ const appReducer = (state, action) => {
           ...state.auth,
           user: action.payload,
           isAuthenticated: !!action.payload,
+          loading: false,
+          error: null
+        }
+      };
+    
+    case ActionTypes.SET_OAUTH_AUTH_SUCCESS:
+      return {
+        ...state,
+        auth: {
+          ...state.auth,
+          user: action.payload,
+          isAuthenticated: true,
           loading: false,
           error: null
         }
@@ -548,6 +561,61 @@ export const AppProvider = ({ children }) => {
       throw new Error(response.message || 'Login failed');
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Login: Error occurred:', err);
+      dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message });
+      throw err;
+    } finally {
+      // Always set loading to false
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
+    }
+  }, []);
+
+  const loginWithOAuth = useCallback(async (oauthData) => {
+    try {
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
+      dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: null });
+      
+      process.env.NODE_ENV === 'development' && console.log('OAuth Login: Processing OAuth data:', oauthData);
+      
+      // Extract user information from OAuth response
+      let userData = null;
+      
+      if (oauthData.user_exists && oauthData.access_token) {
+        // Existing OAuth user - extract user info from token or create minimal user object
+        // For now, we'll create a minimal user object since we don't have full user data
+        userData = {
+          id: 'oauth_user', // Will be updated when profile is fetched
+          username: 'OAuth User', // Will be updated when profile is fetched
+          email: 'oauth@user.com', // Will be updated when profile is fetched
+          is_oauth_user: true
+        };
+        
+        // Store the access token (this will be replaced with HttpOnly cookies later)
+        localStorage.setItem('accessToken', oauthData.access_token);
+        
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Existing user, setting auth state');
+      } else if (oauthData.requires_username) {
+        // New OAuth user that needs username selection
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: New user, requires username selection');
+        return { requires_username: true, oauth_data: oauthData.oauth_data };
+      } else if (oauthData.user && oauthData.access_token) {
+        // Completed OAuth registration with username
+        userData = oauthData.user;
+        localStorage.setItem('accessToken', oauthData.access_token);
+        
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: New user completed, setting auth state');
+      } else {
+        throw new Error('Invalid OAuth response format');
+      }
+      
+      if (userData) {
+        dispatch({ type: ActionTypes.SET_OAUTH_AUTH_SUCCESS, payload: userData });
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: User authenticated successfully');
+        return { success: true, userData };
+      }
+      
+      throw new Error('Failed to process OAuth authentication');
+    } catch (err) {
+      process.env.NODE_ENV === 'development' && console.error('OAuth Login: Error occurred:', err);
       dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message });
       throw err;
     } finally {
@@ -1449,6 +1517,7 @@ export const AppProvider = ({ children }) => {
       isAuthenticated: state.auth.isAuthenticated
     },
     login,
+    loginWithOAuth,
     logout,
     checkAuth,
     
@@ -1670,6 +1739,7 @@ export const useAuth = () => {
     error: context.auth.error,
     isAuthenticated: context.auth.isAuthenticated,
     login: context.login,
+    loginWithOAuth: context.loginWithOAuth,
     register: context.register,
     logout: context.logout,
     checkAuth: context.checkAuth,

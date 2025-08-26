@@ -4,20 +4,25 @@ import { useAuth, useNotifications } from '../contexts';
 import { useNavigate } from 'react-router-dom';
 
 const OAuthCallbackPage = () => {
-  const { login } = useAuth();
+  const { loginWithOAuth } = useAuth();
   const { showSuccess, showError } = useNotifications();
   const navigate = useNavigate();
 
   const handleOAuthSuccess = async (data) => {
     try {
-      if (data.access_token) {
-        // Store the token
-        localStorage.setItem('access_token', data.access_token);
-        
-        // Update authentication state by calling login function
-        // This ensures isAuthenticated is set to true before navigation
-        await login(data);
-        
+      // Use the new OAuth-specific login function
+      const result = await loginWithOAuth(data);
+      
+      if (result.requires_username) {
+        // New OAuth user needs to select username - redirect to username selection
+        navigate('/username-selection', { 
+          replace: true, 
+          state: { oauth_data: result.oauth_data } 
+        });
+        return;
+      }
+      
+      if (result.success) {
         if (data.user_exists) {
           // Existing user - login successful
           showSuccess('Successfully logged in with Google');
