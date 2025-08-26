@@ -22,8 +22,8 @@ const OAuthCallback = ({ onSuccess, onError }) => {
         throw new Error('No authorization code received from Google');
       }
 
-      // Exchange the code for user data
-      const response = await fetch(`/api/v1/oauth/google/callback?code=${code}&state=${state || ''}`, {
+      // Exchange the code for user data - use backend URL from environment variable
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/oauth/google/callback?code=${code}&state=${state || ''}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
