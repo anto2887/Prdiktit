@@ -14,6 +14,10 @@ const OAuthCallbackPage = () => {
         // Store the token
         localStorage.setItem('access_token', data.access_token);
         
+        // Update authentication state by calling login function
+        // This ensures isAuthenticated is set to true before navigation
+        await login(data);
+        
         if (data.user_exists) {
           // Existing user - login successful
           showSuccess('Successfully logged in with Google');
@@ -22,7 +26,7 @@ const OAuthCallbackPage = () => {
           showSuccess('Account created successfully! Welcome to PrdiktIt');
         }
         
-        // Redirect to dashboard
+        // Now redirect to dashboard after authentication state is updated
         navigate('/dashboard', { replace: true });
       }
     } catch (error) {
