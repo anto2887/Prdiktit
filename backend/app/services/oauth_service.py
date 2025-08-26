@@ -14,9 +14,23 @@ class OAuthService:
     """Service for handling OAuth2 authentication flows"""
     
     def __init__(self):
+        logger.info("🔐 OAuth Service: Initializing OAuth service")
+        logger.info(f"🔐 OAuth Service: GOOGLE_CLIENT_ID set: {bool(settings.GOOGLE_CLIENT_ID)}")
+        logger.info(f"🔐 OAuth Service: GOOGLE_CLIENT_SECRET set: {bool(settings.GOOGLE_CLIENT_SECRET)}")
+        logger.info(f"🔐 OAuth Service: OAUTH_REDIRECT_URI set: {bool(settings.OAUTH_REDIRECT_URI)}")
+        
         self.google_client_id = settings.GOOGLE_CLIENT_ID
         self.google_client_secret = settings.GOOGLE_CLIENT_SECRET
         self.oauth_redirect_uri = settings.OAUTH_REDIRECT_URI
+        
+        if not self.google_client_id:
+            logger.error("🔐 OAuth Service: GOOGLE_CLIENT_ID is not set!")
+        if not self.google_client_secret:
+            logger.error("🔐 OAuth Service: GOOGLE_CLIENT_SECRET is not set!")
+        if not self.oauth_redirect_uri:
+            logger.error("🔐 OAuth Service: OAUTH_REDIRECT_URI is not set!")
+        
+        logger.info("🔐 OAuth Service: Initialization complete")
     
     async def verify_google_token(self, id_token_string: str) -> Optional[Dict[str, Any]]:
         """Verify Google ID token and return user info"""
@@ -56,6 +70,10 @@ class OAuthService:
     
     async def get_google_auth_url(self) -> str:
         """Generate Google OAuth2 authorization URL"""
+        logger.info("🔐 OAuth Service: Generating Google OAuth2 authorization URL")
+        logger.info(f"🔐 OAuth Service: Client ID: {self.google_client_id[:20]}...")
+        logger.info(f"🔐 OAuth Service: Redirect URI: {self.oauth_redirect_uri}")
+        
         base_url = "https://accounts.google.com/o/oauth2/v2/auth"
         params = {
             'client_id': self.google_client_id,
@@ -66,9 +84,14 @@ class OAuthService:
             'prompt': 'consent'
         }
         
+        logger.info(f"🔐 OAuth Service: OAuth parameters: {params}")
+        
         # Build query string
         query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
-        return f"{base_url}?{query_string}"
+        auth_url = f"{base_url}?{query_string}"
+        
+        logger.info(f"🔐 OAuth Service: Generated auth URL: {auth_url}")
+        return auth_url
     
     async def exchange_code_for_tokens(self, authorization_code: str) -> Optional[Dict[str, Any]]:
         """Exchange authorization code for access and ID tokens"""

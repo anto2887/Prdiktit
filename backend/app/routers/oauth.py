@@ -14,14 +14,31 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/oauth", tags=["oauth"])
 
 @router.get("/google/login")
-async def google_oauth_login():
+async def google_oauth_login(request: Request):
     """Initiate Google OAuth2 login flow"""
+    logger.info("🔐 OAuth Backend: /google/login endpoint called")
+    logger.info(f"🔐 OAuth Backend: Request method: {request.method}")
+    logger.info(f"🔐 OAuth Backend: Request URL: {request.url}")
+    logger.info(f"🔐 OAuth Backend: Request headers: {dict(request.headers)}")
+    logger.info(f"🔐 OAuth Backend: Client host: {request.client.host if request.client else 'unknown'}")
+    logger.info(f"🔐 OAuth Backend: User agent: {request.headers.get('user-agent', 'unknown')}")
+    
     try:
+        logger.info("🔐 OAuth Backend: Generating Google OAuth2 authorization URL")
         auth_url = await oauth_service.get_google_auth_url()
-        logger.info("Generated Google OAuth2 authorization URL")
-        return {"auth_url": auth_url}
+        logger.info(f"🔐 OAuth Backend: Generated auth URL: {auth_url}")
+        
+        response_data = {"auth_url": auth_url}
+        logger.info(f"🔐 OAuth Backend: Returning response: {response_data}")
+        logger.info("🔐 OAuth Backend: Request completed successfully")
+        
+        return response_data
+        
     except Exception as e:
-        logger.error(f"Failed to generate Google OAuth URL: {e}")
+        logger.error(f"🔐 OAuth Backend: Error generating OAuth URL: {e}")
+        logger.error(f"🔐 OAuth Backend: Error type: {type(e)}")
+        import traceback
+        logger.error(f"🔐 OAuth Backend: Error traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to initiate OAuth login"

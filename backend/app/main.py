@@ -313,14 +313,33 @@ from .routers import oauth
 # Override dependencies to use our dependency injection container
 from .core.dependencies import get_database_session
 
+logger.info("🔐 Main App: Including routers...")
+
+logger.info("🔐 Main App: Including auth router...")
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including predictions router...")
 app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["predictions"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including matches router...")
 app.include_router(matches.router, prefix="/api/v1/matches", tags=["matches"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including groups router...")
 app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including users router...")
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including analytics router...")
 app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including OAuth router...")
 app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["oauth"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including admin router...")
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: All routers included successfully")
 
 # Health check endpoint with enhanced information
 @app.get("/health")

@@ -7,42 +7,68 @@ const OAuthLogin = ({ onSuccess, onError }) => {
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     try {
-      console.log('🔐 Initiating Google OAuth login...');
+      console.log('🔐 OAuth Flow: Starting Google OAuth login...');
+      console.log('🔐 OAuth Flow: Current window.location:', window.location.href);
+      console.log('🔐 OAuth Flow: REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
       
-      // Get the OAuth URL from our backend
-      const response = await fetch('/api/v1/oauth/google/login', {
+      const apiUrl = '/api/v1/oauth/google/login';
+      const fullUrl = new URL(apiUrl, window.location.origin).href;
+      console.log('🔐 OAuth Flow: Constructed API URL:', fullUrl);
+      console.log('🔐 OAuth Flow: Making fetch request...');
+      
+      const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
 
-      console.log('📡 OAuth response status:', response.status);
-      console.log('📡 OAuth response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('🔐 OAuth Flow: Response received');
+      console.log('🔐 OAuth Flow: Response status:', response.status);
+      console.log('🔐 OAuth Flow: Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('🔐 OAuth Flow: Response URL:', response.url);
+      console.log('🔐 OAuth Flow: Response type:', response.type);
+      console.log('🔐 OAuth Flow: Response redirected:', response.redirected);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ OAuth endpoint error response:', errorText);
-        throw new Error(`Failed to get OAuth URL: ${response.status} ${response.statusText}`);
+        console.error('🔐 OAuth Flow: Error response body:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      console.log('✅ OAuth URL received:', data.auth_url);
+      const responseText = await response.text();
+      console.log('🔐 OAuth Flow: Raw response text:', responseText);
       
-      // Redirect to Google OAuth
-      window.location.href = data.auth_url;
-      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('🔐 OAuth Flow: Parsed JSON data:', data);
+      } catch (parseError) {
+        console.error('🔐 OAuth Flow: JSON parse error:', parseError);
+        console.error('🔐 OAuth Flow: Response was not valid JSON');
+        throw new Error('Server returned invalid JSON response');
+      }
+
+      if (data.auth_url) {
+        console.log('🔐 OAuth Flow: Success! Redirecting to:', data.auth_url);
+        window.location.href = data.auth_url;
+      } else {
+        throw new Error('No auth_url in response');
+      }
+
     } catch (error) {
-      console.error('❌ OAuth login error:', error);
+      console.error('🔐 OAuth Flow: Complete error details:', error);
+      console.error('🔐 OAuth Flow: Error stack:', error.stack);
       
-      // Provide more specific error messages
       let errorMessage = 'Failed to initiate OAuth login';
       if (error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error: Unable to reach the OAuth service. Please check your connection.';
+        errorMessage = 'Network error: Unable to reach the OAuth service';
       } else if (error.message.includes('Unexpected token')) {
-        errorMessage = 'Server error: OAuth service returned invalid response. Please try again later.';
-      } else if (error.message.includes('Failed to get OAuth URL')) {
-        errorMessage = `Server error: ${error.message}`;
+        errorMessage = 'Server error: OAuth service returned invalid response';
+      } else if (error.message.includes('JSON')) {
+        errorMessage = 'Server error: Invalid response format';
+      } else {
+        errorMessage = `OAuth error: ${error.message}`;
       }
       
       onError?.(errorMessage);
