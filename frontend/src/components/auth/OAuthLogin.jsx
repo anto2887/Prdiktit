@@ -11,9 +11,9 @@ const OAuthLogin = ({ onSuccess, onError }) => {
       console.log('🔐 OAuth Flow: Current window.location:', window.location.href);
       console.log('🔐 OAuth Flow: REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
       
-      const apiUrl = '/api/v1/oauth/google/login';
-      const fullUrl = new URL(apiUrl, window.location.origin).href;
-      console.log('🔐 OAuth Flow: Constructed API URL:', fullUrl);
+      // Use the backend URL from environment variable
+      const apiUrl = `${process.env.REACT_APP_API_URL}/oauth/google/login`;
+      console.log('🔐 OAuth Flow: Constructed API URL:', apiUrl);
       console.log('🔐 OAuth Flow: Making fetch request...');
       
       const response = await fetch(apiUrl, {
