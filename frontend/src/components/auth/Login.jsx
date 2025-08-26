@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth, useNotifications } from '../../contexts';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -38,15 +38,14 @@ export const Login = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <div className="text-center mb-6">
-            <p className="text-gray-600 mb-4">
-              Sign in to your PrdiktIt account using Google OAuth2
-            </p>
-          </div>
+          <div className="space-y-6">
+            <div className="text-center">
+              <p className="text-gray-600">
+                Sign in to your PrdiktIt account using Google OAuth2
+              </p>
+            </div>
 
-
-
-            <div className="mt-6">
+            <div>
               <OAuthLogin 
                 onSuccess={(data) => {
                   if (data.access_token) {
@@ -62,7 +61,7 @@ export const Login = () => {
               />
             </div>
 
-            <div className="mt-6 text-center">
+            <div className="text-center">
               <p className="text-sm text-gray-600 mb-4">
                 New to PrdiktIt?{' '}
                 <Link 
