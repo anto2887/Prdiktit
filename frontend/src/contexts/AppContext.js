@@ -581,18 +581,31 @@ export const AppProvider = ({ children }) => {
       
       if (oauthData.user_exists && oauthData.access_token) {
         // Existing OAuth user - extract user info from token or create minimal user object
-        // For now, we'll create a minimal user object since we don't have full user data
-        userData = {
-          id: 'oauth_user', // Will be updated when profile is fetched
-          username: 'OAuth User', // Will be updated when profile is fetched
-          email: 'oauth@user.com', // Will be updated when profile is fetched
-          is_oauth_user: true
-        };
-        
-        // Store the access token (this will be replaced with HttpOnly cookies later)
-        localStorage.setItem('accessToken', oauthData.access_token);
-        
-        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Existing user, setting auth state');
+        // Immediately fetch the real profile using the received access token (no localStorage)
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Existing user, fetching profile with bearer token');
+        const profileResp = await fetch(`${process.env.REACT_APP_API_URL}/users/profile`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${oauthData.access_token}`
+          },
+          credentials: 'include'
+        });
+        if (!profileResp.ok) {
+          throw new Error('Failed to fetch user profile after OAuth login');
+        }
+        const profileData = await profileResp.json();
+        userData = profileData?.user || profileData?.data?.user || profileData;
+        if (!userData || !userData.username) {
+          // Fallback minimal object if structure differs
+          userData = {
+            id: profileData?.id || 'oauth_user',
+            username: profileData?.username || 'User',
+            email: profileData?.email || '',
+            is_oauth_user: true
+          };
+        }
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Profile fetched successfully');
       } else if (oauthData.requires_username) {
         // New OAuth user that needs username selection
         process.env.NODE_ENV === 'development' && console.log('OAuth Login: New user, requires username selection');
@@ -600,8 +613,6 @@ export const AppProvider = ({ children }) => {
       } else if (oauthData.user && oauthData.access_token) {
         // Completed OAuth registration with username
         userData = oauthData.user;
-        localStorage.setItem('accessToken', oauthData.access_token);
-        
         process.env.NODE_ENV === 'development' && console.log('OAuth Login: New user completed, setting auth state');
       } else {
         throw new Error('Invalid OAuth response format');
