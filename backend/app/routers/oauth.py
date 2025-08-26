@@ -11,7 +11,7 @@ from ..schemas import OAuthCallbackRequest, UsernameSelectionRequest
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/oauth", tags=["oauth"])
+router = APIRouter(tags=["oauth"])
 
 @router.get("/google/login")
 async def google_oauth_login(request: Request):
