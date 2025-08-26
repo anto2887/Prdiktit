@@ -98,6 +98,11 @@ class ProductionSettings(Settings):
     AWS_REGION: str = os.getenv("AWS_REGION", "us-east-1")
     AWS_SECRET_NAME: str = os.getenv("SECRET_NAME", "api-football-key")
     
+    # OAuth2 settings - Required for OAuth functionality
+    GOOGLE_CLIENT_ID: str = validate_required_env("GOOGLE_CLIENT_ID", os.getenv("GOOGLE_CLIENT_ID", ""))
+    GOOGLE_CLIENT_SECRET: str = validate_required_env("GOOGLE_CLIENT_SECRET", os.getenv("GOOGLE_CLIENT_SECRET", ""))
+    OAUTH_REDIRECT_URI: str = validate_required_env("OAUTH_REDIRECT_URI", os.getenv("OAUTH_REDIRECT_URI", ""))
+    
     # Rate limiting for production
     RATE_LIMIT_PER_MINUTE: int = safe_int("RATE_LIMIT_PER_MINUTE", 300)
     
