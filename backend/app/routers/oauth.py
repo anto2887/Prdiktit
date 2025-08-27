@@ -42,13 +42,13 @@ async def google_oauth_callback(
         logger.info(f"Received OAuth callback with code: {code[:20]}...")
         
         # Exchange code for tokens
-        token_data = oauth_service.exchange_code_for_tokens(code)
-        user_info = oauth_service.get_user_info(token_data['access_token'])
+        token_data = await oauth_service.exchange_code_for_tokens(code)
+        user_info = await oauth_service.get_user_info_from_tokens(token_data['access_token'])
         
         logger.info(f"OAuth data received for email: {user_info.get('email')}")
         
         # Check if user exists
-        existing_user = get_user_by_oauth_id(db, user_info['id'], 'google')
+        existing_user = await get_user_by_oauth_id(db, user_info['sub'], 'google')
         
         if existing_user:
             logger.info(f"Existing OAuth user found: {existing_user.username}")
@@ -78,7 +78,7 @@ async def google_oauth_callback(
             oauth_data = {
                 "email": user_info.get('email'),
                 "oauth_provider": "google",
-                "oauth_id": user_info['id'],
+                "oauth_id": user_info['sub'],
                 "access_token": token_data['access_token']
             }
             
@@ -106,19 +106,19 @@ async def complete_oauth_registration(
     """
     try:
         # Check username availability
-        if not is_username_available(db, username_data.username):
+        if not await is_username_available(db, username_data.username):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Username already taken"
             )
         
         # Create new user
-        new_user = create_oauth_user(
+        new_user = await create_oauth_user(
             db,
             username=username_data.username,
-            email=username_data.oauth_data.email,
-            oauth_provider=username_data.oauth_data.oauth_provider,
-            oauth_id=username_data.oauth_data.oauth_id
+            email=username_data.email,
+            oauth_provider=username_data.oauth_provider,
+            oauth_id=username_data.oauth_id
         )
         
         # Create session for new user
@@ -151,7 +151,7 @@ async def complete_oauth_registration(
 async def check_username_availability(username: str, db: Session = Depends(get_db)):
     """Check if username is available"""
     try:
-        available = is_username_available(db, username)
+        available = await is_username_available(db, username)
         return {"available": available}
     except Exception as e:
         logger.error(f"Username check error: {str(e)}")

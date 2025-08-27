@@ -49,6 +49,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     # FIXED: Use timezone-aware UTC
     created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     
     # OAuth2 fields
     oauth_provider = Column(String(50), nullable=True, index=True)  # 'google', 'facebook', 'apple'

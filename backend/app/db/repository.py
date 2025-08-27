@@ -111,7 +111,7 @@ async def get_user_by_username(db: Session, username: str) -> Optional[User]:
     """Get user by username"""
     return db.query(User).filter(User.username == username).first()
 
-async def get_user_by_email(db: Session, email: str) -> Optional[User]:
+async def get_user_by_email(db: str) -> Optional[User]:
     """Get user by email"""
     return db.query(User).filter(User.email == email).first()
 
@@ -1128,3 +1128,187 @@ async def update_group(db: Session, group_id: int, **group_data) -> Optional[Gro
     db.commit()
     db.refresh(group)
     return group
+
+# =============================================================================
+# OAuth REPOSITORY FUNCTIONS
+# =============================================================================
+
+async def get_user_by_oauth_id(db: Session, oauth_id: str, oauth_provider: str) -> Optional[User]:
+    """Get user by OAuth ID and provider"""
+    return db.query(User).filter(
+        User.oauth_id == oauth_id,
+        User.oauth_provider == oauth_provider
+    ).first()
+
+async def create_oauth_user(
+    db: Session, 
+    username: str, 
+    email: str, 
+    oauth_provider: str, 
+    oauth_id: str
+) -> User:
+    """Create a new OAuth user"""
+    try:
+        # Check if username is available
+        if not await is_username_available(db, username):
+            raise ValueError(f"Username '{username}' is already taken")
+        
+        # Create new OAuth user
+        user = User(
+            username=username,
+            email=email,
+            oauth_provider=oauth_provider,
+            oauth_id=oauth_id,
+            is_oauth_user=True,
+            is_active=True,
+            created_at=datetime.now(timezone.utc)
+        )
+        
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        
+        logger.info(f"✅ Created OAuth user: {username} ({email}) via {oauth_provider}")
+        return user
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to create OAuth user {username}: {str(e)}")
+        raise
+
+async def is_username_available(db: Session, username: str) -> bool:
+    """Check if a username is available"""
+    existing_user = db.query(User).filter(User.username == username).first()
+    return existing_user is None
+
+async def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    """Get user by email (for OAuth linking)"""
+    return db.query(User).filter(User.email == email).first()
+
+async def link_oauth_to_existing_user(
+    db: Session, 
+    user_id: int, 
+    oauth_provider: str, 
+    oauth_id: str
+) -> Optional[User]:
+    """Link OAuth credentials to an existing user account"""
+    try:
+        user = await get_user_by_id(db, user_id)
+        if not user:
+            return None
+        
+        user.oauth_provider = oauth_provider
+        user.oauth_id = oauth_id
+        user.is_oauth_user = True
+        
+        db.commit()
+        db.refresh(user)
+        
+        logger.info(f"✅ Linked OAuth {oauth_provider} to existing user: {user.username}")
+        return user
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to link OAuth to user {user_id}: {str(e)}")
+        raise
+
+async def update_oauth_user_info(
+    db: Session, 
+    user_id: int, 
+    **oauth_data
+) -> Optional[User]:
+    """Update OAuth user information"""
+    try:
+        user = await get_user_by_id(db, user_id)
+        if not user or not user.is_oauth_user:
+            return None
+        
+        for key, value in oauth_data.items():
+            if hasattr(user, key):
+                setattr(user, key, value)
+        
+        user.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+        
+        return user
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to update OAuth user {user_id}: {str(e)}")
+        raise
+
+# =============================================================================
+# SESSION REPOSITORY FUNCTIONS
+# =============================================================================
+
+async def get_user_sessions(db: Session, user_id: int) -> List[Dict]:
+    """Get all active sessions for a user"""
+    try:
+        from .models import UserSession
+        
+        sessions = db.query(UserSession).filter(
+            UserSession.user_id == user_id,
+            UserSession.is_active == True,
+            UserSession.expires_at > datetime.now(timezone.utc)
+        ).all()
+        
+        return [
+            {
+                "session_id": session.session_id,
+                "created_at": session.created_at,
+                "expires_at": session.expires_at,
+                "last_used": session.last_used,
+                "user_agent": session.user_agent,
+                "ip_address": session.ip_address
+            }
+            for session in sessions
+        ]
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to get sessions for user {user_id}: {str(e)}")
+        return []
+
+async def invalidate_user_sessions(db: Session, user_id: int) -> int:
+    """Invalidate all sessions for a user (logout from all devices)"""
+    try:
+        from .models import UserSession
+        
+        result = db.query(UserSession).filter(
+            UserSession.user_id == user_id,
+            UserSession.is_active == True
+        ).update({
+            "is_active": False,
+            "updated_at": datetime.now(timezone.utc)
+        })
+        
+        db.commit()
+        logger.info(f"✅ Invalidated {result} sessions for user {user_id}")
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to invalidate sessions for user {user_id}: {str(e)}")
+        return 0
+
+async def cleanup_expired_sessions(db: Session) -> int:
+    """Remove expired sessions from database"""
+    try:
+        from .models import UserSession
+        
+        expired_sessions = db.query(UserSession).filter(
+            UserSession.expires_at <= datetime.now(timezone.utc)
+        ).all()
+        
+        count = len(expired_sessions)
+        for session in expired_sessions:
+            db.delete(session)
+        
+        db.commit()
+        logger.info(f"🧹 Cleaned up {count} expired sessions")
+        return count
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to cleanup expired sessions: {str(e)}")
+        return 0
