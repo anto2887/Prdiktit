@@ -19,7 +19,7 @@ router = APIRouter(tags=["oauth"])
 async def google_oauth_login():
     """Get Google OAuth2 authorization URL"""
     try:
-        auth_url = oauth_service.get_google_auth_url()
+        auth_url = await oauth_service.get_google_auth_url()
         return {"auth_url": auth_url}
     except Exception as e:
         logger.error(f"Failed to generate Google OAuth URL: {str(e)}")

@@ -305,12 +305,20 @@ async def migrate_session_system(db: Session = Depends(get_db)):
             "CREATE INDEX IF NOT EXISTS idx_user_sessions_user_active ON user_sessions(user_id, is_active);"
         ]
         
-        # Add foreign key constraint
-        add_foreign_key = """
-        ALTER TABLE user_sessions 
-        ADD CONSTRAINT IF NOT EXISTS fk_user_sessions_user_id 
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-        """
+        # Add foreign key constraint (PostgreSQL doesn't support IF NOT EXISTS for constraints)
+        try:
+            add_foreign_key = """
+            ALTER TABLE user_sessions 
+            ADD CONSTRAINT fk_user_sessions_user_id 
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+            """
+            db.execute(text(add_foreign_key))
+            logger.info("✅ Foreign key constraint added")
+        except Exception as e:
+            if "already exists" in str(e).lower() or "duplicate key" in str(e).lower():
+                logger.info("ℹ️ Foreign key constraint already exists")
+            else:
+                logger.warning(f"⚠️ Could not add foreign key constraint: {e}")
         
         # Execute migration
         db.execute(text(create_sessions_table))
@@ -319,9 +327,6 @@ async def migrate_session_system(db: Session = Depends(get_db)):
         for index_sql in create_indexes:
             db.execute(text(index_sql))
             db.commit()
-        
-        db.execute(text(add_foreign_key))
-        db.commit()
         
         logger.info("✅ Session system migration completed successfully")
         
