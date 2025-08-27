@@ -109,6 +109,7 @@ class OAuthService:
             response.raise_for_status()
             
             tokens = response.json()
+            logger.info(f"🔐 OAuth Service: Token exchange successful, received: {list(tokens.keys())}")
             return tokens
             
         except requests.RequestException as e:
@@ -118,16 +119,51 @@ class OAuthService:
             logger.error(f"Unexpected error in token exchange: {e}")
             return None
     
-    async def get_user_info_from_tokens(self, access_token: str) -> Optional[Dict[str, Any]]:
-        """Get user info from Google using access token"""
+    async def get_user_info_from_tokens(self, access_token: str, id_token: str = None) -> Optional[Dict[str, Any]]:
+        """Get user info from Google using ID token (preferred) or access token"""
         try:
+            # First try to decode the ID token if provided (contains sub field)
+            if id_token:
+                try:
+                    # Decode the ID token (JWT) to get user info including 'sub'
+                    idinfo = id_token.verify_oauth2_token(
+                        id_token, 
+                        google_requests.Request(), 
+                        self.google_client_id
+                    )
+                    
+                    logger.info(f"🔐 OAuth Service: ID token decoded successfully, fields: {list(idinfo.keys())}")
+                    
+                    return {
+                        'sub': idinfo['sub'],  # Google's unique user ID
+                        'email': idinfo['email'],
+                        'email_verified': idinfo.get('email_verified', False),
+                        'name': idinfo.get('name', ''),
+                        'picture': idinfo.get('picture', ''),
+                        'given_name': idinfo.get('given_name', ''),
+                        'family_name': idinfo.get('family_name', '')
+                    }
+                    
+                except Exception as e:
+                    logger.warning(f"🔐 OAuth Service: Failed to decode ID token, falling back to userinfo endpoint: {e}")
+            
+            # Fallback to userinfo endpoint if ID token fails or not provided
             userinfo_url = "https://www.googleapis.com/oauth2/v2/userinfo"
             headers = {'Authorization': f'Bearer {access_token}'}
             
             response = requests.get(userinfo_url, headers=headers)
             response.raise_for_status()
             
-            return response.json()
+            user_info = response.json()
+            logger.info(f"🔐 OAuth Service: Userinfo endpoint response fields: {list(user_info.keys())}")
+            
+            # The userinfo endpoint doesn't have 'sub', so we need to generate a unique ID
+            # We'll use the email as a fallback identifier
+            if 'sub' not in user_info:
+                user_info['sub'] = f"email_{user_info.get('email', 'unknown')}"
+                logger.info(f"🔐 OAuth Service: Generated fallback sub ID: {user_info['sub']}")
+            
+            return user_info
             
         except requests.RequestException as e:
             logger.error(f"Failed to get user info from Google: {e}")

@@ -43,9 +43,18 @@ async def google_oauth_callback(
         
         # Exchange code for tokens
         token_data = await oauth_service.exchange_code_for_tokens(code)
-        user_info = await oauth_service.get_user_info_from_tokens(token_data['access_token'])
+        logger.info(f"🔐 OAuth Router: Token data received: {list(token_data.keys())}")
         
-        logger.info(f"OAuth data received for email: {user_info.get('email')}")
+        # Get user info using ID token if available, otherwise fall back to access token
+        id_token = token_data.get('id_token')
+        user_info = await oauth_service.get_user_info_from_tokens(
+            token_data['access_token'], 
+            id_token=id_token
+        )
+        
+        logger.info(f"🔐 OAuth Router: OAuth data received for email: {user_info.get('email')}")
+        logger.info(f"🔐 OAuth Router: User info fields: {list(user_info.keys())}")
+        logger.info(f"🔐 OAuth Router: Sub field value: {user_info.get('sub', 'NOT_FOUND')}")
         
         # Check if user exists
         existing_user = await get_user_by_oauth_id(db, user_info['sub'], 'google')
@@ -88,8 +97,15 @@ async def google_oauth_callback(
                 "oauth_data": oauth_data
             }
             
+    except KeyError as e:
+        logger.error(f"🔐 OAuth Router: Missing required field in user info: {str(e)}")
+        logger.error(f"🔐 OAuth Router: User info received: {user_info if 'user_info' in locals() else 'Not available'}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"OAuth callback failed: Missing required field '{str(e)}' in user info"
+        )
     except Exception as e:
-        logger.error(f"OAuth callback error: {str(e)}")
+        logger.error(f"🔐 OAuth Router: OAuth callback error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"OAuth callback failed: {str(e)}"
