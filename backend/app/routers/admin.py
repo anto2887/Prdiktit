@@ -271,3 +271,248 @@ async def migrate_oauth2_system(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"OAuth2 migration failed: {str(e)}"
         )
+
+@router.post("/migrate-session-system")
+async def migrate_session_system(db: Session = Depends(get_db)):
+    """
+    Migrate to session-based authentication system
+    Creates user_sessions table and related indexes
+    """
+    try:
+        logger.info("🔄 Starting session system migration...")
+        
+        # Create user_sessions table
+        create_sessions_table = """
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id VARCHAR(36) PRIMARY KEY,
+            user_id INTEGER NOT NULL,
+            session_id VARCHAR(64) UNIQUE NOT NULL,
+            access_token TEXT NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            last_used TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            is_active BOOLEAN DEFAULT TRUE,
+            user_agent TEXT,
+            ip_address VARCHAR(45)
+        );
+        """
+        
+        # Create indexes for performance
+        create_indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);",
+            "CREATE INDEX IF NOT EXISTS idx_user_sessions_session_id ON user_sessions(session_id);",
+            "CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at);",
+            "CREATE INDEX IF NOT EXISTS idx_user_sessions_user_active ON user_sessions(user_id, is_active);"
+        ]
+        
+        # Add foreign key constraint
+        add_foreign_key = """
+        ALTER TABLE user_sessions 
+        ADD CONSTRAINT IF NOT EXISTS fk_user_sessions_user_id 
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+        """
+        
+        # Execute migration
+        db.execute(text(create_sessions_table))
+        db.commit()
+        
+        for index_sql in create_indexes:
+            db.execute(text(index_sql))
+            db.commit()
+        
+        db.execute(text(add_foreign_key))
+        db.commit()
+        
+        logger.info("✅ Session system migration completed successfully")
+        
+        return {
+            "success": True,
+            "message": "Session system migration completed successfully",
+            "migration_type": "session_system",
+            "changes": [
+                "Created user_sessions table",
+                "Added session management indexes",
+                "Added foreign key constraints"
+            ],
+            "timestamp": datetime.now(timezone.utc)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Session system migration failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Session system migration failed: {str(e)}"
+        )
+
+@router.get("/test-session-system")
+async def test_session_system(db: Session = Depends(get_db)):
+    """
+    Test the session system endpoints and functionality
+    """
+    try:
+        logger.info("🧪 Testing session system...")
+        
+        # Test OAuth endpoint
+        oauth_test = await test_oauth_endpoint(db)
+        
+        # Test session table exists
+        session_table_test = await test_session_table(db)
+        
+        # Test session service
+        session_service_test = await test_session_service(db)
+        
+        return {
+            "success": True,
+            "message": "Session system test completed",
+            "tests": {
+                "oauth_endpoint": oauth_test,
+                "session_table": session_table_test,
+                "session_service": session_service_test
+            },
+            "timestamp": datetime.now(timezone.utc)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Session system test failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Session system test failed: {str(e)}"
+        )
+
+@router.get("/session-system-status")
+async def get_session_system_status(db: Session = Depends(get_db)):
+    """
+    Get current status of the session system
+    """
+    try:
+        # Check if user_sessions table exists
+        inspector = inspect(db.bind)
+        tables = inspector.get_table_names()
+        has_sessions_table = 'user_sessions' in tables
+        
+        if has_sessions_table:
+            # Get session count
+            session_count = db.execute(text("SELECT COUNT(*) FROM user_sessions")).scalar()
+            active_sessions = db.execute(text("SELECT COUNT(*) FROM user_sessions WHERE is_active = true")).scalar()
+            expired_sessions = db.execute(text("SELECT COUNT(*) FROM user_sessions WHERE expires_at <= NOW()")).scalar()
+            
+            # Get table structure
+            columns = inspector.get_columns('user_sessions')
+            column_names = [col['name'] for col in columns]
+            
+            return {
+                "success": True,
+                "status": "active",
+                "table_exists": True,
+                "session_stats": {
+                    "total_sessions": session_count,
+                    "active_sessions": active_sessions,
+                    "expired_sessions": expired_sessions
+                },
+                "table_structure": column_names,
+                "timestamp": datetime.now(timezone.utc)
+            }
+        else:
+            return {
+                "success": True,
+                "status": "not_migrated",
+                "table_exists": False,
+                "message": "Session system not yet migrated",
+                "timestamp": datetime.now(timezone.utc)
+            }
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to get session system status: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get session system status: {str(e)}"
+        )
+
+@router.post("/cleanup-expired-sessions")
+async def cleanup_expired_sessions(db: Session = Depends(get_db)):
+    """
+    Manually trigger cleanup of expired sessions
+    """
+    try:
+        from ..services.session_service import session_service
+        
+        cleaned_count = session_service.cleanup_expired_sessions(db)
+        
+        return {
+            "success": True,
+            "message": f"Cleaned up {cleaned_count} expired sessions",
+            "cleaned_count": cleaned_count,
+            "timestamp": datetime.now(timezone.utc)
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to cleanup expired sessions: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to cleanup expired sessions: {str(e)}"
+        )
+
+# Helper functions for testing
+async def test_oauth_endpoint(db: Session):
+    """Test OAuth endpoint functionality"""
+    try:
+        # This would test the OAuth service
+        # For now, just check if the service can be imported
+        from ..services.oauth_service import oauth_service
+        
+        return {
+            "status": "success",
+            "message": "OAuth service available",
+            "details": "OAuth service imported successfully"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": "OAuth service test failed",
+            "details": str(e)
+        }
+
+async def test_session_table(db: Session):
+    """Test session table functionality"""
+    try:
+        # Check if table exists and has correct structure
+        inspector = inspect(db.bind)
+        if 'user_sessions' not in inspector.get_table_names():
+            return {
+                "status": "error",
+                "message": "Session table does not exist",
+                "details": "Run migration first"
+            }
+        
+        # Test basic operations
+        test_result = db.execute(text("SELECT COUNT(*) FROM user_sessions")).scalar()
+        
+        return {
+            "status": "success",
+            "message": "Session table accessible",
+            "details": f"Table contains {test_result} sessions"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": "Session table test failed",
+            "details": str(e)
+        }
+
+async def test_session_service(db: Session):
+    """Test session service functionality"""
+    try:
+        from ..services.session_service import session_service
+        
+        return {
+            "status": "success",
+            "message": "Session service available",
+            "details": "Session service imported successfully"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": "Session service test failed",
+            "details": str(e)
+        }

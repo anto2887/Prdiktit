@@ -14,9 +14,10 @@ const getDefaultHeaders = () => {
     'Content-Type': 'application/json'
   };
 
-  const token = localStorage.getItem('accessToken');
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+  // Get session ID from context instead of localStorage
+  const sessionId = window.sessionStorage.getItem('sessionId');
+  if (sessionId) {
+    headers['X-Session-ID'] = sessionId;
   }
 
   return headers;
@@ -126,10 +127,12 @@ class API {
   setupInterceptors() {
     // Request interceptor
     this.client.interceptors.request.use(config => {
-      const token = localStorage.getItem('accessToken');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+      // Get session ID from sessionStorage instead of localStorage
+      const sessionId = window.sessionStorage.getItem('sessionId');
+      if (sessionId) {
+        config.headers['X-Session-ID'] = sessionId;
       }
+      
       // Log request for debugging
       process.env.NODE_ENV === 'development' && console.log('API Request:', {
         method: config.method,
@@ -157,9 +160,14 @@ class API {
           response: error.response?.data,
           status: error.response?.status
         });
+        
+        // Handle session expiration
         if (error.response?.status === 401) {
-          localStorage.removeItem('accessToken');
+          // Clear session and redirect to login
+          window.sessionStorage.removeItem('sessionId');
+          window.location.href = '/login';
         }
+        
         throw new APIError(
           error.response?.data?.message || error.message,
           error.response?.status || 0,
@@ -188,7 +196,10 @@ export const authApi = {
   login: async (username, password) => {
     const response = await api.client.post('/auth/login', { username, password });
     if (response.status === 'success' && response.data?.access_token) {
-      localStorage.setItem('accessToken', response.data.access_token);
+      // Store session ID instead of access token
+      if (response.data?.session_id) {
+        window.sessionStorage.setItem('sessionId', response.data.session_id);
+      }
     }
     return response;
   },

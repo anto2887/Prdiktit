@@ -72,6 +72,29 @@ class User(Base):
         UniqueConstraint('oauth_provider', 'oauth_id', name='unique_oauth_user'),
     )
 
+# NEW: UserSession model for session-based authentication
+class UserSession(Base):
+    __tablename__ = "user_sessions"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    session_id = Column(String(64), unique=True, nullable=False, index=True)
+    access_token = Column(Text, nullable=False)  # Encrypted JWT token
+    created_at = Column(DateTime, default=utc_now)
+    expires_at = Column(DateTime, nullable=False)
+    last_used = Column(DateTime, default=utc_now)
+    is_active = Column(Boolean, default=True, index=True)
+    user_agent = Column(Text, nullable=True)
+    ip_address = Column(String(45), nullable=True)  # IPv6 compatible
+    
+    # Relationships
+    user = relationship("User", backref="sessions")
+    
+    __table_args__ = (
+        Index('idx_session_expires', 'expires_at'),
+        Index('idx_session_user_active', 'user_id', 'is_active'),
+    )
+
 class Group(Base):
     __tablename__ = "groups"
 

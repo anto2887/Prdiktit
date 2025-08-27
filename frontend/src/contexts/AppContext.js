@@ -579,40 +579,26 @@ export const AppProvider = ({ children }) => {
       // Extract user information from OAuth response
       let userData = null;
       
-      if (oauthData.user_exists && oauthData.access_token) {
-        // Existing OAuth user - extract user info from token or create minimal user object
-        // Immediately fetch the real profile using the received access token (no localStorage)
-        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Existing user, fetching profile with bearer token');
-        const profileResp = await fetch(`${process.env.REACT_APP_API_URL}/users/profile`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${oauthData.access_token}`
-          },
-          credentials: 'include'
-        });
-        if (!profileResp.ok) {
-          throw new Error('Failed to fetch user profile after OAuth login');
-        }
-        const profileData = await profileResp.json();
-        userData = profileData?.user || profileData?.data?.user || profileData;
-        if (!userData || !userData.username) {
-          // Fallback minimal object if structure differs
-          userData = {
-            id: profileData?.id || 'oauth_user',
-            username: profileData?.username || 'User',
-            email: profileData?.email || '',
-            is_oauth_user: true
-          };
-        }
-        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Profile fetched successfully');
+      if (oauthData.user_exists && oauthData.session_id) {
+        // Existing OAuth user - store session ID and use provided user data
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Existing user, storing session ID');
+        
+        // Store session ID in sessionStorage (not localStorage for security)
+        window.sessionStorage.setItem('sessionId', oauthData.session_id);
+        
+        userData = oauthData.user;
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Existing user, setting auth state');
       } else if (oauthData.requires_username) {
         // New OAuth user that needs username selection
         process.env.NODE_ENV === 'development' && console.log('OAuth Login: New user, requires username selection');
         return { requires_username: true, oauth_data: oauthData.oauth_data };
-      } else if (oauthData.user && oauthData.access_token) {
+      } else if (oauthData.user && oauthData.session_id) {
         // Completed OAuth registration with username
         userData = oauthData.user;
+        
+        // Store session ID in sessionStorage
+        window.sessionStorage.setItem('sessionId', oauthData.session_id);
+        
         process.env.NODE_ENV === 'development' && console.log('OAuth Login: New user completed, setting auth state');
       } else {
         throw new Error('Invalid OAuth response format');
@@ -659,9 +645,17 @@ export const AppProvider = ({ children }) => {
     try {
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
       await authApi.logout();
+      
+      // Clear session ID from sessionStorage
+      window.sessionStorage.removeItem('sessionId');
+      
       dispatch({ type: ActionTypes.SET_AUTH_LOGOUT });
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Logout error:', err);
+      
+      // Clear session ID even if logout API fails
+      window.sessionStorage.removeItem('sessionId');
+      
       dispatch({ type: ActionTypes.SET_AUTH_LOGOUT });
     } finally {
       // Always set loading to false
