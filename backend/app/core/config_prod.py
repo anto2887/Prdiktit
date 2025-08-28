@@ -26,22 +26,39 @@ def parse_string_list(value: str, default: List[str] = None) -> List[str]:
     if default is None:
         default = []
     
+    # Add debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"🔍 parse_string_list called with value: '{value}' (type: {type(value)})")
+    logger.info(f"🔍 parse_string_list default: {default}")
+    
     if not value:
+        logger.info(f"🔍 parse_string_list: value is empty/falsy, returning default: {default}")
         return default
     
     # If it's JSON format
     if value.strip().startswith('[') and value.strip().endswith(']'):
+        logger.info(f"🔍 parse_string_list: detected JSON format, attempting to parse")
         try:
-            return json.loads(value)
-        except json.JSONDecodeError:
+            parsed = json.loads(value)
+            logger.info(f"🔍 parse_string_list: JSON parsing successful, result: {parsed}")
+            return parsed
+        except json.JSONDecodeError as e:
+            logger.warning(f"🔍 parse_string_list: JSON parsing failed: {e}")
             pass
     
     # Single value or comma-separated string
     if ',' in value:
-        return [x.strip() for x in value.split(",") if x.strip()]
+        logger.info(f"🔍 parse_string_list: detected comma-separated format, splitting by comma")
+        parsed = [x.strip() for x in value.split(",") if x.strip()]
+        logger.info(f"🔍 parse_string_list: comma-split result: {parsed}")
+        return parsed
     else:
         # Single value
-        return [value.strip()] if value.strip() else default
+        logger.info(f"🔍 parse_string_list: single value detected")
+        parsed = [value.strip()] if value.strip() else default
+        logger.info(f"🔍 parse_string_list: single value result: {parsed}")
+        return parsed
 
 def validate_required_env(name: str, value: str) -> str:
     """Validate that required environment variables are set"""
@@ -52,6 +69,17 @@ def validate_required_env(name: str, value: str) -> str:
 class ProductionSettings(Settings):
     # Environment validation
     ENVIRONMENT: str = "production"
+    
+    # Add debug logging for CORS configuration
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"🔍 ProductionSettings initialized")
+        logger.info(f"🔍 CORS_ORIGINS environment variable raw value: '{os.getenv('CORS_ORIGINS', 'NOT_SET')}'")
+        logger.info(f"🔍 CORS_ORIGINS after parsing: {self.CORS_ORIGINS}")
+        logger.info(f"🔍 CORS_ORIGINS type: {type(self.CORS_ORIGINS)}")
+        logger.info(f"🔍 CORS_ORIGINS length: {len(self.CORS_ORIGINS) if isinstance(self.CORS_ORIGINS, list) else 'NOT_A_LIST'}")
     
     # Required secrets - using exact Railway variable names
     SECRET_KEY: str = validate_required_env("SECRET_KEY", os.getenv("SECRET_KEY", ""))

@@ -142,6 +142,12 @@ app = FastAPI(
 )
 
 # Configure CORS
+logger = logging.getLogger(__name__)
+logger.info(f"🔍 Configuring CORS middleware")
+logger.info(f"🔍 CORS_ORIGINS from settings: {settings.CORS_ORIGINS}")
+logger.info(f"🔍 CORS_ORIGINS type: {type(settings.CORS_ORIGINS)}")
+logger.info(f"🔍 CORS_ORIGINS length: {len(settings.CORS_ORIGINS) if isinstance(settings.CORS_ORIGINS, list) else 'NOT_A_LIST'}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
