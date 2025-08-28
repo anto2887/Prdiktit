@@ -281,52 +281,48 @@ async def migrate_session_system(db: Session = Depends(get_db)):
     try:
         logger.info("🔄 Starting session system migration...")
         
+        # Check if migration is already done
+        inspector = inspect(db.bind)
+        existing_tables = inspector.get_table_names()
+        
+        if 'user_sessions' in existing_tables:
+            logger.info("✅ Session system migration already completed")
+            return {
+                "success": True,
+                "message": "Session system migration already completed",
+                "migration_type": "session_system",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        
         # Create user_sessions table
-        create_sessions_table = """
-        CREATE TABLE IF NOT EXISTS user_sessions (
-            id VARCHAR(36) PRIMARY KEY,
-            user_id INTEGER NOT NULL,
-            session_id VARCHAR(64) UNIQUE NOT NULL,
-            access_token TEXT NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-            last_used TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            is_active BOOLEAN DEFAULT TRUE,
-            user_agent TEXT,
-            ip_address VARCHAR(45)
-        );
-        """
+        logger.info("🔧 Creating user_sessions table...")
+        db.execute(text("""
+            CREATE TABLE user_sessions (
+                id VARCHAR(36) PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                session_id VARCHAR(64) UNIQUE NOT NULL,
+                access_token TEXT NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                last_used TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                is_active BOOLEAN DEFAULT TRUE,
+                user_agent TEXT,
+                ip_address VARCHAR(45)
+            )
+        """))
         
-        # Create indexes for performance
-        create_indexes = [
-            "CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);",
-            "CREATE INDEX IF NOT EXISTS idx_user_sessions_session_id ON user_sessions(session_id);",
-            "CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions(expires_at);",
-            "CREATE INDEX IF NOT EXISTS idx_user_sessions_user_active ON user_sessions(user_id, is_active);"
-        ]
+        # Create indexes
+        logger.info("🔧 Creating session indexes...")
+        db.execute(text("""
+            CREATE INDEX idx_session_expires ON user_sessions(expires_at)
+        """))
         
-        # Add foreign key constraint (PostgreSQL doesn't support IF NOT EXISTS for constraints)
-        try:
-            add_foreign_key = """
-            ALTER TABLE user_sessions 
-            ADD CONSTRAINT fk_user_sessions_user_id 
-            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-            """
-            db.execute(text(add_foreign_key))
-            logger.info("✅ Foreign key constraint added")
-        except Exception as e:
-            if "already exists" in str(e).lower() or "duplicate key" in str(e).lower():
-                logger.info("ℹ️ Foreign key constraint already exists")
-            else:
-                logger.warning(f"⚠️ Could not add foreign key constraint: {e}")
+        db.execute(text("""
+            CREATE INDEX idx_session_user_active ON user_sessions(user_id, is_active)
+        """))
         
         # Execute migration
-        db.execute(text(create_sessions_table))
         db.commit()
-        
-        for index_sql in create_indexes:
-            db.execute(text(index_sql))
-            db.commit()
         
         logger.info("✅ Session system migration completed successfully")
         
@@ -336,46 +332,221 @@ async def migrate_session_system(db: Session = Depends(get_db)):
             "migration_type": "session_system",
             "changes": [
                 "Created user_sessions table",
-                "Added session management indexes",
-                "Added foreign key constraints"
+                "Added session indexes",
+                "Added foreign key constraint to users table"
             ],
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
     except Exception as e:
         logger.error(f"❌ Session system migration failed: {str(e)}")
         db.rollback()
         raise HTTPException(
-            status_code=500,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Session system migration failed: {str(e)}"
+        )
+
+@router.post("/migrate-users-updated-at")
+async def migrate_users_updated_at(db: Session = Depends(get_db)):
+    """Migrate database schema to add updated_at column to users table"""
+    try:
+        logger.info("🔄 Starting users updated_at migration...")
+        
+        # Check if migration is already done
+        inspector = inspect(db.bind)
+        existing_columns = [col['name'] for col in inspector.get_columns('users')]
+        
+        if 'updated_at' in existing_columns:
+            logger.info("✅ Users updated_at migration already completed")
+            return {
+                "success": True,
+                "message": "Users updated_at migration already completed",
+                "migration_type": "users_updated_at",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        
+        # Add updated_at column to users table
+        logger.info("🔧 Adding updated_at column to users table...")
+        db.execute(text("""
+            ALTER TABLE users 
+            ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        """))
+        
+        # Update existing records to have updated_at = created_at
+        logger.info("🔧 Updating existing user records...")
+        db.execute(text("""
+            UPDATE users 
+            SET updated_at = created_at 
+            WHERE updated_at IS NULL
+        """))
+        
+        # Make updated_at NOT NULL after populating
+        logger.info("🔧 Making updated_at NOT NULL...")
+        db.execute(text("""
+            ALTER TABLE users 
+            ALTER COLUMN updated_at SET NOT NULL
+        """))
+        
+        # Commit the migration
+        db.commit()
+        
+        logger.info("✅ Users updated_at migration completed successfully")
+        
+        return {
+            "success": True,
+            "message": "Users updated_at migration completed successfully",
+            "migration_type": "users_updated_at",
+            "changes": [
+                "Added updated_at column to users table",
+                "Set default value to NOW()",
+                "Updated existing records to have updated_at = created_at",
+                "Made updated_at NOT NULL"
+            ],
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Users updated_at migration failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Users updated_at migration failed: {str(e)}"
+        )
+
+@router.post("/migrate-all-oauth-system")
+async def migrate_all_oauth_system(db: Session = Depends(get_db)):
+    """
+    Run all OAuth system migrations in the correct order:
+    1. OAuth2 system migration (adds OAuth columns)
+    2. Users updated_at migration (adds missing updated_at column)
+    3. Session system migration (creates user_sessions table)
+    """
+    try:
+        logger.info("🚀 Starting comprehensive OAuth system migration...")
+        
+        migration_results = []
+        overall_success = True
+        
+        # Step 1: OAuth2 system migration
+        try:
+            logger.info("📋 Step 1: Running OAuth2 system migration...")
+            oauth_result = await migrate_oauth2_system(db)
+            migration_results.append({
+                "step": 1,
+                "migration": "oauth2_system",
+                "status": "success",
+                "result": oauth_result
+            })
+            logger.info("✅ Step 1 completed successfully")
+        except Exception as e:
+            logger.error(f"❌ Step 1 failed: {str(e)}")
+            migration_results.append({
+                "step": 1,
+                "migration": "oauth2_system",
+                "status": "failed",
+                "error": str(e)
+            })
+            overall_success = False
+        
+        # Step 2: Users updated_at migration
+        try:
+            logger.info("📋 Step 2: Running users updated_at migration...")
+            updated_at_result = await migrate_users_updated_at(db)
+            migration_results.append({
+                "step": 2,
+                "migration": "users_updated_at",
+                "status": "success",
+                "result": updated_at_result
+            })
+            logger.info("✅ Step 2 completed successfully")
+        except Exception as e:
+            logger.error(f"❌ Step 2 failed: {str(e)}")
+            migration_results.append({
+                "step": 2,
+                "migration": "users_updated_at",
+                "status": "failed",
+                "error": str(e)
+            })
+            overall_success = False
+        
+        # Step 3: Session system migration
+        try:
+            logger.info("📋 Step 3: Running session system migration...")
+            session_result = await migrate_session_system(db)
+            migration_results.append({
+                "step": 3,
+                "migration": "session_system",
+                "status": "success",
+                "result": session_result
+            })
+            logger.info("✅ Step 3 completed successfully")
+        except Exception as e:
+            logger.error(f"❌ Step 3 failed: {str(e)}")
+            migration_results.append({
+                "step": 3,
+                "migration": "session_system",
+                "status": "failed",
+                "error": str(e)
+            })
+            overall_success = False
+        
+        # Summary
+        if overall_success:
+            logger.info("🎉 All OAuth system migrations completed successfully!")
+            return {
+                "success": True,
+                "message": "All OAuth system migrations completed successfully",
+                "migration_type": "comprehensive_oauth_system",
+                "steps_completed": len([r for r in migration_results if r["status"] == "success"]),
+                "total_steps": len(migration_results),
+                "migration_results": migration_results,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        else:
+            failed_steps = [r for r in migration_results if r["status"] == "failed"]
+            logger.error(f"❌ Some migrations failed: {len(failed_steps)} out of {len(migration_results)}")
+            return {
+                "success": False,
+                "message": f"Some migrations failed: {len(failed_steps)} out of {len(migration_results)}",
+                "migration_type": "comprehensive_oauth_system",
+                "steps_completed": len([r for r in migration_results if r["status"] == "success"]),
+                "total_steps": len(migration_results),
+                "failed_steps": failed_steps,
+                "migration_results": migration_results,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        
+    except Exception as e:
+        logger.error(f"💥 Comprehensive migration failed with error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Comprehensive migration failed: {str(e)}"
         )
 
 @router.get("/test-session-system")
 async def test_session_system(db: Session = Depends(get_db)):
     """
-    Test the session system endpoints and functionality
+    Test session system functionality
     """
     try:
-        logger.info("🧪 Testing session system...")
-        
         # Test OAuth endpoint
-        oauth_test = await test_oauth_endpoint(db)
+        oauth_result = await test_oauth_endpoint(db)
         
-        # Test session table exists
-        session_table_test = await test_session_table(db)
+        # Test session table
+        table_result = await test_session_table(db)
         
         # Test session service
-        session_service_test = await test_session_service(db)
+        service_result = await test_session_service(db)
         
         return {
             "success": True,
             "message": "Session system test completed",
             "tests": {
-                "oauth_endpoint": oauth_test,
-                "session_table": session_table_test,
-                "session_service": session_service_test
+                "oauth_endpoint": oauth_result,
+                "session_table": table_result,
+                "session_service": service_result
             },
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
     except Exception as e:
@@ -383,6 +554,48 @@ async def test_session_system(db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=500,
             detail=f"Session system test failed: {str(e)}"
+        )
+
+@router.get("/test-users-updated-at")
+async def test_users_updated_at(db: Session = Depends(get_db)):
+    """
+    Test users updated_at column status
+    """
+    try:
+        inspector = inspect(db.bind)
+        existing_columns = [col['name'] for col in inspector.get_columns('users')]
+        
+        has_updated_at = 'updated_at' in existing_columns
+        
+        if has_updated_at:
+            # Check if there are any NULL values
+            null_count = db.execute(text("""
+                SELECT COUNT(*) FROM users WHERE updated_at IS NULL
+            """)).scalar()
+            
+            return {
+                "success": True,
+                "message": "Users updated_at column status check",
+                "status": "migrated",
+                "has_updated_at": True,
+                "null_values_count": null_count,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        else:
+            return {
+                "success": True,
+                "message": "Users updated_at column status check",
+                "status": "not_migrated",
+                "has_updated_at": False,
+                "details": "Run migration first",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            
+    except Exception as e:
+        logger.error(f"❌ Failed to get users updated_at status: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get users updated_at status: {str(e)}"
         )
 
 @router.get("/session-system-status")

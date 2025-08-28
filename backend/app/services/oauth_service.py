@@ -126,7 +126,8 @@ class OAuthService:
             if id_token:
                 try:
                     # Decode the ID token (JWT) to get user info including 'sub'
-                    idinfo = id_token.verify_oauth2_token(
+                    from google.oauth2 import id_token as google_id_token
+                    idinfo = google_id_token.verify_oauth2_token(
                         id_token, 
                         google_requests.Request(), 
                         self.google_client_id
