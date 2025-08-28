@@ -7,7 +7,7 @@ from sqlalchemy import inspect, text
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
-from ..core.dependencies import get_current_active_user_dependency
+from ..core.dependencies import get_current_active_user_from_session
 from ..db.session_manager import get_db
 from ..schemas import DataResponse, User
 
@@ -25,7 +25,7 @@ router = APIRouter()
 
 @router.post("/process-matches", response_model=DataResponse)
 async def process_completed_matches(
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -54,7 +54,7 @@ async def process_completed_matches(
 
 @router.post("/lock-predictions", response_model=DataResponse)
 async def lock_match_predictions(
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -83,7 +83,7 @@ async def lock_match_predictions(
 
 @router.post("/process-all", response_model=DataResponse)
 async def process_all_tasks(
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -112,7 +112,7 @@ async def process_all_tasks(
 
 @router.get("/processing-status", response_model=DataResponse)
 async def get_processing_status(
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """

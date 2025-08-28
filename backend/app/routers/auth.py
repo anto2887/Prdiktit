@@ -16,7 +16,7 @@ from ..core.security import (
     get_password_hash, 
     verify_password
 )
-from ..core.dependencies import get_current_active_user_dependency, get_current_active_user_optional_dependency
+from ..core.dependencies import get_current_active_user_from_session, get_current_active_user_optional_dependency
 from ..db.session_manager import get_db
 from ..db.repository import get_user_by_username, create_user
 from ..schemas import (

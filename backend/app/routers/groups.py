@@ -10,7 +10,7 @@ from pydantic import BaseModel
 # Set up logger for this module
 logger = logging.getLogger(__name__)
 
-from ..core.dependencies import get_current_active_user_dependency
+from ..core.dependencies import get_current_active_user_from_session
 from ..db.session_manager import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..db import (
@@ -47,7 +47,7 @@ router = APIRouter()
 
 @router.get("", response_model=ListResponse)
 async def get_user_groups_endpoint(
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -241,7 +241,7 @@ async def calculate_group_activation_data(group, db):
 @router.get("/teams", response_model=ListResponse)
 async def get_teams(
     league: str = Query(..., description="League name"),
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -283,7 +283,7 @@ async def get_teams(
 @router.post("", response_model=DataResponse)
 async def create_group_endpoint(
     group_data: GroupCreate,
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -325,7 +325,7 @@ async def create_group_endpoint(
 @router.post("/join", response_model=DataResponse)
 async def join_group(
     join_data: JoinGroupRequest,  # ✅ Use the correct schema
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -393,7 +393,7 @@ async def join_group(
 @router.get("/{group_id}", response_model=DataResponse)
 async def get_group_by_id_endpoint(
     group_id: int,
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """Get a specific group by ID with activation data"""
@@ -457,7 +457,7 @@ async def get_group_by_id_endpoint(
 async def update_group_endpoint(
     group_data: GroupBase,  # Using GroupBase instead of GroupUpdate
     group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -498,7 +498,7 @@ async def update_group_endpoint(
 @router.get("/{group_id}/members", response_model=ListResponse)
 async def get_group_members_endpoint(
     group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -534,7 +534,7 @@ async def get_group_members_endpoint(
 async def remove_group_member(
     group_id: int = Path(...),
     user_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -589,7 +589,7 @@ async def remove_group_member(
 @router.post("/{group_id}/regenerate-code", response_model=DataResponse)
 async def regenerate_group_invite_code(
     group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -626,7 +626,7 @@ async def regenerate_group_invite_code(
 @router.get("/{group_id}/analytics", response_model=DataResponse)
 async def get_group_analytics(
     group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -679,7 +679,7 @@ async def get_group_analytics(
 @router.get("/{group_id}/audit", response_model=ListResponse)
 async def get_group_audit_log(
     group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user_dependency()),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """

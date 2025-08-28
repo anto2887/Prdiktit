@@ -10,7 +10,7 @@ from sqlalchemy import func
 # Set up logger
 logger = logging.getLogger(__name__)
 
-from ..core.dependencies import get_current_active_user_dependency
+from ..core.dependencies import get_current_active_user_from_session
 from ..db.session_manager import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..db import (
@@ -38,7 +38,7 @@ router = APIRouter()
 @router.post("", response_model=DataResponse)
 async def submit_prediction(
     prediction_data: PredictionCreate,
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -254,7 +254,7 @@ async def get_user_predictions_endpoint(
     status: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
     week: Optional[int] = Query(None),
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -387,7 +387,7 @@ async def get_user_predictions_endpoint(
 @router.get("/seasons/{group_id}", response_model=ListResponse)
 async def get_group_seasons(
     group_id: int = Path(...),
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -430,7 +430,7 @@ async def get_group_seasons(
 @router.post("/batch", response_model=DataResponse)
 async def create_batch_predictions(
     predictions_data: Dict[str, Dict[str, int]],
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -529,7 +529,7 @@ async def create_batch_predictions(
 @router.get("/{prediction_id}", response_model=DataResponse)
 async def get_prediction(
     prediction_id: int = Path(...),
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -611,7 +611,7 @@ async def get_prediction(
 @router.post("/reset/{prediction_id}", response_model=DataResponse)
 async def reset_prediction_endpoint(
     prediction_id: int = Path(...),
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -684,7 +684,7 @@ async def reset_prediction_endpoint(
 async def get_group_leaderboard(
     group_id: int,
     season: Optional[str] = Query(None, description="Season filter"),
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -822,7 +822,7 @@ async def get_group_leaderboard(
 
 @router.post("/migrate-group-id-field", response_model=DataResponse)
 async def migrate_group_id_field(
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """Migrate UserPrediction table to add group_id field and populate data"""
@@ -1029,7 +1029,7 @@ async def test_migration_endpoint():
 @router.post("/rollback-group-id-migration", response_model=DataResponse)
 async def rollback_group_id_migration(
     migration_id: str = Query(..., description="Migration ID to rollback"),
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """Rollback the group_id migration if something goes wrong"""
@@ -1103,7 +1103,7 @@ async def get_group_predictions_for_week(
     group_id: int = Path(...),
     week: int = Path(...),
     season: str = Query(...),
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -1151,7 +1151,7 @@ async def get_group_predictions_for_week(
 @router.get("/match/{fixture_id}/summary", response_model=DataResponse)
 async def get_match_prediction_summary(
     fixture_id: int = Path(...),
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -1193,7 +1193,7 @@ async def get_visibility_schedule(
     group_id: int = Path(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: UserSchema = Depends(get_current_active_user_dependency()),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
