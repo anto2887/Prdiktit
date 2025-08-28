@@ -60,7 +60,7 @@ async def get_group_heatmap(
     group_id: int = Path(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_user_from_session),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
