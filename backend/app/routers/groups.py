@@ -611,7 +611,7 @@ async def regenerate_group_invite_code(
         )
     
     # Regenerate the invite code
-    updated_group = await regenerate_invite_code(db, group_id)
+    new_code = await regenerate_invite_code(db, group_id)
     
     # Clear cache
     await cache.delete(f"group:{group_id}")
@@ -619,7 +619,8 @@ async def regenerate_group_invite_code(
     return DataResponse(
         message="Invite code regenerated successfully",
         data={
-            "new_invite_code": updated_group.invite_code
+            "invite_code": new_code,
+            "generated_at": datetime.now(timezone.utc).isoformat()
         }
     )
 

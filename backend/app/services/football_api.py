@@ -89,7 +89,7 @@ class FootballAPIService:
             
             # Rate limiting
             if self.last_request_time:
-                elapsed = (datetime.now() - self.last_request_time).total_seconds()
+                elapsed = (datetime.now(timezone.utc) - self.last_request_time).total_seconds()
                 if elapsed < self.rate_limit_delay:
                     await asyncio.sleep(self.rate_limit_delay - elapsed)
             
@@ -104,7 +104,7 @@ class FootballAPIService:
                 
                 if response.status == 200:
                     data = await response.json()
-                    self.last_request_time = datetime.now()
+                    self.last_request_time = datetime.now(timezone.utc)
                     
                     # Extract the response data
                     if 'response' in data:

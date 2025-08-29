@@ -439,15 +439,17 @@ def get_season_info_for_league(league):
 
 def calculate_actual_week_in_season(created_datetime, season_info):
     """Calculate actual week in season based on creation date"""
-    from datetime import datetime
+    from datetime import datetime, timezone
     
     # Assume season starts on the 1st of the season_start_month
     current_year = created_datetime.year
-    season_start = datetime(current_year, season_info['season_start_month'], 1)
+    # FIXED: Make datetime timezone-aware
+    season_start = datetime(current_year, season_info['season_start_month'], 1, tzinfo=timezone.utc)
     
     # If created before season start, use previous year
     if created_datetime < season_start:
-        season_start = datetime(current_year - 1, season_info['season_start_month'], 1)
+        # FIXED: Make datetime timezone-aware
+        season_start = datetime(current_year - 1, season_info['season_start_month'], 1, tzinfo=timezone.utc)
     
     # Calculate weeks since season start
     days_diff = (created_datetime - season_start).days

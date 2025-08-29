@@ -2,7 +2,7 @@
 """
 Comprehensive season management utility that handles different league formats
 """
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 
@@ -63,9 +63,9 @@ class SeasonManager:
         config = cls.LEAGUE_CONFIGS.get(league_name)
         if not config:
             # Default to calendar year for unknown leagues
-            return str(datetime.now().year)
+            return str(datetime.now(timezone.utc).year)
         
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         
         if config["type"] == LeagueType.EUROPEAN:
             # European season runs Aug-May
@@ -153,7 +153,7 @@ class SeasonManager:
         config = cls.LEAGUE_CONFIGS.get(league_name)
         if not config:
             # Default to calendar years
-            current_year = datetime.now().year
+            current_year = datetime.now(timezone.utc).year
             return [
                 {
                     "value": str(year),
@@ -164,7 +164,7 @@ class SeasonManager:
             ]
         
         seasons = []
-        current_year = datetime.now().year
+        current_year = datetime.now(timezone.utc).year
         
         if config["type"] == LeagueType.EUROPEAN:
             # Generate European seasons
