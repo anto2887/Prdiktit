@@ -146,8 +146,9 @@ async def get_fixtures(
     league: Optional[str] = Query(None, description="Filter by league"),
     season: Optional[str] = Query(None, description="Filter by season"),
     status: Optional[str] = Query(None, description="Filter by match status (e.g., NOT_STARTED, FINISHED)"),
-    from_date: Optional[str] = Query(None, description="Filter from date (YYYY-MM-DD)"),
-    to_date: Optional[str] = Query(None, description="Filter to date (YYYY-MM-DD)"),
+    # Accept both parameter names for maximum compatibility
+    from_date: Optional[str] = Query(None, alias="from", description="Filter from date (YYYY-MM-DD)"),
+    to_date: Optional[str] = Query(None, alias="to", description="Filter to date (YYYY-MM-DD)"),
     limit: int = Query(50, ge=1, le=100, description="Number of fixtures to return"),
     offset: int = Query(0, ge=0, description="Number of fixtures to skip")
 ):
@@ -201,6 +202,13 @@ async def get_fixtures(
                 else:
                     # Full ISO datetime format
                     parsed_from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+                
+                # Validate that from_date is not unreasonably far in the past
+                now = datetime.now(timezone.utc)
+                if parsed_from_date < (now - timedelta(days=365)):
+                    logger.warning(f"from_date {from_date} is more than 1 year in the past, adjusting to 1 year ago")
+                    parsed_from_date = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=365)
+                
                 logger.info(f"Parsed from_date: {parsed_from_date}")
             except ValueError as e:
                 logger.warning(f"Invalid from_date format: {from_date}, error: {e}")
@@ -214,9 +222,41 @@ async def get_fixtures(
                 else:
                     # Full ISO datetime format
                     parsed_to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+                
+                # Validate that to_date is not unreasonably far in the future
+                now = datetime.now(timezone.utc)
+                if parsed_to_date > (now + timedelta(days=730)):
+                    logger.warning(f"to_date {to_date} is more than 2 years in the future, adjusting to 2 years from now")
+                    parsed_to_date = now.replace(hour=23, minute=59, second=59, microsecond=999999) + timedelta(days=730)
+                
                 logger.info(f"Parsed to_date: {parsed_to_date}")
             except ValueError as e:
                 logger.warning(f"Invalid to_date format: {to_date}, error: {e}")
+        
+        # Add fallback date range if no dates provided or if dates are invalid
+        if not parsed_from_date or not parsed_to_date:
+            now = datetime.now(timezone.utc)
+            if not parsed_from_date:
+                parsed_from_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                logger.info(f"No valid from_date provided, using default: {parsed_from_date}")
+            if not parsed_to_date:
+                parsed_to_date = parsed_from_date + timedelta(days=30)
+                logger.info(f"No valid to_date provided, using default: {parsed_to_date}")
+        
+        # Ensure minimum 1 day range and maximum 90 day range for performance
+        if parsed_from_date and parsed_to_date:
+            date_range_days = (parsed_to_date - parsed_from_date).days
+            if date_range_days < 1:
+                parsed_to_date = parsed_from_date + timedelta(days=1)
+                logger.warning(f"Date range too small ({date_range_days} days), adjusted to_date to: {parsed_to_date}")
+            elif date_range_days > 90:
+                parsed_to_date = parsed_from_date + timedelta(days=90)
+                logger.warning(f"Date range too large ({date_range_days} days), adjusted to_date to: {parsed_to_date}")
+        
+        # Validate that to_date is not before from_date
+        if parsed_from_date and parsed_to_date and parsed_to_date < parsed_from_date:
+            logger.warning(f"to_date {parsed_to_date} is before from_date {parsed_from_date}, adjusting to_date to from_date + 7 days")
+            parsed_to_date = parsed_from_date + timedelta(days=7)
         
         # Log the filters being applied
         logger.info(f"Applying filters - league: {league}, season: {season}, status: {status}, from: {parsed_from_date}, to: {parsed_to_date}")
