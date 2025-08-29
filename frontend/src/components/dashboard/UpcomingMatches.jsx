@@ -29,13 +29,14 @@ const UpcomingMatches = () => {
       // Filter for truly upcoming matches (future dates + NOT_STARTED status)
       const now = new Date();
       const upcomingOnly = fixtures.filter(match => {
-        const matchDate = new Date(match.date);
+        // Parse match date as UTC to avoid timezone issues
+        const matchDate = new Date(match.date + 'Z'); // Force UTC interpretation
         return matchDate > now && match.status === 'NOT_STARTED';
       });
       
       // Sort by date and take first 5
       const sorted = upcomingOnly
-        .sort((a, b) => new Date(a.date) - new Date(b.date))
+        .sort((a, b) => new Date(a.date + 'Z') - new Date(b.date + 'Z'))
         .slice(0, 5);
       setUpcomingMatches(sorted);
     }

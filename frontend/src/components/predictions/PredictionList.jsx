@@ -36,7 +36,7 @@ const PredictionList = () => {
 
   // Filter upcoming matches that haven't started
   const upcomingMatches = fixtures.filter(match => {
-    const matchDate = new Date(match.date);
+    const matchDate = new Date(match.date + 'Z'); // Force UTC interpretation
     const now = new Date();
     return matchDate > now && match.status === 'NOT_STARTED';
   });

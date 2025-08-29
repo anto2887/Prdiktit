@@ -194,14 +194,26 @@ async def get_fixtures(
         
         if from_date:
             try:
-                parsed_from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
+                # Handle both date-only strings (YYYY-MM-DD) and full ISO datetime strings
+                if len(from_date) == 10 and from_date.count('-') == 2:
+                    # Date-only format: YYYY-MM-DD
+                    parsed_from_date = datetime.strptime(from_date, '%Y-%m-%d').replace(tzinfo=timezone.utc)
+                else:
+                    # Full ISO datetime format
+                    parsed_from_date = datetime.fromisoformat(from_date.replace('Z', '+00:00'))
                 logger.info(f"Parsed from_date: {parsed_from_date}")
             except ValueError as e:
                 logger.warning(f"Invalid from_date format: {from_date}, error: {e}")
         
         if to_date:
             try:
-                parsed_to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
+                # Handle both date-only strings (YYYY-MM-DD) and full ISO datetime strings
+                if len(to_date) == 10 and to_date.count('-') == 2:
+                    # Date-only format: YYYY-MM-DD - set to end of day
+                    parsed_to_date = datetime.strptime(to_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59, tzinfo=timezone.utc)
+                else:
+                    # Full ISO datetime format
+                    parsed_to_date = datetime.fromisoformat(to_date.replace('Z', '+00:00'))
                 logger.info(f"Parsed to_date: {parsed_to_date}")
             except ValueError as e:
                 logger.warning(f"Invalid to_date format: {to_date}, error: {e}")
