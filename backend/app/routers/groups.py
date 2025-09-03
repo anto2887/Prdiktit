@@ -172,11 +172,11 @@ async def calculate_group_activation_data(group, db):
             logger.warning(f"Group {group.id} missing activation data, calculating fallback values")
             
             # Calculate current week based on actual season
-            from datetime import datetime
-            current_date = datetime.utcnow()
+            from datetime import datetime, timezone
+            current_date = datetime.now(timezone.utc)
             
-            # Import helper functions from main.py
-            from ..main import get_season_info_for_league, calculate_actual_week_in_season
+            # Import helper functions from repository.py to avoid circular imports
+            from ..db.repository import get_season_info_for_league, calculate_actual_week_in_season
             
             season_info = get_season_info_for_league(group.league)
             current_week = calculate_actual_week_in_season(current_date, season_info)
