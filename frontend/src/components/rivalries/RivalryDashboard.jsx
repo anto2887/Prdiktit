@@ -47,25 +47,14 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
       setLoading(true);
       process.env.NODE_ENV === 'development' && console.log(`Loading rivalries for group ${groupId}...`);
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
-      const response = await fetch(
-        `${API_BASE_URL}/analytics/group/${groupId}/rivalries`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        }
-      );
+      // Use the proper API client with session authentication
+      const { rivalriesApi } = await import('../../api');
+      const response = await rivalriesApi.getGroupRivalries(groupId);
       
-      process.env.NODE_ENV === 'development' && console.log(`Rivalries response status: ${response.status}`);
+      process.env.NODE_ENV === 'development' && console.log(`Rivalries response:`, response.data);
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        process.env.NODE_ENV === 'development' && console.error(`Rivalries API error: ${response.status} - ${errorText}`);
-        throw new Error(`Failed to load rivalries: ${response.status}`);
-      }
-
-      const data = await response.json();
+      // The API client already handles the response, so we can access the data directly
+      const data = response.data;
       process.env.NODE_ENV === 'development' && console.log('Rivalries API response:', data);
       
       // Ensure rivalries is always an array
@@ -90,22 +79,14 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
       
       process.env.NODE_ENV === 'development' && console.log(`Loading Comeback Challenge data for group ${groupId}...`);
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
-      const response = await fetch(
-        `${API_BASE_URL}/admin/comeback-challenge-status/${groupId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        }
-      );
+      // Use the proper API client with session authentication
+      const { rivalriesApi } = await import('../../api');
+      const response = await rivalriesApi.getComebackChallengeStatus(groupId);
       
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setComebackChallengeData(data);
-          process.env.NODE_ENV === 'development' && console.log('Comeback Challenge data loaded:', data);
-        }
+      const data = response.data;
+      if (data.success) {
+        setComebackChallengeData(data);
+        process.env.NODE_ENV === 'development' && console.log('Comeback Challenge data loaded:', data);
       }
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error loading Comeback Challenge data:', err);
@@ -680,29 +661,18 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
       setLoading(true);
       process.env.NODE_ENV === 'development' && console.log(`Loading compact rivalries for group ${groupId}...`);
       
-      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
-      const response = await fetch(
-        `${API_BASE_URL}/analytics/group/${groupId}/rivalries`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        }
-      );
+      // Use the proper API client with session authentication
+      const { rivalriesApi } = await import('../../api');
+      const response = await rivalriesApi.getGroupRivalries(groupId);
       
-      process.env.NODE_ENV === 'development' && console.log(`Compact rivalries response status: ${response.status}`);
+      process.env.NODE_ENV === 'development' && console.log(`Compact rivalries response:`, response.data);
       
-      if (response.ok) {
-        const data = await response.json();
-        process.env.NODE_ENV === 'development' && console.log('Compact rivalries API response:', data);
-        // Ensure rivalries is always an array
-        const rivalriesArray = Array.isArray(data.data) ? data.data : [];
-        process.env.NODE_ENV === 'development' && console.log('Processed compact rivalries array:', rivalriesArray);
-        setRivalries(rivalriesArray);
-      } else {
-        process.env.NODE_ENV === 'development' && console.error(`Compact rivalries API error: ${response.status}`);
-        setRivalries([]);
-      }
+      const data = response.data;
+      process.env.NODE_ENV === 'development' && console.log('Compact rivalries API response:', data);
+      // Ensure rivalries is always an array
+      const rivalriesArray = Array.isArray(data.data) ? data.data : [];
+      process.env.NODE_ENV === 'development' && console.log('Processed compact rivalries array:', rivalriesArray);
+      setRivalries(rivalriesArray);
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error loading compact rivalries:', err);
       setRivalries([]);

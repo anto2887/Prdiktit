@@ -498,9 +498,9 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
       process.env.NODE_ENV === 'development' && console.log("Checking authentication...");
       
-      const hasToken = localStorage.getItem('accessToken');
+      const hasSession = window.sessionStorage.getItem('sessionId');
       
-      if (!hasToken) {
+      if (!hasSession) {
         dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: null });
         return;
       }
@@ -518,13 +518,13 @@ export const AppProvider = ({ children }) => {
         }
       } else {
         dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: null });
-        localStorage.removeItem('accessToken');
+        window.sessionStorage.removeItem('sessionId');
       }
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Auth check failed:', err);
       // Handle 401 errors differently
       if (err.status === 401 || err.message?.includes('401')) {
-        localStorage.removeItem('accessToken');
+        window.sessionStorage.removeItem('sessionId');
         dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: null });
       } else {
         dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message || 'Authentication check failed' });
@@ -1618,8 +1618,10 @@ export const AppProvider = ({ children }) => {
       try {
         dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_LOADING, payload: true });
         
-        const response = await fetch(`/api/v1/admin/comeback-challenge-status/${groupId}`);
-        const data = await response.json();
+        // Use the proper API client with session authentication
+        const { rivalriesApi } = await import('../api');
+        const response = await rivalriesApi.getComebackChallengeStatus(groupId);
+        const data = response.data;
         
         if (data.success) {
           dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_DATA, payload: data });

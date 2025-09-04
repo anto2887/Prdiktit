@@ -24,16 +24,11 @@ const AnalyticsPage = () => {
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/v1/analytics/group/${groupId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
+      // Use the proper API client with session authentication
+      const { analyticsApi } = await import('../api');
+      const response = await analyticsApi.getGroupAnalytics(groupId);
       
-      if (!response.ok) {
-        throw new Error(`Failed to load analytics: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setAnalytics(data.data || {});
+      setAnalytics(response.data.data || {});
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error loading analytics:', err);
       setError('Failed to load analytics');

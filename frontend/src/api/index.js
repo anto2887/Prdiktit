@@ -658,6 +658,70 @@ export const predictionsApi = {
   }
 };
 
+export const analyticsApi = {
+  getGroupAnalytics: async (groupId) => {
+    try {
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupAnalytics called for groupId: ${groupId}`);
+      const response = await api.client.get(`/analytics/group/${groupId}`);
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupAnalytics response:`, response.data);
+      return response;
+    } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error(`🌐 API: getGroupAnalytics error:`, error);
+      throw error;
+    }
+  },
+
+  getUserAnalytics: async (userId, season, week) => {
+    try {
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getUserAnalytics called for userId: ${userId}, season: ${season}, week: ${week}`);
+      const response = await api.client.get(`/analytics/user/${userId}/analytics?season=${season}&week=${week}`);
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getUserAnalytics response:`, response.data);
+      return response;
+    } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error(`🌐 API: getUserAnalytics error:`, error);
+      throw error;
+    }
+  },
+
+  getGroupHeatmap: async (groupId, week, season) => {
+    try {
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupHeatmap called for groupId: ${groupId}, week: ${week}, season: ${season}`);
+      const response = await api.client.get(`/analytics/group/${groupId}/heatmap?week=${week}&season=${season}`);
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupHeatmap response:`, response.data);
+      return response;
+    } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error(`🌐 API: getGroupHeatmap error:`, error);
+      throw error;
+    }
+  }
+};
+
+export const rivalriesApi = {
+  getGroupRivalries: async (groupId) => {
+    try {
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupRivalries called for groupId: ${groupId}`);
+      const response = await api.client.get(`/analytics/group/${groupId}/rivalries`);
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupRivalries response:`, response.data);
+      return response;
+    } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error(`🌐 API: getGroupRivalries error:`, error);
+      throw error;
+    }
+  },
+
+  getComebackChallengeStatus: async (groupId) => {
+    try {
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getComebackChallengeStatus called for groupId: ${groupId}`);
+      const response = await api.client.get(`/admin/comeback-challenge-status/${groupId}`);
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getComebackChallengeStatus response:`, response.data);
+      return response;
+    } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error(`🌐 API: getComebackChallengeStatus error:`, error);
+      throw error;
+    }
+  }
+};
+
 export const usersApi = {
   getUserProfile: () => api.client.get('/users/profile'),
   updateUserProfile: (userData) => api.client.put('/users/profile', userData),
@@ -695,6 +759,8 @@ process.env.NODE_ENV === 'development' && console.log('Enhanced Scheduler API lo
 // Add debug logging
 process.env.NODE_ENV === 'development' && console.log('API module loaded, predictionsApi methods:', Object.keys(predictionsApi));
 process.env.NODE_ENV === 'development' && console.log('API module loaded, groupsApi methods:', Object.keys(groupsApi));
+process.env.NODE_ENV === 'development' && console.log('API module loaded, analyticsApi methods:', Object.keys(analyticsApi));
+process.env.NODE_ENV === 'development' && console.log('API module loaded, rivalriesApi methods:', Object.keys(rivalriesApi));
 
 // Export utility functions
 export {

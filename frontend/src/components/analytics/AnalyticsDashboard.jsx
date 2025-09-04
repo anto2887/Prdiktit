@@ -46,21 +46,11 @@ const AnalyticsDashboard = ({ season = null, currentWeek = 1 }) => {
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/v1/analytics/user/${user.id}/analytics?season=${season}&week=${currentWeek}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to load analytics');
-      }
-
-      const data = await response.json();
-      setAnalytics(data.data);
+      // Use the proper API client with session authentication
+      const { analyticsApi } = await import('../../api');
+      const response = await analyticsApi.getUserAnalytics(user.id, season, currentWeek);
+      
+      setAnalytics(response.data.data);
 
     } catch (err) {
       console.error('Error loading analytics:', err);
