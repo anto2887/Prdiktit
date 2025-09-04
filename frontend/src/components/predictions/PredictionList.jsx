@@ -82,6 +82,20 @@ const PredictionList = () => {
           </div>
         </div>
 
+        {/* Date Range Display */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center justify-center">
+            <span className="text-sm text-blue-800">
+              📅 Showing matches from <strong>{(() => {
+                const today = new Date();
+                const nextWeek = new Date(today);
+                nextWeek.setDate(today.getDate() + 7);
+                return `${today.toLocaleDateString()} to ${nextWeek.toLocaleDateString()}`;
+              })()}</strong>
+            </span>
+          </div>
+        </div>
+
         {upcomingMatches.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg">
             <p className="text-gray-500 mb-4">No upcoming matches available for prediction</p>
