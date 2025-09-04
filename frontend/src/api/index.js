@@ -599,6 +599,18 @@ export const predictionsApi = {
 
   getPredictionStats: () => api.client.get('/predictions/stats'),
 
+  getGroupPredictions: async (groupId, week, season) => {
+    try {
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupPredictions called for groupId: ${groupId}, week: ${week}, season: ${season}`);
+      const response = await api.client.get(`/predictions/group/${groupId}/week/${week}?season=${season}`);
+      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupPredictions response:`, response.data);
+      return response;
+    } catch (error) {
+      process.env.NODE_ENV === 'development' && console.error(`🌐 API: getGroupPredictions error:`, error);
+      throw error;
+    }
+  },
+
   // UPDATED: Enhanced leaderboard API with season management
   getGroupLeaderboard: async (groupId, params = {}) => {
     try {

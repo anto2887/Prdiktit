@@ -43,19 +43,12 @@ const GroupPredictionsPage = () => {
     setError(null);
     
     try {
-      // Load group details using the same API base URL as other components
-      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
-      const groupResponse = await fetch(`${API_BASE_URL}/groups/${groupId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
+      // Load group details using the proper API client with session authentication
+      const { groupsApi } = await import('../../api');
+      const groupResponse = await groupsApi.getGroupById(groupId);
       
-      if (!groupResponse.ok) {
-        throw new Error('Failed to load group');
-      }
-      
-      const groupData = await groupResponse.json();
-      setGroup(groupData.data);
-      setCurrentWeek(groupData.data.current_week || 1);
+      setGroup(groupResponse.data);
+      setCurrentWeek(groupResponse.data.current_week || 1);
       
       // Set default week if not selected
       if (!selectedWeek) {
@@ -81,7 +74,6 @@ const GroupPredictionsPage = () => {
       const week = selectedWeek || currentWeek;
       // Use the correct season format for MLS (2025 instead of 2024-2025)
       const season = '2025'; // MLS uses calendar year format
-      const API_BASE_URL = process.env.REACT_APP_API_URL || '/api/v1';
       
       process.env.NODE_ENV === 'development' && console.log('🔍 === GROUP PREDICTIONS DEBUG START ===');
       process.env.NODE_ENV === 'development' && console.log(`🔍 Loading group predictions for group ${groupId}, week ${week}, season ${season}`);
@@ -89,28 +81,14 @@ const GroupPredictionsPage = () => {
       process.env.NODE_ENV === 'development' && console.log('🔍 Selected week:', selectedWeek);
       process.env.NODE_ENV === 'development' && console.log('🔍 Current week:', currentWeek);
       
-      const response = await fetch(`${API_BASE_URL}/predictions/group/${groupId}/week/${week}?season=${season}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
+      // Use the proper API client with session authentication
+      const { predictionsApi } = await import('../../api');
+      const response = await predictionsApi.getGroupPredictions(groupId, week, season);
       
-      process.env.NODE_ENV === 'development' && console.log(`🔍 Group predictions response status: ${response.status}`);
-      process.env.NODE_ENV === 'development' && console.log(`🔍 Response headers:`, Object.fromEntries(response.headers.entries()));
+      process.env.NODE_ENV === 'development' && console.log(`🔍 Group predictions response:`, response.data);
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        process.env.NODE_ENV === 'development' && console.error(`🔍 Group predictions API error: ${response.status} - ${errorText}`);
-        
-        // Handle specific error cases
-        if (response.status === 403) {
-          throw new Error('You are not a member of this group');
-        } else if (response.status === 404) {
-          throw new Error('Group not found');
-        } else {
-          throw new Error(`Failed to load predictions: ${response.status}`);
-        }
-      }
-      
-      const data = await response.json();
+      // The API client already handles the response, so we can access the data directly
+      const data = response.data;
       process.env.NODE_ENV === 'development' && console.log('🔍 Group predictions API response:', data);
       process.env.NODE_ENV === 'development' && console.log('🔍 Response data type:', typeof data);
       process.env.NODE_ENV === 'development' && console.log('🔍 Response data keys:', Object.keys(data));
