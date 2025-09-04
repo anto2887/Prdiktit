@@ -54,7 +54,7 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
         body: JSON.stringify({
           username,
           email: oauthData.email,
-          oauth_id: oauthData.sub,
+          oauth_id: oauthData.oauth_id,
           oauth_provider: 'google'
         }),
       });
