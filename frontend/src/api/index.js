@@ -223,10 +223,14 @@ export const authApi = {
   logout: async () => {
     try {
       const response = await api.client.post('/auth/logout');
+      // Clear all JWT tokens from localStorage (legacy cleanup)
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('access_token');
       return response;
     } catch (error) {
+      // Clear JWT tokens even if logout API fails
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('access_token');
       throw error;
     }
   },

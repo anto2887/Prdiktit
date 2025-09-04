@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from ..db.session_manager import get_db
 from ..services.oauth_service import oauth_service
-from ..core.security import create_access_token
+# JWT token generation removed - using session-based authentication only
 from ..db.models import User
 from ..schemas import OAuthCallbackRequest, UsernameSelectionRequest
 from ..services.session_service import session_service
@@ -63,7 +63,7 @@ async def google_oauth_callback(
             logger.info(f"Existing OAuth user found: {existing_user.username}")
             
             # Create session for existing user
-            session_id, access_token = session_service.create_session(
+            session_id, _ = session_service.create_session(
                 db, existing_user, 
                 user_agent=request.headers.get('user-agent') if request else None,
                 ip_address=request.client.host if request and request.client else None
@@ -72,7 +72,6 @@ async def google_oauth_callback(
             return {
                 "user_exists": True,
                 "session_id": session_id,
-                "access_token": access_token,
                 "user": {
                     "id": existing_user.id,
                     "username": existing_user.username,
@@ -138,7 +137,7 @@ async def complete_oauth_registration(
         )
         
         # Create session for new user
-        session_id, access_token = session_service.create_session(
+        session_id, _ = session_service.create_session(
             db, new_user,
             user_agent=request.headers.get('user-agent') if request else None,
             ip_address=request.client.host if request and request.client else None
@@ -147,7 +146,6 @@ async def complete_oauth_registration(
         return {
             "success": True,
             "session_id": session_id,
-            "access_token": access_token,
             "user": {
                 "id": new_user.id,
                 "username": new_user.username,

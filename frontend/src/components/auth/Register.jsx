@@ -30,12 +30,10 @@ export const Register = () => {
 
           <OAuthLogin 
             onSuccess={(data) => {
-              if (data.access_token) {
-                // Store the token and redirect
-                localStorage.setItem('access_token', data.access_token);
-                // Redirect to dashboard after successful registration
-                window.location.href = '/dashboard';
-              }
+              // OAuth success is handled by OAuthCallbackPage
+              // No need to store JWT tokens - using session-based auth
+              // Redirect to dashboard after successful registration
+              window.location.href = '/dashboard';
             }}
             onError={(error) => {
               console.error('OAuth registration error:', error);

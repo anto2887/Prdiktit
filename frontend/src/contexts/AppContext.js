@@ -498,6 +498,10 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
       process.env.NODE_ENV === 'development' && console.log("Checking authentication...");
       
+      // Clean up any legacy JWT tokens on startup
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('access_token');
+      
       const hasSession = window.sessionStorage.getItem('sessionId');
       
       if (!hasSession) {
@@ -649,12 +653,18 @@ export const AppProvider = ({ children }) => {
       // Clear session ID from sessionStorage
       window.sessionStorage.removeItem('sessionId');
       
+      // Clear any JWT tokens from localStorage (legacy cleanup)
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('access_token');
+      
       dispatch({ type: ActionTypes.SET_AUTH_LOGOUT });
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Logout error:', err);
       
-      // Clear session ID even if logout API fails
+      // Clear session ID and JWT tokens even if logout API fails
       window.sessionStorage.removeItem('sessionId');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('access_token');
       
       dispatch({ type: ActionTypes.SET_AUTH_LOGOUT });
     } finally {

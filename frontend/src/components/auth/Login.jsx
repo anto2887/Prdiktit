@@ -46,15 +46,13 @@ export const Login = () => {
             </div>
 
             <div>
-              <OAuthLogin 
-                onSuccess={(data) => {
-                  if (data.access_token) {
-                    // Store the token and redirect
-                    localStorage.setItem('access_token', data.access_token);
-                    showSuccess('Successfully logged in with Google');
-                    navigate(from, { replace: true });
-                  }
-                }}
+                          <OAuthLogin 
+              onSuccess={(data) => {
+                // OAuth success is handled by OAuthCallbackPage
+                // No need to store JWT tokens - using session-based auth
+                showSuccess('Successfully logged in with Google');
+                navigate(from, { replace: true });
+              }}
                 onError={(error) => {
                   showError(error || 'OAuth login failed');
                 }}
