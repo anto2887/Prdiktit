@@ -125,7 +125,7 @@ const GroupManagement = () => {
     return () => {
       mountedRef.current = false;
     };
-  }, [groupId, profile?.id, fetchGroupDetails, fetchGroupMembers, showError, navigate]);
+  }, [groupId, profile?.id]); // FIXED: Removed function dependencies to prevent infinite loop
 
   const reloadGroupData = async () => {
     if (loadingRef.current) return;

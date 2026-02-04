@@ -839,7 +839,7 @@ export const AppProvider = ({ children }) => {
       }
       return null;
     }
-  }, [state.auth.isAuthenticated, state.groups.currentGroup, showError]); // FIXED: Restore state dependencies for proper state access
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Removed currentGroup from dependencies to prevent infinite loop
 
   const fetchGroupMembers = useCallback(async (groupId) => {
     process.env.NODE_ENV === 'development' && console.log('👥 fetchGroupMembers START:', { 
