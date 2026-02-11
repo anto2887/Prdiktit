@@ -2,16 +2,18 @@
 """
 Updated Match Status Updater that uses the Unified Transaction Manager
 Fetches data from API and delegates database operations to unified manager
+Supports multi-league updates with parallel requests and API expiration handling
 """
 
 import aiohttp
 import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 
 from ..core.config import settings
 from ..db.models import MatchStatus
+from ..utils.season_manager import SeasonManager
 from .unified_transaction_manager import unified_transaction_manager
 
 logger = logging.getLogger(__name__)
@@ -35,13 +37,24 @@ class MatchStatusUpdater:
         self.last_api_call = None
         self.rate_limit_hit = False
         self.rate_limit_reset_time = None
+        self.rate_limit_delay = 0.5  # 500ms between requests (matching FootballAPIService)
+        
+        # API health state tracking
+        self.api_subscription_active = True
+        self.api_last_successful_call = None
+        self.api_consecutive_failures = 0
+        self.api_subscription_expired_at = None
+        self.api_health_check_interval = timedelta(hours=6)
+        self.last_health_check = None
         
         logger.info("🚀 MatchStatusUpdater initialized - using UnifiedTransactionManager")
+        logger.info("📊 Multi-league support enabled with parallel requests")
         
         # Validate API key on startup
         if not self._validate_api_key():
             logger.error("❌ CRITICAL: Invalid API key configuration detected!")
             logger.error("❌ Please check your FOOTBALL_API_KEY environment variable")
+            self.api_subscription_active = False
         else:
             logger.info("✅ API key validation passed")
     
@@ -73,11 +86,16 @@ class MatchStatusUpdater:
     
     async def update_recent_matches(self, days_back: int = 3) -> int:
         """
-        Update recent matches from the last N days
-        Returns number of matches updated
+        Update recent matches from the last N days for all configured leagues
+        Returns number of matches updated across all leagues
         """
         try:
-            logger.info(f"🔄 Updating matches from last {days_back} days")
+            logger.info(f"🔄 Updating matches from last {days_back} days for all leagues")
+            
+            # Check API subscription status
+            if not self.api_subscription_active:
+                logger.warning("⏭️ Skipping API calls - subscription expired or inactive")
+                return 0
             
             # Check API key validity
             if not self._validate_api_key():
@@ -92,19 +110,30 @@ class MatchStatusUpdater:
             # Calculate date range
             end_date = datetime.now(timezone.utc)
             start_date = end_date - timedelta(days=days_back)
+            start_date_str = start_date.strftime("%Y-%m-%d")
+            end_date_str = end_date.strftime("%Y-%m-%d")
             
-            # Fetch match data from API
-            matches_data = await self._fetch_matches_by_date_range(
-                start_date.strftime("%Y-%m-%d"),
-                end_date.strftime("%Y-%m-%d")
-            )
-            
-            if not matches_data:
-                logger.info("No match data received from API")
+            # Get all configured leagues
+            leagues = self._get_configured_leagues()
+            if not leagues:
+                logger.warning("⚠️ No configured leagues found")
                 return 0
             
+            logger.info(f"📊 Fetching matches for {len(leagues)} leagues: {[l['league_name'] for l in leagues]}")
+            
+            # Fetch matches for all leagues in parallel with rate limiting
+            all_matches_data = await self._fetch_matches_for_all_leagues_parallel(
+                leagues, start_date_str, end_date_str
+            )
+            
+            if not all_matches_data:
+                logger.info("No match data received from API for any league")
+                return 0
+            
+            logger.info(f"📥 Received matches from {len(all_matches_data)} leagues")
+            
             # Convert API data to fixture updates
-            fixture_updates = self._convert_api_data_to_updates(matches_data)
+            fixture_updates = self._convert_api_data_to_updates(all_matches_data)
             
             if not fixture_updates:
                 logger.info("No fixture updates needed")
@@ -116,7 +145,7 @@ class MatchStatusUpdater:
             )
             
             if result.success:
-                logger.info(f"✅ Successfully updated {result.fixtures_updated} matches from API")
+                logger.info(f"✅ Successfully updated {result.fixtures_updated} matches from API across all leagues")
                 return result.fixtures_updated
             else:
                 logger.error(f"❌ Failed to update matches: {result.error_message}")
@@ -128,11 +157,16 @@ class MatchStatusUpdater:
     
     async def update_live_matches(self) -> int:
         """
-        Update currently live matches
-        Returns number of matches updated
+        Update currently live matches for all configured leagues
+        Returns number of matches updated across all leagues
         """
         try:
-            logger.info("🔴 Updating live matches")
+            logger.info("🔴 Updating live matches for all leagues")
+            
+            # Check API subscription status
+            if not self.api_subscription_active:
+                logger.warning("⏭️ Skipping live matches API calls - subscription expired or inactive")
+                return 0
             
             # Check API key validity
             if not self._validate_api_key():
@@ -144,15 +178,25 @@ class MatchStatusUpdater:
                 logger.info("⏭️ Skipping live matches API call due to rate limiting")
                 return 0
             
-            # Fetch live matches from API
-            live_matches_data = await self._fetch_live_matches()
-            
-            if not live_matches_data:
-                logger.info("No live matches data received from API")
+            # Get all configured leagues
+            leagues = self._get_configured_leagues()
+            if not leagues:
+                logger.warning("⚠️ No configured leagues found")
                 return 0
             
+            logger.info(f"📊 Fetching live matches for {len(leagues)} leagues")
+            
+            # Fetch live matches for all leagues in parallel with rate limiting
+            all_live_matches_data = await self._fetch_live_matches_for_all_leagues_parallel(leagues)
+            
+            if not all_live_matches_data:
+                logger.info("No live matches data received from API for any league")
+                return 0
+            
+            logger.info(f"📥 Received live matches from {len(all_live_matches_data)} leagues")
+            
             # Convert API data to fixture updates
-            fixture_updates = self._convert_api_data_to_updates(live_matches_data)
+            fixture_updates = self._convert_api_data_to_updates(all_live_matches_data)
             
             if not fixture_updates:
                 logger.info("No live match updates needed")
@@ -164,7 +208,7 @@ class MatchStatusUpdater:
             )
             
             if result.success:
-                logger.info(f"✅ Successfully updated {result.fixtures_updated} live matches")
+                logger.info(f"✅ Successfully updated {result.fixtures_updated} live matches across all leagues")
                 return result.fixtures_updated
             else:
                 logger.error(f"❌ Failed to update live matches: {result.error_message}")
@@ -217,15 +261,26 @@ class MatchStatusUpdater:
             logger.error(f"❌ Error updating fixture {fixture_id}: {e}")
             return False
     
-    async def _fetch_matches_by_date_range(self, start_date: str, end_date: str) -> List[Dict[str, Any]]:
-        """Fetch matches from API by date range"""
+    async def _fetch_matches_by_date_range(self, start_date: str, end_date: str, league_id: int, season: int) -> List[Dict[str, Any]]:
+        """
+        Fetch matches from API by date range for a specific league
+        Args:
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+            league_id: API league ID
+            season: Season year
+        Returns:
+            List of match data dictionaries
+        """
         try:
+            # Apply rate limiting delay
+            await self._apply_rate_limit_delay()
+            
             async with aiohttp.ClientSession() as session:
-                # MLS League ID is 253
                 url = f"{self.base_url}/fixtures"
                 params = {
-                    "league": "253",
-                    "season": "2025",
+                    "league": str(league_id),
+                    "season": str(season),
                     "from": start_date,
                     "to": end_date
                 }
@@ -233,7 +288,17 @@ class MatchStatusUpdater:
                 async with session.get(url, headers=self.headers, params=params, timeout=30) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return data.get('response', [])
+                        matches = data.get('response', [])
+                        
+                        # Update API health state on success
+                        self.api_subscription_active = True
+                        self.api_consecutive_failures = 0
+                        self.api_last_successful_call = datetime.now(timezone.utc)
+                        if self.api_subscription_expired_at:
+                            logger.info("✅ API subscription appears to be restored")
+                            self.api_subscription_expired_at = None
+                        
+                        return matches
                     elif response.status == 429:
                         logger.warning("⚠️ API rate limit exceeded (429), setting rate limit flag")
                         self.rate_limit_hit = True
@@ -241,34 +306,63 @@ class MatchStatusUpdater:
                         self.rate_limit_reset_time = datetime.now(timezone.utc) + timedelta(minutes=1)
                         return []
                     elif response.status == 403:
-                        logger.error("❌ API access forbidden (403) - check API key validity")
+                        logger.error("❌ API access forbidden (403) - subscription expired or invalid API key")
+                        # Update API health state on 403
+                        self.api_subscription_active = False
+                        self.api_consecutive_failures += 1
+                        if not self.api_subscription_expired_at:
+                            self.api_subscription_expired_at = datetime.now(timezone.utc)
+                            logger.error(f"❌ CRITICAL: API subscription expired at {self.api_subscription_expired_at.isoformat()}")
                         return []
                     else:
                         logger.error(f"API request failed: {response.status}")
+                        self.api_consecutive_failures += 1
                         return []
                         
         except asyncio.TimeoutError:
             logger.error("API request timed out")
+            self.api_consecutive_failures += 1
             return []
         except Exception as e:
             logger.error(f"Error fetching matches by date range: {e}")
+            self.api_consecutive_failures += 1
             return []
     
-    async def _fetch_live_matches(self) -> List[Dict[str, Any]]:
-        """Fetch currently live matches from API"""
+    async def _fetch_live_matches(self, league_id: int, season: int) -> List[Dict[str, Any]]:
+        """
+        Fetch currently live matches from API for a specific league
+        Args:
+            league_id: API league ID
+            season: Season year
+        Returns:
+            List of live match data dictionaries
+        """
         try:
+            # Apply rate limiting delay
+            await self._apply_rate_limit_delay()
+            
             async with aiohttp.ClientSession() as session:
                 url = f"{self.base_url}/fixtures"
                 params = {
-                    "league": "253",
-                    "season": "2025",
+                    "league": str(league_id),
+                    "season": str(season),
                     "live": "all"
                 }
                 
                 async with session.get(url, headers=self.headers, params=params, timeout=30) as response:
                     if response.status == 200:
                         data = await response.json()
-                        return data.get('response', [])
+                        matches = data.get('response', [])
+                        
+                        # Update API health state on success
+                        self.api_subscription_active = True
+                        self.api_consecutive_failures = 0
+                        self.api_last_successful_call = datetime.now(timezone.utc)
+                        if self.api_subscription_expired_at:
+                            logger.info("✅ API subscription appears to be restored")
+                            self.api_subscription_expired_at = None
+                        
+                        return matches
                     elif response.status == 429:
                         logger.warning("⚠️ API rate limit exceeded (429), setting rate limit flag")
                         self.rate_limit_hit = True
@@ -276,17 +370,26 @@ class MatchStatusUpdater:
                         self.rate_limit_reset_time = datetime.now(timezone.utc) + timedelta(minutes=1)
                         return []
                     elif response.status == 403:
-                        logger.error("❌ API access forbidden (403) - check API key validity")
+                        logger.error("❌ API access forbidden (403) - subscription expired or invalid API key")
+                        # Update API health state on 403
+                        self.api_subscription_active = False
+                        self.api_consecutive_failures += 1
+                        if not self.api_subscription_expired_at:
+                            self.api_subscription_expired_at = datetime.now(timezone.utc)
+                            logger.error(f"❌ CRITICAL: API subscription expired at {self.api_subscription_expired_at.isoformat()}")
                         return []
                     else:
                         logger.error(f"API request failed: {response.status}")
+                        self.api_consecutive_failures += 1
                         return []
                         
         except asyncio.TimeoutError:
             logger.error("API request timed out")
+            self.api_consecutive_failures += 1
             return []
         except Exception as e:
             logger.error(f"Error fetching live matches: {e}")
+            self.api_consecutive_failures += 1
             return []
     
     async def _fetch_match_by_id(self, fixture_id: int) -> Optional[Dict[str, Any]]:
@@ -310,7 +413,13 @@ class MatchStatusUpdater:
                         self.rate_limit_reset_time = datetime.now(timezone.utc) + timedelta(minutes=1)
                         return None
                     elif response.status == 403:
-                        logger.error("❌ API access forbidden (403) - check API key validity")
+                        logger.error("❌ API access forbidden (403) - subscription expired or invalid API key")
+                        # Update API health state on 403
+                        self.api_subscription_active = False
+                        self.api_consecutive_failures += 1
+                        if not self.api_subscription_expired_at:
+                            self.api_subscription_expired_at = datetime.now(timezone.utc)
+                            logger.error(f"❌ CRITICAL: API subscription expired at {self.api_subscription_expired_at.isoformat()}")
                         return None
                     else:
                         logger.error(f"API request failed: {response.status}")
@@ -393,6 +502,228 @@ class MatchStatusUpdater:
         }
         
         return status_mapping.get(api_status)
+    
+    def _get_configured_leagues(self) -> List[Dict[str, Any]]:
+        """
+        Get all configured leagues with their API IDs and current seasons
+        Returns:
+            List of dictionaries with league_name, api_id, and api_season
+        """
+        leagues = []
+        
+        for league_name, config in SeasonManager.LEAGUE_CONFIGS.items():
+            try:
+                # Get current season in database format
+                db_season = SeasonManager.get_current_season(league_name)
+                
+                # Convert to API season format
+                api_season = SeasonManager.get_season_for_api(league_name, db_season)
+                
+                leagues.append({
+                    "league_name": league_name,
+                    "api_id": config["api_id"],
+                    "api_season": int(api_season),
+                    "db_season": db_season
+                })
+                
+                logger.debug(f"Configured league: {league_name} (ID: {config['api_id']}, Season: {api_season})")
+                
+            except Exception as e:
+                logger.error(f"Error getting season for {league_name}: {e}")
+                continue
+        
+        return leagues
+    
+    async def _apply_rate_limit_delay(self) -> None:
+        """
+        Apply rate limiting delay between API requests
+        Uses 500ms delay matching FootballAPIService pattern
+        """
+        if self.last_api_call:
+            elapsed = (datetime.now(timezone.utc) - self.last_api_call).total_seconds()
+            if elapsed < self.rate_limit_delay:
+                sleep_time = self.rate_limit_delay - elapsed
+                await asyncio.sleep(sleep_time)
+        
+        self.last_api_call = datetime.now(timezone.utc)
+    
+    async def _fetch_matches_for_league_parallel(
+        self, 
+        league_config: Dict[str, Any], 
+        start_date: str, 
+        end_date: str
+    ) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        Fetch matches for a single league (for parallel execution)
+        Returns tuple of (league_name, matches_data) for error tracking
+        """
+        league_name = league_config["league_name"]
+        api_id = league_config["api_id"]
+        api_season = league_config["api_season"]
+        
+        try:
+            logger.debug(f"📡 Fetching matches for {league_name} (ID: {api_id}, Season: {api_season})")
+            matches_data = await self._fetch_matches_by_date_range(
+                start_date, end_date, api_id, api_season
+            )
+            logger.info(f"✅ {league_name}: Received {len(matches_data)} matches")
+            return (league_name, matches_data)
+        except Exception as e:
+            logger.error(f"❌ Error fetching matches for {league_name}: {e}")
+            return (league_name, [])
+    
+    async def _fetch_live_matches_for_league_parallel(
+        self, 
+        league_config: Dict[str, Any]
+    ) -> Tuple[str, List[Dict[str, Any]]]:
+        """
+        Fetch live matches for a single league (for parallel execution)
+        Returns tuple of (league_name, matches_data) for error tracking
+        """
+        league_name = league_config["league_name"]
+        api_id = league_config["api_id"]
+        api_season = league_config["api_season"]
+        
+        try:
+            logger.debug(f"📡 Fetching live matches for {league_name} (ID: {api_id}, Season: {api_season})")
+            matches_data = await self._fetch_live_matches(api_id, api_season)
+            logger.info(f"✅ {league_name}: Received {len(matches_data)} live matches")
+            return (league_name, matches_data)
+        except Exception as e:
+            logger.error(f"❌ Error fetching live matches for {league_name}: {e}")
+            return (league_name, [])
+    
+    async def _fetch_matches_for_all_leagues_parallel(
+        self,
+        leagues: List[Dict[str, Any]],
+        start_date: str,
+        end_date: str
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch matches for all leagues in parallel with rate limiting
+        Uses semaphore to limit concurrent requests (max 3)
+        """
+        all_matches = []
+        semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent requests
+        
+        async def fetch_with_semaphore(league_config):
+            async with semaphore:
+                return await self._fetch_matches_for_league_parallel(
+                    league_config, start_date, end_date
+                )
+        
+        # Create tasks for all leagues
+        tasks = [fetch_with_semaphore(league) for league in leagues]
+        
+        # Execute in parallel and collect results
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"❌ Exception in parallel fetch: {result}")
+                continue
+            
+            league_name, matches_data = result
+            if matches_data:
+                all_matches.extend(matches_data)
+            else:
+                logger.debug(f"⚠️ No matches returned for {league_name}")
+        
+        return all_matches
+    
+    async def _fetch_live_matches_for_all_leagues_parallel(
+        self,
+        leagues: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch live matches for all leagues in parallel with rate limiting
+        Uses semaphore to limit concurrent requests (max 3)
+        """
+        all_matches = []
+        semaphore = asyncio.Semaphore(3)  # Limit to 3 concurrent requests
+        
+        async def fetch_with_semaphore(league_config):
+            async with semaphore:
+                return await self._fetch_live_matches_for_league_parallel(league_config)
+        
+        # Create tasks for all leagues
+        tasks = [fetch_with_semaphore(league) for league in leagues]
+        
+        # Execute in parallel and collect results
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"❌ Exception in parallel live fetch: {result}")
+                continue
+            
+            league_name, matches_data = result
+            if matches_data:
+                all_matches.extend(matches_data)
+            else:
+                logger.debug(f"⚠️ No live matches returned for {league_name}")
+        
+        return all_matches
+    
+    def get_api_status(self) -> Dict[str, Any]:
+        """
+        Get current API health status
+        Returns dictionary with API state information
+        """
+        return {
+            "api_subscription_active": self.api_subscription_active,
+            "last_successful_call": self.api_last_successful_call.isoformat() if self.api_last_successful_call else None,
+            "subscription_expired_at": self.api_subscription_expired_at.isoformat() if self.api_subscription_expired_at else None,
+            "consecutive_failures": self.api_consecutive_failures,
+            "last_health_check": self.last_health_check.isoformat() if self.last_health_check else None,
+            "rate_limit_active": self.rate_limit_hit,
+            "rate_limit_resets_at": self.rate_limit_reset_time.isoformat() if self.rate_limit_reset_time else None
+        }
+    
+    async def _test_api_availability(self) -> bool:
+        """
+        Test API availability with a minimal request
+        Returns True if API is available, False otherwise
+        Updates API health state based on result
+        """
+        try:
+            logger.info("🔍 Testing API availability...")
+            
+            # Use a simple endpoint to test (e.g., get a single fixture)
+            # We'll use the status endpoint or a minimal fixture request
+            async with aiohttp.ClientSession() as session:
+                url = f"{self.base_url}/status"
+                async with session.get(url, headers=self.headers, timeout=10) as response:
+                    if response.status == 200:
+                        self.api_subscription_active = True
+                        self.api_consecutive_failures = 0
+                        self.api_last_successful_call = datetime.now(timezone.utc)
+                        self.last_health_check = datetime.now(timezone.utc)
+                        
+                        if self.api_subscription_expired_at:
+                            logger.info("✅ API subscription appears to be restored")
+                            self.api_subscription_expired_at = None
+                        
+                        logger.info("✅ API availability test passed")
+                        return True
+                    elif response.status == 403:
+                        self.api_subscription_active = False
+                        self.api_consecutive_failures += 1
+                        if not self.api_subscription_expired_at:
+                            self.api_subscription_expired_at = datetime.now(timezone.utc)
+                        self.last_health_check = datetime.now(timezone.utc)
+                        logger.warning("⚠️ API availability test failed - subscription expired")
+                        return False
+                    else:
+                        self.last_health_check = datetime.now(timezone.utc)
+                        logger.warning(f"⚠️ API availability test returned status {response.status}")
+                        return False
+        except Exception as e:
+            logger.error(f"❌ API availability test error: {e}")
+            self.last_health_check = datetime.now(timezone.utc)
+            return False
 
 # Global instance
 match_status_updater = MatchStatusUpdater()

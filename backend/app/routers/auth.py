@@ -19,6 +19,7 @@ from ..core.security import (
 from ..core.dependencies import get_current_active_user_from_session, get_current_active_user_optional_dependency
 from ..db.session_manager import get_db
 from ..db.repository import get_user_by_username, create_user
+from ..services.content_filter import content_filter
 from ..schemas import (
     LoginRequest, LoginResponse, Token, UserCreate, User, BaseResponse
 )
@@ -130,6 +131,14 @@ async def register_user(
     logger = logging.getLogger(__name__)
     logger.info(f"🔍 REGISTER DEBUG: Registration request received for username: {new_user.username}")
     logger.info(f"🔍 REGISTER DEBUG: Request data: {new_user.dict()}")
+    
+    # Check for profanity first
+    if content_filter.contains_profanity(new_user.username):
+        logger.warning(f"🔍 REGISTER DEBUG: Username {new_user.username} contains inappropriate content")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username contains inappropriate content"
+        )
     
     user = await get_user_by_username(db, username=new_user.username)
     

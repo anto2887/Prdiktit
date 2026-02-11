@@ -405,6 +405,23 @@ async def emergency_sync_match(fixture_id: int):
     except Exception as e:
         return {"success": False, "fixture_id": fixture_id, "error": str(e)}
 
+# API status endpoint
+@app.get("/api/v1/admin/api-status")
+async def get_api_status():
+    """Get current API subscription and health status"""
+    try:
+        from .services.match_status_updater import match_status_updater
+        status = match_status_updater.get_api_status()
+        return {
+            "success": True,
+            "data": status
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
 # Helper functions for season handling
 def get_season_info_for_league(league):
     """Get season information for a specific league"""

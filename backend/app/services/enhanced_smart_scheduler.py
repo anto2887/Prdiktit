@@ -347,14 +347,20 @@ class EnhancedSmartScheduler:
                 # Check if we have a proper async context
                 asyncio.get_running_loop()
                 
-                # Update recent matches (last 3 days)
-                updated_count = await match_status_updater.update_recent_matches(days_back=3)
-                logger.info(f"✅ Updated {updated_count} match statuses from API")
-                
-                # Also update live matches
-                live_updated = await match_status_updater.update_live_matches()
-                if live_updated > 0:
-                    logger.info(f"🔴 Updated {live_updated} live matches from API")
+                # Check API subscription status before attempting updates
+                if not match_status_updater.api_subscription_active:
+                    logger.warning("⚠️ Running in degraded mode - API subscription expired or inactive")
+                    logger.warning("⚠️ Skipping API updates, continuing with database processing only")
+                    transaction_logger.info("DEGRADED_MODE: API subscription inactive, skipping API updates")
+                else:
+                    # Update recent matches (last 3 days) for all leagues
+                    updated_count = await match_status_updater.update_recent_matches(days_back=3)
+                    logger.info(f"✅ Updated {updated_count} match statuses from API across all leagues")
+                    
+                    # Also update live matches for all leagues
+                    live_updated = await match_status_updater.update_live_matches()
+                    if live_updated > 0:
+                        logger.info(f"🔴 Updated {live_updated} live matches from API across all leagues")
                     
             except Exception as e:
                 logger.error(f"❌ Error updating match statuses from API: {e}")

@@ -10,6 +10,7 @@ from ..db.models import User
 from ..schemas import OAuthCallbackRequest, UsernameSelectionRequest
 from ..services.session_service import session_service
 from ..db.repository import get_user_by_oauth_id, create_oauth_user, is_username_available
+from ..services.content_filter import content_filter
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,13 @@ async def complete_oauth_registration(
     Complete OAuth registration with chosen username
     """
     try:
+        # Check for profanity first (defense in depth)
+        if content_filter.contains_profanity(username_data.username):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username contains inappropriate content"
+            )
+        
         # Check username availability
         if not await is_username_available(db, username_data.username):
             raise HTTPException(
@@ -165,8 +173,19 @@ async def complete_oauth_registration(
 async def check_username_availability(username: str, db: Session = Depends(get_db)):
     """Check if username is available"""
     try:
+        # Check for profanity first (before database check)
+        if content_filter.contains_profanity(username):
+            return {
+                "available": False,
+                "reason": "Username contains inappropriate content"
+            }
+        
+        # Existing availability check
         available = await is_username_available(db, username)
-        return {"available": available}
+        return {
+            "available": available,
+            "reason": None if available else "Username already taken"
+        }
     except Exception as e:
         logger.error(f"Username check error: {str(e)}")
         raise HTTPException(

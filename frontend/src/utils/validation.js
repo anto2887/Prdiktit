@@ -40,6 +40,49 @@ export const isValidEmail = (email) => {
   };
   
   /**
+   * Basic client-side profanity check (subset for quick feedback)
+   * Backend is authoritative - this is just for immediate UX feedback
+   */
+  const containsProfanity = (username) => {
+    if (!username) return false;
+    
+    const normalized = username.toLowerCase();
+    
+    // Common obfuscation patterns
+    const obfuscated = normalized
+      .replace(/@/g, 'a')
+      .replace(/4/g, 'a')
+      .replace(/3/g, 'e')
+      .replace(/1/g, 'i')
+      .replace(/!/g, 'i')
+      .replace(/0/g, 'o')
+      .replace(/5/g, 's')
+      .replace(/\$/g, 's')
+      .replace(/7/g, 't')
+      .replace(/\+/g, 't');
+    
+    const noSeparators = obfuscated.replace(/[_\-\s\.]/g, '');
+    
+    // Common profanity patterns (subset - backend has full list)
+    const commonPatterns = [
+      'fuck', 'shit', 'ass', 'bitch', 'cunt', 'dick', 'cock', 'pussy',
+      'nigger', 'fag', 'retard', 'slut', 'whore', 'bastard', 'damn', 'hell'
+    ];
+    
+    for (const pattern of commonPatterns) {
+      if (normalized.includes(pattern) || noSeparators.includes(pattern)) {
+        // Check for false positives
+        const whitelist = ['class', 'assist', 'pass', 'grass', 'glass', 'mass', 'bass'];
+        if (!whitelist.includes(normalized)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  };
+
+  /**
    * Validate username
    * @param {string} username - Username to validate
    * @returns {Object} Validation result and message
@@ -60,6 +103,14 @@ export const isValidEmail = (email) => {
       return { 
         isValid: false, 
         message: 'Username can only contain letters, numbers, and underscores' 
+      };
+    }
+    
+    // Check for profanity (client-side quick check)
+    if (containsProfanity(username)) {
+      return {
+        isValid: false,
+        message: 'Username contains inappropriate content'
       };
     }
     
