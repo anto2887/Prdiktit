@@ -5,12 +5,9 @@ All database operations now go through a single session with comprehensive loggi
 """
 
 import logging
-import asyncio
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
-from ..db.models import Fixture, MatchStatus
-from .unified_transaction_manager import unified_transaction_manager, TransactionResult
-from .match_status_updater import MatchStatusUpdater
+from typing import Dict, Any, List
+from ..db.models import Fixture
+from .unified_transaction_manager import unified_transaction_manager
 
 # Configure loggers
 logger = logging.getLogger(__name__)
@@ -29,35 +26,18 @@ class MatchProcessor:
     
     def process_all_matches(self) -> Dict[str, Any]:
         """
-        Main processing method - handles all match updates and prediction processing
-        in a single unified transaction
+        Main processing method - processes predictions based on current database state
+        
+        Note: Fixture updates are handled by the scheduler via update_recent_matches().
+        This method only processes predictions based on current database state.
         """
         try:
-            logger.info("🔄 Starting comprehensive match processing cycle")
-            audit_logger.info("PROCESSING_CYCLE_START: Comprehensive match processing")
+            logger.info("🔄 Starting prediction processing cycle")
+            audit_logger.info("PROCESSING_CYCLE_START: Processing predictions from database")
             
-            # Get fixture updates that need to be applied
-            fixture_updates = self._prepare_fixture_updates()
-            
-            if not fixture_updates:
-                logger.info("✅ No fixture updates needed")
-                audit_logger.info("PROCESSING_CYCLE_COMPLETE: No updates needed")
-                return {
-                    "status": "success",
-                    "fixtures_updated": 0,
-                    "predictions_locked": 0,
-                    "predictions_processed": 0,
-                    "message": "No updates needed"
-                }
-            
-            # Process all updates in a single transaction
-            if fixture_updates:
-                result = unified_transaction_manager.update_match_statuses_and_process_predictions(
-                    fixture_updates
-                )
-            else:
-                # No fixture updates available, just process predictions
-                result = unified_transaction_manager.process_all_predictions_without_updates()
+            # Fixture updates are handled by the scheduler before this method is called
+            # Just process predictions based on current database state
+            result = unified_transaction_manager.process_all_predictions_without_updates()
             
             # Log final results
             if result.success:
@@ -99,33 +79,17 @@ class MatchProcessor:
     async def process_all_matches_async(self) -> Dict[str, Any]:
         """
         Async version of the main processing method for use in async contexts
+        
+        Note: Fixture updates are handled by the scheduler via update_recent_matches().
+        This method only processes predictions based on current database state.
         """
         try:
-            logger.info("🔄 Starting comprehensive match processing cycle (async)")
-            audit_logger.info("PROCESSING_CYCLE_ASYNC_START: Comprehensive match processing")
+            logger.info("🔄 Starting prediction processing cycle (async)")
+            audit_logger.info("PROCESSING_CYCLE_ASYNC_START: Processing predictions from database")
             
-            # Get fixture updates that need to be applied (async)
-            fixture_updates = await self._prepare_fixture_updates_async()
-            
-            if not fixture_updates:
-                logger.info("✅ No fixture updates needed (async)")
-                audit_logger.info("PROCESSING_CYCLE_ASYNC_COMPLETE: No updates needed")
-                return {
-                    "status": "success",
-                    "fixtures_updated": 0,
-                    "predictions_locked": 0,
-                    "predictions_processed": 0,
-                    "message": "No updates needed"
-                }
-            
-            # Process all updates in a single transaction
-            if fixture_updates:
-                result = unified_transaction_manager.update_match_statuses_and_process_predictions(
-                    fixture_updates
-                )
-            else:
-                # No fixture updates available, just process predictions
-                result = unified_transaction_manager.process_all_predictions_without_updates()
+            # Fixture updates are handled by the scheduler before this method is called
+            # Just process predictions based on current database state
+            result = unified_transaction_manager.process_all_predictions_without_updates()
             
             # Log final results
             if result.success:
@@ -164,110 +128,6 @@ class MatchProcessor:
                 "message": f"Critical processing error: {str(e)}"
             }
     
-    def _prepare_fixture_updates(self) -> List[Dict[str, Any]]:
-        """
-        Prepare fixture updates by fetching recent matches from the football API
-        and comparing with current database state
-        """
-        try:
-            logger.info("📡 Preparing fixture updates from API data...")
-            audit_logger.info("FIXTURE_UPDATES_PREP_START: Fetching from API")
-            
-            # Create MatchStatusUpdater instance
-            status_updater = MatchStatusUpdater()
-            
-            # Calculate date range for recent matches (last 7 days)
-            end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=7)
-            
-            # Fetch matches from API using the existing service
-            # Note: This is a sync method calling async, so we need to handle it properly
-            try:
-                # Try to get the event loop if we're in an async context
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # We're in an async context, can't run new event loop
-                    logger.warning("⚠️ Cannot fetch API data in running async context, skipping fixture updates")
-                    return []
-            except RuntimeError:
-                # No event loop running, we can create one
-                pass
-            
-            # Note: This method is deprecated - use update_recent_matches() instead
-            # For now, we'll skip this to avoid breaking changes
-            # The enhanced scheduler handles multi-league updates
-            logger.warning("⚠️ _prepare_fixture_updates uses deprecated method - skipping direct API call")
-            matches_data = []
-            
-            if not matches_data:
-                logger.info("📡 No match data received from API")
-                return []
-            
-            logger.info(f"📡 Received {len(matches_data)} matches from API")
-            
-            # Convert API data to fixture updates using existing logic
-            fixture_updates = status_updater._convert_api_data_to_updates(matches_data)
-            
-            if not fixture_updates:
-                logger.info("📡 No fixture updates needed from API data")
-                return []
-            
-            logger.info(f"📡 Prepared {len(fixture_updates)} fixture updates from API")
-            audit_logger.info(f"FIXTURE_UPDATES_PREP_SUCCESS: {len(fixture_updates)} updates prepared")
-            
-            return fixture_updates
-            
-        except Exception as e:
-            logger.error(f"❌ Error preparing fixture updates: {e}")
-            audit_logger.error(f"FIXTURE_UPDATES_PREP_ERROR: {str(e)}")
-            # Return empty list on error to prevent processing failure
-            return []
-    
-    async def _prepare_fixture_updates_async(self) -> List[Dict[str, Any]]:
-        """
-        Async version of fixture updates preparation for use in async contexts
-        """
-        try:
-            logger.info("📡 Preparing fixture updates from API data (async)...")
-            audit_logger.info("FIXTURE_UPDATES_PREP_ASYNC_START: Fetching from API")
-            
-            # Create MatchStatusUpdater instance
-            status_updater = MatchStatusUpdater()
-            
-            # Calculate date range for recent matches (last 7 days)
-            end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=7)
-            
-            # Note: _fetch_matches_by_date_range now requires league_id and season
-            # Use update_recent_matches() instead which handles all leagues
-            # Since we can't get raw data from that method, return empty
-            # The fixture updates will be handled by the unified transaction manager via scheduler
-            logger.warning("⚠️ _prepare_fixture_updates_async should use update_recent_matches() - using fallback")
-            matches_data = []
-            
-            if not matches_data:
-                logger.info("📡 No match data received from API (async)")
-                return []
-            
-            logger.info(f"📡 Received {len(matches_data)} matches from API (async)")
-            
-            # Convert API data to fixture updates using existing logic
-            fixture_updates = status_updater._convert_api_data_to_updates(matches_data)
-            
-            if not fixture_updates:
-                logger.info("📡 No fixture updates needed from API data (async)")
-                return []
-            
-            logger.info(f"📡 Prepared {len(fixture_updates)} fixture updates from API (async)")
-            audit_logger.info(f"FIXTURE_UPDATES_PREP_ASYNC_SUCCESS: {len(fixture_updates)} updates prepared")
-            
-            return fixture_updates
-            
-        except Exception as e:
-            logger.error(f"❌ Error preparing fixture updates (async): {e}")
-            audit_logger.error(f"FIXTURE_UPDATES_PREP_ASYNC_ERROR: {str(e)}")
-            # Return empty list on error to prevent processing failure
-            return []
     
     def emergency_process_match(self, fixture_id: int) -> Dict[str, Any]:
         """
