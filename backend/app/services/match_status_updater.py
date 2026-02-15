@@ -121,6 +121,10 @@ class MatchStatusUpdater:
             start_date_str = start_date.strftime("%Y-%m-%d")
             end_date_str = end_date.strftime("%Y-%m-%d")
             
+            logger.info(f"📅 Date range: {start_date_str} to {end_date_str} (now: {now.strftime('%Y-%m-%d %H:%M:%S UTC')})")
+            logger.info(f"   - Looking back: {days_back} days")
+            logger.info(f"   - Looking forward: {days_forward} days")
+            
             # Get all configured leagues
             leagues = self._get_configured_leagues()
             if not leagues:
