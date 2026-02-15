@@ -37,7 +37,8 @@ class MatchProcessor:
             
             # Fixture updates are handled by the scheduler before this method is called
             # Just process predictions based on current database state
-            result = unified_transaction_manager.process_all_predictions_without_updates()
+            # Pass empty list - method handles predictions even without fixture updates
+            result = unified_transaction_manager.update_match_statuses_and_process_predictions([])
             
             # Log final results
             if result.success:
@@ -89,7 +90,8 @@ class MatchProcessor:
             
             # Fixture updates are handled by the scheduler before this method is called
             # Just process predictions based on current database state
-            result = unified_transaction_manager.process_all_predictions_without_updates()
+            # Pass empty list - method handles predictions even without fixture updates
+            result = unified_transaction_manager.update_match_statuses_and_process_predictions([])
             
             # Log final results
             if result.success:
