@@ -84,13 +84,20 @@ class MatchStatusUpdater:
             return False
         return True
     
-    async def update_recent_matches(self, days_back: int = 3) -> int:
+    async def update_recent_matches(self, days_back: int = 3, days_forward: int = 14) -> int:
         """
-        Update recent matches from the last N days for all configured leagues
-        Returns number of matches updated across all leagues
+        Update matches from the last N days and next M days for all configured leagues
+        This fetches both past matches (for status updates) and future matches (for predictions)
+        
+        Args:
+            days_back: Number of days in the past to fetch (default: 3)
+            days_forward: Number of days in the future to fetch (default: 14)
+        
+        Returns:
+            Number of matches updated across all leagues
         """
         try:
-            logger.info(f"🔄 Updating matches from last {days_back} days for all leagues")
+            logger.info(f"🔄 Updating matches from {days_back} days ago to {days_forward} days ahead for all leagues")
             
             # Check API subscription status
             if not self.api_subscription_active:
@@ -107,9 +114,10 @@ class MatchStatusUpdater:
                 logger.info("⏭️ Skipping API call due to rate limiting")
                 return 0
             
-            # Calculate date range
-            end_date = datetime.now(timezone.utc)
-            start_date = end_date - timedelta(days=days_back)
+            # Calculate date range (past to future)
+            now = datetime.now(timezone.utc)
+            start_date = now - timedelta(days=days_back)
+            end_date = now + timedelta(days=days_forward)
             start_date_str = start_date.strftime("%Y-%m-%d")
             end_date_str = end_date.strftime("%Y-%m-%d")
             

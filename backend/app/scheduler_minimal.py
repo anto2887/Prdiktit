@@ -169,8 +169,8 @@ class SchedulerService:
             logger.info("📡 Fetching fresh match data from Football API...")
             
             try:
-                # Update recent matches (last 3 days)
-                recent_updates = await self.match_updater.update_recent_matches(days_back=3)
+                # Update matches (last 3 days + next 14 days) for status updates and future fixtures
+                recent_updates = await self.match_updater.update_recent_matches(days_back=3, days_forward=14)
                 logger.info(f"📊 Updated {recent_updates} recent matches from API")
             except Exception as e:
                 logger.error(f"❌ Error updating recent matches: {e}")

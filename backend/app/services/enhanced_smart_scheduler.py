@@ -353,8 +353,9 @@ class EnhancedSmartScheduler:
                     logger.warning("⚠️ Skipping API updates, continuing with database processing only")
                     transaction_logger.info("DEGRADED_MODE: API subscription inactive, skipping API updates")
                 else:
-                    # Update recent matches (last 3 days) for all leagues
-                    updated_count = await match_status_updater.update_recent_matches(days_back=3)
+                    # Update matches (last 3 days + next 14 days) for all leagues
+                    # This fetches both past matches for status updates and future matches for predictions
+                    updated_count = await match_status_updater.update_recent_matches(days_back=3, days_forward=14)
                     logger.info(f"✅ Updated {updated_count} match statuses from API across all leagues")
                     
                     # Also update live matches for all leagues
