@@ -14,7 +14,7 @@ source = "backend"
 
 [services.build]
 builder = "dockerfile"
-dockerfilePath = "Dockerfile.scheduler"
+dockerfilePath = "backend/Dockerfile.scheduler"
 
 [services.deploy]
 startCommand = "python -m app.scheduler_minimal"
