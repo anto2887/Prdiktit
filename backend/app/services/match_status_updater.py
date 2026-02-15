@@ -133,7 +133,8 @@ class MatchStatusUpdater:
             logger.info(f"📥 Received matches from {len(all_matches_data)} leagues")
             
             # Convert API data to fixture updates
-            fixture_updates = self._convert_api_data_to_updates(all_matches_data)
+            # Pass league configs for season determination
+            fixture_updates = self._convert_api_data_to_updates(all_matches_data, leagues)
             
             if not fixture_updates:
                 logger.info("No fixture updates needed")
@@ -195,8 +196,8 @@ class MatchStatusUpdater:
             
             logger.info(f"📥 Received live matches from {len(all_live_matches_data)} leagues")
             
-            # Convert API data to fixture updates
-            fixture_updates = self._convert_api_data_to_updates(all_live_matches_data)
+            # Convert API data to fixture updates with league context
+            fixture_updates = self._convert_api_data_to_updates(all_live_matches_data, leagues)
             
             if not fixture_updates:
                 logger.info("No live match updates needed")
@@ -239,7 +240,9 @@ class MatchStatusUpdater:
                 return False
             
             # Convert API data to fixture updates
-            fixture_updates = self._convert_api_data_to_updates([match_data])
+            # Get league configs for season determination
+            leagues = self._get_configured_leagues()
+            fixture_updates = self._convert_api_data_to_updates([match_data], leagues)
             
             if not fixture_updates:
                 logger.info(f"No updates needed for fixture {fixture_id}")
@@ -432,11 +435,22 @@ class MatchStatusUpdater:
             logger.error(f"Error fetching match {fixture_id}: {e}")
             return None
     
-    def _convert_api_data_to_updates(self, matches_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _convert_api_data_to_updates(self, matches_data: List[Dict[str, Any]], leagues: Optional[List[Dict[str, Any]]] = None) -> List[Dict[str, Any]]:
         """
-        Convert API response data to fixture update format
+        Convert API response data to fixture update format with full fixture data
+        This allows creating missing fixtures if they don't exist in the database
+        
+        Args:
+            matches_data: List of match data from API
+            leagues: Optional list of league configs for season determination
         """
         fixture_updates = []
+        
+        # Create a map of competition_id -> league config for quick lookup
+        league_map = {}
+        if leagues:
+            for league_config in leagues:
+                league_map[league_config['api_id']] = league_config
         
         for match in matches_data:
             try:
@@ -450,16 +464,73 @@ class MatchStatusUpdater:
                     continue  # Skip unsupported statuses
                 
                 # Extract scores
-                home_score = match['goals']['home']
-                away_score = match['goals']['away']
+                goals = match.get('goals', {})
+                home_score = goals.get('home')
+                away_score = goals.get('away')
                 
-                # Create update object
+                # Extract full fixture data for creation if needed
+                fixture_info = match['fixture']
+                teams = match['teams']
+                league_info = match['league']
+                competition_id = league_info.get('id')
+                
+                # Parse date first (needed for both season determination and fixture creation)
+                date_str = fixture_info.get('date', '')
+                if date_str:
+                    # Handle timezone format
+                    if date_str.endswith('Z'):
+                        date_str = date_str[:-1] + '+00:00'
+                    try:
+                        fixture_datetime = datetime.fromisoformat(date_str)
+                    except ValueError:
+                        logger.warning(f"Invalid date format for fixture {fixture_id}: {date_str}")
+                        fixture_datetime = datetime.now(timezone.utc)
+                else:
+                    fixture_datetime = datetime.now(timezone.utc)
+                
+                # Get league name and season from league config if available
+                league_name = league_info.get('name', 'Unknown League')
+                season = None
+                
+                if competition_id and competition_id in league_map:
+                    league_config = league_map[competition_id]
+                    league_name = league_config['league_name']
+                    season = str(league_config['db_season'])
+                else:
+                    # Fallback: use SeasonManager to determine season based on league name and date
+                    try:
+                        season = SeasonManager.get_current_season(league_name)
+                    except:
+                        # Ultimate fallback: use year from fixture date
+                        season = str(fixture_datetime.year)
+                
+                # Create update object with full fixture data
                 update = {
                     'fixture_id': fixture_id,
-                    'status': match_status
+                    'status': match_status,
+                    # Full fixture data for creation
+                    'full_fixture_data': {
+                        'fixture_id': fixture_id,
+                        'home_team': teams['home']['name'],
+                        'away_team': teams['away']['name'],
+                        'home_team_logo': teams['home'].get('logo'),
+                        'away_team_logo': teams['away'].get('logo'),
+                        'date': fixture_datetime,
+                        'league': league_name,
+                        'season': season,
+                        'round': league_info.get('round', 'Round 1'),
+                        'status': match_status,
+                        'home_score': home_score if home_score is not None else 0,
+                        'away_score': away_score if away_score is not None else 0,
+                        'venue': fixture_info.get('venue', {}).get('name') if fixture_info.get('venue') else None,
+                        'venue_city': fixture_info.get('venue', {}).get('city') if fixture_info.get('venue') else None,
+                        'competition_id': competition_id,
+                        'match_timestamp': fixture_datetime,
+                        'last_updated': datetime.now(timezone.utc)
+                    }
                 }
                 
-                # Add scores if they exist
+                # Add scores if they exist (for updates)
                 if home_score is not None:
                     update['home_score'] = home_score
                 if away_score is not None:

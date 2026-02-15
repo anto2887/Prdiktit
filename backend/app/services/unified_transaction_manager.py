@@ -248,7 +248,7 @@ class UnifiedTransactionManager:
         """
         with self.transaction_scope("update_matches_and_process_predictions") as (session, result):
             
-            # Step 1: Update fixture statuses and scores
+            # Step 1: Update fixture statuses and scores (or create if missing)
             for update in fixture_updates:
                 fixture_id = update['fixture_id']
                 
@@ -257,45 +257,74 @@ class UnifiedTransactionManager:
                     Fixture.fixture_id == fixture_id
                 ).first()
                 
+                # If fixture doesn't exist, create it from full fixture data
+                fixture_created = False
                 if not fixture:
-                    logger.warning(f"Fixture {fixture_id} not found, skipping")
-                    continue
+                    if 'full_fixture_data' in update:
+                        try:
+                            fixture_data = update['full_fixture_data']
+                            fixture = Fixture(**fixture_data)
+                            session.add(fixture)
+                            session.flush()  # Flush to get fixture in session before updating
+                            fixture_created = True
+                            
+                            result.add_operation('fixture_create', {
+                                'fixture_id': fixture_id,
+                                'league': fixture_data.get('league', 'Unknown'),
+                                'home_team': fixture_data.get('home_team', 'Unknown'),
+                                'away_team': fixture_data.get('away_team', 'Unknown'),
+                                'date': fixture_data.get('date', '').isoformat() if hasattr(fixture_data.get('date'), 'isoformat') else str(fixture_data.get('date', ''))
+                            })
+                            
+                            logger.info(f"✅ Created new fixture {fixture_id}: {fixture_data.get('home_team')} vs {fixture_data.get('away_team')} ({fixture_data.get('league')})")
+                        except Exception as e:
+                            logger.error(f"❌ Error creating fixture {fixture_id}: {e}")
+                            continue
+                    else:
+                        logger.warning(f"Fixture {fixture_id} not found and no full fixture data available, skipping")
+                        continue
                 
-                # Track changes
+                # Track changes (for existing fixtures)
                 old_status = fixture.status.value if fixture.status else None
                 old_home_score = fixture.home_score
                 old_away_score = fixture.away_score
                 
-                # Apply updates
+                # Apply updates (for both new and existing fixtures)
                 changes_made = False
                 if 'status' in update and update['status'] != fixture.status:
                     fixture.status = update['status']
                     changes_made = True
                     
-                if 'home_score' in update and update['home_score'] != fixture.home_score:
+                if 'home_score' in update and update['home_score'] is not None and update['home_score'] != fixture.home_score:
                     fixture.home_score = update['home_score']
                     changes_made = True
                     
-                if 'away_score' in update and update['away_score'] != fixture.away_score:
+                if 'away_score' in update and update['away_score'] is not None and update['away_score'] != fixture.away_score:
                     fixture.away_score = update['away_score']
                     changes_made = True
                 
-                if changes_made:
-                    fixture.updated_at = datetime.now(timezone.utc)
-                    result.fixtures_updated += 1
-                    
-                    result.add_operation('fixture_update', {
-                        'fixture_id': fixture_id,
-                        'old_status': old_status,
-                        'new_status': fixture.status.value,
-                        'old_home_score': old_home_score,
-                        'new_home_score': fixture.home_score,
-                        'old_away_score': old_away_score,
-                        'new_away_score': fixture.away_score,
-                        'match_name': f"{fixture.home_team} vs {fixture.away_team}"
-                    })
-                    
-                    logger.info(f"Updated fixture {fixture_id}: {fixture.home_team} vs {fixture.away_team} - Status: {old_status} → {fixture.status.value}, Score: {old_home_score}-{old_away_score} → {fixture.home_score}-{fixture.away_score}")
+                # Update timestamp if changes were made or fixture was created
+                if changes_made or fixture_created:
+                    fixture.last_updated = datetime.now(timezone.utc)
+                    if not fixture_created:
+                        result.fixtures_updated += 1
+                        
+                        result.add_operation('fixture_update', {
+                            'fixture_id': fixture_id,
+                            'old_status': old_status,
+                            'new_status': fixture.status.value,
+                            'old_home_score': old_home_score,
+                            'new_home_score': fixture.home_score,
+                            'old_away_score': old_away_score,
+                            'new_away_score': fixture.away_score,
+                            'match_name': f"{fixture.home_team} vs {fixture.away_team}"
+                        })
+                        
+                        logger.info(f"Updated fixture {fixture_id}: {fixture.home_team} vs {fixture.away_team} - Status: {old_status} → {fixture.status.value}, Score: {old_home_score}-{old_away_score} → {fixture.home_score}-{fixture.away_score}")
+                    else:
+                        # Count creation as an update for reporting
+                        result.fixtures_updated += 1
+                        logger.info(f"✅ Created fixture {fixture_id}: {fixture.home_team} vs {fixture.away_team} - Status: {fixture.status.value}, Score: {fixture.home_score}-{fixture.away_score}")
             
             # Step 2: Lock predictions for matches that have started
             current_time = datetime.now(timezone.utc)
