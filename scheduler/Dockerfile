@@ -1,0 +1,44 @@
+# Scheduler Service Dockerfile
+# This builds a container that runs the scheduler with a health check server
+# Build context should be set to project root to access ../backend/
+
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONPATH=/app
+
+# Set work directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        postgresql-client \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY backend/requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy entire backend app directory (scheduler needs all backend services)
+# This includes: app/services/, app/db/, app/core/, app/utils/, app/data/, etc.
+COPY backend/app ./app
+
+# Create logs directory
+RUN mkdir -p logs
+
+# Expose port for health checks
+EXPOSE 8001
+
+# Health check (HTTP endpoint)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8001/health || exit 1
+
+# Run the minimal scheduler directly
+CMD ["python", "-m", "app.scheduler_minimal"]
