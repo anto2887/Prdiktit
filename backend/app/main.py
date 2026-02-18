@@ -249,7 +249,7 @@ async def startup_event():
             transaction_logger.error(f"STARTUP_SYNC_CRITICAL_ERROR: {str(sync_error)}")
         
         # Step 5: Scheduler moved to separate service
-        startup_logger.info("⏰ Step 5: Scheduler runs in separate service (backend-scheduler)")
+        startup_logger.info("⏰ Step 5: Scheduler runs in separate service (scheduler)")
         startup_logger.info("📊 This service handles HTTP requests only")
         
         # Step 6: Final startup verification
@@ -296,7 +296,7 @@ async def shutdown_event():
         startup_logger.info("🛑 APPLICATION_SHUTDOWN_BEGIN")
         
         # Scheduler runs in separate service
-        startup_logger.info("⏰ Scheduler runs in separate service (backend-scheduler)")
+        startup_logger.info("⏰ Scheduler runs in separate service (scheduler)")
         startup_logger.info("📊 No scheduler to stop in this service")
         
         # Shutdown services

@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Deploy Scheduler Service Script
-# This script helps deploy the new backend-scheduler service
+# This script helps deploy the scheduler service
 
 set -e
 
-echo "🚀 Deploying Backend Scheduler Service"
-echo "======================================"
+echo "🚀 Deploying Scheduler Service"
+echo "=============================="
 
 # Colors for output
 RED='\033[0;31m'
@@ -70,19 +70,25 @@ deploy_scheduler_service() {
     print_status "Deploying scheduler service..."
     
     # Check if we're in the right directory
-    if [ ! -f "backend/Dockerfile.scheduler" ]; then
-        print_error "Dockerfile.scheduler not found. Please run this script from the project root."
+    if [ ! -f "scheduler/Dockerfile" ]; then
+        print_error "scheduler/Dockerfile not found. Please run this script from the project root."
         exit 1
     fi
     
-    if [ ! -f "backend/railway.scheduler.json" ]; then
-        print_error "railway.scheduler.json not found. Please run this script from the project root."
+    if [ ! -f "railway.toml" ]; then
+        print_error "railway.toml not found. Please run this script from the project root."
+        exit 1
+    fi
+    
+    # Verify scheduler service is configured in railway.toml
+    if ! grep -q 'name = "scheduler"' railway.toml; then
+        print_error "Scheduler service not found in railway.toml. Please configure it first."
         exit 1
     fi
     
     # Deploy to Railway
     print_status "Building and deploying scheduler service..."
-    railway up --service backend-scheduler
+    railway up --service scheduler
     
     print_success "Scheduler service deployment initiated"
 }
@@ -95,16 +101,18 @@ show_next_steps() {
     echo ""
     echo "1. 📋 Create Railway Service:"
     echo "   - Go to Railway dashboard"
-    echo "   - Create new service: 'backend-scheduler'"
+    echo "   - Create new service: 'scheduler'"
     echo "   - Source: Same GitHub repo"
-    echo "   - Root Directory: backend/"
+    echo "   - Root Directory: / (project root)"
     echo "   - Branch: production"
     echo ""
     echo "2. ⚙️ Configure Service:"
-    echo "   - Port: 8001"
-    echo "   - Start Command: python -m app.scheduler_health"
-    echo "   - Dockerfile: Dockerfile.scheduler"
+    echo "   - Configuration is managed by railway.toml (config-as-code)"
+    echo "   - Port: 8001 (set via PORT environment variable)"
+    echo "   - Start Command: python -m app.scheduler_minimal"
+    echo "   - Dockerfile: scheduler/Dockerfile"
     echo "   - Resources: 2-4 vCPU, 4-8 GB RAM"
+    echo "   - Note: Clear any dashboard build settings to let railway.toml take precedence"
     echo ""
     echo "3. 🔑 Environment Variables:"
     echo "   - Copy ALL environment variables from main backend service"
@@ -112,7 +120,8 @@ show_next_steps() {
     echo ""
     echo "4. 🚀 Deploy:"
     echo "   - Railway will auto-deploy when you push to production branch"
-    echo "   - Or use: railway up --service backend-scheduler"
+    echo "   - Or use: railway up --service scheduler"
+    echo "   - Or use this script: ./deploy_scheduler_service.sh"
     echo ""
     echo "5. ✅ Verify:"
     echo "   - Check health endpoint: /health"
@@ -124,7 +133,10 @@ show_next_steps() {
     echo "   - Verify HTTP endpoints still work"
     echo "   - Verify no scheduler processes running"
     echo ""
-    echo "📚 For detailed instructions, see: backend/SCHEDULER_SERVICE_README.md"
+    echo "📚 Configuration:"
+    echo "   - railway.toml: Main service configuration"
+    echo "   - scheduler/Dockerfile: Build configuration"
+    echo "   - scheduler/build.sh: Local build script with change detection"
 }
 
 # Main execution
@@ -141,7 +153,8 @@ main() {
     
     print_success "Deployment script completed successfully!"
     echo ""
-    print_warning "Remember: You need to create the backend-scheduler service manually in Railway dashboard first!"
+    print_warning "Remember: You need to create the 'scheduler' service manually in Railway dashboard first!"
+    print_warning "Important: Set Root Directory to '/' (project root) to use railway.toml configuration"
 }
 
 # Run main function

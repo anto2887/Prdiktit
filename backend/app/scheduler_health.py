@@ -37,7 +37,7 @@ async def health_check(request):
         return web.json_response({
             "status": "unhealthy",
             "error": str(e),
-            "service": "backend-scheduler"
+            "service": "scheduler"
         }, status=500)
 
 async def status_check(request):
@@ -50,7 +50,7 @@ async def status_check(request):
         return web.json_response({
             "status": "error",
             "error": str(e),
-            "service": "backend-scheduler"
+            "service": "scheduler"
         }, status=500)
 
 async def init_app():

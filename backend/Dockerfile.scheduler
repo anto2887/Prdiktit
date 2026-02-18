@@ -1,4 +1,8 @@
-# Scheduler Service Dockerfile
+# DEPRECATED: This file is no longer used
+# The scheduler service has been moved to scheduler/Dockerfile
+# This file is kept for reference only and should not be used for builds
+#
+# Scheduler Service Dockerfile (OLD - DO NOT USE)
 # This builds a container that runs the scheduler with a health check server
 
 FROM python:3.11-slim

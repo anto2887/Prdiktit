@@ -267,7 +267,7 @@ def get_health_status():
         "status": "healthy" if scheduler_status == "running" else "unhealthy",
         "timestamp": current_time.isoformat(),
         "scheduler_status": scheduler_status,
-        "service": "backend-scheduler",
+        "service": "scheduler",
         "uptime": "running" if scheduler_status == "running" else "stopped",
         "error_count": scheduler_service.error_count if hasattr(scheduler_service, 'error_count') else 0
     }
