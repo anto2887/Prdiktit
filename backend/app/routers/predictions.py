@@ -740,20 +740,26 @@ async def get_group_leaderboard(
             user_id = member.user_id
             username = member.username
             
-            # Get predictions for this user in this group with season filter
+            # Get predictions for this user in this group - ONLY from FINISHED matches
             predictions_query = db.query(
                 UserPrediction.id,
                 UserPrediction.points
+            ).join(
+                Fixture, UserPrediction.fixture_id == Fixture.fixture_id
             ).filter(
                 UserPrediction.user_id == user_id,
-                UserPrediction.group_id == group_id
+                UserPrediction.group_id == group_id,
+                # Only include predictions from finished matches
+                Fixture.status.in_([
+                    MatchStatus.FINISHED,
+                    MatchStatus.FINISHED_AET,
+                    MatchStatus.FINISHED_PEN
+                ])
             )
             
             # Apply season filter if provided
             if season:
-                predictions_query = predictions_query.join(
-                    Fixture, UserPrediction.fixture_id == Fixture.fixture_id
-                ).filter(Fixture.season == season)
+                predictions_query = predictions_query.filter(Fixture.season == season)
             
             predictions = predictions_query.all()
             

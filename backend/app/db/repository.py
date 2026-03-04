@@ -1047,16 +1047,25 @@ async def process_match_predictions(db: Session, fixture_id: int) -> int:
     if not fixture:
         return 0
         
+    # Only process if match is FINISHED
     if fixture.status not in [MatchStatus.FINISHED, MatchStatus.FINISHED_AET, MatchStatus.FINISHED_PEN]:
         return 0
+    
+    # Ensure scores are available
+    if fixture.home_score is None or fixture.away_score is None:
+        logger.warning(f"Cannot process predictions for fixture {fixture_id} - scores not available")
+        return 0
         
+    # Get ALL predictions (reprocess even if previously processed to ensure accuracy)
     predictions = db.query(UserPrediction).filter(
-        UserPrediction.fixture_id == fixture_id,
-        UserPrediction.prediction_status == PredictionStatus.LOCKED
+        UserPrediction.fixture_id == fixture_id
     ).all()
     
     count = 0
     for prediction in predictions:
+        old_points = prediction.points
+        
+        # Calculate points based on FINAL scores
         points = calculate_points(
             prediction.score1,
             prediction.score2,
@@ -1064,9 +1073,14 @@ async def process_match_predictions(db: Session, fixture_id: int) -> int:
             fixture.away_score
         )
         
+        # Update prediction (reprocess to ensure accuracy)
         prediction.points = points
         prediction.prediction_status = PredictionStatus.PROCESSED
         prediction.processed_at = datetime.now(timezone.utc)
+        
+        # Log if points changed for previously processed predictions
+        if old_points is not None and old_points != points:
+            logger.info(f"🔄 Reprocessed prediction {prediction.id}: Points changed from {old_points} to {points}")
         
         user_result = db.query(UserResults).filter(
             UserResults.user_id == prediction.user_id,

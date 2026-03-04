@@ -369,17 +369,25 @@ class UnifiedTransactionManager:
             ).all()
             
             for match in completed_matches:
-                # Get all unprocessed predictions (status agnostic)
-                unprocessed_predictions = session.query(UserPrediction).filter(
-                    UserPrediction.fixture_id == match.fixture_id,
-                    UserPrediction.prediction_status != PredictionStatus.PROCESSED
+                # Get ALL predictions for this match (including previously processed ones)
+                # This ensures we reprocess predictions if match status changed to FINISHED
+                all_predictions = session.query(UserPrediction).filter(
+                    UserPrediction.fixture_id == match.fixture_id
                 ).all()
                 
-                for prediction in unprocessed_predictions:
+                for prediction in all_predictions:
+                    # Only process if match is FINISHED and has valid scores
+                    if match.status not in [MatchStatus.FINISHED, MatchStatus.FINISHED_AET, MatchStatus.FINISHED_PEN]:
+                        continue
+                    
+                    if match.home_score is None or match.away_score is None:
+                        logger.warning(f"Skipping prediction {prediction.id} for match {match.fixture_id} - scores not available")
+                        continue
+                    
                     old_status = prediction.prediction_status.value
                     old_points = prediction.points
                     
-                    # Calculate points
+                    # Calculate points based on FINAL scores
                     points = calculate_points(
                         prediction.score1,
                         prediction.score2,
@@ -387,11 +395,18 @@ class UnifiedTransactionManager:
                         match.away_score
                     )
                     
-                    # Update prediction
+                    # Update prediction (reprocess even if previously processed to ensure accuracy)
                     prediction.points = points
                     prediction.prediction_status = PredictionStatus.PROCESSED
                     prediction.processed_at = datetime.now(timezone.utc)
-                    result.predictions_processed += 1
+                    
+                    # Only count as "newly processed" if it wasn't already processed
+                    if old_status != 'PROCESSED':
+                        result.predictions_processed += 1
+                    else:
+                        # Log reprocessing for previously processed predictions
+                        if old_points != points:
+                            logger.info(f"🔄 Reprocessed prediction {prediction.id}: Points changed from {old_points} to {points}")
                     
                     result.add_operation('prediction_process', {
                         'prediction_id': prediction.id,
@@ -402,7 +417,8 @@ class UnifiedTransactionManager:
                         'old_status': old_status,
                         'new_status': 'PROCESSED',
                         'old_points': old_points,
-                        'new_points': points
+                        'new_points': points,
+                        'was_reprocessed': old_status == 'PROCESSED'
                     })
                     
                     logger.info(f"Processed prediction {prediction.id}: {prediction.score1}-{prediction.score2} vs {match.home_score}-{match.away_score} = {points} points")
@@ -477,25 +493,35 @@ class UnifiedTransactionManager:
                 
                 logger.info(f"Emergency: Set fixture {fixture_id} to FINISHED with 0-0 score (date elapsed)")
             
-            # Process ALL predictions regardless of current status
+            # Only process predictions if match is FINISHED
+            if fixture.status not in [MatchStatus.FINISHED, MatchStatus.FINISHED_AET, MatchStatus.FINISHED_PEN]:
+                logger.warning(f"⚠️ Emergency sync: Fixture {fixture_id} is not FINISHED (status: {fixture.status.value}), skipping prediction processing")
+                return result
+            
+            # Process ALL predictions (reprocess even if previously processed to ensure accuracy)
             for prediction in all_predictions:
-                if prediction.prediction_status != PredictionStatus.PROCESSED:
-                    old_status = prediction.prediction_status.value
-                    old_points = prediction.points
-                    
-                    # Calculate points
-                    points = calculate_points(
-                        prediction.score1,
-                        prediction.score2,
-                        fixture.home_score,
-                        fixture.away_score
-                    )
-                    
-                    # Update prediction
-                    prediction.points = points
-                    prediction.prediction_status = PredictionStatus.PROCESSED
-                    prediction.processed_at = datetime.now(timezone.utc)
+                old_status = prediction.prediction_status.value
+                old_points = prediction.points
+                
+                # Calculate points based on FINAL scores
+                points = calculate_points(
+                    prediction.score1,
+                    prediction.score2,
+                    fixture.home_score,
+                    fixture.away_score
+                )
+                
+                # Update prediction (reprocess to ensure accuracy)
+                prediction.points = points
+                prediction.prediction_status = PredictionStatus.PROCESSED
+                prediction.processed_at = datetime.now(timezone.utc)
+                
+                # Only count as "newly processed" if it wasn't already processed
+                if old_status != 'PROCESSED':
                     result.predictions_processed += 1
+                else:
+                    if old_points != points:
+                        logger.info(f"🔄 Emergency: Reprocessed prediction {prediction.id}: Points changed from {old_points} to {points}")
                     
                     result.add_operation('emergency_prediction_process', {
                         'prediction_id': prediction.id,
