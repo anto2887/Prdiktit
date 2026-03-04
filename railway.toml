@@ -1,32 +1,23 @@
-# railway.toml
-# Default backend service (main API)
-[build]
+# 1. Backend Service
+[backend.build]
 builder = "dockerfile"
 dockerfilePath = "backend/Dockerfile.prod"
 
-[deploy]
+[backend.deploy]
 startCommand = "gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000"
 
-# scheduler service (separate directory to avoid Railway conflicts)
-[[services]]
-name = "scheduler"
-# source = "scheduler"
-
-[services.build]
+# 2. Scheduler Service
+[scheduler.build]
 builder = "dockerfile"
 dockerfilePath = "scheduler/Dockerfile"
 
-[services.deploy]
+[scheduler.deploy]
 startCommand = "python -m app.scheduler_minimal"
 
-# frontend service
-[[services]]
-name = "frontend"
-source = "frontend"
-
-[services.build]
+# 3. Frontend Service
+[frontend.build]
 builder = "dockerfile"
 dockerfilePath = "frontend/Dockerfile"
 
-[services.deploy]
+[frontend.deploy]
 startCommand = "nginx -g 'daemon off;'"
