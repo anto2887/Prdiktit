@@ -10,7 +10,7 @@ startCommand = "gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bi
 # scheduler service (separate directory to avoid Railway conflicts)
 [[services]]
 name = "scheduler"
-source = "scheduler"
+# source = "scheduler"
 
 [services.build]
 builder = "dockerfile"
