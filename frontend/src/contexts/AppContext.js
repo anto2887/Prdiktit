@@ -1241,7 +1241,14 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_PREDICTIONS_ERROR, payload: null });
       
-      const response = await predictionsApi.createPrediction(predictionData);
+      // Include currentGroup.id if available and not already provided
+      const predictionPayload = { ...predictionData };
+      if (!predictionPayload.group_id && state.groups.currentGroup?.id) {
+        predictionPayload.group_id = state.groups.currentGroup.id;
+        process.env.NODE_ENV === 'development' && console.log('Adding currentGroup.id to prediction:', predictionPayload.group_id);
+      }
+      
+      const response = await predictionsApi.createPrediction(predictionPayload);
       
       if (response.status === 'success') {
         await fetchUserPredictions();
@@ -1255,7 +1262,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to create prediction');
       return null;
     }
-  }, [fetchUserPredictions, showSuccess, showError]); // FIXED: Add missing function dependencies
+  }, [fetchUserPredictions, showSuccess, showError, state.groups.currentGroup]); // Added currentGroup dependency
 
   const updatePrediction = useCallback(async (predictionId, predictionData) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1310,7 +1317,14 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_PREDICTIONS_ERROR, payload: null });
       
-      const response = await predictionsApi.createBatchPredictions(predictions);
+      // Include currentGroup.id if available and not already provided
+      const predictionsPayload = { ...predictions };
+      if (!predictionsPayload.group_id && state.groups.currentGroup?.id) {
+        predictionsPayload.group_id = state.groups.currentGroup.id;
+        process.env.NODE_ENV === 'development' && console.log('Adding currentGroup.id to batch predictions:', predictionsPayload.group_id);
+      }
+      
+      const response = await predictionsApi.createBatchPredictions(predictionsPayload);
       
       if (response.status === 'success') {
         await fetchUserPredictions();
@@ -1324,7 +1338,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to submit predictions');
       return null;
     }
-  }, [fetchUserPredictions, showSuccess, showError]); // FIXED: Add missing function dependencies
+  }, [fetchUserPredictions, showSuccess, showError, state.groups.currentGroup]); // Added currentGroup dependency
 
   // League functions
   const setSelectedSeason = useCallback((season, groupId = null) => {

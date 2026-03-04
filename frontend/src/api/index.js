@@ -554,6 +554,11 @@ export const predictionsApi = {
       away_score: predictionData.away_score !== undefined ? predictionData.away_score : predictionData.score2
     };
     
+    // Include group_id if provided
+    if (predictionData.group_id !== undefined) {
+      payload.group_id = predictionData.group_id;
+    }
+    
     process.env.NODE_ENV === 'development' && console.log('Sending prediction data:', payload);
     
     if (payload.match_id === undefined || payload.home_score === undefined || payload.away_score === undefined) {
@@ -591,7 +596,15 @@ export const predictionsApi = {
       predictions: {}
     };
     
+    // Include group_id if provided in predictionsData
+    if (predictionsData.group_id !== undefined) {
+      formattedData.group_id = predictionsData.group_id;
+    }
+    
     Object.entries(predictionsData.predictions || predictionsData).forEach(([fixtureId, scores]) => {
+      // Skip group_id if it's at the top level
+      if (fixtureId === 'group_id') return;
+      
       formattedData.predictions[fixtureId] = {
         home: scores.home !== undefined ? scores.home : scores.score1,
         away: scores.away !== undefined ? scores.away : scores.score2

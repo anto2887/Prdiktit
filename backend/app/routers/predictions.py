@@ -183,27 +183,51 @@ async def submit_prediction(
         
         season = str(getattr(fixture, 'season', '2024'))
         
-        # Get user's primary group for the prediction
-        # Use the first valid group the user is a member of
-        user_groups = db.query(Group).join(
-            group_members, Group.id == group_members.c.group_id
-        ).filter(
-            group_members.c.user_id == current_user.id
-        ).order_by(group_members.c.joined_at.asc()).all()
+        # Get group_id from request, or fall back to user's first group
+        group_id = prediction_data.group_id
         
-        group_id = user_groups[0].id if user_groups else None
-        
-        # Validate group exists
+        # If group_id provided, validate it
         if group_id:
+            # Check if group exists
             group_exists = db.query(Group).filter(Group.id == group_id).first()
             if not group_exists:
-                logger.error(f"Invalid group_id {group_id} for user {current_user.id}, group doesn't exist")
+                logger.error(f"Invalid group_id {group_id} provided, group doesn't exist")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Group {group_id} not found"
+                )
+            
+            # Check if user is a member of this group
+            is_member = await check_group_membership(db, group_id, current_user.id)
+            if not is_member:
+                logger.error(f"User {current_user.id} is not a member of group {group_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"You are not a member of group {group_id}"
+                )
+            
+            logger.info(f"Using provided group_id: {group_id}")
+        else:
+            # Fall back to user's first group (old behavior for backward compatibility)
+            user_groups = db.query(Group).join(
+                group_members, Group.id == group_members.c.group_id
+            ).filter(
+                group_members.c.user_id == current_user.id
+            ).order_by(group_members.c.joined_at.asc()).all()
+            
+            group_id = user_groups[0].id if user_groups else None
+            
+            # Validate group exists
+            if group_id:
+                group_exists = db.query(Group).filter(Group.id == group_id).first()
+                if not group_exists:
+                    logger.error(f"Invalid group_id {group_id} for user {current_user.id}, group doesn't exist")
+                    group_id = None
+            
+            if not group_id:
+                logger.warning(f"User {current_user.id} has no valid group membership for prediction")
+                # For now, allow prediction without group (will be fixed by migration)
                 group_id = None
-        
-        if not group_id:
-            logger.warning(f"User {current_user.id} has no valid group membership for prediction")
-            # For now, allow prediction without group (will be fixed by migration)
-            group_id = None
         
         logger.info(f"Creating prediction: user={current_user.id}, fixture={match_id}, season={season}, week={week}, group={group_id}")
         
@@ -243,7 +267,8 @@ async def submit_prediction(
                 "points": new_prediction.points,
                 "prediction_status": new_prediction.prediction_status.value if hasattr(new_prediction.prediction_status, 'value') else str(new_prediction.prediction_status),
                 "created": new_prediction.created.isoformat() if new_prediction.created else None,
-                "user_id": new_prediction.user_id
+                "user_id": new_prediction.user_id,
+                "group_id": new_prediction.group_id  # Include group_id in response
             },
             message="Prediction created successfully"
         )
@@ -334,6 +359,7 @@ async def get_user_predictions_endpoint(
                 "submission_time": pred.submission_time.isoformat() if pred.submission_time else None,
                 "season": pred.season,
                 "week": pred.week,
+                "group_id": pred.group_id,  # Include group_id so users can see which group prediction belongs to
                 # Add fixture data
                 "fixture": {
                     "fixture_id": fixture.fixture_id if fixture else None,
@@ -436,14 +462,41 @@ async def get_group_seasons(
 
 @router.post("/batch", response_model=DataResponse)
 async def create_batch_predictions(
-    predictions_data: Dict[str, Dict[str, int]],
+    request_data: Dict[str, Any],
     current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
     """
     Create multiple predictions at once
+    Accepts: { "predictions": {...}, "group_id": <optional> }
     """
+    # Extract group_id if provided
+    group_id = request_data.get('group_id')
+    predictions_data = request_data.get('predictions', request_data)  # Support both formats
+    
+    # Validate group_id if provided
+    if group_id:
+        # Check if group exists
+        group_exists = db.query(Group).filter(Group.id == group_id).first()
+        if not group_exists:
+            logger.error(f"Invalid group_id {group_id} provided, group doesn't exist")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Group {group_id} not found"
+            )
+        
+        # Check if user is a member of this group
+        is_member = await check_group_membership(db, group_id, current_user.id)
+        if not is_member:
+            logger.error(f"User {current_user.id} is not a member of group {group_id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You are not a member of group {group_id}"
+            )
+        
+        logger.info(f"Using provided group_id for batch predictions: {group_id}")
+    
     results = []
     
     for fixture_id, scores in predictions_data.items():
@@ -492,21 +545,25 @@ async def create_batch_predictions(
                     except Exception:
                         week = 0
                 
-                # Get user's primary group for the prediction
-                user_groups = db.query(Group).join(
-                    group_members, Group.id == group_members.c.group_id
-                ).filter(
-                    group_members.c.user_id == current_user.id
-                ).order_by(group_members.c.joined_at.asc()).all()
+                # Use provided group_id, or fall back to user's first group
+                prediction_group_id = group_id  # Use the group_id from request if provided
                 
-                group_id = user_groups[0].id if user_groups else None
-                
-                # Validate group exists
-                if group_id:
-                    group_exists = db.query(Group).filter(Group.id == group_id).first()
-                    if not group_exists:
-                        logger.error(f"Invalid group_id {group_id} for user {current_user.id}, group doesn't exist")
-                        group_id = None
+                if not prediction_group_id:
+                    # Fall back to user's first group (old behavior for backward compatibility)
+                    user_groups = db.query(Group).join(
+                        group_members, Group.id == group_members.c.group_id
+                    ).filter(
+                        group_members.c.user_id == current_user.id
+                    ).order_by(group_members.c.joined_at.asc()).all()
+                    
+                    prediction_group_id = user_groups[0].id if user_groups else None
+                    
+                    # Validate group exists
+                    if prediction_group_id:
+                        group_exists = db.query(Group).filter(Group.id == prediction_group_id).first()
+                        if not group_exists:
+                            logger.error(f"Invalid group_id {prediction_group_id} for user {current_user.id}, group doesn't exist")
+                            prediction_group_id = None
                 
                 prediction = await create_prediction(
                     db,
@@ -516,7 +573,7 @@ async def create_batch_predictions(
                     score2,
                     fixture.season,
                     week,
-                    group_id=group_id
+                    group_id=prediction_group_id
                 )
             
             if prediction:
@@ -904,6 +961,84 @@ async def fix_invalid_group_ids(
             "fixed_count": updated_count,
             "failed_count": failed_count,
             "total_invalid": total_invalid
+        }
+    )
+
+
+@router.post("/reassign-predictions-to-group", response_model=DataResponse)
+async def reassign_predictions_to_group(
+    from_group_id: Optional[int] = Query(None, description="Source group ID (or omit for NULL predictions)"),
+    to_group_id: int = Query(..., description="Target group ID"),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db)
+):
+    """
+    Reassign predictions from one group to another for the current user
+    Useful for fixing predictions that were assigned to the wrong group
+    
+    Query params:
+    - from_group_id: Source group ID (optional, if omitted, reassigns NULL predictions)
+    - to_group_id: Target group ID (required)
+    """
+    logger.info(f"🔧 Reassigning predictions for user {current_user.id} from group {from_group_id} to group {to_group_id}")
+    
+    # Verify target group exists and user is a member
+    target_group = db.query(Group).filter(Group.id == to_group_id).first()
+    if not target_group:
+        raise HTTPException(status_code=404, detail=f"Target group {to_group_id} not found")
+    
+    # Check if user is member of target group
+    is_member = await check_group_membership(db, to_group_id, current_user.id)
+    if not is_member:
+        raise HTTPException(status_code=403, detail=f"You are not a member of group {to_group_id}")
+    
+    # Build query to find predictions to update
+    if from_group_id is None:
+        # Reassign NULL group_id predictions
+        predictions_query = db.query(UserPrediction).filter(
+            UserPrediction.user_id == current_user.id,
+            UserPrediction.group_id.is_(None)
+        )
+        logger.info(f"Reassigning NULL group_id predictions to group {to_group_id}")
+    else:
+        # Verify source group exists
+        source_group = db.query(Group).filter(Group.id == from_group_id).first()
+        if not source_group:
+            raise HTTPException(status_code=404, detail=f"Source group {from_group_id} not found")
+        
+        # Reassign from specific group
+        predictions_query = db.query(UserPrediction).filter(
+            UserPrediction.user_id == current_user.id,
+            UserPrediction.group_id == from_group_id
+        )
+        logger.info(f"Reassigning predictions from group {from_group_id} to group {to_group_id}")
+    
+    predictions_to_update = predictions_query.all()
+    total_count = len(predictions_to_update)
+    
+    if total_count == 0:
+        return DataResponse(
+            message=f"No predictions found to reassign",
+            data={"updated_count": 0, "from_group_id": from_group_id, "to_group_id": to_group_id}
+        )
+    
+    # Update predictions
+    updated_count = 0
+    for prediction in predictions_to_update:
+        old_group_id = prediction.group_id
+        prediction.group_id = to_group_id
+        updated_count += 1
+        logger.info(f"✅ Reassigned prediction {prediction.id} from group {old_group_id} to {to_group_id}")
+    
+    db.commit()
+    logger.info(f"✅ Reassigned {updated_count} predictions for user {current_user.id} from group {from_group_id} to group {to_group_id}")
+    
+    return DataResponse(
+        message=f"Reassigned {updated_count} predictions from group {from_group_id or 'NULL'} to group {to_group_id}",
+        data={
+            "updated_count": updated_count,
+            "from_group_id": from_group_id,
+            "to_group_id": to_group_id
         }
     )
 

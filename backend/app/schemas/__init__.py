@@ -124,6 +124,7 @@ class PredictionCreate(BaseModel):
     match_id: int
     home_score: int
     away_score: int
+    group_id: Optional[int] = None  # Optional: if not provided, backend will use user's first group
 
 class PredictionUpdate(BaseModel):
     home_score: int
