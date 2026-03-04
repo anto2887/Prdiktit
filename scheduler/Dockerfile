@@ -2,7 +2,7 @@
 # This builds a container that runs the scheduler with a health check server
 # Build context should be set to project root to access ../backend/
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
