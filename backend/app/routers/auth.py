@@ -12,11 +12,14 @@ logger = logging.getLogger(__name__)
 
 from ..core.config import settings
 from ..core.security import (
-    create_access_token, 
-    get_password_hash, 
+    create_access_token,
+    get_password_hash,
     verify_password
 )
-from ..core.dependencies import get_current_active_user_from_session, get_current_active_user_optional_dependency
+from ..core.dependencies import (
+    get_current_active_user_from_session,
+    get_current_active_user_optional_dependency,
+)
 from ..db.session_manager import get_db
 from ..db.repository import get_user_by_username, create_user
 from ..services.content_filter import content_filter
@@ -167,7 +170,9 @@ async def register_user(
 
 @router.get("/status")
 async def auth_status(
-    current_user: Optional[User] = Depends(get_current_active_user_optional_dependency())
+    # Use session-based authentication for status checks so that
+    # the X-Session-ID header created on login survives page reloads.
+    current_user: User = Depends(get_current_active_user_from_session),
 ):
     """
     Get current user authentication status
