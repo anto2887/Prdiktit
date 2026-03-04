@@ -522,24 +522,22 @@ class UnifiedTransactionManager:
                 else:
                     if old_points != points:
                         logger.info(f"🔄 Emergency: Reprocessed prediction {prediction.id}: Points changed from {old_points} to {points}")
-                    
-                    result.add_operation('emergency_prediction_process', {
-                        'prediction_id': prediction.id,
-                        'user_id': prediction.user_id,
-                        'fixture_id': prediction.fixture_id,
-                        'predicted_score': f"{prediction.score1}-{prediction.score2}",
-                        'actual_score': f"{fixture.home_score}-{fixture.away_score}",
-                        'old_status': old_status,
-                        'new_status': 'PROCESSED',
-                        'old_points': old_points,
-                        'new_points': points,
-                        'match_date': fixture.date.isoformat(),
-                        'processed_at': datetime.now(timezone.utc).isoformat()
-                    })
-                    
-                    logger.info(f"Emergency processed prediction {prediction.id}: {prediction.score1}-{prediction.score2} vs {fixture.home_score}-{fixture.away_score} = {points} points")
-                else:
-                    logger.info(f"Prediction {prediction.id} already processed, skipping")
+                
+                result.add_operation('emergency_prediction_process', {
+                    'prediction_id': prediction.id,
+                    'user_id': prediction.user_id,
+                    'fixture_id': prediction.fixture_id,
+                    'predicted_score': f"{prediction.score1}-{prediction.score2}",
+                    'actual_score': f"{fixture.home_score}-{fixture.away_score}",
+                    'old_status': old_status,
+                    'new_status': 'PROCESSED',
+                    'old_points': old_points,
+                    'new_points': points,
+                    'match_date': fixture.date.isoformat(),
+                    'processed_at': datetime.now(timezone.utc).isoformat()
+                })
+                
+                logger.info(f"Emergency processed prediction {prediction.id}: {prediction.score1}-{prediction.score2} vs {fixture.home_score}-{fixture.away_score} = {points} points")
         
         return result
 
