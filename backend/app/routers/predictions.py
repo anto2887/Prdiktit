@@ -184,17 +184,24 @@ async def submit_prediction(
         season = str(getattr(fixture, 'season', '2024'))
         
         # Get user's primary group for the prediction
-        # For now, we'll use the first group the user is a member of
+        # Use the first valid group the user is a member of
         user_groups = db.query(Group).join(
             group_members, Group.id == group_members.c.group_id
         ).filter(
             group_members.c.user_id == current_user.id
-        ).all()
+        ).order_by(group_members.c.joined_at.asc()).all()
         
         group_id = user_groups[0].id if user_groups else None
         
+        # Validate group exists
+        if group_id:
+            group_exists = db.query(Group).filter(Group.id == group_id).first()
+            if not group_exists:
+                logger.error(f"Invalid group_id {group_id} for user {current_user.id}, group doesn't exist")
+                group_id = None
+        
         if not group_id:
-            logger.warning(f"User {current_user.id} has no group membership for prediction")
+            logger.warning(f"User {current_user.id} has no valid group membership for prediction")
             # For now, allow prediction without group (will be fixed by migration)
             group_id = None
         
@@ -490,9 +497,16 @@ async def create_batch_predictions(
                     group_members, Group.id == group_members.c.group_id
                 ).filter(
                     group_members.c.user_id == current_user.id
-                ).all()
+                ).order_by(group_members.c.joined_at.asc()).all()
                 
                 group_id = user_groups[0].id if user_groups else None
+                
+                # Validate group exists
+                if group_id:
+                    group_exists = db.query(Group).filter(Group.id == group_id).first()
+                    if not group_exists:
+                        logger.error(f"Invalid group_id {group_id} for user {current_user.id}, group doesn't exist")
+                        group_id = None
                 
                 prediction = await create_prediction(
                     db,
@@ -702,103 +716,73 @@ async def get_group_leaderboard(
         if cached_data:
             return ListResponse(data=cached_data, total=len(cached_data))
         
-        # Build query
+        # Build query - FIXED: Start from group_members to show all members
         logger.info(f"🔍 Building leaderboard query for group {group_id}, season: {season}")
         
-        # Debug: Check if group_id column exists and has data
-        try:
-            from sqlalchemy import text
-            group_check = db.execute(text("SELECT COUNT(*) as count FROM user_predictions WHERE group_id = :group_id"), {"group_id": group_id}).fetchone()
-            logger.info(f"🔍 Found {group_check.count} predictions for group {group_id}")
-        except Exception as check_error:
-            logger.error(f"❌ Error checking group_id column: {check_error}")
-            logger.error(f"❌ Check error type: {type(check_error).__name__}")
+        from sqlalchemy import text
         
-        query = db.query(
-            User.username,
+        # Get all group members first
+        members_query = db.query(
             User.id.label('user_id'),
-            func.count(UserPrediction.id).label('total_predictions'),
-            func.sum(UserPrediction.points).label('total_points'),
-            func.avg(UserPrediction.points).label('average_points')
+            User.username.label('username')
         ).join(
-            UserPrediction, User.id == UserPrediction.user_id
+            group_members, User.id == group_members.c.user_id
         ).filter(
-            UserPrediction.group_id == group_id
+            group_members.c.group_id == group_id
         )
         
-        # Apply filters - SIMPLIFIED: Only season filter
-        if season:
-            logger.info(f"🔍 Adding season filter: {season}")
-            query = query.join(Fixture, UserPrediction.fixture_id == Fixture.fixture_id)
-            query = query.filter(Fixture.season == season)
+        all_members = members_query.all()
+        logger.info(f"🔍 Found {len(all_members)} members in group {group_id}")
         
-        # Group and order - FIXED: Handle NULL values properly
-        query = query.group_by(User.id, User.username).order_by(
-            func.coalesce(func.sum(UserPrediction.points), 0).desc(),
-            func.coalesce(func.avg(UserPrediction.points), 0).desc()
-        )
-        
-        # Execute query
-        logger.info("🔍 Executing leaderboard query...")
-        try:
-            # Debug: Log the actual SQL being generated
-            sql_statement = query.statement.compile(compile_kwargs={'literal_binds': True})
-            logger.info(f"🔍 Generated SQL: {sql_statement}")
-            
-            results = query.all()
-            logger.info(f"✅ Query executed successfully, found {len(results)} results")
-        except Exception as query_error:
-            logger.error(f"❌ Query execution failed: {query_error}")
-            logger.error(f"❌ Query error type: {type(query_error).__name__}")
-            logger.error(f"❌ Query SQL: {sql_statement}")
-            raise
-        
-        # Format results - ENHANCED: Add missing stats
+        # Build leaderboard with predictions for each member
         leaderboard = []
-        for i, result in enumerate(results, 1):
-            # Calculate additional stats
-            total_points = result.total_points or 0
-            total_predictions = result.total_predictions or 0
-            average_points = float(result.average_points or 0)
+        for member in all_members:
+            user_id = member.user_id
+            username = member.username
             
-            # Calculate perfect predictions (3 points) and accuracy
-            perfect_predictions = 0
-            accuracy_percentage = 0.0
+            # Get predictions for this user in this group with season filter
+            predictions_query = db.query(
+                UserPrediction.id,
+                UserPrediction.points
+            ).filter(
+                UserPrediction.user_id == user_id,
+                UserPrediction.group_id == group_id
+            )
             
-            if total_predictions > 0:
-                # Get perfect predictions count
-                perfect_result = db.execute(text("""
-                    SELECT COUNT(*) as count 
-                    FROM user_predictions 
-                    WHERE user_id = :user_id 
-                    AND group_id = :group_id 
-                    AND points = 3
-                """), {"user_id": result.user_id, "group_id": group_id}).fetchone()
-                
-                perfect_predictions = perfect_result.count if perfect_result else 0
-                
-                # Calculate accuracy percentage (predictions with any points)
-                accurate_result = db.execute(text("""
-                    SELECT COUNT(*) as count 
-                    FROM user_predictions 
-                    WHERE user_id = :user_id 
-                    AND group_id = :group_id 
-                    AND points > 0
-                """), {"user_id": result.user_id, "group_id": group_id}).fetchone()
-                
-                accurate_count = accurate_result.count if accurate_result else 0
-                accuracy_percentage = (accurate_count / total_predictions) * 100 if total_predictions > 0 else 0.0
+            # Apply season filter if provided
+            if season:
+                predictions_query = predictions_query.join(
+                    Fixture, UserPrediction.fixture_id == Fixture.fixture_id
+                ).filter(Fixture.season == season)
+            
+            predictions = predictions_query.all()
+            
+            # Calculate stats
+            total_predictions = len(predictions)
+            total_points = sum(p.points or 0 for p in predictions)
+            average_points = (total_points / total_predictions) if total_predictions > 0 else 0.0
+            perfect_predictions = sum(1 for p in predictions if p.points == 3)
+            accurate_predictions = sum(1 for p in predictions if (p.points or 0) > 0)
+            accuracy_percentage = (accurate_predictions / total_predictions * 100) if total_predictions > 0 else 0.0
             
             leaderboard.append({
-                "rank": i,
-                "username": result.username,
-                "user_id": result.user_id,
+                "user_id": user_id,
+                "username": username,
                 "total_predictions": total_predictions,
                 "total_points": total_points,
-                "average_points": average_points,
+                "average_points": round(average_points, 2),
                 "perfect_predictions": perfect_predictions,
                 "accuracy_percentage": round(accuracy_percentage, 1)
             })
+        
+        # Sort by total_points descending, then by average_points descending
+        leaderboard.sort(key=lambda x: (x['total_points'], x['average_points']), reverse=True)
+        
+        # Add rank
+        for i, entry in enumerate(leaderboard, 1):
+            entry['rank'] = i
+        
+        logger.info(f"✅ Leaderboard built successfully with {len(leaderboard)} members")
         
         # Cache the result for 5 minutes
         await cache.set(cache_key, leaderboard, expiry=300)
@@ -818,6 +802,104 @@ async def get_group_leaderboard(
             error_message += f" - {str(e)}"
         
         raise HTTPException(status_code=500, detail=error_message)
+
+
+@router.post("/fix-invalid-group-ids", response_model=DataResponse)
+async def fix_invalid_group_ids(
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db)
+):
+    """
+    Fix predictions with invalid group_id (e.g., group_id = 29 that doesn't exist)
+    Updates them to use the user's first valid group
+    """
+    from sqlalchemy import text
+    
+    logger.info("🔧 Starting fix for invalid group_ids...")
+    
+    # Get all predictions with invalid group_ids (group doesn't exist)
+    invalid_predictions = db.execute(text("""
+        SELECT DISTINCT up.id, up.user_id, up.group_id
+        FROM user_predictions up
+        WHERE up.group_id IS NOT NULL
+        AND NOT EXISTS (
+            SELECT 1 FROM groups g WHERE g.id = up.group_id
+        )
+    """)).fetchall()
+    
+    total_invalid = len(invalid_predictions)
+    logger.info(f"📊 Found {total_invalid} predictions with invalid group_ids")
+    
+    if total_invalid == 0:
+        return DataResponse(
+            message="No invalid group_ids found",
+            data={"fixed_count": 0, "total_checked": 0}
+        )
+    
+    updated_count = 0
+    failed_count = 0
+    
+    for pred in invalid_predictions:
+        try:
+            prediction_id = pred.id
+            user_id = pred.user_id
+            old_group_id = pred.group_id
+            
+            # Find user's first valid group
+            user_groups_result = db.execute(text("""
+                SELECT g.id 
+                FROM groups g
+                JOIN group_members gm ON g.id = gm.group_id
+                WHERE gm.user_id = :user_id
+                ORDER BY gm.joined_at ASC
+                LIMIT 1
+            """), {"user_id": user_id}).fetchone()
+            
+            if user_groups_result:
+                new_group_id = user_groups_result.id
+                
+                # Update all predictions for this user with the invalid group_id
+                result = db.execute(text("""
+                    UPDATE user_predictions 
+                    SET group_id = :new_group_id 
+                    WHERE user_id = :user_id 
+                    AND group_id = :old_group_id
+                """), {
+                    "new_group_id": new_group_id,
+                    "user_id": user_id,
+                    "old_group_id": old_group_id
+                })
+                
+                updated_count += result.rowcount
+                logger.info(f"✅ Updated user {user_id} predictions from group {old_group_id} to {new_group_id}")
+            else:
+                logger.warning(f"⚠️ User {user_id} has no valid group membership, setting group_id to NULL")
+                db.execute(text("""
+                    UPDATE user_predictions 
+                    SET group_id = NULL 
+                    WHERE user_id = :user_id 
+                    AND group_id = :old_group_id
+                """), {
+                    "user_id": user_id,
+                    "old_group_id": old_group_id
+                })
+                failed_count += 1
+                
+        except Exception as e:
+            logger.error(f"❌ Error fixing prediction {prediction_id}: {e}")
+            failed_count += 1
+    
+    db.commit()
+    logger.info(f"✅ Fixed {updated_count} predictions, {failed_count} failed")
+    
+    return DataResponse(
+        message=f"Fixed {updated_count} predictions with invalid group_ids",
+        data={
+            "fixed_count": updated_count,
+            "failed_count": failed_count,
+            "total_invalid": total_invalid
+        }
+    )
 
 
 @router.post("/migrate-group-id-field", response_model=DataResponse)
