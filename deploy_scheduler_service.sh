@@ -69,20 +69,14 @@ check_project_link() {
 deploy_scheduler_service() {
     print_status "Deploying scheduler service..."
     
-    # Check if we're in the right directory
-    if [ ! -f "scheduler/Dockerfile" ]; then
-        print_error "scheduler/Dockerfile not found. Please run this script from the project root."
-        exit 1
-    fi
-    
     if [ ! -f "railway.toml" ]; then
         print_error "railway.toml not found. Please run this script from the project root."
         exit 1
     fi
     
-    # Verify scheduler service is configured in railway.toml
-    if ! grep -q 'name = "scheduler"' railway.toml; then
-        print_error "Scheduler service not found in railway.toml. Please configure it first."
+    # Verify scheduler build config is present in railway.toml
+    if ! grep -q '\[scheduler.build\]' railway.toml; then
+        print_error "Scheduler build configuration not found in railway.toml. Please configure [scheduler.build] first."
         exit 1
     fi
     
@@ -110,7 +104,7 @@ show_next_steps() {
     echo "   - Configuration is managed by railway.toml (config-as-code)"
     echo "   - Port: 8001 (set via PORT environment variable)"
     echo "   - Start Command: python -m app.scheduler_minimal"
-    echo "   - Dockerfile: scheduler/Dockerfile"
+    echo "   - Dockerfile: backend/Dockerfile.prod (shared with backend service)"
     echo "   - Resources: 2-4 vCPU, 4-8 GB RAM"
     echo "   - Note: Clear any dashboard build settings to let railway.toml take precedence"
     echo ""
@@ -135,8 +129,7 @@ show_next_steps() {
     echo ""
     echo "📚 Configuration:"
     echo "   - railway.toml: Main service configuration"
-    echo "   - scheduler/Dockerfile: Build configuration"
-    echo "   - scheduler/build.sh: Local build script with change detection"
+    echo "   - backend/Dockerfile.prod: Shared backend/scheduler Docker image"
 }
 
 # Main execution

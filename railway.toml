@@ -9,7 +9,7 @@ startCommand = "gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bi
 # 2. Scheduler Service
 [scheduler.build]
 builder = "dockerfile"
-dockerfilePath = "scheduler/Dockerfile"
+dockerfilePath = "backend/Dockerfile.prod"
 
 [scheduler.deploy]
 startCommand = "python -m app.scheduler_minimal"
@@ -17,7 +17,7 @@ startCommand = "python -m app.scheduler_minimal"
 # 3. Frontend Service
 [frontend.build]
 builder = "dockerfile"
-dockerfilePath = "frontend/Dockerfile"
+dockerfilePath = "frontend/Dockerfile.prod"
 
 [frontend.deploy]
 startCommand = "nginx -g 'daemon off;'"
