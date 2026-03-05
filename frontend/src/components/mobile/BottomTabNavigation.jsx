@@ -56,22 +56,34 @@ const BottomTabNavigation = () => {
           <NavLink
             key={tab.id}
             to={tab.path}
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center space-y-1 transition-colors ${
-                isActive
-                  ? 'text-blue-600'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`
-            }
+            className={({ isActive }) => {
+              const isHomeActive =
+                tab.id === 'home' &&
+                (location.pathname === '/' ||
+                  location.pathname.startsWith('/dashboard'));
+              const active = isActive || isHomeActive;
+
+              return `flex flex-col items-center justify-center space-y-1 transition-colors ${
+                active ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'
+              }`;
+            }}
           >
-            {({ isActive }) => (
-              <>
-                <div className="w-6 h-6">
-                  {isActive ? <tab.activeIcon /> : <tab.icon />}
-                </div>
-                <span className="text-xs font-medium">{tab.label}</span>
-              </>
-            )}
+            {({ isActive }) => {
+              const isHomeActive =
+                tab.id === 'home' &&
+                (location.pathname === '/' ||
+                  location.pathname.startsWith('/dashboard'));
+              const active = isActive || isHomeActive;
+
+              return (
+                <>
+                  <div className="w-6 h-6">
+                    {active ? <tab.activeIcon /> : <tab.icon />}
+                  </div>
+                  <span className="text-xs font-medium">{tab.label}</span>
+                </>
+              );
+            }}
           </NavLink>
         ))}
       </div>

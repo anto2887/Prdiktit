@@ -18,7 +18,7 @@ const ProfilePage = () => {
 
   useEffect(() => {
     fetchUserPredictions();
-  }, [fetchProfile]);
+  }, [fetchUserPredictions]);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -29,7 +29,7 @@ const ProfilePage = () => {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-5xl mx-auto px-4 py-6 pb-20 md:pb-8 space-y-8">
       <Profile />
       <PredictionStats />
     </div>

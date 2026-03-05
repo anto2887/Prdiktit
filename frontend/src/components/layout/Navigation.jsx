@@ -64,7 +64,7 @@ const Navigation = () => {
           <div className="flex items-center">
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
-                <span className="text-gray-700">
+                <span className="text-gray-700 hidden sm:inline">
                   {user?.username}
                 </span>
                 <div className="relative ml-3" ref={dropdownRef}>
