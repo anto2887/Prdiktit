@@ -5,11 +5,16 @@ const PrivacyPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">Privacy Policy</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Last updated: {new Date().toLocaleDateString()}
-          </p>
+        <div className="max-w-4xl mx-auto px-4 py-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Privacy Policy</h1>
+          </div>
+          <a
+            href="/dashboard"
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          >
+            ← Back to Dashboard
+          </a>
         </div>
       </header>
 
@@ -23,6 +28,10 @@ const PrivacyPage = () => {
           </p>
           <p>
             By using the Service, you agree to the collection and use of information in accordance with this Policy.
+          </p>
+          <p className="mt-2">
+            Prdiktit is operated from the United States. When you use the Service, your information is processed and
+            stored in the United States, primarily in Colorado and in the regions used by our hosting providers.
           </p>
         </section>
 
@@ -94,7 +103,10 @@ const PrivacyPage = () => {
 
         <section>
           <h2 className="text-lg font-semibold mb-2">5. How We Share Your Information</h2>
-          <p className="mb-2">We do not sell your personal data.</p>
+          <p className="mb-2">
+            We do not sell your personal data, including as &ldquo;sell&rdquo; is defined under US state privacy laws
+            such as the Colorado Privacy Act.
+          </p>
           <p className="mb-2">We may share your information with:</p>
           <ul className="list-disc ml-5 space-y-1">
             <li>

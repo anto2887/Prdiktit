@@ -6,11 +6,16 @@ const TermsPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">Terms of Service</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Last updated: {new Date().toLocaleDateString()}
-          </p>
+        <div className="max-w-4xl mx-auto px-4 py-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Terms of Service</h1>
+          </div>
+          <Link
+            to="/dashboard"
+            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          >
+            ← Back to Dashboard
+          </Link>
         </div>
       </header>
 
@@ -151,10 +156,14 @@ const TermsPage = () => {
 
         <section>
           <h2 className="text-lg font-semibold mb-2">11. Governing Law</h2>
+          <p className="mb-2">
+            These Terms are governed by the laws of the State of Colorado, USA, without regard to its conflict of law
+            principles.
+          </p>
           <p>
-            These Terms are governed by the laws of the jurisdiction where Prdiktit is operated, without regard to its
-            conflict of law principles. Any disputes will be resolved in the courts of that jurisdiction, unless
-            applicable law requires otherwise.
+            You agree that any disputes arising out of or relating to these Terms or the Service will be brought
+            exclusively in the state or federal courts located in Colorado, USA, and you consent to the personal
+            jurisdiction of those courts.
           </p>
         </section>
 
