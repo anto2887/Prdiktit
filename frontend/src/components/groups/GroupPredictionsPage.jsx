@@ -85,17 +85,13 @@ const GroupPredictionsPage = () => {
       const { predictionsApi } = await import('../../api');
       const response = await predictionsApi.getGroupPredictions(groupId, week, season);
       
-      process.env.NODE_ENV === 'development' && console.log(`🔍 Group predictions response:`, response.data);
+      // NOTE: predictionsApi already normalizes the API response and returns
+      // an object of the form { status, message, data }, so response.data is
+      // already the array of predictions.
+      process.env.NODE_ENV === 'development' && console.log('🔍 Group predictions API normalized response:', response);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Response.data (predictions array):', response.data);
       
-      // The API client already handles the response, so we can access the data directly
-      const data = response.data;
-      process.env.NODE_ENV === 'development' && console.log('🔍 Group predictions API response:', data);
-      process.env.NODE_ENV === 'development' && console.log('🔍 Response data type:', typeof data);
-      process.env.NODE_ENV === 'development' && console.log('🔍 Response data keys:', Object.keys(data));
-      process.env.NODE_ENV === 'development' && console.log('🔍 Response.data type:', typeof data.data);
-      process.env.NODE_ENV === 'development' && console.log('🔍 Response.data:', data.data);
-      
-      const predictionsArray = Array.isArray(data.data) ? data.data : [];
+      const predictionsArray = Array.isArray(response.data) ? response.data : [];
       process.env.NODE_ENV === 'development' && console.log('🔍 Processed predictions array:', predictionsArray);
       process.env.NODE_ENV === 'development' && console.log('🔍 Predictions array length:', predictionsArray.length);
       process.env.NODE_ENV === 'development' && console.log('🔍 Predictions array type:', typeof predictionsArray);
