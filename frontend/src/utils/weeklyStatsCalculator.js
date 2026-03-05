@@ -16,9 +16,16 @@ export const groupPredictionsByWeek = (predictions, season = getCurrentSeason())
   
   predictions.forEach(prediction => {
     // Use fixture date or prediction date
-    const predictionDate = prediction.fixture?.date || prediction.created_at || prediction.date;
+    const rawDate = prediction.fixture?.date || prediction.created_at || prediction.date;
     
-    if (!predictionDate) return;
+    if (!rawDate) return;
+    
+    // Normalise to a valid Date instance before passing to getWeekNumber
+    const predictionDate = rawDate instanceof Date ? rawDate : new Date(rawDate);
+    if (isNaN(predictionDate.getTime())) {
+      // Skip invalid dates to avoid runtime errors in getWeekNumber
+      return;
+    }
     
     const weekNumber = getWeekNumber(predictionDate, season);
     
