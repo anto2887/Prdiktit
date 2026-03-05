@@ -29,25 +29,27 @@ const GroupsPage = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <h1 className="text-2xl font-bold text-gray-900">My Leagues</h1>
         <div className="flex items-center gap-4">
-          <HelpTooltip content="Join an existing league using an invite code">
-            <Link
-              to="/groups/join"
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            >
-              Join League
-            </Link>
-          </HelpTooltip>
-          <HelpTooltip content="Create a new private league and invite friends">
-            <Link
-              to="/groups/create"
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-            >
-              Create League
-            </Link>
-          </HelpTooltip>
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <HelpTooltip content="Join an existing league using an invite code">
+              <Link
+                to="/groups/join"
+                className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 text-center"
+              >
+                Join League
+              </Link>
+            </HelpTooltip>
+            <HelpTooltip content="Create a new private league and invite friends">
+              <Link
+                to="/groups/create"
+                className="w-full md:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 text-center"
+              >
+                Create League
+              </Link>
+            </HelpTooltip>
+          </div>
           <HelpTooltip content="Start the guided tour to learn about leagues">
             <button
               onClick={() => setShowGuide(true)}

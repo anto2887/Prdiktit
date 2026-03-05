@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../contexts/AppContext';
+import MobilePageHeader from '../mobile/MobilePageHeader';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
@@ -164,84 +165,71 @@ const GroupPredictionsPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          {/* Top row: Back button and group name */}
-          <div className="flex items-center justify-between mb-3">
+      <MobilePageHeader
+        title={group.name}
+        backPath={`/groups/${groupId}`}
+        actions={[
+          <HelpTooltip key="help" content="Start the guided tour to learn about this page">
             <button
-              onClick={() => navigate(`/groups/${groupId}`)}
-              className="flex items-center text-blue-600 hover:text-blue-800"
+              onClick={() => setShowGuide(true)}
+              className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+              aria-label="Open predictions help"
             >
-              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span className="text-sm font-medium">Back to Group</span>
             </button>
-            
-            <h1 className="text-lg font-bold text-gray-900 truncate ml-2">
-              {group.name}
-            </h1>
+          </HelpTooltip>
+        ]}
+      />
+
+      {/* Controls row */}
+      <div className="px-4 pt-3 pb-2 border-b border-gray-200 bg-white sticky top-14 z-30 md:static md:top-auto">
+        <div className="flex items-center justify-between space-x-3 overflow-x-auto">
+          {/* Week selector */}
+          <div className="flex-1 max-w-32 min-w-[8rem]">
+            <HelpTooltip content="Select a specific week to view predictions for that week">
+              <select
+                id="week-selector"
+                value={selectedWeek || currentWeek}
+                onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
+                className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {getWeekOptions().map(week => (
+                  <option key={week} value={week}>
+                    Week {week}
+                    {week === currentWeek && ' (Current)'}
+                  </option>
+                ))}
+              </select>
+            </HelpTooltip>
           </div>
           
-          {/* Controls row */}
-          <div className="flex items-center justify-between space-x-3">
-            {/* Week selector */}
-            <div className="flex-1 max-w-32">
-              <HelpTooltip content="Select a specific week to view predictions for that week">
-                <select
-                  id="week-selector"
-                  value={selectedWeek || currentWeek}
-                  onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-                  className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          {/* View toggle */}
+          <div className="flex bg-gray-100 rounded-lg p-1 shrink-0" id="view-toggle">
+            <HelpTooltip content="Switch between grid view (cards) and list view (compact)">
+              <div className="flex">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'grid'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 >
-                  {getWeekOptions().map(week => (
-                    <option key={week} value={week}>
-                      Week {week}
-                      {week === currentWeek && ' (Current)'}
-                    </option>
-                  ))}
-                </select>
-              </HelpTooltip>
-            </div>
-            
-            {/* View toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1" id="view-toggle">
-              <HelpTooltip content="Switch between grid view (cards) and list view (compact)">
-                <div className="flex">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      viewMode === 'grid'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Grid
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      viewMode === 'list'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    List
-                  </button>
-                </div>
-              </HelpTooltip>
-            </div>
-            
-            {/* Help button */}
-            <HelpTooltip content="Start the guided tour to learn about this page">
-              <button
-                onClick={() => setShowGuide(true)}
-                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
+                  Grid
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  List
+                </button>
+              </div>
             </HelpTooltip>
           </div>
         </div>

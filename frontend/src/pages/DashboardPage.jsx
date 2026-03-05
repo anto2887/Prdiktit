@@ -291,8 +291,8 @@ const DashboardPage = React.memo(() => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="container mx-auto px-4 py-8 pb-20 md:pb-8">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <HelpTooltip content="Start the guided tour to learn about your dashboard">
           <button
@@ -400,8 +400,22 @@ const DashboardPage = React.memo(() => {
       
       {/* Upcoming matches section */}
       <section className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">Upcoming Matches</h2>
-        <UpcomingMatches matches={fixtures} />
+        {/* Mobile: collapsible */}
+        <details className="md:hidden bg-white rounded-lg border border-gray-200">
+          <summary className="flex items-center justify-between px-4 py-3 cursor-pointer">
+            <h2 className="text-lg font-semibold">Upcoming Matches</h2>
+            <span className="text-sm text-gray-500">Tap to expand</span>
+          </summary>
+          <div className="border-t border-gray-200">
+            <UpcomingMatches matches={fixtures} />
+          </div>
+        </details>
+
+        {/* Desktop: always visible */}
+        <div className="hidden md:block">
+          <h2 className="text-xl font-semibold mb-4">Upcoming Matches</h2>
+          <UpcomingMatches matches={fixtures} />
+        </div>
       </section>
       
       {/* Recent predictions section */}

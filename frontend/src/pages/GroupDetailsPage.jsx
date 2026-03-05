@@ -14,6 +14,7 @@ import ErrorMessage from '../components/common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
 import GroupActivationProgress from '../components/common/GroupActivationProgress';
 import ContextAwareNavigation from '../components/common/ContextAwareNavigation';
+import MobileCard from '../components/mobile/MobileCard';
 
 const GroupDetailsPage = () => {
   const { groupId } = useParams();
@@ -455,7 +456,7 @@ const GroupDetailsPage = () => {
             </div>
             
             <div className="overflow-x-auto">
-              <table className="min-w-full">
+              <table className="min-w-full hidden md:table">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -508,6 +509,43 @@ const GroupDetailsPage = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile member cards */}
+            <div className="md:hidden space-y-3 mt-4">
+              {groupMembers.map((member) => (
+                <MobileCard key={member.user_id}>
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">
+                      {member.username}
+                      {member.username === profile?.username && (
+                        <span className="ml-2 text-xs text-blue-600">(You)</span>
+                      )}
+                    </span>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        member.role === 'ADMIN'
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {member.role}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-500 mt-1">
+                    Joined {new Date(member.joined_at).toLocaleDateString()} ·{' '}
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                        member.status === 'APPROVED'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}
+                    >
+                      {member.status}
+                    </span>
+                  </div>
+                </MobileCard>
+              ))}
             </div>
           </div>
         )}

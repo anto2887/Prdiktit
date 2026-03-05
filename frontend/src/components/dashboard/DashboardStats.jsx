@@ -94,7 +94,7 @@ const DashboardStats = ({ stats }) => {
   return (
     <div className="space-y-4">
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           title="Total Points"
           value={displayStats.totalPoints}
@@ -112,7 +112,7 @@ const DashboardStats = ({ stats }) => {
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           title="Perfect Scores"
           value={displayStats.perfectScores}
@@ -130,7 +130,7 @@ const DashboardStats = ({ stats }) => {
       </div>
 
       {/* Performance Metrics */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
           title="Average Points"
           value={displayStats.averagePoints}

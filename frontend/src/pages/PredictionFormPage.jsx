@@ -281,7 +281,7 @@ const PredictionFormPage = () => {
                           process.env.NODE_ENV === 'development' && console.log('Home score input changed:', e.target.value);
                           setHomeScore(e.target.value);
                         }}
-                        className="w-20 h-12 text-center text-xl font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-20 h-12 text-center text-xl text-base font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0"
                         required
                       />
@@ -302,7 +302,7 @@ const PredictionFormPage = () => {
                           process.env.NODE_ENV === 'development' && console.log('Away score input changed:', e.target.value);
                           setAwayScore(e.target.value);
                         }}
-                        className="w-20 h-12 text-center text-xl font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-20 h-12 text-center text-xl text-base font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0"
                         required
                       />
@@ -310,18 +310,18 @@ const PredictionFormPage = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-4">
+                <div className="flex flex-col-reverse sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4">
                   <button
                     type="button"
                     onClick={() => navigate('/predictions')}
-                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 w-full sm:w-auto"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={predictionLoading}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
                   >
                     {predictionLoading ? 'Saving...' : (id || existingPrediction ? 'Update Prediction' : 'Save Prediction')}
                   </button>
