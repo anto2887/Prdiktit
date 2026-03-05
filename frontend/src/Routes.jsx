@@ -15,6 +15,8 @@ import {
   DashboardPage,
   ProfilePage,
   SettingsPage,
+  TermsPage,
+  PrivacyPage,
   PredictionsPage,
   PredictionFormPage,
   PredictionHistoryPage,
@@ -45,6 +47,8 @@ const AppRoutes = () => {
         isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />
       } />
       <Route path="/auth/oauth/google/callback" element={<OAuthCallbackPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       
       {/* Protected routes with MainLayout */}
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>

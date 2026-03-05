@@ -6,6 +6,8 @@ export { default as OAuthCallbackPage } from './OAuthCallbackPage';
 export { default as DashboardPage } from './DashboardPage';
 export { default as ProfilePage } from './ProfilePage';
 export { default as SettingsPage } from './SettingsPage';
+export { default as TermsPage } from './TermsPage';
+export { default as PrivacyPage } from './PrivacyPage';
 
 // Prediction pages
 export { default as PredictionsPage } from './PredictionsPage';
