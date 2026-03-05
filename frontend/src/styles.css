@@ -100,3 +100,20 @@ input[type="number"] {
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
 }
+
+/* Prevent iOS input zoom */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Safe area insets for notched phones */
+.bottom-tab-nav {
+  padding-bottom: env(safe-area-inset-bottom);
+}

@@ -6,7 +6,7 @@ const Sidebar = () => {
   const { userGroups } = useGroups();
 
   return (
-    <aside className="w-64 bg-white shadow-lg">
+    <aside className="w-64 bg-white shadow-lg hidden md:block">
       <div className="h-full px-3 py-4 overflow-y-auto">
         <nav className="space-y-6">
           <div>

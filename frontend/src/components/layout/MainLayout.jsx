@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import Footer from './Footer';
 import { useAuth } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
+import BottomTabNavigation from '../mobile/BottomTabNavigation';
 
 const MainLayout = () => {
   const { loading } = useAuth();
@@ -21,7 +22,7 @@ const MainLayout = () => {
       <div className="flex-grow flex">
         <Sidebar />
         
-        <main className="flex-grow overflow-auto">
+        <main className="flex-grow overflow-auto pb-16 md:pb-0">
           <div className="container mx-auto px-4 py-6">
             <Outlet />
           </div>
@@ -29,6 +30,7 @@ const MainLayout = () => {
       </div>
       
       <Footer />
+      <BottomTabNavigation />
     </div>
   );
 };
