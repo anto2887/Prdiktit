@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUser, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import { applyTheme } from '../../utils/theme';
 
 const Settings = () => {
-  const { loading, error, updateProfile } = useUser();
+  const { profile, loading, error, updateProfile } = useUser();
   const { showSuccess, showError } = useNotifications();
 
+  // Load saved settings from profile
   const [notifications, setNotifications] = useState({
     emailNotifications: true,
     predictionReminders: true,
@@ -19,6 +21,30 @@ const Settings = () => {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     dateFormat: '12hour'
   });
+
+  // Load saved settings from profile when component mounts or profile changes
+  useEffect(() => {
+    if (profile?.settings) {
+      if (profile.settings.notifications) {
+        setNotifications(prev => ({
+          ...prev,
+          ...profile.settings.notifications
+        }));
+      }
+      
+      if (profile.settings.displayPreferences) {
+        setDisplayPreferences(prev => ({
+          ...prev,
+          ...profile.settings.displayPreferences
+        }));
+        
+        // Apply theme immediately when loaded
+        if (profile.settings.displayPreferences.theme) {
+          applyTheme(profile.settings.displayPreferences.theme);
+        }
+      }
+    }
+  }, [profile]);
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
@@ -36,18 +62,28 @@ const Settings = () => {
       ...prev,
       [name]: value
     }));
+    
+    // Apply theme immediately when changed (before saving)
+    if (name === 'theme') {
+      applyTheme(value);
+    }
   };
 
   const handleSaveSettings = async () => {
     try {
+      // Only save theme preference (timezone and dateFormat are for display only)
       const settings = {
         notifications,
-        displayPreferences
+        displayPreferences: {
+          theme: displayPreferences.theme
+          // Note: timezone and dateFormat are not saved - browser defaults are used
+        }
       };
       
       const success = await updateProfile({ settings });
       if (success) {
         showSuccess('Settings updated successfully');
+        // Theme is already applied, no need to re-apply
       }
     } catch (err) {
       showError(err.message || 'Failed to update settings');
@@ -56,10 +92,10 @@ const Settings = () => {
 
   return (
     <div className="max-w-3xl mx-auto py-6">
-      <div className="bg-white shadow rounded-lg divide-y divide-gray-200">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg divide-y divide-gray-200 dark:divide-gray-700">
         {/* Notification Settings */}
         <div className="px-6 py-4">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             Notification Settings
           </h2>
           <div className="space-y-4">
@@ -68,11 +104,11 @@ const Settings = () => {
                 <div>
                   <label 
                     htmlFor={key}
-                    className="text-sm font-medium text-gray-700"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
                     {key.replace(/([A-Z])/g, ' $1').trim()}
                   </label>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     Receive notifications about {key.toLowerCase()}
                   </p>
                 </div>
@@ -99,14 +135,14 @@ const Settings = () => {
 
         {/* Display Preferences */}
         <div className="px-6 py-4">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
             Display Preferences
           </h2>
           <div className="space-y-4">
             <div>
               <label 
                 htmlFor="theme" 
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
                 Theme
               </label>
@@ -115,7 +151,7 @@ const Settings = () => {
                 name="theme"
                 value={displayPreferences.theme}
                 onChange={handleDisplayPreferenceChange}
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
               >
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
@@ -126,16 +162,18 @@ const Settings = () => {
             <div>
               <label 
                 htmlFor="timezone" 
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Timezone
+                Timezone (Display Only)
               </label>
               <select
                 id="timezone"
                 name="timezone"
                 value={displayPreferences.timezone}
                 onChange={handleDisplayPreferenceChange}
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+                disabled
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 bg-gray-100 text-gray-500 rounded-md cursor-not-allowed"
+                title="Timezone is automatically detected from your browser"
               >
                 {Intl.supportedValuesOf('timeZone').map(zone => (
                   <option key={zone} value={zone}>
@@ -143,36 +181,44 @@ const Settings = () => {
                   </option>
                 ))}
               </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Your browser's timezone is used automatically
+              </p>
             </div>
 
             <div>
               <label 
                 htmlFor="dateFormat" 
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Time Format
+                Time Format (Display Only)
               </label>
               <select
                 id="dateFormat"
                 name="dateFormat"
                 value={displayPreferences.dateFormat}
                 onChange={handleDisplayPreferenceChange}
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
+                disabled
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 bg-gray-100 text-gray-500 rounded-md cursor-not-allowed"
+                title="Time format uses browser defaults"
               >
                 <option value="12hour">12 Hour</option>
                 <option value="24hour">24 Hour</option>
               </select>
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Time format follows your browser's locale settings
+              </p>
             </div>
           </div>
         </div>
 
         {/* Save Button */}
-        <div className="px-6 py-4 bg-gray-50">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900">
           <div className="flex justify-end">
             <button
               type="button"
               onClick={handleSaveSettings}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              className="bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
             >
               Save Settings
             </button>
