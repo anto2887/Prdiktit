@@ -16,7 +16,7 @@ const BackButton = ({ to }) => {
     <button
       type="button"
       onClick={handleClick}
-      className="mr-2 inline-flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 text-gray-700 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      className="mr-2 inline-flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
       aria-label="Go back"
     >
       <svg
@@ -38,11 +38,11 @@ const BackButton = ({ to }) => {
 
 const MobilePageHeader = ({ title, backPath, actions }) => {
   return (
-    <div className="sticky top-0 z-40 bg-white border-b border-gray-200 md:hidden">
+    <div className="sticky top-0 z-40 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 md:hidden">
       <div className="flex items-center justify-between px-4 py-3 h-14">
         <div className="flex items-center min-w-0">
           {backPath && <BackButton to={backPath} />}
-          <h1 className="text-base font-semibold truncate">{title}</h1>
+          <h1 className="text-base font-semibold truncate text-gray-900 dark:text-gray-100">{title}</h1>
         </div>
         {actions && actions.length > 0 && (
           <div className="flex items-center space-x-2">

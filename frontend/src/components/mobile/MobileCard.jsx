@@ -9,7 +9,7 @@ const MobileCard = ({ children, onClick, className }) => {
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       className={clsx(
-        'w-full text-left bg-white rounded-lg border border-gray-200 p-4 shadow-sm',
+        'w-full text-left bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm',
         onClick && 'transition-shadow active:shadow-md',
         className
       )}
