@@ -24,23 +24,23 @@ export const Login = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <img 
           src="/static/images/logo.svg" 
           alt="Logo" 
           className="mx-auto h-12 w-auto"
         />
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
           Sign in to PrdiktIt
         </h2>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+        <div className="bg-white dark:bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <div className="space-y-6">
             <div className="text-center">
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 Sign in to your PrdiktIt account using Google OAuth2
               </p>
             </div>
@@ -60,24 +60,24 @@ export const Login = () => {
             </div>
 
             <div className="text-center">
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                 New to PrdiktIt?{' '}
                 <Link 
                   to="/register" 
-                  className="font-medium text-blue-600 hover:text-blue-500"
+                  className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
                 >
                   Create your account
                 </Link>
               </p>
               
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <h3 className="text-sm font-medium text-blue-800 mb-2">For Existing Users</h3>
-                <p className="text-sm text-blue-700 mb-3">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">For Existing Users</h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
                   If you have an existing username/password account, please contact support to migrate to OAuth2.
                 </p>
                 <Link
                   to="/reset-password"
-                  className="text-sm text-blue-600 hover:text-blue-500 underline"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 underline"
                 >
                   Forgot your password?
                 </Link>
