@@ -51,6 +51,9 @@ class User(Base):
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     
+    # User settings/preferences stored as JSON
+    settings = Column(JSON, nullable=True)
+    
     # OAuth2 fields
     oauth_provider = Column(String(50), nullable=True, index=True)  # 'google', 'facebook', 'apple'
     oauth_id = Column(String(255), nullable=True, index=True)  # Provider's unique user ID

@@ -22,6 +22,7 @@ from ..services.cache_service import get_cache, RedisCache
 from ..schemas import (
     User, 
     UserCreate, 
+    UserUpdate,
     UserStats, 
     BaseResponse, 
     DataResponse, 
@@ -67,7 +68,8 @@ async def get_profile(
                     "username": current_user.username,
                     "email": current_user.email,
                     "is_active": current_user.is_active,
-                    "created_at": current_user.created_at
+                    "created_at": current_user.created_at,
+                    "settings": current_user.settings if current_user.settings else None
                 },
                 "stats": UserStats(
                     total_points=stats["total_points"],
@@ -89,19 +91,28 @@ async def get_profile(
 
 @router.put("/profile", response_model=BaseResponse)
 async def update_profile(
-    profile_update: UserCreate,
+    profile_update: UserUpdate,
     current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
     """
     Update current user profile
+    All fields are optional - only provided fields will be updated
     """
     user_data = profile_update.dict(exclude_unset=True)
     
     # If password is being updated, hash it
     if "password" in user_data:
         user_data["hashed_password"] = get_password_hash(user_data.pop("password"))
+    
+    # If settings is being updated, ensure it's a valid dict
+    if "settings" in user_data and user_data["settings"] is not None:
+        if not isinstance(user_data["settings"], dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Settings must be a valid JSON object"
+            )
     
     updated_user = await update_user(db, current_user.id, **user_data)
     

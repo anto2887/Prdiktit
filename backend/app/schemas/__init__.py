@@ -63,6 +63,13 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+class UserUpdate(BaseModel):
+    """Schema for updating user profile - all fields optional"""
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
+
 class User(UserBase):
     id: int
     created_at: datetime
