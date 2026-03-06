@@ -387,21 +387,38 @@ async def migrate_users_updated_at(db: Session = Depends(get_db)):
             ALTER COLUMN updated_at SET NOT NULL
         """))
         
+        # Also add settings column if it doesn't exist
+        if 'settings' not in existing_columns:
+            logger.info("🔧 Adding settings column to users table...")
+            try:
+                db.execute(text("""
+                    ALTER TABLE users 
+                    ADD COLUMN settings JSON
+                """))
+                logger.info("✅ Settings column added successfully")
+            except Exception as settings_error:
+                logger.warning(f"⚠️ Could not add settings column (may already exist): {str(settings_error)}")
+        
         # Commit the migration
         db.commit()
         
         logger.info("✅ Users updated_at migration completed successfully")
         
+        changes = [
+            "Added updated_at column to users table",
+            "Set default value to NOW()",
+            "Updated existing records to have updated_at = created_at",
+            "Made updated_at NOT NULL"
+        ]
+        
+        if 'settings' not in existing_columns:
+            changes.append("Added settings column (JSON type) to users table")
+        
         return {
             "success": True,
             "message": "Users updated_at migration completed successfully",
             "migration_type": "users_updated_at",
-            "changes": [
-                "Added updated_at column to users table",
-                "Set default value to NOW()",
-                "Updated existing records to have updated_at = created_at",
-                "Made updated_at NOT NULL"
-            ],
+            "changes": changes,
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
@@ -554,6 +571,55 @@ async def test_session_system(db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=500,
             detail=f"Session system test failed: {str(e)}"
+        )
+
+@router.post("/migrate-users-settings")
+async def migrate_users_settings(db: Session = Depends(get_db)):
+    """Migrate database schema to add settings column to users table"""
+    try:
+        logger.info("🔄 Starting users settings migration...")
+        
+        # Check if migration is already done
+        inspector = inspect(db.bind)
+        existing_columns = [col['name'] for col in inspector.get_columns('users')]
+        
+        if 'settings' in existing_columns:
+            logger.info("✅ Users settings migration already completed")
+            return {
+                "success": True,
+                "message": "Users settings migration already completed",
+                "migration_type": "users_settings",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        
+        # Add settings column to users table
+        logger.info("🔧 Adding settings column to users table...")
+        db.execute(text("""
+            ALTER TABLE users 
+            ADD COLUMN settings JSON
+        """))
+        
+        # Commit the migration
+        db.commit()
+        
+        logger.info("✅ Users settings migration completed successfully")
+        
+        return {
+            "success": True,
+            "message": "Users settings migration completed successfully",
+            "migration_type": "users_settings",
+            "changes": [
+                "Added settings column (JSON type) to users table"
+            ],
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Users settings migration failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Users settings migration failed: {str(e)}"
         )
 
 @router.get("/test-users-updated-at")
