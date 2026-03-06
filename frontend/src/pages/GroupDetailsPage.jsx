@@ -236,17 +236,17 @@ const GroupDetailsPage = () => {
       <div className="mb-8">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               {currentGroup.name}
             </h1>
-            <div className="flex items-center space-x-4 text-sm text-gray-600">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                 {currentGroup.league}
               </span>
               <span>{groupMembers.length} members</span>
               {currentGroup.invite_code && (
                 <HelpTooltip content="Share this invite code with friends to let them join your league">
-                  <span>Code: <code className="bg-gray-100 px-2 py-1 rounded text-xs cursor-help">{currentGroup.invite_code}</code></span>
+                  <span>Code: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs cursor-help text-gray-900 dark:text-gray-100">{currentGroup.invite_code}</code></span>
                 </HelpTooltip>
               )}
             </div>
@@ -257,7 +257,7 @@ const GroupDetailsPage = () => {
             <HelpTooltip content="View all predictions made by league members">
               <button
                 onClick={() => navigate(`/groups/${groupId}/predictions`)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
               >
                 📊 Predictions
               </button>
@@ -265,7 +265,7 @@ const GroupDetailsPage = () => {
             <HelpTooltip content="View rivalry statistics and head-to-head matchups">
               <button
                 onClick={() => navigate(`/groups/${groupId}/rivalries`)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800"
               >
                 🥊 Rivalries
               </button>
@@ -274,7 +274,7 @@ const GroupDetailsPage = () => {
               <HelpTooltip content="Manage league settings and members">
                 <button
                   onClick={() => navigate(`/groups/${groupId}/manage`)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
                 >
                   ⚙️ Manage
                 </button>
@@ -283,7 +283,7 @@ const GroupDetailsPage = () => {
             <HelpTooltip content="Start the guided tour to learn about league features">
               <button
                 onClick={() => setShowGuide(true)}
-                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -301,15 +301,15 @@ const GroupDetailsPage = () => {
       <ContextAwareNavigation groupId={parseInt(groupId)} currentPath={location.pathname} />
 
       {/* Navigation Tabs */}
-      <div className="border-b border-gray-200 mb-6">
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
         <div className="sm:flex sm:space-x-8">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('standings')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'standings'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               Standings
@@ -318,8 +318,8 @@ const GroupDetailsPage = () => {
               onClick={() => setActiveTab('members')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'members'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-blue-500 dark:border-blue-400 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               Members ({groupMembers.length})
@@ -329,7 +329,7 @@ const GroupDetailsPage = () => {
       </div>
 
       {/* Content */}
-      <div className="bg-white rounded-lg shadow">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
         {activeTab === 'standings' && (
           <div className="p-6">
             {/* Filters */}
@@ -345,8 +345,8 @@ const GroupDetailsPage = () => {
 
             {/* Season Display Info */}
             {selectedSeason && currentGroup.league && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800">
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="text-sm text-blue-800 dark:text-blue-200">
                   Showing {currentGroup.league} season: <strong>{SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}</strong>
                 </p>
               </div>
@@ -360,71 +360,71 @@ const GroupDetailsPage = () => {
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Rank
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Player
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Points
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Predictions
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Perfect
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Accuracy
                       </th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Avg Points
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {leaderboard && leaderboard.length > 0 ? (
                       leaderboard.map((entry, index) => (
                         <tr 
                           key={entry.user_id} 
                           className={`${
-                            entry.username === profile?.username ? 'bg-blue-50' : ''
-                          } ${index === 0 ? 'bg-yellow-50' : ''} hover:bg-gray-50`}
+                            entry.username === profile?.username ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                          } ${index === 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''} hover:bg-gray-50 dark:hover:bg-gray-700`}
                         >
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                             {entry.rank === 1 && '🏆'} {entry.rank}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                               {entry.username}
                               {entry.username === profile?.username && (
-                                <span className="ml-2 text-xs text-blue-600">(You)</span>
+                                <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(You)</span>
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 font-semibold">
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 dark:text-gray-100 font-semibold">
                             {entry.total_points}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 dark:text-gray-100">
                             {entry.total_predictions}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-green-600 font-medium">
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-green-600 dark:text-green-400 font-medium">
                             {entry.perfect_predictions}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900">
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-900 dark:text-gray-100">
                             {entry.accuracy_percentage}%
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-purple-600">
+                          <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-purple-600 dark:text-purple-400">
                             {entry.average_points}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                        <td colSpan="7" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                           {selectedSeason ? (
                             <>
                               No predictions found for {SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}.
@@ -447,60 +447,60 @@ const GroupDetailsPage = () => {
         {activeTab === 'members' && (
           <div className="p-6">
             <div className="mb-4">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
                 Group Members ({groupMembers.length})
               </h3>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Manage your league members and their permissions.
               </p>
             </div>
             
             <div className="overflow-x-auto">
               <table className="min-w-full hidden md:table">
-                <thead className="bg-gray-50">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Member
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Role
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Joined
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Status
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {groupMembers.map((member) => (
-                    <tr key={member.user_id} className="hover:bg-gray-50">
+                    <tr key={member.user_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {member.username}
                           {member.username === profile?.username && (
-                            <span className="ml-2 text-xs text-blue-600">(You)</span>
+                            <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(You)</span>
                           )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           member.role === 'ADMIN' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-gray-100 text-gray-800'
+                            ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200' 
+                            : 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'
                         }`}>
                           {member.role}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                         {new Date(member.joined_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           member.status === 'APPROVED' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-yellow-100 text-yellow-800'
+                            ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' 
+                            : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
                         }`}>
                           {member.status}
                         </span>
@@ -516,29 +516,29 @@ const GroupDetailsPage = () => {
               {groupMembers.map((member) => (
                 <MobileCard key={member.user_id}>
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
                       {member.username}
                       {member.username === profile?.username && (
-                        <span className="ml-2 text-xs text-blue-600">(You)</span>
+                        <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(You)</span>
                       )}
                     </span>
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         member.role === 'ADMIN'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                          : 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'
                       }`}
                     >
                       {member.role}
                     </span>
                   </div>
-                  <div className="text-sm text-gray-500 mt-1">
+                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                     Joined {new Date(member.joined_at).toLocaleDateString()} ·{' '}
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
                         member.status === 'APPROVED'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
+                          ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
+                          : 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'
                       }`}
                     >
                       {member.status}

@@ -163,7 +163,7 @@ const GroupPredictionsPage = () => {
   process.env.NODE_ENV === 'development' && console.log('🔍 === END RENDER DEBUG ===');
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Mobile Header */}
       <MobilePageHeader
         title={group.name}
@@ -172,7 +172,7 @@ const GroupPredictionsPage = () => {
           <HelpTooltip key="help" content="Start the guided tour to learn about this page">
             <button
               onClick={() => setShowGuide(true)}
-              className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+              className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               aria-label="Open predictions help"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,7 +184,7 @@ const GroupPredictionsPage = () => {
       />
 
       {/* Controls row */}
-      <div className="px-4 pt-3 pb-2 border-b border-gray-200 bg-white sticky top-14 z-30 md:static md:top-auto">
+      <div className="px-4 pt-3 pb-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-14 z-30 md:static md:top-auto">
         <div className="flex items-center justify-between space-x-3 overflow-x-auto">
           {/* Week selector */}
           <div className="flex-1 max-w-32 min-w-[8rem]">
@@ -193,7 +193,7 @@ const GroupPredictionsPage = () => {
                 id="week-selector"
                 value={selectedWeek || currentWeek}
                 onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-                className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {getWeekOptions().map(week => (
                   <option key={week} value={week}>
@@ -206,15 +206,15 @@ const GroupPredictionsPage = () => {
           </div>
           
           {/* View toggle */}
-          <div className="flex bg-gray-100 rounded-lg p-1 shrink-0" id="view-toggle">
+          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shrink-0" id="view-toggle">
             <HelpTooltip content="Switch between grid view (cards) and list view (compact)">
               <div className="flex">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
                     viewMode === 'grid'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
                 >
                   Grid
@@ -223,8 +223,8 @@ const GroupPredictionsPage = () => {
                   onClick={() => setViewMode('list')}
                   className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
                     viewMode === 'list'
-                      ? 'bg-white text-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
                 >
                   List
@@ -374,9 +374,9 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
   const actualResult = fixture?.home_score !== null ? `${fixture.home_score}-${fixture.away_score}` : null;
   
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Match header */}
-      <div className="p-4 bg-gray-50 border-b border-gray-200">
+      <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <div className="flex items-center space-x-3">
@@ -389,13 +389,13 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
                     className="w-6 h-6 object-contain"
                   />
                 )}
-                <span className="font-medium text-sm">{fixture?.home_team}</span>
+                <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{fixture?.home_team}</span>
               </div>
               
-              <span className="text-gray-400 text-sm">vs</span>
+              <span className="text-gray-400 dark:text-gray-500 text-sm">vs</span>
               
               <div className="flex items-center space-x-2">
-                <span className="font-medium text-sm">{fixture?.away_team}</span>
+                <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{fixture?.away_team}</span>
                 {fixture?.away_team_logo && (
                   <img 
                     src={fixture.away_team_logo} 
@@ -407,9 +407,9 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
             </div>
             
             {/* Match status/result */}
-            <div className="mt-1 text-xs text-gray-500">
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {actualResult ? (
-                <span className="font-medium text-green-600">Final: {actualResult}</span>
+                <span className="font-medium text-green-600 dark:text-green-400">Final: {actualResult}</span>
               ) : (
                 <span>{fixture?.league} • {new Date(fixture?.date).toLocaleDateString()}</span>
               )}
@@ -417,7 +417,7 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
           </div>
           
           <div className="text-right">
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
               {predictions.length} prediction{predictions.length !== 1 ? 's' : ''}
             </div>
           </div>
@@ -441,7 +441,7 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
         {hasMore && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full mt-3 py-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+            className="w-full mt-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
           >
             {expanded ? 'Show Less' : `Show ${predictions.length - 3} More`}
           </button>
@@ -466,15 +466,15 @@ const PredictionRow = ({ prediction, actualResult, isMatchStarted }) => {
   
   if (isPredictionProcessed) {
     if (points === 3) {
-      accuracyClass = 'text-green-600 bg-green-50';
+      accuracyClass = 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
       accuracyIcon = '🎯'; // Perfect
       accuracyTooltip = 'Perfect prediction! Exact score match (3 points)';
     } else if (points === 1) {
-      accuracyClass = 'text-yellow-600 bg-yellow-50';
+      accuracyClass = 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
       accuracyIcon = '✓'; // Correct result
       accuracyTooltip = 'Correct result! Right winner/draw (1 point)';
     } else {
-      accuracyClass = 'text-red-600 bg-red-50';
+      accuracyClass = 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
       accuracyIcon = '✗'; // Wrong
       accuracyTooltip = 'Incorrect prediction (0 points)';
     }
@@ -483,12 +483,12 @@ const PredictionRow = ({ prediction, actualResult, isMatchStarted }) => {
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex items-center space-x-3">
-        <div className="font-medium text-sm text-gray-900">
+        <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
           {prediction.user?.username || 'Unknown User'}
         </div>
         
         {prediction.bonus_type && (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
             {prediction.bonus_type === 'perfect_week' ? '3x' : '2x'} Bonus
           </span>
         )}
@@ -496,7 +496,7 @@ const PredictionRow = ({ prediction, actualResult, isMatchStarted }) => {
       
       <div className="flex items-center space-x-2">
         <HelpTooltip content={accuracyTooltip || 'Prediction not yet processed'}>
-          <span className={`inline-flex items-center px-2 py-1 rounded-md text-sm font-medium ${accuracyClass || 'bg-gray-100 text-gray-800'}`}>
+          <span className={`inline-flex items-center px-2 py-1 rounded-md text-sm font-medium ${accuracyClass || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
             {accuracyIcon && <span className="mr-1">{accuracyIcon}</span>}
             {predictedScore}
           </span>
@@ -504,7 +504,7 @@ const PredictionRow = ({ prediction, actualResult, isMatchStarted }) => {
         
         {isPredictionProcessed && (
           <HelpTooltip content={`${points} point${points !== 1 ? 's' : ''} earned for this prediction`}>
-            <span className="text-sm font-medium text-gray-600">
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
               {points}pt{points !== 1 ? 's' : ''}
             </span>
           </HelpTooltip>
@@ -517,8 +517,8 @@ const PredictionRow = ({ prediction, actualResult, isMatchStarted }) => {
 // List view (compact alternative)
 const PredictionsListView = ({ predictions }) => {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="divide-y divide-gray-200">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {predictions.map((prediction, index) => {
           const isPredictionProcessed = prediction.prediction_status === 'PROCESSED' && prediction.points !== null;
           
@@ -526,20 +526,20 @@ const PredictionsListView = ({ predictions }) => {
             <div key={index} className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <div className="font-medium text-sm text-gray-900">
+                  <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
                     {prediction.user?.username}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {prediction.fixture?.home_team} vs {prediction.fixture?.away_team}
                   </div>
                 </div>
                 
                 <div className="text-right">
-                  <div className="text-sm font-medium">
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {prediction.home_score}-{prediction.away_score}
                   </div>
                   {isPredictionProcessed && (
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       {prediction.points} pts
                     </div>
                   )}

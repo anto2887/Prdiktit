@@ -142,30 +142,30 @@ const GroupForm = () => {
 
   return (
     <div className="max-w-3xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Create League</h1>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Create League</h1>
         
         {/* Step 1: League Name */}
         <div className={`mb-6 ${step !== 1 && 'hidden'}`}>
           <div className="flex justify-between items-center mb-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               League Name
             </label>
             <HelpTooltip content="Choose a unique name for your league that will be visible to all members">
-              <span className="text-gray-400">ℹ️</span>
+              <span className="text-gray-400 dark:text-gray-500">ℹ️</span>
             </HelpTooltip>
           </div>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded focus:ring-blue-500 focus:border-blue-500"
             placeholder="Enter league name"
             required
           />
           <button
             onClick={() => formData.name && setStep(2)}
-            className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+            className="mt-4 w-full bg-blue-600 dark:bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-700 dark:hover:bg-blue-600"
             disabled={!formData.name}
           >
             Next
@@ -175,11 +175,11 @@ const GroupForm = () => {
         {/* Step 2: League Selection */}
         <div className={`mb-6 ${step !== 2 && 'hidden'}`}>
           <div className="flex justify-between items-center mb-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Select League
             </label>
             <HelpTooltip content="Choose which football league your group will follow. This determines the matches available for predictions">
-              <span className="text-gray-400">ℹ️</span>
+              <span className="text-gray-400 dark:text-gray-500">ℹ️</span>
             </HelpTooltip>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -192,11 +192,11 @@ const GroupForm = () => {
                   onClick={() => handleLeagueSelect(league.id)}
                   className={`p-4 border rounded-lg transition-colors flex flex-col items-center justify-center
                     ${formData.league === league.id 
-                      ? 'border-blue-500 bg-blue-50' 
-                      : 'border-gray-200 hover:border-blue-300'}`}
+                      ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 bg-white dark:bg-gray-700'}`}
                 >
-                  <span className="font-medium">{league.name}</span>
-                  <span className="text-sm text-gray-600 mt-1">Season {league.season}</span>
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{league.name}</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400 mt-1">Season {league.season}</span>
                 </button>
               ))
             )}
@@ -205,7 +205,7 @@ const GroupForm = () => {
           {/* Back button */}
           <button
             onClick={() => setStep(1)}
-            className="mt-4 w-full bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+            className="mt-4 w-full bg-gray-500 dark:bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-600 dark:hover:bg-gray-700"
           >
             Back
           </button>
@@ -216,11 +216,11 @@ const GroupForm = () => {
           {process.env.NODE_ENV === 'development' && console.log('Step 3 rendering:', { step, league: formData.league })}
           
           <div className="flex justify-between items-center mb-2">
-            <label className="block text-sm font-medium text-gray-700">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Select Teams to Track
             </label>
             <HelpTooltip content="Choose which teams to track in your league. You can select multiple teams to follow their matches">
-              <span className="text-gray-400">ℹ️</span>
+              <span className="text-gray-400 dark:text-gray-500">ℹ️</span>
             </HelpTooltip>
           </div>
           
@@ -234,7 +234,7 @@ const GroupForm = () => {
               />
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               {process.env.NODE_ENV === 'development' && console.log('No league selected, showing fallback message')}
               Please select a league first to view available teams.
             </div>
@@ -243,15 +243,15 @@ const GroupForm = () => {
           <div className="flex gap-4 mt-6">
             <button
               onClick={() => setStep(2)}
-              className="flex-1 bg-gray-500 text-white py-2 px-4 rounded hover:bg-gray-600"
+              className="flex-1 bg-gray-500 dark:bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-600 dark:hover:bg-gray-700"
             >
               Back
             </button>
             <button
               onClick={handleSubmit}
               disabled={!formData.name || !formData.league || formData.tracked_teams.length === 0}
-              className="flex-1 bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 
-                       disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="flex-1 bg-blue-600 dark:bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-700 dark:hover:bg-blue-600 
+                       disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
               Create League
             </button>
