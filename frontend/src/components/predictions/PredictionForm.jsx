@@ -53,16 +53,16 @@ const PredictionForm = () => {
   if (userGroups.length === 0) {
     return (
       <div className="p-6">
-        <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             You&apos;re not in any leagues yet
           </h3>
-          <p className="text-gray-500 mb-4">
+          <p className="text-gray-500 dark:text-gray-400 mb-4">
             Join a league to start making predictions
           </p>
           <Link
             to="/groups/join"
-            className="text-blue-600 hover:text-blue-800"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
           >
             Join a League →
           </Link>
@@ -74,10 +74,10 @@ const PredictionForm = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Post Predictions</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Post Predictions</h1>
         <Link
           to="/dashboard"
-          className="text-blue-600 hover:text-blue-800"
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
         >
           ← Back to Dashboard
         </Link>
@@ -85,30 +85,30 @@ const PredictionForm = () => {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {matches.map(match => (
-          <div key={match.id} className="bg-white rounded-lg shadow p-6">
+          <div key={match.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <img src={match.homeTeam.logo} alt="" className="w-8 h-8" />
                 <input
                   type="number"
                   min="0"
-                  className="w-16 px-3 py-2 border rounded-md"
+                  className="w-16 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md"
                   value={predictions[match.id]?.home || ''}
                   onChange={(e) => handlePredictionChange(match.id, 'home', e.target.value)}
                   disabled={new Date(match.kickoff) <= new Date()}
                 />
-                <span className="text-gray-500">vs</span>
+                <span className="text-gray-500 dark:text-gray-400">vs</span>
                 <input
                   type="number"
                   min="0"
-                  className="w-16 px-3 py-2 border rounded-md"
+                  className="w-16 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md"
                   value={predictions[match.id]?.away || ''}
                   onChange={(e) => handlePredictionChange(match.id, 'away', e.target.value)}
                   disabled={new Date(match.kickoff) <= new Date()}
                 />
                 <img src={match.awayTeam.logo} alt="" className="w-8 h-8" />
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 Kickoff: {new Date(match.kickoff).toLocaleString()}
               </div>
             </div>
@@ -119,13 +119,13 @@ const PredictionForm = () => {
           <button
             type="button"
             onClick={handleClear}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
           >
             Clear
           </button>
           <button
             type="submit"
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
           >
             Post Predictions
           </button>

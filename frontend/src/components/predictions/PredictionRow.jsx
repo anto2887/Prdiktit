@@ -12,18 +12,18 @@ const PredictionRow = ({ prediction }) => {
                         matchDate < new Date();
 
   return (
-    <tr className={`hover:bg-gray-50 ${needsAttention ? 'bg-yellow-50 border-l-4 border-yellow-400' : ''}`}>
+    <tr className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${needsAttention ? 'bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 dark:border-yellow-500' : ''}`}>
       {/* Match Info */}
       <td className="px-6 py-4">
         <div className="flex flex-col">
-          <div className="font-medium text-gray-900">
+          <div className="font-medium text-gray-900 dark:text-gray-100">
             {prediction.fixture?.home_team} vs {prediction.fixture?.away_team}
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
             {prediction.fixture?.league}
           </div>
           {needsAttention && (
-            <div className="text-xs text-yellow-600 mt-1 font-medium">
+            <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1 font-medium">
               ⚠️ Draft prediction on completed match
             </div>
           )}
@@ -32,7 +32,7 @@ const PredictionRow = ({ prediction }) => {
 
       {/* Your Prediction */}
       <td className="px-6 py-4 text-center">
-        <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-50 text-blue-700">
+        <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
           {prediction.score1} - {prediction.score2}
         </span>
       </td>
@@ -40,11 +40,11 @@ const PredictionRow = ({ prediction }) => {
       {/* Actual Result */}
       <td className="px-6 py-4 text-center">
         {isCompletedMatch ? (
-          <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-gray-100 text-gray-800">
+          <span className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
             {prediction.fixture.home_score} - {prediction.fixture.away_score}
           </span>
         ) : (
-          <span className="text-gray-400 text-sm">-</span>
+          <span className="text-gray-400 dark:text-gray-500 text-sm">-</span>
         )}
       </td>
 
@@ -55,7 +55,7 @@ const PredictionRow = ({ prediction }) => {
             {prediction.points} pts
           </span>
         ) : (
-          <span className="text-gray-400 text-sm">-</span>
+          <span className="text-gray-400 dark:text-gray-500 text-sm">-</span>
         )}
       </td>
 
@@ -68,7 +68,7 @@ const PredictionRow = ({ prediction }) => {
       </td>
 
       {/* Date */}
-      <td className="px-6 py-4 text-center text-sm text-gray-500">
+      <td className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
         {matchDate ? (
           <div>
             <div>{matchDate.toLocaleDateString()}</div>

@@ -36,10 +36,10 @@ export const PredictionStats = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Prediction Statistics</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Prediction Statistics</h1>
         <Link
           to="/predictions/new"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
         >
           New Prediction
         </Link>
@@ -47,49 +47,49 @@ export const PredictionStats = () => {
       
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
-          <h3 className="text-sm font-medium text-gray-500">Total Points</h3>
-          <p className="mt-2 text-3xl font-bold text-gray-900">{stats?.total_points || 0}</p>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-blue-500 dark:border-blue-400">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Points</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats?.total_points || 0}</p>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
-          <h3 className="text-sm font-medium text-gray-500">Perfect Predictions</h3>
-          <p className="mt-2 text-3xl font-bold text-gray-900">{stats?.perfect_predictions || 0}</p>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-green-500 dark:border-green-400">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Perfect Predictions</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats?.perfect_predictions || 0}</p>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-yellow-500">
-          <h3 className="text-sm font-medium text-gray-500">Correct Results</h3>
-          <p className="mt-2 text-3xl font-bold text-gray-900">{stats?.correct_results || 0}</p>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-yellow-500 dark:border-yellow-400">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Correct Results</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats?.correct_results || 0}</p>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500">
-          <h3 className="text-sm font-medium text-gray-500">Average Points</h3>
-          <p className="mt-2 text-3xl font-bold text-gray-900">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-purple-500 dark:border-purple-400">
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Average Points</h3>
+          <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
             {(stats?.average_points || 0).toFixed(1)}
           </p>
         </div>
       </div>
       
       {/* Detailed Stats */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Prediction Accuracy</h2>
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Prediction Accuracy</h2>
         
         <div className="space-y-4">
           {chartData.pointsDistribution.map((item, index) => (
             <div key={index} className="relative pt-1">
               <div className="flex items-center justify-between mb-2">
                 <div>
-                  <span className="text-xs font-semibold inline-block text-gray-600">
+                  <span className="text-xs font-semibold inline-block text-gray-600 dark:text-gray-400">
                     {item.label}
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-semibold inline-block text-gray-600">
+                  <span className="text-xs font-semibold inline-block text-gray-600 dark:text-gray-400">
                     {item.value} predictions
                   </span>
                 </div>
               </div>
-              <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200">
+              <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-gray-200 dark:bg-gray-700">
                 <div 
                   style={{ width: `${(item.value / Math.max(...chartData.pointsDistribution.map(d => d.value))) * 100}%` }}
                   className={`shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center 
@@ -102,8 +102,8 @@ export const PredictionStats = () => {
       </div>
       
       {/* Weekly Performance */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Weekly Performance</h2>
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Weekly Performance</h2>
         
         {hasData && chartData.weeklyPerformance.length > 0 ? (
           <div className="h-64 flex items-end space-x-2">
@@ -114,22 +114,22 @@ export const PredictionStats = () => {
                 style={{ width: `${100 / chartData.weeklyPerformance.length}%` }}
               >
                 <div 
-                  className="w-full bg-blue-500 rounded-t"
+                  className="w-full bg-blue-500 dark:bg-blue-400 rounded-t"
                   style={{ 
                     height: `${Math.max(20, (week.points / Math.max(...chartData.weeklyPerformance.map(w => w.points))) * 200)}px` 
                   }}
                 ></div>
-                <div className="text-xs text-gray-500 mt-2">Week {week.week}</div>
-                <div className="text-sm font-medium">{week.points} pts</div>
-                <div className="text-xs text-gray-400">{week.predictions} predictions</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">Week {week.week}</div>
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{week.points} pts</div>
+                <div className="text-xs text-gray-400 dark:text-gray-500">{week.predictions} predictions</div>
               </div>
             ))}
           </div>
         ) : (
           <div className="text-center py-12">
             <div className="text-4xl mb-2">📊</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No weekly data yet</h3>
-            <p className="text-gray-600 text-sm">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No weekly data yet</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm">
               Make some predictions to see your weekly performance here!
             </p>
           </div>
@@ -138,44 +138,44 @@ export const PredictionStats = () => {
       
       {/* Season Summary */}
       {hasData && (
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Season Summary</h2>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Season Summary</h2>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{statistics.totalWeeksWithData}</div>
-              <div className="text-sm text-gray-500">Active Weeks</div>
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{statistics.totalWeeksWithData}</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Active Weeks</div>
             </div>
             
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {statistics.averagePointsPerWeek.toFixed(1)}
               </div>
-              <div className="text-sm text-gray-500">Avg Points/Week</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Avg Points/Week</div>
             </div>
             
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                 {statistics.bestWeek ? statistics.bestWeek.points : 0}
               </div>
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-gray-500 dark:text-gray-400">
                 Best Week {statistics.bestWeek ? `(Week ${statistics.bestWeek.week})` : ''}
               </div>
             </div>
             
             <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{statistics.consistencyScore}%</div>
-              <div className="text-sm text-gray-500">Consistency</div>
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{statistics.consistencyScore}%</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">Consistency</div>
             </div>
           </div>
         </div>
       )}
       
       {/* Team Performance */}
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Team Performance</h2>
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Team Performance</h2>
         
-        <p className="text-gray-500 text-center py-12">
+        <p className="text-gray-500 dark:text-gray-400 text-center py-12">
           Team performance analytics will be available after you make more predictions
         </p>
       </div>
