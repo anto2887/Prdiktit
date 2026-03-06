@@ -1,44 +1,57 @@
 // src/App.jsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { AppProvider, useUser } from './contexts';
 import Routes from './Routes';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import NotificationContainer from './components/common/NotificationContainer';
-import { initializeTheme, watchSystemTheme } from './utils/theme';
+import { initializeTheme, watchSystemTheme, clearSavedTheme } from './utils/theme';
 import './styles.css';
 
 // Theme initializer component (must be inside AppProvider)
 const ThemeInitializer = () => {
   const { profile } = useUser();
+  const hasClearedLocalStorage = useRef(false);
   
   useEffect(() => {
-    // Initialize theme from profile settings or fallback to system
+    // Get theme from profile settings (source of truth)
     const savedTheme = profile?.settings?.displayPreferences?.theme || null;
-    if (savedTheme) {
-      initializeTheme(savedTheme);
+    
+    // Always apply a theme (never skip)
+    // Priority: profile theme > system default
+    const themeToApply = savedTheme || 'system';
+    initializeTheme(themeToApply);
+    
+    // Clear localStorage after profile loads (only once)
+    // This prevents localStorage from conflicting with profile settings
+    if (profile && !hasClearedLocalStorage.current) {
+      clearSavedTheme();
+      hasClearedLocalStorage.current = true;
     }
     
-    // If theme is 'system', watch for system theme changes
-    if (savedTheme === 'system' || !savedTheme) {
-      const cleanup = watchSystemTheme(() => {
-        // Re-apply theme when system preference changes
-        const currentTheme = profile?.settings?.displayPreferences?.theme || 'system';
-        if (currentTheme === 'system' || !currentTheme) {
-          initializeTheme('system');
-        }
+    // Only watch system theme changes if user explicitly chose "system"
+    // Don't watch if profile has no theme (let it use system default without watching)
+    let cleanup = null;
+    if (savedTheme === 'system') {
+      cleanup = watchSystemTheme(() => {
+        // Re-apply system theme when system preference changes
+        initializeTheme('system');
       });
-      return cleanup;
     }
-  }, [profile?.settings?.displayPreferences?.theme]);
+    
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [profile?.settings?.displayPreferences?.theme, profile]);
   
   return null;
 };
 
 function App() {
   // Initialize theme immediately on app load (before profile loads)
+  // Use localStorage only for FOUC prevention on initial load
   useEffect(() => {
-    initializeTheme(null); // Will use localStorage or system default
+    initializeTheme(null, true); // isInitialLoad = true
   }, []);
   
   return (
