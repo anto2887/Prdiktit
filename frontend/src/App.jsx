@@ -5,7 +5,7 @@ import { AppProvider, useUser } from './contexts';
 import Routes from './Routes';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import NotificationContainer from './components/common/NotificationContainer';
-import { initializeTheme, watchSystemTheme, clearSavedTheme } from './utils/theme';
+import { initializeTheme, clearSavedTheme } from './utils/theme';
 import './styles.css';
 
 // Theme initializer component (must be inside AppProvider)
@@ -18,8 +18,8 @@ const ThemeInitializer = () => {
     const savedTheme = profile?.settings?.displayPreferences?.theme || null;
     
     // Always apply a theme (never skip)
-    // Priority: profile theme > system default
-    const themeToApply = savedTheme || 'system';
+    // Priority: profile theme > light default
+    const themeToApply = savedTheme || 'light';
     initializeTheme(themeToApply);
     
     // Clear localStorage after profile loads (only once)
@@ -29,19 +29,8 @@ const ThemeInitializer = () => {
       hasClearedLocalStorage.current = true;
     }
     
-    // Only watch system theme changes if user explicitly chose "system"
-    // Don't watch if profile has no theme (let it use system default without watching)
-    let cleanup = null;
-    if (savedTheme === 'system') {
-      cleanup = watchSystemTheme(() => {
-        // Re-apply system theme when system preference changes
-        initializeTheme('system');
-      });
-    }
-    
-    return () => {
-      if (cleanup) cleanup();
-    };
+    // System theme is now a distinct blue-tinted theme, not OS-based
+    // No watcher needed
   }, [profile?.settings?.displayPreferences?.theme, profile]);
   
   return null;

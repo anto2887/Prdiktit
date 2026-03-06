@@ -1,29 +1,8 @@
 /**
  * Theme utility functions
  * Manages theme state and applies it to the DOM
+ * System theme is now a distinct blue-tinted theme, not OS preference
  */
-
-/**
- * Get system theme preference
- * @returns {string} 'light' or 'dark'
- */
-export const getSystemTheme = () => {
-  if (typeof window === 'undefined') return 'light';
-  
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-};
-
-/**
- * Get effective theme (resolves 'system' to actual theme)
- * @param {string} theme - Theme preference ('light', 'dark', or 'system')
- * @returns {string} 'light' or 'dark'
- */
-export const getEffectiveTheme = (theme) => {
-  if (theme === 'system') {
-    return getSystemTheme();
-  }
-  return theme === 'dark' ? 'dark' : 'light';
-};
 
 /**
  * Apply theme to the DOM
@@ -34,14 +13,18 @@ export const getEffectiveTheme = (theme) => {
 export const applyTheme = (theme, persistToLocalStorage = false) => {
   if (typeof document === 'undefined') return;
   
-  const effectiveTheme = getEffectiveTheme(theme);
   const html = document.documentElement;
   
-  if (effectiveTheme === 'dark') {
+  // Remove all theme classes first
+  html.classList.remove('dark', 'system');
+  
+  // Apply the appropriate theme class
+  if (theme === 'dark') {
     html.classList.add('dark');
-  } else {
-    html.classList.remove('dark');
+  } else if (theme === 'system') {
+    html.classList.add('system');
   }
+  // 'light' theme = no class (default)
   
   // Only persist to localStorage if explicitly requested (for initial FOUC prevention)
   // Profile settings are the source of truth, not localStorage
@@ -83,10 +66,10 @@ export const initializeTheme = (savedTheme = null, isInitialLoad = false) => {
   } else if (isInitialLoad) {
     // Only use localStorage on initial load to prevent FOUC (Flash of Unstyled Content)
     // This is a temporary fallback until profile loads
-    theme = getSavedTheme() || 'system';
+    theme = getSavedTheme() || 'light';
   } else {
-    // If no profile theme and not initial load, use system default
-    theme = 'system';
+    // If no profile theme and not initial load, use light as default
+    theme = 'light';
   }
   
   // Only persist to localStorage on initial load (to prevent FOUC on refresh)
@@ -95,29 +78,13 @@ export const initializeTheme = (savedTheme = null, isInitialLoad = false) => {
 };
 
 /**
- * Listen for system theme changes (for 'system' theme mode)
- * @param {function} callback - Callback function when system theme changes
- * @returns {function} Cleanup function
+ * System theme is now a distinct blue-tinted theme
+ * No longer watches OS preference changes
+ * This function is kept for backward compatibility but does nothing
+ * @deprecated System theme is now a distinct theme, not OS-based
  */
 export const watchSystemTheme = (callback) => {
-  if (typeof window === 'undefined') return () => {};
-  
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  
-  const handleChange = (e) => {
-    callback(e.matches ? 'dark' : 'light');
-  };
-  
-  // Modern browsers
-  if (mediaQuery.addEventListener) {
-    mediaQuery.addEventListener('change', handleChange);
-    return () => mediaQuery.removeEventListener('change', handleChange);
-  }
-  // Legacy browsers
-  else if (mediaQuery.addListener) {
-    mediaQuery.addListener(handleChange);
-    return () => mediaQuery.removeListener(handleChange);
-  }
-  
+  // System theme is now a distinct theme, not OS-based
+  // Return empty cleanup function
   return () => {};
 };

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useUser, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
@@ -7,6 +7,7 @@ import { applyTheme } from '../../utils/theme';
 const Settings = () => {
   const { profile, loading, error, updateProfile } = useUser();
   const { showSuccess, showError } = useNotifications();
+  const systemThemeWatcher = useRef(null);
 
   // Load saved settings from profile
   const [notifications, setNotifications] = useState({
@@ -24,6 +25,12 @@ const Settings = () => {
 
   // Load saved settings from profile when component mounts or profile changes
   useEffect(() => {
+    // Clean up existing watcher
+    if (systemThemeWatcher.current) {
+      systemThemeWatcher.current();
+      systemThemeWatcher.current = null;
+    }
+    
     if (profile?.settings) {
       if (profile.settings.notifications) {
         setNotifications(prev => ({
@@ -39,8 +46,10 @@ const Settings = () => {
         }));
         
         // Apply theme immediately when loaded
-        if (profile.settings.displayPreferences.theme) {
-          applyTheme(profile.settings.displayPreferences.theme);
+        const theme = profile.settings.displayPreferences.theme;
+        if (theme) {
+          applyTheme(theme);
+          // System theme is now a distinct blue-tinted theme, no watcher needed
         }
       }
     }
@@ -65,9 +74,27 @@ const Settings = () => {
     
     // Apply theme immediately when changed (before saving)
     if (name === 'theme') {
+      // Clean up existing watcher if any (no longer needed, but kept for cleanup)
+      if (systemThemeWatcher.current) {
+        systemThemeWatcher.current();
+        systemThemeWatcher.current = null;
+      }
+      
+      // Apply the theme
+      // System theme is now a distinct blue-tinted theme, not OS-based
       applyTheme(value);
     }
   };
+  
+  // Cleanup watcher on unmount
+  useEffect(() => {
+    return () => {
+      if (systemThemeWatcher.current) {
+        systemThemeWatcher.current();
+        systemThemeWatcher.current = null;
+      }
+    };
+  }, []);
 
   const handleSaveSettings = async () => {
     try {

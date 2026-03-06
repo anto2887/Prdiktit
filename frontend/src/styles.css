@@ -135,3 +135,134 @@ input[type="number"] {
 .dark ::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
 }
+
+/* System theme - Blue-tinted palette */
+.system {
+  color-scheme: light;
+}
+
+/* System theme color overrides using CSS variables */
+.system {
+  /* Background colors - blue-tinted */
+  --system-bg-primary: #f0f7ff;
+  --system-bg-secondary: #e0efff;
+  --system-bg-tertiary: #d1e7ff;
+  --system-bg-card: #ffffff;
+  --system-bg-hover: #cfe2ff;
+  
+  /* Text colors - blue-tinted */
+  --system-text-primary: #1e3a8a;
+  --system-text-secondary: #1e40af;
+  --system-text-tertiary: #3b82f6;
+  --system-text-muted: #60a5fa;
+  
+  /* Border colors */
+  --system-border: #bfdbfe;
+  --system-border-hover: #93c5fd;
+  
+  /* Accent colors */
+  --system-accent: #2563eb;
+  --system-accent-hover: #1d4ed8;
+}
+
+/* System theme scrollbar */
+.system ::-webkit-scrollbar-track {
+  background: #e0efff;
+}
+
+.system ::-webkit-scrollbar-thumb {
+  background: #93c5fd;
+}
+
+.system ::-webkit-scrollbar-thumb:hover {
+  background: #60a5fa;
+}
+
+/* System theme component overrides */
+.system .bg-white {
+  background-color: var(--system-bg-card) !important;
+}
+
+.system .bg-gray-50 {
+  background-color: var(--system-bg-primary) !important;
+}
+
+.system .bg-gray-100 {
+  background-color: var(--system-bg-secondary) !important;
+}
+
+.system .bg-gray-200 {
+  background-color: var(--system-bg-tertiary) !important;
+}
+
+.system .bg-gray-800 {
+  background-color: var(--system-bg-secondary) !important;
+}
+
+.system .bg-gray-900 {
+  background-color: var(--system-bg-primary) !important;
+}
+
+.system .text-gray-900 {
+  color: var(--system-text-primary) !important;
+}
+
+.system .text-gray-700 {
+  color: var(--system-text-secondary) !important;
+}
+
+.system .text-gray-500 {
+  color: var(--system-text-tertiary) !important;
+}
+
+.system .text-gray-400 {
+  color: var(--system-text-muted) !important;
+}
+
+.system .text-gray-100 {
+  color: var(--system-text-primary) !important;
+}
+
+.system .text-gray-200 {
+  color: var(--system-text-secondary) !important;
+}
+
+.system .text-gray-300 {
+  color: var(--system-text-tertiary) !important;
+}
+
+.system .border-gray-200 {
+  border-color: var(--system-border) !important;
+}
+
+.system .border-gray-700 {
+  border-color: var(--system-border) !important;
+}
+
+.system .border-gray-600 {
+  border-color: var(--system-border) !important;
+}
+
+.system .divide-gray-200 {
+  border-color: var(--system-border) !important;
+}
+
+.system .divide-gray-700 {
+  border-color: var(--system-border) !important;
+}
+
+.system .hover\:bg-gray-50:hover {
+  background-color: var(--system-bg-hover) !important;
+}
+
+.system .hover\:bg-gray-100:hover {
+  background-color: var(--system-bg-hover) !important;
+}
+
+.system .hover\:bg-gray-700:hover {
+  background-color: var(--system-bg-hover) !important;
+}
+
+.system .bg-gray-700 {
+  background-color: var(--system-bg-tertiary) !important;
+}
