@@ -53,7 +53,7 @@ const LeagueTable = ({
           <select
             value={localSelectedSeason}
             onChange={handleSeasonChange}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded"
           >
             {availableSeasons.map((season) => (
               <option key={season.value} value={season.value}>
@@ -65,43 +65,43 @@ const LeagueTable = ({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full bg-white">
-          <thead className="bg-gray-100">
+        <table className="min-w-full bg-white dark:bg-gray-800">
+          <thead className="bg-gray-100 dark:bg-gray-700">
             <tr>
-              <th className="py-3 px-4 text-left">Rank</th>
-              <th className="py-3 px-4 text-left">User</th>
-              <th className="py-3 px-4 text-center">Points</th>
-              <th className="py-3 px-4 text-center">Predictions</th>
-              <th className="py-3 px-4 text-center">Perfect</th>
-              <th className="py-3 px-4 text-center">Avg. Points</th>
+              <th className="py-3 px-4 text-left text-gray-900 dark:text-gray-100">Rank</th>
+              <th className="py-3 px-4 text-left text-gray-900 dark:text-gray-100">User</th>
+              <th className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">Points</th>
+              <th className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">Predictions</th>
+              <th className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">Perfect</th>
+              <th className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">Avg. Points</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {members && members.length > 0 ? (
               members.map((member, index) => (
-                <tr key={member.user_id} className={index === 0 ? 'bg-yellow-50' : ''}>
-                  <td className="py-3 px-4">
+                <tr key={member.user_id} className={index === 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}>
+                  <td className="py-3 px-4 text-gray-900 dark:text-gray-100">
                     {index + 1}
-                    {index === 0 && <span className="ml-2 text-yellow-500">👑</span>}
+                    {index === 0 && <span className="ml-2 text-yellow-500 dark:text-yellow-400">👑</span>}
                   </td>
-                  <td className="py-3 px-4 font-medium">{member.username}</td>
-                  <td className="py-3 px-4 text-center font-bold">
+                  <td className="py-3 px-4 font-medium text-gray-900 dark:text-gray-100">{member.username}</td>
+                  <td className="py-3 px-4 text-center font-bold text-gray-900 dark:text-gray-100">
                     {member.stats?.total_points || 0}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">
                     {member.stats?.total_predictions || 0}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">
                     {member.stats?.perfect_predictions || 0}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">
                     {(member.stats?.average_points || 0).toFixed(1)}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="6" className="py-6 text-center text-gray-500">
+                <td colSpan="6" className="py-6 text-center text-gray-500 dark:text-gray-400">
                   No data available for this league yet
                 </td>
               </tr>

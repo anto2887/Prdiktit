@@ -46,11 +46,11 @@ const UpcomingMatches = () => {
   if (error) return <ErrorMessage message={error} />;
 
   return (
-    <div className="divide-y divide-gray-200">
+    <div className="divide-y divide-gray-200 dark:divide-gray-700">
       {/* Timezone indicator header */}
-      <div className="p-4 bg-gray-50 border-b">
+      <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900">Upcoming Matches</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Upcoming Matches</h3>
           <TimezoneIndicator showDetails={false} />
         </div>
       </div>
@@ -64,11 +64,11 @@ const UpcomingMatches = () => {
             to={prediction 
               ? `/predictions/${prediction.id}` 
               : `/predictions/new?match=${match.fixture_id}`}
-            className="block hover:bg-gray-50 transition-colors"
+            className="block hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <div className="p-4">
               {/* Date and Time - FIXED: Using timezone utilities */}
-              <div className="text-sm text-gray-500 mb-2">
+              <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                 {formatKickoffTime(match.date)}
               </div>
 
@@ -87,26 +87,26 @@ const UpcomingMatches = () => {
                       }}
                     />
                   ) : null}
-                  <div className="h-6 w-6 bg-gray-200 rounded flex items-center justify-center" style={{ display: match.home_team_logo ? 'none' : 'flex' }}>
-                    <span className="text-gray-500 text-xs">⚽</span>
+                  <div className="h-6 w-6 bg-gray-200 dark:bg-gray-600 rounded flex items-center justify-center" style={{ display: match.home_team_logo ? 'none' : 'flex' }}>
+                    <span className="text-gray-500 dark:text-gray-400 text-xs">⚽</span>
                   </div>
-                  <span className="font-medium truncate">{match.home_team}</span>
+                  <span className="font-medium truncate text-gray-900 dark:text-gray-100">{match.home_team}</span>
                 </div>
 
                 {/* VS or Prediction */}
                 <div className="col-span-1 text-center">
                   {prediction ? (
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                       {prediction.score1}-{prediction.score2}
                     </span>
                   ) : (
-                    <span className="text-sm text-gray-500">vs</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">vs</span>
                   )}
                 </div>
 
                 {/* Away Team */}
                 <div className="col-span-3 flex items-center justify-end space-x-2">
-                  <span className="font-medium truncate">{match.away_team}</span>
+                  <span className="font-medium truncate text-gray-900 dark:text-gray-100">{match.away_team}</span>
                   {match.away_team_logo ? (
                     <img
                       src={match.away_team_logo}
@@ -118,21 +118,21 @@ const UpcomingMatches = () => {
                       }}
                     />
                   ) : null}
-                  <div className="h-6 w-6 bg-gray-200 rounded flex items-center justify-center" style={{ display: match.away_team_logo ? 'none' : 'flex' }}>
-                    <span className="text-gray-500 text-xs">⚽</span>
+                  <div className="h-6 w-6 bg-gray-200 dark:bg-gray-600 rounded flex items-center justify-center" style={{ display: match.away_team_logo ? 'none' : 'flex' }}>
+                    <span className="text-gray-500 dark:text-gray-400 text-xs">⚽</span>
                   </div>
                 </div>
               </div>
 
               {/* League and Prediction Status */}
               <div className="mt-2 flex justify-between items-center text-sm">
-                <span className="text-gray-500">{match.league}</span>
+                <span className="text-gray-500 dark:text-gray-400">{match.league}</span>
                 {prediction ? (
-                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
+                  <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-xs">
                     Prediction Made
                   </span>
                 ) : (
-                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs">
+                  <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full text-xs">
                     Predict Now
                   </span>
                 )}
@@ -144,17 +144,17 @@ const UpcomingMatches = () => {
 
       {/* Show message if no upcoming matches */}
       {upcomingMatches.length === 0 && (
-        <div className="p-6 text-center text-gray-500">
+        <div className="p-6 text-center text-gray-500 dark:text-gray-400">
           <p className="mb-2">No upcoming matches available for prediction</p>
-          <p className="text-sm text-gray-400">Check back later for new fixtures</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">Check back later for new fixtures</p>
         </div>
       )}
 
       {/* Link to all matches */}
-      <div className="p-4 bg-gray-50">
+      <div className="p-4 bg-gray-50 dark:bg-gray-700">
         <Link
           to="/predictions"
-          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+          className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
         >
           View all upcoming matches →
         </Link>

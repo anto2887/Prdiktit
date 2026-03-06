@@ -71,19 +71,19 @@ const DashboardStats = ({ stats }) => {
   };
 
   const StatCard = ({ title, value, subtitle, color = "blue", icon }) => (
-    <div className="bg-white rounded-lg border border-gray-200 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className={`text-2xl font-bold text-${color}-600`}>
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</p>
+          <p className={`text-2xl font-bold text-${color}-600 dark:text-${color}-400`}>
             {typeof value === 'number' && value % 1 !== 0 ? value.toFixed(1) : value}
           </p>
           {subtitle && (
-            <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{subtitle}</p>
           )}
         </div>
         {icon && (
-          <div className={`p-2 bg-${color}-100 rounded-full`}>
+          <div className={`p-2 bg-${color}-100 dark:bg-${color}-900 rounded-full`}>
             <span className="text-lg">{icon}</span>
           </div>
         )}
@@ -149,9 +149,9 @@ const DashboardStats = ({ stats }) => {
 
       {/* Quick Insights */}
       {displayStats.totalPredictions > 0 && (
-        <div className="bg-gray-50 rounded-lg p-4 mt-4">
-          <h3 className="text-sm font-medium text-gray-700 mb-2">Quick Insights</h3>
-          <div className="space-y-1 text-sm text-gray-600">
+        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mt-4">
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Quick Insights</h3>
+          <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
             <div className="flex justify-between">
               <span>Incorrect predictions:</span>
               <span>{displayStats.totalPredictions - displayStats.perfectScores - displayStats.correctResults}</span>
@@ -168,11 +168,11 @@ const DashboardStats = ({ stats }) => {
             {displayStats.totalPredictions >= 10 && (
               <div className="mt-2 text-xs">
                 {displayStats.accuracy >= 70 ? (
-                  <span className="text-green-600">🔥 Excellent accuracy! Keep it up!</span>
+                  <span className="text-green-600 dark:text-green-400">🔥 Excellent accuracy! Keep it up!</span>
                 ) : displayStats.accuracy >= 50 ? (
-                  <span className="text-yellow-600">👍 Good job! Room for improvement.</span>
+                  <span className="text-yellow-600 dark:text-yellow-400">👍 Good job! Room for improvement.</span>
                 ) : (
-                  <span className="text-blue-600">📈 Keep predicting to improve your accuracy!</span>
+                  <span className="text-blue-600 dark:text-blue-400">📈 Keep predicting to improve your accuracy!</span>
                 )}
               </div>
             )}
@@ -182,10 +182,10 @@ const DashboardStats = ({ stats }) => {
 
       {/* No data state */}
       {displayStats.totalPredictions === 0 && (
-        <div className="text-center py-8 bg-gray-50 rounded-lg">
+        <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
           <div className="text-4xl mb-2">⚽</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No predictions yet</h3>
-          <p className="text-gray-600 text-sm">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No predictions yet</h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
             Start making predictions to see your stats here!
           </p>
         </div>

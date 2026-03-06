@@ -21,25 +21,25 @@ const LiveMatches = ({ matches }) => {
   };
 
   return (
-    <div className="divide-y divide-gray-200">
+    <div className="divide-y divide-gray-200 dark:divide-gray-700">
       {matches.map((match) => (
         <Link
           key={match.fixture_id}
           to={`/matches/${match.fixture_id}`}
-          className="block hover:bg-gray-50 transition-colors"
+          className="block hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         >
           <div className="p-6">
             <div className="flex items-center justify-between">
               {/* Status */}
               <div className="flex items-center space-x-2">
                 <span className={`inline-block h-2 w-2 rounded-full ${getStatusColor(match.status)}`}></span>
-                <span className="text-sm font-medium text-gray-500">
+                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   {match.status.replace('_', ' ')}
                 </span>
               </div>
               
               {/* Time */}
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 {new Date(match.date).toLocaleTimeString([], { 
                   hour: '2-digit', 
                   minute: '2-digit' 
@@ -55,7 +55,7 @@ const LiveMatches = ({ matches }) => {
                   alt={`${match.home_team} logo`}
                   className="h-8 w-8 object-contain"
                 />
-                <span className="font-medium truncate">{match.home_team}</span>
+                <span className="font-medium truncate text-gray-900 dark:text-gray-100">{match.home_team}</span>
               </div>
 
               {/* Score */}
@@ -68,7 +68,7 @@ const LiveMatches = ({ matches }) => {
 
               {/* Away Team */}
               <div className="col-span-3 flex items-center justify-end space-x-3">
-                <span className="font-medium truncate">{match.away_team}</span>
+                <span className="font-medium truncate text-gray-900 dark:text-gray-100">{match.away_team}</span>
                 <img
                   src={match.away_team_logo}
                   alt={`${match.away_team} logo`}
@@ -79,7 +79,7 @@ const LiveMatches = ({ matches }) => {
 
             {/* Venue */}
             {match.venue_city && (
-              <div className="mt-2 text-sm text-gray-500 text-center">
+              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 text-center">
                 {match.venue_city}
               </div>
             )}
