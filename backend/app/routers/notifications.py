@@ -44,10 +44,12 @@ async def get_notification_preferences(
         db.commit()
         db.refresh(prefs)
 
+    prefs_schema = NotificationPreferences.model_validate(prefs)
+
     return DataResponse(
         status="success",
         message="Notification preferences retrieved",
-        data=NotificationPreferences.from_attributes(prefs),
+        data=prefs_schema,
     )
 
 
@@ -80,10 +82,12 @@ async def update_notification_preferences(
     db.commit()
     db.refresh(prefs)
 
+    prefs_schema = NotificationPreferences.model_validate(prefs)
+
     return DataResponse(
         status="success",
         message="Notification preferences updated",
-        data=NotificationPreferences.from_attributes(prefs),
+        data=prefs_schema,
     )
 
 
