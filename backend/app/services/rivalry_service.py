@@ -151,6 +151,22 @@ class RivalryService:
             
             # Update next rivalry week for this group (every 4 weeks after activation)
             await self._update_next_rivalry_week(group_id, week)
+
+            # Fire-and-forget notification for each rivalry pair
+            try:
+                from ..services.notification_service import NotificationService
+
+                notif = NotificationService(self.db)
+                group = self.db.query(Group).filter(Group.id == group_id).first()
+                if group:
+                    for r in self.db.query(RivalryPair).filter(
+                        RivalryPair.group_id == group_id,
+                        RivalryPair.assigned_week == week,
+                        RivalryPair.is_active == True,
+                    ).all():
+                        await notif.notify_rivalry_assigned(r, group)
+            except Exception as e:
+                logger.warning(f"Rivalry notification failed (non-fatal): {e}")
             
             logger.info(f"✅ Created {len(rivalries)} rivalry pairs for group {group_id}")
             return rivalries

@@ -3,19 +3,23 @@ import { useUser, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import { applyTheme } from '../../utils/theme';
+import api from '../../api';
 
 const Settings = () => {
   const { profile, loading, error, updateProfile } = useUser();
   const { showSuccess, showError } = useNotifications();
   const systemThemeWatcher = useRef(null);
 
-  // Load saved settings from profile
+  // Notification preferences (backend-driven, separate table)
   const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    predictionReminders: true,
-    matchUpdates: true,
-    groupActivity: true
+    email_enabled: true,
+    prediction_reminders: true,
+    match_result_updates: true,
+    group_activity: true,
+    reminder_24h: true,
+    reminder_1h: true
   });
+  const [notifLoading, setNotifLoading] = useState(true);
 
   const [displayPreferences, setDisplayPreferences] = useState({
     theme: 'light',
@@ -32,13 +36,6 @@ const Settings = () => {
     }
     
     if (profile?.settings) {
-      if (profile.settings.notifications) {
-        setNotifications(prev => ({
-          ...prev,
-          ...profile.settings.notifications
-        }));
-      }
-      
       if (profile.settings.displayPreferences) {
         setDisplayPreferences(prev => ({
           ...prev,
@@ -55,13 +52,35 @@ const Settings = () => {
     }
   }, [profile]);
 
-  if (loading) return <LoadingSpinner />;
+  // Load notification preferences from backend on mount
+  useEffect(() => {
+    const loadNotificationPrefs = async () => {
+      try {
+        const response = await api.client.get('/notifications/preferences');
+        // Axios interceptor wraps DataResponse as-is, so we expect { status, data }
+        if (response && response.status === 'success' && response.data) {
+          setNotifications(prev => ({
+            ...prev,
+            ...response.data
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load notification prefs:', err);
+      } finally {
+        setNotifLoading(false);
+      }
+    };
+
+    loadNotificationPrefs();
+  }, []);
+
+  if (loading || notifLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
-  const handleNotificationChange = (setting) => {
+  const handleNotificationChange = (field) => {
     setNotifications(prev => ({
       ...prev,
-      [setting]: !prev[setting]
+      [field]: !prev[field]
     }));
   };
 
@@ -98,19 +117,20 @@ const Settings = () => {
 
   const handleSaveSettings = async () => {
     try {
-      // Only save theme preference (timezone and dateFormat are for display only)
-      const settings = {
-        notifications,
-        displayPreferences: {
-          theme: displayPreferences.theme
-          // Note: timezone and dateFormat are not saved - browser defaults are used
+      // First, persist notification preferences via dedicated endpoint
+      await api.client.put('/notifications/preferences', notifications);
+
+      // Then, persist display preferences via existing profile flow
+      const success = await updateProfile({
+        settings: {
+          displayPreferences: {
+            theme: displayPreferences.theme
+            // Note: timezone and dateFormat are not saved - browser defaults are used
+          }
         }
-      };
-      
-      const success = await updateProfile({ settings });
+      });
       if (success) {
-        showSuccess('Settings updated successfully');
-        // Theme is already applied, no need to re-apply
+        showSuccess('Settings saved');
       }
     } catch (err) {
       showError(err.message || 'Failed to update settings');
@@ -126,37 +146,181 @@ const Settings = () => {
             Notification Settings
           </h2>
           <div className="space-y-4">
-            {Object.entries(notifications).map(([key, value]) => (
-              <div key={key} className="flex items-center justify-between">
+            {/* Master toggle: Email Notifications */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label
+                  htmlFor="email_enabled"
+                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                >
+                  Email Notifications
+                </label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Turn all PrediktIt emails on or off.
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={notifications.email_enabled}
+                onClick={() => handleNotificationChange('email_enabled')}
+                className={`${
+                  notifications.email_enabled ? 'bg-blue-600' : 'bg-gray-200'
+                } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`${
+                    notifications.email_enabled ? 'translate-x-5' : 'translate-x-0'
+                  } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                />
+              </button>
+            </div>
+
+            <div className={!notifications.email_enabled ? 'opacity-50 pointer-events-none space-y-3' : 'space-y-3'}>
+              {/* Prediction Reminders + sub-toggles */}
+              <div className="flex items-center justify-between">
                 <div>
-                  <label 
-                    htmlFor={key}
+                  <label
+                    htmlFor="prediction_reminders"
                     className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    {key.replace(/([A-Z])/g, ' $1').trim()}
+                    Prediction Reminders
                   </label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Receive notifications about {key.toLowerCase()}
+                    Reminders before matches you can still predict.
                   </p>
                 </div>
                 <button
                   type="button"
                   role="switch"
-                  aria-checked={value}
-                  onClick={() => handleNotificationChange(key)}
+                  aria-checked={notifications.prediction_reminders}
+                  onClick={() => handleNotificationChange('prediction_reminders')}
                   className={`${
-                    value ? 'bg-blue-600' : 'bg-gray-200'
+                    notifications.prediction_reminders ? 'bg-blue-600' : 'bg-gray-200'
                   } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
                 >
                   <span
                     aria-hidden="true"
                     className={`${
-                      value ? 'translate-x-5' : 'translate-x-0'
+                      notifications.prediction_reminders ? 'translate-x-5' : 'translate-x-0'
                     } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
                   />
                 </button>
               </div>
-            ))}
+
+              <div className={!notifications.prediction_reminders ? 'ml-6 space-y-2 opacity-50 pointer-events-none' : 'ml-6 space-y-2'}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      24 hours before
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={notifications.reminder_24h}
+                    onClick={() => handleNotificationChange('reminder_24h')}
+                    className={`${
+                      notifications.reminder_24h ? 'bg-blue-600' : 'bg-gray-200'
+                    } relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        notifications.reminder_24h ? 'translate-x-4' : 'translate-x-0'
+                      } pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
+                      1 hour before
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={notifications.reminder_1h}
+                    onClick={() => handleNotificationChange('reminder_1h')}
+                    className={`${
+                      notifications.reminder_1h ? 'bg-blue-600' : 'bg-gray-200'
+                    } relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`${
+                        notifications.reminder_1h ? 'translate-x-4' : 'translate-x-0'
+                      } pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Match Result Updates */}
+              <div className="flex items-center justify-between pt-2">
+                <div>
+                  <label
+                    htmlFor="match_result_updates"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Match Result Updates
+                  </label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Notified when a match you predicted finishes.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={notifications.match_result_updates}
+                  onClick={() => handleNotificationChange('match_result_updates')}
+                  className={`${
+                    notifications.match_result_updates ? 'bg-blue-600' : 'bg-gray-200'
+                  } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`${
+                      notifications.match_result_updates ? 'translate-x-5' : 'translate-x-0'
+                    } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                  />
+                </button>
+              </div>
+
+              {/* Group Activity */}
+              <div className="flex items-center justify-between pt-2">
+                <div>
+                  <label
+                    htmlFor="group_activity"
+                    className="text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    Group Activity
+                  </label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    New members joining your groups · Rival assignments.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={notifications.group_activity}
+                  onClick={() => handleNotificationChange('group_activity')}
+                  className={`${
+                    notifications.group_activity ? 'bg-blue-600' : 'bg-gray-200'
+                  } relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`${
+                      notifications.group_activity ? 'translate-x-5' : 'translate-x-0'
+                    } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                  />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

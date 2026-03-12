@@ -362,6 +362,15 @@ async def join_group(
         )
         db.execute(stmt)
         db.commit()
+
+        # Fire-and-forget notification; failures must not affect join flow
+        try:
+            from ..services.notification_service import NotificationService
+
+            notif = NotificationService(db)
+            await notif.notify_group_join(group_id=group.id, new_member=current_user)
+        except Exception as e:
+            logger.warning(f"Group join notification failed (non-fatal): {e}")
         
         # Clear cache
         await cache.delete(f"user_groups:{current_user.id}")
