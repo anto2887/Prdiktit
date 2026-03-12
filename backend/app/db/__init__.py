@@ -22,8 +22,10 @@ from .models import (
     RivalryWeek,
     UserStreak,
     GroupHeatmap,
+    UserSession,
+    UserNotificationPreferences,
     group_members,
-    MembershipStatus
+    MembershipStatus,
 )
 
 # Export commonly used database components
@@ -101,6 +103,8 @@ __all__ = [
     'RivalryWeek',
     'UserStreak',
     'GroupHeatmap',
+    'UserSession',
+    'UserNotificationPreferences',
     'group_members',
     'MembershipStatus',
     

@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 from pydantic import BaseModel, Field, EmailStr
 from enum import Enum
+from typing import Optional
 
 # === ENUMS (Define here to avoid circular imports) ===
 # IMPORTANT: DO NOT import from models - define all enums here
@@ -262,3 +263,25 @@ class UsernameAvailabilityResponse(BaseModel):
     """Schema for username availability check response"""
     available: bool
     reason: str
+
+
+class NotificationPreferences(BaseModel):
+    email_enabled: bool = True
+    prediction_reminders: bool = True
+    match_result_updates: bool = True
+    group_activity: bool = True
+    reminder_24h: bool = True
+    reminder_1h: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    # All fields optional to support partial updates
+    email_enabled: Optional[bool] = None
+    prediction_reminders: Optional[bool] = None
+    match_result_updates: Optional[bool] = None
+    group_activity: Optional[bool] = None
+    reminder_24h: Optional[bool] = None
+    reminder_1h: Optional[bool] = None

@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 from ..core.dependencies import get_current_active_user_from_session
 from ..db.session_manager import get_db
 from ..schemas import DataResponse, User
+from ..db.models import UserNotificationPreferences, User as UserModel
 
 # Add error handling for the MatchProcessor import
 try:
@@ -735,6 +736,154 @@ async def cleanup_expired_sessions(db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to cleanup expired sessions: {str(e)}"
+        )
+
+
+@router.get("/test-notification-preferences")
+async def test_notification_preferences(db: Session = Depends(get_db)):
+    """
+    Check status of user_notification_preferences table.
+    Returns table existence, total rows, and how many users are missing a prefs row.
+    """
+    try:
+        inspector = inspect(db.bind)
+        tables = inspector.get_table_names()
+        table_exists = "user_notification_preferences" in tables
+
+        if not table_exists:
+            return {
+                "table_exists": False,
+                "total_rows": 0,
+                "users_without_prefs": None,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
+        total_rows = db.execute(
+            text("SELECT COUNT(*) FROM user_notification_preferences")
+        ).scalar() or 0
+
+        users_without_prefs = db.execute(
+            text(
+                """
+                SELECT COUNT(*) FROM users u
+                LEFT JOIN user_notification_preferences p
+                    ON u.id = p.user_id
+                WHERE p.user_id IS NULL
+                """
+            )
+        ).scalar() or 0
+
+        return {
+            "table_exists": True,
+            "total_rows": int(total_rows),
+            "users_without_prefs": int(users_without_prefs),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to test notification preferences: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to test notification preferences: {str(e)}",
+        )
+
+
+@router.post("/migrate-notification-preferences")
+async def migrate_notification_preferences(db: Session = Depends(get_db)):
+    """
+    Create user_notification_preferences table and backfill existing users.
+    Safe to run multiple times — checks before each step.
+    """
+    try:
+        logger.info("🔄 Starting notification preferences migration...")
+
+        # Step 1: Check if table already exists
+        inspector = inspect(db.bind)
+        tables = inspector.get_table_names()
+        table_exists = "user_notification_preferences" in tables
+
+        if table_exists:
+            # Check if all users already have prefs
+            users_without_prefs = db.execute(
+                text(
+                    """
+                    SELECT COUNT(*) FROM users u
+                    LEFT JOIN user_notification_preferences p
+                        ON u.id = p.user_id
+                    WHERE p.user_id IS NULL
+                    """
+                )
+            ).scalar() or 0
+
+            if users_without_prefs == 0:
+                logger.info("✅ Notification preferences migration already completed")
+                return {
+                    "success": True,
+                    "message": "Notification preferences migration already completed",
+                    "rows_created": 0,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+
+        # Step 2: CREATE TABLE IF NOT EXISTS
+        db.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS user_notification_preferences (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+                    email_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                    prediction_reminders BOOLEAN NOT NULL DEFAULT TRUE,
+                    match_result_updates BOOLEAN NOT NULL DEFAULT TRUE,
+                    group_activity BOOLEAN NOT NULL DEFAULT TRUE,
+                    reminder_24h BOOLEAN NOT NULL DEFAULT TRUE,
+                    reminder_1h BOOLEAN NOT NULL DEFAULT TRUE,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+                )
+                """
+            )
+        )
+
+        # Step 3: Create index
+        db.execute(
+            text(
+                """
+                CREATE INDEX IF NOT EXISTS idx_notif_prefs_user_id
+                ON user_notification_preferences(user_id)
+                """
+            )
+        )
+
+        # Step 4: Backfill — insert default rows for users who don't have one yet
+        result = db.execute(
+            text(
+                """
+                INSERT INTO user_notification_preferences (user_id)
+                SELECT id FROM users
+                WHERE id NOT IN (
+                    SELECT user_id FROM user_notification_preferences
+                )
+                """
+            )
+        )
+
+        rows_created = result.rowcount or 0
+        db.commit()
+
+        logger.info(f"✅ Notification preferences migration completed, rows_created={rows_created}")
+
+        return {
+            "success": True,
+            "message": "Notification preferences migration completed",
+            "rows_created": int(rows_created),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Notification preferences migration failed: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Notification preferences migration failed: {str(e)}",
         )
 
 # Helper functions for testing

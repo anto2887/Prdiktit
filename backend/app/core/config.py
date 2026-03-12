@@ -85,6 +85,19 @@ class Settings(BaseSettings):
     # Rate limiting - Updated to 120 requests per minute
     API_RATE_LIMIT: int = int(os.getenv("API_RATE_LIMIT", "120"))
     RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
+
+    # Email / notifications (safe defaults for local/dev)
+    EMAIL_PROVIDER: str = "sendgrid"
+    SENDGRID_API_KEY: str = ""
+    SENDGRID_FROM_EMAIL: str = "noreply@prdiktit.com"
+    SENDGRID_FROM_NAME: str = "PrediktIt"
+
+    # Optional Mailgun support
+    MAILGUN_DOMAIN: str = os.getenv("MAILGUN_DOMAIN", "")
+    MAILGUN_API_KEY: str = os.getenv("MAILGUN_API_KEY", "")
+
+    # Notification links use the frontend URL when available
+    NOTIFICATION_BASE_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
     
     # CORS settings - Production defaults (more restrictive)
     CORS_ALLOW_CREDENTIALS: bool = True

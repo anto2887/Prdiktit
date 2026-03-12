@@ -12,10 +12,22 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, case, literal, union, select
 
 from .models import (
-    User, Group, Fixture, UserPrediction, Team, TeamTracker, 
-    PendingMembership, UserResults, GroupAuditLog,
-    MatchStatus, PredictionStatus, GroupPrivacyType, 
-    MemberRole, MembershipStatus, group_members
+    User,
+    Group,
+    Fixture,
+    UserPrediction,
+    Team,
+    TeamTracker,
+    PendingMembership,
+    UserResults,
+    GroupAuditLog,
+    MatchStatus,
+    PredictionStatus,
+    GroupPrivacyType,
+    MemberRole,
+    MembershipStatus,
+    UserNotificationPreferences,
+    group_members,
 )
 
 import logging
@@ -123,6 +135,16 @@ async def create_user(db: Session, **user_data) -> User:
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+
+    # Auto-create default notification preferences for the new user
+    try:
+        prefs = UserNotificationPreferences(user_id=db_user.id)
+        db.add(prefs)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create default notification preferences for user {db_user.id}: {e}")
+        db.rollback()
+
     return db_user
 
 async def update_user(db: Session, user_id: int, **user_data) -> Optional[User]:
@@ -1183,7 +1205,16 @@ async def create_oauth_user(
         db.add(user)
         db.commit()
         db.refresh(user)
-        
+
+        # Auto-create default notification preferences for OAuth users
+        try:
+            prefs = UserNotificationPreferences(user_id=user.id)
+            db.add(prefs)
+            db.commit()
+        except Exception as e:
+            logger.error(f"Failed to create default notification preferences for OAuth user {user.id}: {e}")
+            db.rollback()
+
         logger.info(f"✅ Created OAuth user: {username} ({email}) via {oauth_provider}")
         return user
         

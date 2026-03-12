@@ -312,7 +312,7 @@ async def shutdown_event():
         transaction_logger.error(f"SHUTDOWN_ERROR: {str(e)}")
 
 # Include routers with dependency injection
-from .routers import auth, predictions, matches, groups, users, admin
+from .routers import auth, predictions, matches, groups, users, admin, notifications
 from .routers.analytics import router as analytics_router
 from .routers import oauth
 
@@ -347,6 +347,14 @@ app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["oauth"], depende
 
 logger.info("🔐 Main App: Including admin router...")
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including notifications router...")
+app.include_router(
+    notifications.router,
+    prefix=f"{settings.API_V1_STR}/notifications",
+    tags=["notifications"],
+    dependencies=[Depends(get_database_session)],
+)
 
 logger.info("🔐 Main App: All routers included successfully")
 

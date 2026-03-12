@@ -1,7 +1,7 @@
 # app/db/models.py
 from datetime import datetime, timezone
 from sqlalchemy import (
-    Boolean, Column, ForeignKey, Integer, String, 
+    Boolean, Column, ForeignKey, Integer, String,
     DateTime, Enum, Text, Table, JSON, UniqueConstraint, Index, Float, CheckConstraint, Numeric
 )
 from sqlalchemy.orm import relationship
@@ -63,6 +63,12 @@ class User(Base):
     predictions = relationship("UserPrediction", back_populates="user")
     groups = relationship("Group", secondary=group_members, back_populates="users")
     admin_groups = relationship("Group", back_populates="admin", foreign_keys="Group.admin_id")
+    notification_preferences = relationship(
+        "UserNotificationPreferences",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     
     # OAuth validation
     __table_args__ = (
@@ -97,6 +103,27 @@ class UserSession(Base):
     __table_args__ = (
         Index('idx_session_expires', 'expires_at'),
         Index('idx_session_user_active', 'user_id', 'is_active'),
+    )
+
+
+class UserNotificationPreferences(Base):
+    __tablename__ = "user_notification_preferences"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    email_enabled = Column(Boolean, nullable=False, default=True)
+    prediction_reminders = Column(Boolean, nullable=False, default=True)
+    match_result_updates = Column(Boolean, nullable=False, default=True)
+    group_activity = Column(Boolean, nullable=False, default=True)
+    reminder_24h = Column(Boolean, nullable=False, default=True)
+    reminder_1h = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
+
+    user = relationship("User", back_populates="notification_preferences")
+
+    __table_args__ = (
+        Index("idx_notif_prefs_user_id", "user_id"),
     )
 
 class Group(Base):

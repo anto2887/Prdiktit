@@ -133,6 +133,19 @@ class ProductionSettings(Settings):
     
     # Rate limiting for production
     RATE_LIMIT_PER_MINUTE: int = safe_int("RATE_LIMIT_PER_MINUTE", 300)
+
+    # Email / notifications (all injected via Railway)
+    EMAIL_PROVIDER: str = os.getenv("EMAIL_PROVIDER", "sendgrid")
+    SENDGRID_API_KEY: str = validate_required_env("SENDGRID_API_KEY", os.getenv("SENDGRID_API_KEY", ""))
+    SENDGRID_FROM_EMAIL: str = validate_required_env("SENDGRID_FROM_EMAIL", os.getenv("SENDGRID_FROM_EMAIL", ""))
+    SENDGRID_FROM_NAME: str = os.getenv("SENDGRID_FROM_NAME", "PrediktIt")
+
+    # Optional Mailgun support
+    MAILGUN_DOMAIN: str = os.getenv("MAILGUN_DOMAIN", "")
+    MAILGUN_API_KEY: str = os.getenv("MAILGUN_API_KEY", "")
+
+    # Notification base URL reuses existing FRONTEND_URL variable
+    NOTIFICATION_BASE_URL: str = os.getenv("FRONTEND_URL", "https://prdiktit.com")
     
     # Monitoring and observability
     SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
