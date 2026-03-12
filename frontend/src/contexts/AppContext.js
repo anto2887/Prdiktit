@@ -494,6 +494,21 @@ export const AppProvider = ({ children }) => {
 
   // Auth functions
   const checkAuth = useCallback(async () => {
+    // DEV-ONLY SHORT-CIRCUIT: fake auth for local debugging (do NOT commit to prod)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[DEV] checkAuth short-circuit: faking authenticated user');
+      dispatch({
+        type: ActionTypes.SET_AUTH_SUCCESS,
+        payload: {
+          id: 999,
+          username: 'dev_user',
+          email: 'dev@example.com',
+        },
+      });
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
+      return;
+    }
+
     try {
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
       process.env.NODE_ENV === 'development' && console.log("Checking authentication...");
@@ -679,6 +694,40 @@ export const AppProvider = ({ children }) => {
 
   // User functions
   const fetchProfile = useCallback(async () => {
+    // DEV-ONLY SHORT-CIRCUIT: provide fake profile/settings for local debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[DEV] fetchProfile short-circuit: returning fake profile');
+      dispatch({
+        type: ActionTypes.SET_USER_PROFILE,
+        payload: {
+          id: 999,
+          username: 'dev_user',
+          email: 'dev@example.com',
+          settings: {
+            notifications: {
+              emailNotifications: true,
+              predictionReminders: true,
+              matchUpdates: true,
+              groupActivity: true,
+            },
+            displayPreferences: {
+              theme: 'light',
+            },
+          },
+        },
+      });
+      dispatch({
+        type: ActionTypes.SET_USER_STATS,
+        payload: {
+          total_points: 0,
+          total_predictions: 0,
+          perfect_predictions: 0,
+          average_points: 0.0,
+        },
+      });
+      return;
+    }
+
     if (!state.auth.isAuthenticated) return;
     
     try {
@@ -726,6 +775,19 @@ export const AppProvider = ({ children }) => {
   }, [state.auth.isAuthenticated]); // FIXED: Restore state dependency for proper state access
 
   const updateProfile = useCallback(async (userData) => {
+    // DEV-ONLY SHORT-CIRCUIT: pretend profile update succeeded locally
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[DEV] updateProfile short-circuit:', userData);
+      dispatch({
+        type: ActionTypes.SET_USER_PROFILE,
+        payload: {
+          ...(state.user.profile || {}),
+          ...(userData || {}),
+        },
+      });
+      return true;
+    }
+
     try {
       dispatch({ type: ActionTypes.SET_USER_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_USER_ERROR, payload: null });
@@ -743,7 +805,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to update profile');
       return false;
     }
-  }, [fetchProfile, showError]);
+  }, [fetchProfile, showError, state.user.profile]);
 
   // Groups functions with deduplication to prevent continuous dispatching
   const groupsRequestInProgress = useRef(false);

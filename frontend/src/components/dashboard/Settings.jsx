@@ -74,6 +74,16 @@ const Settings = () => {
     loadNotificationPrefs();
   }, []);
 
+  // Cleanup watcher on unmount
+  useEffect(() => {
+    return () => {
+      if (systemThemeWatcher.current) {
+        systemThemeWatcher.current();
+        systemThemeWatcher.current = null;
+      }
+    };
+  }, []);
+
   if (loading || notifLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
@@ -104,16 +114,6 @@ const Settings = () => {
       applyTheme(value);
     }
   };
-  
-  // Cleanup watcher on unmount
-  useEffect(() => {
-    return () => {
-      if (systemThemeWatcher.current) {
-        systemThemeWatcher.current();
-        systemThemeWatcher.current = null;
-      }
-    };
-  }, []);
 
   const handleSaveSettings = async () => {
     try {
@@ -123,10 +123,10 @@ const Settings = () => {
       // Then, persist display preferences via existing profile flow
       const success = await updateProfile({
         settings: {
-          displayPreferences: {
-            theme: displayPreferences.theme
-            // Note: timezone and dateFormat are not saved - browser defaults are used
-          }
+        displayPreferences: {
+          theme: displayPreferences.theme
+          // Note: timezone and dateFormat are not saved - browser defaults are used
+        }
         }
       });
       if (success) {
@@ -293,7 +293,7 @@ const Settings = () => {
               {/* Group Activity */}
               <div className="flex items-center justify-between pt-2">
                 <div>
-                  <label
+                  <label 
                     htmlFor="group_activity"
                     className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
