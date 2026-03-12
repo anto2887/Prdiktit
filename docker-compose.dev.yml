@@ -51,6 +51,9 @@ services:
       - SECRET_KEY=developmentsecretkey
       - JWT_SECRET_KEY=developmentjwtsecretkey
       - CREATE_TABLES_ON_STARTUP=True
+      - EMAIL_PROVIDER=sendgrid
+      - SENDGRID_FROM_EMAIL=noreply@prdiktit.com
+      - SENDGRID_FROM_NAME=PrediktIt
       - CORS_ORIGINS=["https://prdiktit.com","http://localhost:3000","http://127.0.0.1:3000","http://0.0.0.0:3000","http://frontend:3000"]
       - CORS_ALLOW_CREDENTIALS=true
       - CORS_ALLOW_METHODS=["GET","POST","PUT","DELETE","OPTIONS","PATCH"]
@@ -81,7 +84,6 @@ services:
       - NODE_ENV=development
       - REACT_APP_API_URL=/api/v1
       - REACT_APP_ENV=development
-              - API_PROXY=https://backend-production-4894.up.railway.app
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
       - WDS_SOCKET_HOST=localhost
