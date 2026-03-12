@@ -853,12 +853,44 @@ async def migrate_notification_preferences(db: Session = Depends(get_db)):
             )
         )
 
-        # Step 4: Backfill — insert default rows for users who don't have one yet
+        # Step 4a: Normalize any existing rows with NULL booleans → TRUE
+        db.execute(
+            text(
+                """
+                UPDATE user_notification_preferences
+                SET
+                    email_enabled = COALESCE(email_enabled, TRUE),
+                    prediction_reminders = COALESCE(prediction_reminders, TRUE),
+                    match_result_updates = COALESCE(match_result_updates, TRUE),
+                    group_activity = COALESCE(group_activity, TRUE),
+                    reminder_24h = COALESCE(reminder_24h, TRUE),
+                    reminder_1h = COALESCE(reminder_1h, TRUE)
+                """
+            )
+        )
+
+        # Step 4b: Backfill — insert default rows for users who don't have one yet
         result = db.execute(
             text(
                 """
-                INSERT INTO user_notification_preferences (user_id)
-                SELECT id FROM users
+                INSERT INTO user_notification_preferences (
+                    user_id,
+                    email_enabled,
+                    prediction_reminders,
+                    match_result_updates,
+                    group_activity,
+                    reminder_24h,
+                    reminder_1h
+                )
+                SELECT
+                    id,
+                    TRUE,
+                    TRUE,
+                    TRUE,
+                    TRUE,
+                    TRUE,
+                    TRUE
+                FROM users
                 WHERE id NOT IN (
                     SELECT user_id FROM user_notification_preferences
                 )
