@@ -21,6 +21,13 @@ except ImportError as e:
     logging.error(f"MatchProcessor not available: {e}")
     MATCH_PROCESSOR_AVAILABLE = False
 
+try:
+    from .notification_scheduler import notification_scheduler
+    NOTIFICATION_SCHEDULER_AVAILABLE = True
+except ImportError as e:
+    logging.error(f"NotificationScheduler not available: {e}")
+    NOTIFICATION_SCHEDULER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 class BackgroundTaskRunner:
@@ -65,8 +72,22 @@ class BackgroundTaskRunner:
             logger.warning("Background tasks already running")
             return
         
-        # Schedule tasks
+        # Schedule core match processing
         schedule.every(5).minutes.do(self.run_processing_cycle)
+
+        # Notification queue processor — every 5 min alongside match processing
+        if NOTIFICATION_SCHEDULER_AVAILABLE and notification_scheduler.redis:
+            schedule.every(5).minutes.do(
+                notification_scheduler.process_notification_queue
+            )
+            schedule.every(5).minutes.do(
+                notification_scheduler.check_and_queue_match_results
+            )
+
+            # Reminder window checker — every 15 min is sufficient
+            schedule.every(15).minutes.do(
+                notification_scheduler.check_and_queue_reminders
+            )
         
         self.is_running = True
         
