@@ -981,3 +981,32 @@ async def test_session_service(db: Session):
             "message": "Session service test failed",
             "details": str(e)
         }
+
+
+@router.post("/test-send-email")
+async def test_send_email(
+    to_email: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Temporary test endpoint — send a simple email to verify provider setup.
+    Safe to remove after verification.
+    """
+    try:
+        from ..services.notification_service import EmailService
+
+        email_service = EmailService()
+        sent = await email_service.send(
+            to_email=to_email,
+            to_name="Test User",
+            subject="PrediktIt — Test Email",
+            html="<h1>Test email working ✅</h1><p>Your email provider setup is correct.</p>",
+            text="Test email working. Your email provider setup is correct.",
+        )
+        return {"sent": sent, "to": to_email}
+    except Exception as e:
+        logger.error(f"Error in test_send_email: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send test email: {str(e)}",
+        )
