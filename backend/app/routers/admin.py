@@ -1036,9 +1036,9 @@ async def test_queue_job(
             "type": "match_result",
             "user_id": user_id,
             "payload": {
-                "fixture_id": 1,
-                "prediction_id": 1,
-                "points_earned": 3,
+                "fixture_id": 1379249,
+                "prediction_id": 17,
+                "points_earned": 1,
             },
             "created_at": datetime.now(timezone.utc).isoformat(),
             "retry_count": 0,
