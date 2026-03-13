@@ -1010,3 +1010,53 @@ async def test_send_email(
             status_code=500,
             detail=f"Failed to send test email: {str(e)}",
         )
+
+
+@router.post("/test-queue-job")
+async def test_queue_job(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Push a test match_result job to the Redis notification queue.
+    Temporary endpoint — safe to delete after verification.
+    """
+    try:
+        import json
+        from datetime import datetime, timezone
+        from ..services.cache_service import cache_instance
+
+        if not cache_instance.redis_client:
+            raise HTTPException(
+                status_code=500,
+                detail="Redis client is not initialized",
+            )
+
+        job = {
+            "type": "match_result",
+            "user_id": user_id,
+            "payload": {
+                "fixture_id": 1,
+                "prediction_id": 1,
+                "points_earned": 3,
+            },
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "retry_count": 0,
+        }
+
+        cache_instance.redis_client.lpush("notif:jobs", json.dumps(job))
+        queue_length = cache_instance.redis_client.llen("notif:jobs")
+
+        return {
+            "queued": True,
+            "user_id": user_id,
+            "queue_length": int(queue_length),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in test_queue_job: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to queue test job: {str(e)}",
+        )
