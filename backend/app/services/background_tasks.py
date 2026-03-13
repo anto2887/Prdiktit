@@ -30,6 +30,21 @@ except ImportError as e:
 
 logger = logging.getLogger(__name__)
 
+
+def _run_notification_queue_once() -> None:
+    """
+    Synchronous wrapper for the async notification queue processor.
+    Safe to use from the thread-based schedule runner in this module.
+    """
+    if not NOTIFICATION_SCHEDULER_AVAILABLE or not notification_scheduler.redis:
+        return
+
+    try:
+        asyncio.run(notification_scheduler.process_notification_queue())
+    except Exception as e:
+        logger.error(f"Error running notification queue (background_tasks): {e}")
+
+
 class BackgroundTaskRunner:
     """Simple background task runner for match and prediction processing"""
     
@@ -75,11 +90,10 @@ class BackgroundTaskRunner:
         # Schedule core match processing
         schedule.every(5).minutes.do(self.run_processing_cycle)
 
-        # Notification queue processor — every 5 min alongside match processing
+        # Notification queue processor — every 5 min alongside match processing.
+        # Use the sync wrapper that internally runs the async processor.
         if NOTIFICATION_SCHEDULER_AVAILABLE and notification_scheduler.redis:
-            schedule.every(5).minutes.do(
-                notification_scheduler.process_notification_queue
-            )
+            schedule.every(5).minutes.do(_run_notification_queue_once)
             schedule.every(5).minutes.do(
                 notification_scheduler.check_and_queue_match_results
             )

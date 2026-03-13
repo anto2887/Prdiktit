@@ -129,7 +129,7 @@ class SchedulerService:
                 # Process notification queue and match result jobs every 5 minutes
                 if self.notification_scheduler:
                     try:
-                        self.notification_scheduler.process_notification_queue()
+                        await self.notification_scheduler.process_notification_queue()
                         self.notification_scheduler.check_and_queue_match_results()
                         logger.info("✅ Notification queue processed")
                     except Exception as e:

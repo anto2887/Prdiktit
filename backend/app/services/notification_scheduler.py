@@ -124,7 +124,7 @@ class NotificationScheduler:
     # QUEUE PROCESSOR
     # ------------------------------------------------------------------ #
 
-    def process_notification_queue(self) -> None:
+    async def process_notification_queue(self) -> None:
         """
         Called periodically by background_tasks.py.
         Pops up to 50 jobs from notif:jobs and processes each one.
@@ -142,20 +142,19 @@ class NotificationScheduler:
 
                 try:
                     job = json.loads(raw)
-                    self._process_single_job(job, db)
+                    await self._process_single_job(job, db)
                 except Exception as e:
                     logger.error(f"Job processing error: {e} — raw: {raw}")
 
         finally:
             db.close()
 
-    def _process_single_job(self, job: Dict[str, Any], db: Session) -> None:
+    async def _process_single_job(self, job: Dict[str, Any], db: Session) -> None:
         """
         Process a single job from the notification queue.
         Uses asyncio.run to execute async notification sends in a fresh event loop.
         """
         from .notification_service import NotificationService
-        import asyncio
 
         job_type = job.get("type")
         user_id = job.get("user_id")
@@ -174,9 +173,7 @@ class NotificationScheduler:
                     .all()
                 )
                 if fixtures:
-                    asyncio.run(
-                        notif.send_prediction_reminder(user_id, fixtures, hours)
-                    )
+                    await notif.send_prediction_reminder(user_id, fixtures, hours)
 
             elif job_type == "match_result":
                 fixture = (
@@ -190,13 +187,11 @@ class NotificationScheduler:
                     .first()
                 )
                 if fixture and prediction:
-                    asyncio.run(
-                        notif.send_match_result(
-                            user_id,
-                            fixture,
-                            prediction,
-                            payload["points_earned"],
-                        )
+                    await notif.send_match_result(
+                        user_id,
+                        fixture,
+                        prediction,
+                        payload["points_earned"],
                     )
 
         except Exception as e:
