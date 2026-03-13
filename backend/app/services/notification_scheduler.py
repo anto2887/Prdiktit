@@ -149,9 +149,11 @@ class NotificationScheduler:
         finally:
             db.close()
 
-    def _process_single_job(self, job: Dict[str, Any], db: Session) -> None:
+    async def _process_single_job_async(self, job: Dict[str, Any], db: Session) -> None:
+        """
+        Async handler for a single job. Handles retry logic internally.
+        """
         from .notification_service import NotificationService
-        import asyncio
 
         job_type = job.get("type")
         user_id = job.get("user_id")
@@ -161,8 +163,6 @@ class NotificationScheduler:
         notif = NotificationService(db)
 
         try:
-            loop = asyncio.get_event_loop()
-
             if job_type in ("reminder_24h", "reminder_1h"):
                 hours = int(job_type.replace("reminder_", "").replace("h", ""))
                 fixture_ids = payload.get("fixture_ids", [])
@@ -172,11 +172,7 @@ class NotificationScheduler:
                     .all()
                 )
                 if fixtures:
-                    loop.run_until_complete(
-                        notif.send_prediction_reminder(
-                            user_id, fixtures, hours
-                        )
-                    )
+                    await notif.send_prediction_reminder(user_id, fixtures, hours)
 
             elif job_type == "match_result":
                 fixture = (
@@ -190,13 +186,11 @@ class NotificationScheduler:
                     .first()
                 )
                 if fixture and prediction:
-                    loop.run_until_complete(
-                        notif.send_match_result(
-                            user_id,
-                            fixture,
-                            prediction,
-                            payload["points_earned"],
-                        )
+                    await notif.send_match_result(
+                        user_id,
+                        fixture,
+                        prediction,
+                        payload["points_earned"],
                     )
 
         except Exception as e:
@@ -206,6 +200,25 @@ class NotificationScheduler:
                 self.redis.lpush("notif:jobs", json.dumps(job))
             else:
                 logger.error(f"Job discarded after 3 attempts: {job}")
+
+    def _process_single_job(self, job: Dict[str, Any], db: Session) -> None:
+        """
+        Synchronous entrypoint used by queue processors.
+        Safely bridges to the async job handler without breaking running event loops.
+        """
+        import asyncio
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # In a running event loop (e.g. scheduler_minimal) – schedule as a task
+                loop.create_task(self._process_single_job_async(job, db))
+            else:
+                # No running loop in this thread – run to completion
+                loop.run_until_complete(self._process_single_job_async(job, db))
+        except RuntimeError:
+            # Fallback: create a fresh event loop for this call
+            asyncio.run(self._process_single_job_async(job, db))
 
     # ------------------------------------------------------------------ #
     # MATCH RESULT QUEUING
