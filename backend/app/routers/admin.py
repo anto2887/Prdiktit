@@ -1060,3 +1060,63 @@ async def test_queue_job(
             status_code=500,
             detail=f"Failed to queue test job: {str(e)}",
         )
+
+
+@router.post("/test-send-notification")
+async def test_send_notification(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Directly invoke send_match_result for a user — bypasses Redis queue.
+    Safe to delete after verification.
+    """
+    from ..services.notification_service import NotificationService
+    from ..db.models import Fixture, UserPrediction, UserNotificationPreferences, User
+
+    # Check user exists
+    user = db.query(User).filter_by(id=user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Check prefs
+    prefs = (
+        db.query(UserNotificationPreferences)
+        .filter_by(user_id=user_id)
+        .first()
+    )
+
+    # Get any real fixture and prediction for this user
+    prediction = (
+        db.query(UserPrediction)
+        .filter_by(user_id=user_id)
+        .first()
+    )
+    fixture = (
+        db.query(Fixture)
+        .filter_by(fixture_id=prediction.fixture_id)
+        .first()
+        if prediction
+        else None
+    )
+
+    debug = {
+        "user_email": user.email,
+        "has_prefs_row": prefs is not None,
+        "email_enabled": prefs.email_enabled if prefs else None,
+        "match_result_updates": prefs.match_result_updates if prefs else None,
+        "fixture_found": fixture is not None,
+        "prediction_found": prediction is not None,
+    }
+
+    if not fixture or not prediction:
+        return {
+            "sent": False,
+            "reason": "No fixture/prediction found for user",
+            "debug": debug,
+        }
+
+    notif = NotificationService(db)
+    sent = await notif.send_match_result(user_id, fixture, prediction, 3)
+
+    return {"sent": sent, "debug": debug}
