@@ -36,7 +36,9 @@ class SchedulerService:
         self.error_count = 0
         self.max_errors = 5
         self.error_reset_time = None
-        
+        self.notification_scheduler = None
+        self.last_reminder_check = None  # Track 15min reminder window
+
         # Import existing services after path setup
         self.scheduler = None
         self.match_updater = None
@@ -61,7 +63,16 @@ class SchedulerService:
         except ImportError as e:
             logger.error(f"❌ Failed to import MatchStatusUpdater: {e}")
             self.match_updater = None
-        
+
+        # Import NotificationScheduler (for email notifications)
+        try:
+            from app.services.notification_scheduler import notification_scheduler
+            self.notification_scheduler = notification_scheduler
+            logger.info("✅ Successfully imported NotificationScheduler")
+        except ImportError as e:
+            logger.error(f"❌ Failed to import NotificationScheduler: {e}")
+            self.notification_scheduler = None
+
         if not self.scheduler or not self.match_updater:
             logger.error("❌ Critical: Required services not available")
         
@@ -95,38 +106,62 @@ class SchedulerService:
             return False
     
     async def run_scheduling_cycle(self):
-        """Run a single scheduling cycle with actual fixture processing"""
+        """Run a single scheduling cycle with actual fixture and notification processing"""
         try:
             if not self.is_running or not self.scheduler or not self.match_updater:
                 return False
-                
+
             current_time = datetime.now(timezone.utc)
-            
+
             # Run every 5 minutes for fixture monitoring
-            if (self.last_check is None or 
-                (current_time - self.last_check).total_seconds() > 300):
-                
+            if (
+                self.last_check is None
+                or (current_time - self.last_check).total_seconds() > 300
+            ):
                 logger.info("🔄 Running scheduling cycle with fixture processing...")
-                
+
                 # Run the actual scheduler processing
                 await self._process_fixtures()
-                
+
                 self.last_check = current_time
                 self.error_count = 0  # Reset error count on success
-                
+
+                # Process notification queue and match result jobs every 5 minutes
+                if self.notification_scheduler:
+                    try:
+                        self.notification_scheduler.process_notification_queue()
+                        self.notification_scheduler.check_and_queue_match_results()
+                        logger.info("✅ Notification queue processed")
+                    except Exception as e:
+                        logger.error(f"❌ Notification queue error (non-fatal): {e}")
+
+            # Check reminders every 15 minutes independently
+            if self.notification_scheduler and (
+                self.last_reminder_check is None
+                or (current_time - self.last_reminder_check).total_seconds() > 900
+            ):
+                try:
+                    self.notification_scheduler.check_and_queue_reminders()
+                    self.last_reminder_check = current_time
+                    logger.info("✅ Reminder check completed")
+                except Exception as e:
+                    logger.error(f"❌ Reminder check error (non-fatal): {e}")
+
             return True
-            
+
         except Exception as e:
             self.error_count += 1
             logger.error(f"❌ Error in scheduling cycle {self.error_count}: {e}")
-            
+
             # Implement circuit breaker pattern
             if self.error_count >= self.max_errors:
-                logger.error(f"🚨 Circuit breaker activated after {self.error_count} errors")
+                logger.error(
+                    f"🚨 Circuit breaker activated after {self.error_count} errors"
+                )
                 self.is_running = False
                 scheduler_status = "circuit_breaker"
                 return False
-                
+
             return False
     
     async def _process_fixtures(self):
