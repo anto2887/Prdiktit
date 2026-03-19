@@ -124,8 +124,9 @@ const Settings = () => {
       const success = await updateProfile({
         settings: {
         displayPreferences: {
-          theme: displayPreferences.theme
-          // Note: timezone and dateFormat are not saved - browser defaults are used
+          theme: displayPreferences.theme,
+          timezone: displayPreferences.timezone,
+          dateFormat: displayPreferences.dateFormat,
         }
         }
       });

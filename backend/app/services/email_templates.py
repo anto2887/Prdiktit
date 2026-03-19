@@ -55,23 +55,82 @@ def _base_footer(unsubscribe_url: str) -> str:
     """
 
 
+def _group_context(group_names: List[str]) -> str:
+    if not group_names:
+        return ""
+    if len(group_names) == 1:
+        return group_names[0]
+    return f"{group_names[0]} +{len(group_names) - 1} group(s)"
+
+
+def _build_reminder_subject(
+    league_name: str | None,
+    group_label: str,
+    match_count: int,
+    hours_until: int,
+) -> str:
+    context_parts = []
+    if group_label:
+        context_parts.append(group_label)
+    if league_name:
+        context_parts.append(league_name)
+    context = " | ".join(context_parts)
+    context_prefix = f"{context}: " if context else ""
+
+    if hours_until == 1:
+        return (
+            f"🔥 {context_prefix}{match_count} match(es) lock in 1 hour — submit now"
+        )
+    if match_count >= 6:
+        return (
+            f"📅 {context_prefix}big slate ahead: {match_count} match(es) in 24 hours"
+        )
+    return (
+        f"⏰ {context_prefix}{match_count} match(es) kick off in {hours_until} hours"
+    )
+
+
+def _build_result_subject(
+    league_name: str | None,
+    group_label: str,
+    match_count: int,
+    total_points: int,
+) -> str:
+    context_parts = []
+    if group_label:
+        context_parts.append(group_label)
+    if league_name:
+        context_parts.append(league_name)
+    context = " | ".join(context_parts)
+    context_prefix = f"{context}: " if context else ""
+
+    if total_points >= max(5, match_count * 2):
+        return (
+            f"🚀 {context_prefix}{total_points} pts from {match_count} result(s) — great round"
+        )
+    if total_points == 0:
+        return (
+            f"💪 {context_prefix}{match_count} result(s) are in — bounce-back window starts now"
+        )
+    return f"📊 {context_prefix}{match_count} match result(s) processed"
+
+
 def build_prediction_reminder(
     matches: List[Any],
     hours_until: int,
     user,
     unsubscribe_token: str,
     league_name: str | None = None,
+    group_names: List[str] | None = None,
 ) -> Dict[str, str]:
     """
     Build prediction reminder email.
     matches: list of Fixture objects (or dicts with similar attrs).
     """
     n = len(matches)
-    league_prefix = f"{league_name}: " if league_name else ""
-    if hours_until == 24:
-        subject = f"⏰ {league_prefix}{n} match(es) kick off in 24 hours — predictions close soon"
-    else:
-        subject = f"⏰ {league_prefix}{n} match(es) kick off in 1 hour — last chance to predict"
+    group_names = group_names or []
+    group_label = _group_context(group_names)
+    subject = _build_reminder_subject(league_name, group_label, n, hours_until)
 
     rows_html = ""
     for m in matches:
@@ -105,6 +164,11 @@ def build_prediction_reminder(
             Here are your upcoming matches. Make sure you get your predictions in before kickoff.
           </td>
         </tr>
+        {
+            f'<tr><td style="font-size:13px; color:#374151; padding-bottom:8px;">Group context: {html.escape(group_label)}</td></tr>'
+            if group_label
+            else ""
+        }
         <tr>
           <td>
             <table width="100%" cellspacing="0" cellpadding="0">
@@ -128,6 +192,7 @@ def build_prediction_reminder(
     text_body_lines = [
         "PrediktIt — Upcoming Matches",
         "",
+        f"Group context: {group_label}" if group_label else "",
         "Here are your upcoming matches:",
     ]
     for m in matches:
@@ -231,10 +296,13 @@ def build_match_result_digest(
     user,
     unsubscribe_token: str,
     league_name: str | None = None,
+    group_names: List[str] | None = None,
 ) -> Dict[str, str]:
     n = len(entries)
-    league_prefix = f"{league_name}: " if league_name else ""
-    subject = f"📊 {league_prefix}{n} match result(s) processed"
+    group_names = group_names or []
+    group_label = _group_context(group_names)
+    total_points = sum(int(entry.get("points_earned", 0)) for entry in entries)
+    subject = _build_result_subject(league_name, group_label, n, total_points)
 
     base_url = settings.NOTIFICATION_BASE_URL.rstrip("/")
     unsubscribe_url = f"{base_url}/api/v1/notifications/unsubscribe/{unsubscribe_token}"
@@ -243,6 +311,7 @@ def build_match_result_digest(
     text_lines = [
         f"Match Results {f'({league_name})' if league_name else ''}",
         "",
+        f"Group context: {group_label}" if group_label else "",
     ]
 
     for entry in entries:
@@ -286,6 +355,11 @@ def build_match_result_digest(
             Your processed predictions from recent completed matches.
           </td>
         </tr>
+        {
+            f'<tr><td style="font-size:13px; color:#374151; padding-bottom:8px;">Group context: {html.escape(group_label)}</td></tr>'
+            if group_label
+            else ""
+        }
         <tr>
           <td>
             <table width="100%" cellspacing="0" cellpadding="0">

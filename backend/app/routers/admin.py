@@ -1041,6 +1041,7 @@ async def test_queue_job(
             "user_id": user_id,
             "payload": {
                 "league": fixture.league if fixture else "Unknown League",
+                "group_names": [],
                 "items": [
                     {
                         "fixture_id": fixture_id,

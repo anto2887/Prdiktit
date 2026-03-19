@@ -38,6 +38,17 @@ class NotificationScheduler:
     def _norm_team_name(name: str) -> str:
         return (name or "").strip().casefold()
 
+    @staticmethod
+    def _get_member_ids_for_group(db: Session, group: Group) -> Set[int]:
+        member_ids = {
+            row[0]
+            for row in db.query(group_members.c.user_id)
+            .filter(group_members.c.group_id == group.id)
+            .all()
+        }
+        member_ids.add(group.admin_id)
+        return member_ids
+
     # ------------------------------------------------------------------ #
     # REMINDER BATCHING — core anti-spam logic
     # ------------------------------------------------------------------ #
@@ -76,9 +87,8 @@ class NotificationScheduler:
                 for t in db.query(Team).all()
             }
 
-            user_league_teams: Dict[int, Dict[str, Set[str]]] = defaultdict(
-                lambda: defaultdict(set)
-            )
+            user_league_teams: Dict[int, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
+            user_league_groups: Dict[int, Dict[str, Set[str]]] = defaultdict(lambda: defaultdict(set))
 
             groups = db.query(Group).all()
             for group in groups:
@@ -96,15 +106,10 @@ class NotificationScheduler:
                 if not tracked_names:
                     continue
 
-                member_ids = {
-                    row[0]
-                    for row in db.query(group_members.c.user_id)
-                    .filter(group_members.c.group_id == group.id)
-                    .all()
-                }
-                member_ids.add(group.admin_id)
+                member_ids = self._get_member_ids_for_group(db, group)
 
                 for user_id in member_ids:
+                    user_league_groups[user_id][group.league].add(group.name)
                     user_league_teams[user_id][group.league].update(tracked_names)
 
             users_by_id = {
@@ -171,6 +176,10 @@ class NotificationScheduler:
                             "user_id": user.id,
                             "payload": {
                                 "league": league_name,
+                                "group_names": sorted(
+                                    user_league_groups.get(user.id, {})
+                                    .get(league_name, set())
+                                ),
                                 "fixture_ids": [f.fixture_id for f in matched],
                                 "date_str": date_str,
                                 "hours_until": int(
@@ -235,6 +244,7 @@ class NotificationScheduler:
                 hours = int(job_type.replace("reminder_", "").replace("h", ""))
                 fixture_ids = payload.get("fixture_ids", [])
                 league_name = payload.get("league")
+                group_names = payload.get("group_names", [])
                 fixtures = (
                     db.query(Fixture)
                     .filter(Fixture.fixture_id.in_(fixture_ids))
@@ -242,13 +252,18 @@ class NotificationScheduler:
                 )
                 if fixtures:
                     await notif.send_prediction_reminder(
-                        user_id, fixtures, hours, league_name=league_name
+                        user_id,
+                        fixtures,
+                        hours,
+                        league_name=league_name,
+                        group_names=group_names,
                     )
 
             elif job_type == "match_result_digest":
                 entries: List[Dict[str, Any]] = []
                 items = payload.get("items", [])
                 league_name = payload.get("league")
+                group_names = payload.get("group_names", [])
 
                 for item in items:
                     fixture = (
@@ -275,6 +290,7 @@ class NotificationScheduler:
                         user_id=user_id,
                         entries=entries,
                         league_name=league_name,
+                        group_names=group_names,
                     )
 
         except Exception as e:
@@ -315,7 +331,9 @@ class NotificationScheduler:
                 .all()
             )
 
-            digest_buckets: Dict[Tuple[int, str], List[Dict[str, int]]] = defaultdict(list)
+            digest_buckets: Dict[Tuple[int, str], Dict[str, Any]] = defaultdict(
+                lambda: {"items": [], "group_names": set()}
+            )
 
             for prediction in recent:
                 fixture = (
@@ -333,15 +351,21 @@ class NotificationScheduler:
                     continue
                 self.redis.expire(dedup_key, 48 * 3600)
 
-                digest_buckets[(prediction.user_id, fixture.league)].append(
+                bucket = digest_buckets[(prediction.user_id, fixture.league)]
+                bucket["items"].append(
                     {
                         "fixture_id": prediction.fixture_id,
                         "prediction_id": prediction.id,
                         "points_earned": prediction.points or 0,
                     }
                 )
+                if prediction.group_id:
+                    group = db.query(Group).filter(Group.id == prediction.group_id).first()
+                    if group and group.name:
+                        bucket["group_names"].add(group.name)
 
-            for (user_id, league_name), items in digest_buckets.items():
+            for (user_id, league_name), digest in digest_buckets.items():
+                items = digest["items"]
                 if not items:
                     continue
                 job = {
@@ -349,6 +373,7 @@ class NotificationScheduler:
                     "user_id": user_id,
                     "payload": {
                         "league": league_name,
+                        "group_names": sorted(digest["group_names"]),
                         "items": items,
                     },
                     "created_at": now.isoformat(),

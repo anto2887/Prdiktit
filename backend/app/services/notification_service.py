@@ -154,6 +154,7 @@ class NotificationService:
         matches: List[Any],
         hours_until: int,
         league_name: Optional[str] = None,
+        group_names: Optional[List[str]] = None,
     ) -> bool:
         prefs = self._get_prefs(user_id)
         if not prefs or not prefs.prediction_reminders:
@@ -169,7 +170,12 @@ class NotificationService:
 
         token = self._unsubscribe_token(user_id, "prediction_reminders")
         template = build_prediction_reminder(
-            matches, hours_until, user, token, league_name=league_name
+            matches,
+            hours_until,
+            user,
+            token,
+            league_name=league_name,
+            group_names=group_names or [],
         )
         return await self.email.send(
             user.email, user.username, template["subject"], template["html"], template["text"]
@@ -201,6 +207,7 @@ class NotificationService:
         user_id: int,
         entries: List[Any],
         league_name: Optional[str] = None,
+        group_names: Optional[List[str]] = None,
     ) -> bool:
         prefs = self._get_prefs(user_id)
         if not prefs or not prefs.match_result_updates:
@@ -211,7 +218,13 @@ class NotificationService:
             return False
 
         token = self._unsubscribe_token(user_id, "match_result_updates")
-        template = build_match_result_digest(entries, user, token, league_name=league_name)
+        template = build_match_result_digest(
+            entries,
+            user,
+            token,
+            league_name=league_name,
+            group_names=group_names or [],
+        )
         return await self.email.send(
             user.email, user.username, template["subject"], template["html"], template["text"]
         )
