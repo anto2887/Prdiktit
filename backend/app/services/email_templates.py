@@ -1,5 +1,5 @@
 import html
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError  # Python 3.11 stdlib
@@ -28,10 +28,14 @@ def _format_kickoff(dt: datetime, user) -> str:
     if not isinstance(dt, datetime):
         return ""
     try:
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
         user_tz = _get_user_timezone(user)
         local_dt = dt.astimezone(user_tz)
-        # Example: Sat 21 Jun 19:30
-        return local_dt.strftime("%a %d %b %H:%M")
+        # Example: Sat 21 Jun 19:30 EDT
+        return local_dt.strftime("%a %d %b %H:%M %Z")
     except Exception:
         return dt.isoformat()
 
@@ -56,16 +60,18 @@ def build_prediction_reminder(
     hours_until: int,
     user,
     unsubscribe_token: str,
+    league_name: str | None = None,
 ) -> Dict[str, str]:
     """
     Build prediction reminder email.
     matches: list of Fixture objects (or dicts with similar attrs).
     """
     n = len(matches)
+    league_prefix = f"{league_name}: " if league_name else ""
     if hours_until == 24:
-        subject = f"⏰ {n} match(es) kick off in 24 hours — predictions close soon"
+        subject = f"⏰ {league_prefix}{n} match(es) kick off in 24 hours — predictions close soon"
     else:
-        subject = f"⏰ {n} match(es) kick off in 1 hour — last chance to predict"
+        subject = f"⏰ {league_prefix}{n} match(es) kick off in 1 hour — last chance to predict"
 
     rows_html = ""
     for m in matches:
@@ -91,7 +97,7 @@ def build_prediction_reminder(
       <table width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:8px; padding:24px;">
         <tr>
           <td style="font-size:18px; font-weight:700; color:#111827; padding-bottom:8px;">
-            PrediktIt — Upcoming Matches
+            PrediktIt — Upcoming Matches {f"({html.escape(league_name)})" if league_name else ""}
           </td>
         </tr>
         <tr>
@@ -217,6 +223,97 @@ def build_match_result(
         "subject": subject,
         "html": html_body,
         "text": text_body,
+    }
+
+
+def build_match_result_digest(
+    entries: List[Any],
+    user,
+    unsubscribe_token: str,
+    league_name: str | None = None,
+) -> Dict[str, str]:
+    n = len(entries)
+    league_prefix = f"{league_name}: " if league_name else ""
+    subject = f"📊 {league_prefix}{n} match result(s) processed"
+
+    base_url = settings.NOTIFICATION_BASE_URL.rstrip("/")
+    unsubscribe_url = f"{base_url}/api/v1/notifications/unsubscribe/{unsubscribe_token}"
+
+    rows_html = ""
+    text_lines = [
+        f"Match Results {f'({league_name})' if league_name else ''}",
+        "",
+    ]
+
+    for entry in entries:
+        fixture = entry["fixture"]
+        prediction = entry["prediction"]
+        points_earned = int(entry.get("points_earned", 0))
+
+        home = getattr(fixture, "home_team", "Home")
+        away = getattr(fixture, "away_team", "Away")
+        hs = getattr(fixture, "home_score", 0) or 0
+        as_ = getattr(fixture, "away_score", 0) or 0
+        kickoff = getattr(fixture, "date", None)
+        kickoff_str = _format_kickoff(kickoff, user) if kickoff else ""
+        pred_h = getattr(prediction, "score1", 0) or 0
+        pred_a = getattr(prediction, "score2", 0) or 0
+
+        rows_html += f"""
+        <tr>
+          <td style="padding:8px 0; border-bottom:1px solid #E5E7EB;">
+            <div style="font-weight:600; color:#111827;">{html.escape(home)} {hs}–{as_} {html.escape(away)}</div>
+            <div style="font-size:12px; color:#4B5563;">Your prediction: {pred_h}–{pred_a}</div>
+            <div style="font-size:12px; color:#4B5563;">Kickoff: {html.escape(kickoff_str)}</div>
+            <div style="font-size:12px; color:#111827; font-weight:600;">Points earned: {points_earned}</div>
+          </td>
+        </tr>
+        """
+        text_lines.append(
+            f"- {home} {hs}-{as_} {away} | Pred: {pred_h}-{pred_a} | Kickoff: {kickoff_str} | Points: {points_earned}"
+        )
+
+    html_body = f"""
+    <div style="background-color:#F3F4F6; padding:24px;">
+      <table width="100%" cellspacing="0" cellpadding="0" style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:8px; padding:24px;">
+        <tr>
+          <td style="font-size:18px; font-weight:700; color:#111827; padding-bottom:8px;">
+            Match Results {f"({html.escape(league_name)})" if league_name else ""}
+          </td>
+        </tr>
+        <tr>
+          <td style="font-size:14px; color:#4B5563; padding-bottom:16px;">
+            Your processed predictions from recent completed matches.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <table width="100%" cellspacing="0" cellpadding="0">
+              {rows_html}
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td align="center" style="padding-top:16px;">
+            <a href="{html.escape(base_url + '/predictions/history', quote=True)}"
+               style="display:inline-block; background-color:#2563EB; color:#ffffff; padding:10px 20px; border-radius:9999px; text-decoration:none; font-weight:600; font-size:14px;">
+              View Full Results
+            </a>
+          </td>
+        </tr>
+        {_base_footer(unsubscribe_url)}
+      </table>
+    </div>
+    """
+
+    text_lines.append("")
+    text_lines.append(f"View full results: {base_url}/predictions/history")
+    text_lines.append(f"Unsubscribe from match result updates: {unsubscribe_url}")
+
+    return {
+        "subject": subject,
+        "html": html_body,
+        "text": "\n".join(text_lines),
     }
 
 

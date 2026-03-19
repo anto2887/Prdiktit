@@ -15,6 +15,7 @@ from ..db.repository import get_group_members
 from .email_templates import (
     build_prediction_reminder,
     build_match_result,
+    build_match_result_digest,
     build_group_activity,
 )
 
@@ -152,6 +153,7 @@ class NotificationService:
         user_id: int,
         matches: List[Any],
         hours_until: int,
+        league_name: Optional[str] = None,
     ) -> bool:
         prefs = self._get_prefs(user_id)
         if not prefs or not prefs.prediction_reminders:
@@ -166,7 +168,9 @@ class NotificationService:
             return False
 
         token = self._unsubscribe_token(user_id, "prediction_reminders")
-        template = build_prediction_reminder(matches, hours_until, user, token)
+        template = build_prediction_reminder(
+            matches, hours_until, user, token, league_name=league_name
+        )
         return await self.email.send(
             user.email, user.username, template["subject"], template["html"], template["text"]
         )
@@ -188,6 +192,26 @@ class NotificationService:
 
         token = self._unsubscribe_token(user_id, "match_result_updates")
         template = build_match_result(fixture, prediction, points, user, token)
+        return await self.email.send(
+            user.email, user.username, template["subject"], template["html"], template["text"]
+        )
+
+    async def send_match_result_digest(
+        self,
+        user_id: int,
+        entries: List[Any],
+        league_name: Optional[str] = None,
+    ) -> bool:
+        prefs = self._get_prefs(user_id)
+        if not prefs or not prefs.match_result_updates:
+            return False
+
+        user = self.db.query(User).filter_by(id=user_id).first()
+        if not user or not user.email:
+            return False
+
+        token = self._unsubscribe_token(user_id, "match_result_updates")
+        template = build_match_result_digest(entries, user, token, league_name=league_name)
         return await self.email.send(
             user.email, user.username, template["subject"], template["html"], template["text"]
         )

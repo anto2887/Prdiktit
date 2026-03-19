@@ -1018,7 +1018,7 @@ async def test_queue_job(
     db: Session = Depends(get_db),
 ):
     """
-    Push a test match_result job to the Redis notification queue.
+    Push a test match_result_digest job to the Redis notification queue.
     Temporary endpoint — safe to delete after verification.
     """
     try:
@@ -1032,13 +1032,22 @@ async def test_queue_job(
                 detail="Redis client is not initialized",
             )
 
+        fixture_id = 1379249
+        prediction_id = 17
+        fixture = db.query(Fixture).filter_by(fixture_id=fixture_id).first()
+
         job = {
-            "type": "match_result",
+            "type": "match_result_digest",
             "user_id": user_id,
             "payload": {
-                "fixture_id": 1379249,
-                "prediction_id": 17,
-                "points_earned": 1,
+                "league": fixture.league if fixture else "Unknown League",
+                "items": [
+                    {
+                        "fixture_id": fixture_id,
+                        "prediction_id": prediction_id,
+                        "points_earned": 1,
+                    }
+                ],
             },
             "created_at": datetime.now(timezone.utc).isoformat(),
             "retry_count": 0,

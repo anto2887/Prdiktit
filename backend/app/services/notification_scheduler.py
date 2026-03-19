@@ -1,12 +1,22 @@
 import json
 import logging
+from collections import defaultdict
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Set, Tuple
 
 from sqlalchemy.orm import Session
 
 from ..db.session import SessionLocal
-from ..db.models import Fixture, UserPrediction, UserNotificationPreferences, User, MatchStatus
+from ..db.models import (
+    Fixture,
+    Group,
+    MatchStatus,
+    Team,
+    TeamTracker,
+    User,
+    UserPrediction,
+    group_members,
+)
 from .cache_service import cache_instance
 
 logger = logging.getLogger(__name__)
@@ -23,6 +33,10 @@ class NotificationScheduler:
     def __init__(self) -> None:
         # Reuse the existing Redis connection from cache_service
         self.redis = cache_instance.redis_client
+
+    @staticmethod
+    def _norm_team_name(name: str) -> str:
+        return (name or "").strip().casefold()
 
     # ------------------------------------------------------------------ #
     # REMINDER BATCHING — core anti-spam logic
@@ -57,6 +71,47 @@ class NotificationScheduler:
                 },
             ]
 
+            teams_by_id = {
+                t.id: t.team_name
+                for t in db.query(Team).all()
+            }
+
+            user_league_teams: Dict[int, Dict[str, Set[str]]] = defaultdict(
+                lambda: defaultdict(set)
+            )
+
+            groups = db.query(Group).all()
+            for group in groups:
+                tracked_ids = [
+                    row[0]
+                    for row in db.query(TeamTracker.team_id)
+                    .filter(TeamTracker.group_id == group.id)
+                    .all()
+                ]
+                tracked_names = {
+                    self._norm_team_name(teams_by_id[tid])
+                    for tid in tracked_ids
+                    if tid in teams_by_id
+                }
+                if not tracked_names:
+                    continue
+
+                member_ids = {
+                    row[0]
+                    for row in db.query(group_members.c.user_id)
+                    .filter(group_members.c.group_id == group.id)
+                    .all()
+                }
+                member_ids.add(group.admin_id)
+
+                for user_id in member_ids:
+                    user_league_teams[user_id][group.league].update(tracked_names)
+
+            users_by_id = {
+                u.id: u
+                for u in db.query(User).filter(User.email.isnot(None)).all()
+            }
+
             for window in windows:
                 window_type = window["type"]
                 window_start = window["start"]
@@ -75,20 +130,33 @@ class NotificationScheduler:
                 if not fixtures:
                     continue
 
-                # Group by UTC calendar date
-                by_date: Dict[str, List[Fixture]] = {}
-                for f in fixtures:
-                    date_str = f.date.strftime("%Y-%m-%d")
-                    by_date.setdefault(date_str, []).append(f)
+                by_league: Dict[str, List[Fixture]] = defaultdict(list)
+                for fixture in fixtures:
+                    by_league[fixture.league].append(fixture)
 
-                # For now, notify all users with an email address;
-                # if group-scoping is needed later, this is the place to refine it.
-                users = db.query(User).filter(User.email.isnot(None)).all()
+                for user_id, leagues in user_league_teams.items():
+                    user = users_by_id.get(user_id)
+                    if not user:
+                        continue
 
-                for date_str, day_fixtures in by_date.items():
-                    for user in users:
+                    for league_name, tracked_teams in leagues.items():
+                        league_fixtures = by_league.get(league_name, [])
+                        if not league_fixtures:
+                            continue
+
+                        matched = []
+                        for fixture in league_fixtures:
+                            home = self._norm_team_name(fixture.home_team)
+                            away = self._norm_team_name(fixture.away_team)
+                            if home in tracked_teams or away in tracked_teams:
+                                matched.append(fixture)
+
+                        if not matched:
+                            continue
+
+                        date_str = min(f.date for f in matched).strftime("%Y-%m-%d")
                         dedup_key = (
-                            f"notif:queued:reminder:{user.id}:{date_str}:{window_type}"
+                            f"notif:queued:reminder:{user.id}:{league_name}:{date_str}:{window_type}"
                         )
 
                         # SETNX — skip if already queued
@@ -102,9 +170,8 @@ class NotificationScheduler:
                             "type": f"reminder_{window_type}",
                             "user_id": user.id,
                             "payload": {
-                                "fixture_ids": [
-                                    f.fixture_id for f in day_fixtures
-                                ],
+                                "league": league_name,
+                                "fixture_ids": [f.fixture_id for f in matched],
                                 "date_str": date_str,
                                 "hours_until": int(
                                     window_type.replace("h", "")
@@ -152,7 +219,7 @@ class NotificationScheduler:
     async def _process_single_job(self, job: Dict[str, Any], db: Session) -> None:
         """
         Process a single job from the notification queue.
-        Uses asyncio.run to execute async notification sends in a fresh event loop.
+        Executes async notification sends for reminder and result digest jobs.
         """
         from .notification_service import NotificationService
 
@@ -167,31 +234,47 @@ class NotificationScheduler:
             if job_type in ("reminder_24h", "reminder_1h"):
                 hours = int(job_type.replace("reminder_", "").replace("h", ""))
                 fixture_ids = payload.get("fixture_ids", [])
+                league_name = payload.get("league")
                 fixtures = (
                     db.query(Fixture)
                     .filter(Fixture.fixture_id.in_(fixture_ids))
                     .all()
                 )
                 if fixtures:
-                    await notif.send_prediction_reminder(user_id, fixtures, hours)
+                    await notif.send_prediction_reminder(
+                        user_id, fixtures, hours, league_name=league_name
+                    )
 
-            elif job_type == "match_result":
-                fixture = (
-                    db.query(Fixture)
-                    .filter_by(fixture_id=payload["fixture_id"])
-                    .first()
-                )
-                prediction = (
-                    db.query(UserPrediction)
-                    .filter_by(id=payload["prediction_id"])
-                    .first()
-                )
-                if fixture and prediction:
-                    await notif.send_match_result(
-                        user_id,
-                        fixture,
-                        prediction,
-                        payload["points_earned"],
+            elif job_type == "match_result_digest":
+                entries: List[Dict[str, Any]] = []
+                items = payload.get("items", [])
+                league_name = payload.get("league")
+
+                for item in items:
+                    fixture = (
+                        db.query(Fixture)
+                        .filter_by(fixture_id=item["fixture_id"])
+                        .first()
+                    )
+                    prediction = (
+                        db.query(UserPrediction)
+                        .filter_by(id=item["prediction_id"])
+                        .first()
+                    )
+                    if fixture and prediction:
+                        entries.append(
+                            {
+                                "fixture": fixture,
+                                "prediction": prediction,
+                                "points_earned": int(item.get("points_earned", 0)),
+                            }
+                        )
+
+                if entries:
+                    await notif.send_match_result_digest(
+                        user_id=user_id,
+                        entries=entries,
+                        league_name=league_name,
                     )
 
         except Exception as e:
@@ -232,7 +315,17 @@ class NotificationScheduler:
                 .all()
             )
 
+            digest_buckets: Dict[Tuple[int, str], List[Dict[str, int]]] = defaultdict(list)
+
             for prediction in recent:
+                fixture = (
+                    db.query(Fixture)
+                    .filter(Fixture.fixture_id == prediction.fixture_id)
+                    .first()
+                )
+                if not fixture:
+                    continue
+
                 dedup_key = (
                     f"notif:queued:result:{prediction.user_id}:{prediction.fixture_id}"
                 )
@@ -240,13 +333,23 @@ class NotificationScheduler:
                     continue
                 self.redis.expire(dedup_key, 48 * 3600)
 
-                job = {
-                    "type": "match_result",
-                    "user_id": prediction.user_id,
-                    "payload": {
+                digest_buckets[(prediction.user_id, fixture.league)].append(
+                    {
                         "fixture_id": prediction.fixture_id,
                         "prediction_id": prediction.id,
                         "points_earned": prediction.points or 0,
+                    }
+                )
+
+            for (user_id, league_name), items in digest_buckets.items():
+                if not items:
+                    continue
+                job = {
+                    "type": "match_result_digest",
+                    "user_id": user_id,
+                    "payload": {
+                        "league": league_name,
+                        "items": items,
                     },
                     "created_at": now.isoformat(),
                     "retry_count": 0,
