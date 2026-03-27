@@ -2,7 +2,7 @@
     "$schema": "https://railway.com/railway.schema.json",
     "build": {
       "builder": "DOCKERFILE",
-      "dockerfilePath": "Dockerfile.prod"
+      "dockerfilePath": "frontend/Dockerfile.prod"
     },
     "deploy": {
       "startCommand": "nginx -g 'daemon off;'"
