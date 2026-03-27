@@ -11,6 +11,7 @@ from ..db.models import (
     Fixture,
     Group,
     MatchStatus,
+    UserNotificationPreferences,
     Team,
     TeamTracker,
     User,
@@ -264,6 +265,7 @@ class NotificationScheduler:
                 items = payload.get("items", [])
                 league_name = payload.get("league")
                 group_names = payload.get("group_names", [])
+                prediction_ids_to_mark: List[int] = []
 
                 for item in items:
                     fixture = (
@@ -284,14 +286,25 @@ class NotificationScheduler:
                                 "points_earned": int(item.get("points_earned", 0)),
                             }
                         )
+                        prediction_ids_to_mark.append(prediction.id)
 
                 if entries:
-                    await notif.send_match_result_digest(
+                    sent = await notif.send_match_result_digest(
                         user_id=user_id,
                         entries=entries,
                         league_name=league_name,
                         group_names=group_names,
                     )
+                    if sent and prediction_ids_to_mark:
+                        (
+                            db.query(UserPrediction)
+                            .filter(UserPrediction.id.in_(prediction_ids_to_mark))
+                            .update(
+                                {"result_notified_at": datetime.now(timezone.utc)},
+                                synchronize_session=False,
+                            )
+                        )
+                        db.commit()
 
         except Exception as e:
             logger.error(f"Job failed (attempt {retry_count + 1}): {e}")
@@ -315,7 +328,6 @@ class NotificationScheduler:
             return
 
         now = datetime.now(timezone.utc)
-        lookback = now - timedelta(minutes=10)
 
         db = SessionLocal()
         try:
@@ -323,10 +335,18 @@ class NotificationScheduler:
 
             recent = (
                 db.query(UserPrediction)
+                .join(User, User.id == UserPrediction.user_id)
+                .join(
+                    UserNotificationPreferences,
+                    UserNotificationPreferences.user_id == UserPrediction.user_id,
+                )
                 .filter(
                     UserPrediction.prediction_status
                     == PredictionStatus.PROCESSED,
-                    UserPrediction.processed_at >= lookback,
+                    UserPrediction.result_notified_at.is_(None),
+                    User.email.isnot(None),
+                    UserNotificationPreferences.email_enabled.is_(True),
+                    UserNotificationPreferences.match_result_updates.is_(True),
                 )
                 .all()
             )

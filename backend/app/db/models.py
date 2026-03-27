@@ -230,6 +230,8 @@ class UserPrediction(Base):
     submission_time = Column(DateTime, default=utc_now)
     last_modified = Column(DateTime, default=utc_now, onupdate=utc_now)
     processed_at = Column(DateTime, nullable=True)  # Set when prediction processed
+    # Set when a processed prediction result has been included in a sent notification digest.
+    result_notified_at = Column(DateTime, nullable=True)
     
     prediction_status = Column(Enum(PredictionStatus), nullable=False, default=PredictionStatus.EDITABLE)
     

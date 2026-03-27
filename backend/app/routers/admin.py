@@ -918,6 +918,62 @@ async def migrate_notification_preferences(db: Session = Depends(get_db)):
             detail=f"Notification preferences migration failed: {str(e)}",
         )
 
+
+@router.post("/migrate-result-notification-tracking")
+async def migrate_result_notification_tracking(db: Session = Depends(get_db)):
+    """
+    Add result_notified_at to user_predictions and full-backfill existing PROCESSED rows.
+    Safe to run multiple times.
+    """
+    try:
+        logger.info("🔄 Starting result notification tracking migration...")
+
+        inspector = inspect(db.bind)
+        existing_columns = [col["name"] for col in inspector.get_columns("user_predictions")]
+
+        if "result_notified_at" not in existing_columns:
+            db.execute(
+                text(
+                    """
+                    ALTER TABLE user_predictions
+                    ADD COLUMN result_notified_at TIMESTAMP WITH TIME ZONE NULL
+                    """
+                )
+            )
+            logger.info("✅ Added user_predictions.result_notified_at column")
+
+        backfill_result = db.execute(
+            text(
+                """
+                UPDATE user_predictions
+                SET result_notified_at = NOW()
+                WHERE prediction_status = 'PROCESSED'
+                  AND result_notified_at IS NULL
+                """
+            )
+        )
+
+        rows_backfilled = backfill_result.rowcount or 0
+        db.commit()
+
+        logger.info(
+            "✅ Result notification tracking migration completed, rows_backfilled=%s",
+            rows_backfilled,
+        )
+        return {
+            "success": True,
+            "message": "Result notification tracking migration completed",
+            "rows_backfilled": int(rows_backfilled),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"❌ Result notification tracking migration failed: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Result notification tracking migration failed: {str(e)}",
+        )
+
 # Helper functions for testing
 async def test_oauth_endpoint(db: Session):
     """Test OAuth endpoint functionality"""
