@@ -17,7 +17,7 @@ startCommand = "python -m app.scheduler_minimal"
 # 3. Frontend Service
 [frontend.build]
 builder = "dockerfile"
-dockerfilePath = "frontend/Dockerfile.prod"
+dockerfilePath = "Dockerfile.prod"
 
 [frontend.deploy]
 startCommand = "nginx -g 'daemon off;'"

@@ -8,3 +8,4 @@
       "startCommand": "nginx -g 'daemon off;'"
     }
   }
+  
