@@ -11,6 +11,8 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta
 import time
 from aiohttp import web
+from app.db.database import SessionLocal
+from app.db.models import Fixture, MatchStatus
 
 # Add the backend directory to Python path
 backend_dir = Path(__file__).parent
@@ -33,11 +35,27 @@ class SchedulerService:
     def __init__(self):
         self.is_running = False
         self.last_check = None
+        self.next_fixture_check_at = None
         self.error_count = 0
         self.max_errors = 5
         self.error_reset_time = None
         self.notification_scheduler = None
         self.last_reminder_check = None  # Track 15min reminder window
+        self.final_statuses = [
+            MatchStatus.FINISHED,
+            MatchStatus.FINISHED_AET,
+            MatchStatus.FINISHED_PEN,
+        ]
+        self.daily_state = {
+            "day_utc": None,
+            "initialized": False,
+            "has_matches_today": False,
+            "done_for_day": False,
+            "first_kickoff_utc": None,
+            "last_kickoff_utc": None,
+            "today_matches": 0,
+            "finalized_matches": 0,
+        }
 
         # Import existing services after path setup
         self.scheduler = None
@@ -112,16 +130,19 @@ class SchedulerService:
                 return False
 
             current_time = datetime.now(timezone.utc)
+            self._ensure_daily_state(current_time)
 
-            # Run every 5 minutes for fixture monitoring
-            if (
-                self.last_check is None
-                or (current_time - self.last_check).total_seconds() > 300
-            ):
-                logger.info("🔄 Running scheduling cycle with fixture processing...")
+            if self.next_fixture_check_at is None or current_time >= self.next_fixture_check_at:
+                logger.info(
+                    "🔄 Running scheduling cycle with fixture processing... "
+                    f"(mode={self._get_mode_label(current_time)})"
+                )
 
-                # Run the actual scheduler processing
-                await self._process_fixtures()
+                next_seconds = await self._process_fixtures(current_time)
+                self.next_fixture_check_at = current_time + timedelta(seconds=next_seconds)
+                logger.info(
+                    f"⏭️ Next fixture cycle in {next_seconds}s at {self.next_fixture_check_at.isoformat()}"
+                )
 
                 self.last_check = current_time
                 self.error_count = 0  # Reset error count on success
@@ -163,34 +184,142 @@ class SchedulerService:
                 return False
 
             return False
-    
-    async def _process_fixtures(self):
+
+    def _utc_day_bounds(self, now: datetime):
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+        return start, end
+
+    def _ensure_daily_state(self, now: datetime):
+        day = now.date().isoformat()
+        if self.daily_state["day_utc"] == day and self.daily_state["initialized"]:
+            return
+        self.daily_state.update({
+            "day_utc": day,
+            "initialized": True,
+            "has_matches_today": False,
+            "done_for_day": False,
+            "first_kickoff_utc": None,
+            "last_kickoff_utc": None,
+            "today_matches": 0,
+            "finalized_matches": 0,
+        })
+        self._refresh_today_db_state(now)
+        logger.info(
+            "🗓️ Initialized UTC daily state: "
+            f"day={day}, has_matches_today={self.daily_state['has_matches_today']}, "
+            f"today_matches={self.daily_state['today_matches']}"
+        )
+
+    def _refresh_today_db_state(self, now: datetime):
+        start, end = self._utc_day_bounds(now)
+        db = SessionLocal()
+        try:
+            fixtures = db.query(Fixture).filter(
+                Fixture.date >= start,
+                Fixture.date < end,
+            ).all()
+            self.daily_state["today_matches"] = len(fixtures)
+            self.daily_state["has_matches_today"] = len(fixtures) > 0
+
+            if fixtures:
+                sorted_dates = sorted([f.date if f.date.tzinfo else f.date.replace(tzinfo=timezone.utc) for f in fixtures])
+                self.daily_state["first_kickoff_utc"] = sorted_dates[0]
+                self.daily_state["last_kickoff_utc"] = sorted_dates[-1]
+
+            finalized = 0
+            for fx in fixtures:
+                if fx.status in self.final_statuses and fx.home_score is not None and fx.away_score is not None:
+                    finalized += 1
+            self.daily_state["finalized_matches"] = finalized
+            self.daily_state["done_for_day"] = (
+                self.daily_state["has_matches_today"]
+                and finalized == len(fixtures)
+            )
+        finally:
+            db.close()
+
+    def _get_mode_label(self, now: datetime) -> str:
+        self._refresh_today_db_state(now)
+        if not self.daily_state["has_matches_today"]:
+            return "non_match_day"
+        if self.daily_state["done_for_day"]:
+            return "done_for_day"
+        db = SessionLocal()
+        try:
+            live_count = db.query(Fixture).filter(
+                Fixture.status.in_([
+                    MatchStatus.FIRST_HALF,
+                    MatchStatus.SECOND_HALF,
+                    MatchStatus.HALFTIME,
+                    MatchStatus.EXTRA_TIME,
+                    MatchStatus.PENALTY,
+                    MatchStatus.LIVE,
+                ])
+            ).count()
+            if live_count > 0:
+                return "live_matches"
+            soon = now + timedelta(hours=2)
+            soon_count = db.query(Fixture).filter(
+                Fixture.date >= now,
+                Fixture.date <= soon,
+                Fixture.status == MatchStatus.NOT_STARTED
+            ).count()
+            if soon_count > 0:
+                return "matches_starting_soon"
+            return "match_day"
+        finally:
+            db.close()
+
+    async def _process_fixtures(self, now: datetime):
         """Process fixtures using existing backend services"""
         try:
             if not self.scheduler or not self.match_updater:
                 logger.error("❌ Required services not available")
-                return
-            
-            # Use the existing enhanced processing method that handles everything
-            logger.info("🚀 Running enhanced processing cycle with API updates...")
-            
+                return 300
+
+            mode = self._get_mode_label(now)
+
+            if mode == "non_match_day":
+                logger.info("🧭 Non-match day: running lightweight fixture schedule sync only")
+                await self.match_updater.update_recent_matches(
+                    days_back=0,
+                    days_forward=2,
+                    process_predictions=False,
+                )
+                self._refresh_today_db_state(now)
+                return 43200  # 12h
+
+            if mode == "done_for_day":
+                logger.info("✅ Day complete: all today's matches finalized; backing off checks")
+                return 43200  # 12h
+
+            logger.info(f"🚀 Running enhanced processing cycle with API updates (mode={mode})...")
             try:
-                # This method handles: API updates + fixture processing + predictions
-                result = await self.scheduler.run_enhanced_processing_with_status_updates()
-                
+                result = await self.scheduler.run_enhanced_processing_with_status_updates(
+                    run_secondary_processing=False
+                )
+
                 if result.get('status') == 'success':
-                    logger.info(f"✅ Enhanced processing completed successfully:")
+                    logger.info("✅ Enhanced processing completed successfully:")
                     logger.info(f"   - Fixtures updated: {result.get('fixtures_updated', 0)}")
                     logger.info(f"   - Predictions locked: {result.get('predictions_locked', 0)}")
                     logger.info(f"   - Predictions processed: {result.get('predictions_processed', 0)}")
                 else:
-                    logger.warning(f"⚠️ Enhanced processing had issues: {result.get('error_message', 'Unknown error')}")
-                    
+                    logger.warning(
+                        f"⚠️ Enhanced processing had issues: {result.get('error_message', 'Unknown error')}"
+                    )
             except Exception as e:
                 logger.error(f"❌ Error in enhanced processing: {e}")
                 # Fallback to manual processing if enhanced method fails
                 await self._fallback_processing()
-            
+            self._refresh_today_db_state(now)
+            # Adaptive cadence on match days
+            if mode == "live_matches":
+                return 120
+            if mode == "matches_starting_soon":
+                return 300
+            return 900
         except Exception as e:
             logger.error(f"❌ Error processing fixtures: {e}")
             raise
@@ -266,7 +395,7 @@ async def main():
         
         # Keep the service running with error handling
         logger.info("🔄 Scheduler service is now running...")
-        logger.info("📡 Running scheduling cycles every 5 minutes...")
+        logger.info("📡 Running scheduling cycles with UTC daily state machine...")
         
         # Main loop with error handling and circuit breaker
         while scheduler_service.is_running:

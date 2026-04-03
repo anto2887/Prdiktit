@@ -84,7 +84,12 @@ class MatchStatusUpdater:
             return False
         return True
     
-    async def update_recent_matches(self, days_back: int = 3, days_forward: int = 14) -> int:
+    async def update_recent_matches(
+        self,
+        days_back: int = 3,
+        days_forward: int = 14,
+        process_predictions: bool = True
+    ) -> int:
         """
         Update matches from the last N days and next M days for all configured leagues
         This fetches both past matches (for status updates) and future matches (for predictions)
@@ -97,7 +102,9 @@ class MatchStatusUpdater:
             Number of matches updated across all leagues
         """
         try:
-            logger.info(f"🔄 Updating matches from {days_back} days ago to {days_forward} days ahead for all leagues")
+            logger.info(
+                f"🔄 Updating matches from {days_back} days ago to {days_forward} days ahead for all leagues"
+            )
             
             # Check API subscription status
             if not self.api_subscription_active:
@@ -142,7 +149,7 @@ class MatchStatusUpdater:
                 logger.info("No match data received from API for any league")
                 return 0
             
-            logger.info(f"📥 Received matches from {len(all_matches_data)} leagues")
+            logger.info(f"📥 Received {len(all_matches_data)} fixtures from API")
             
             # Convert API data to fixture updates
             # Pass league configs for season determination
@@ -154,7 +161,8 @@ class MatchStatusUpdater:
             
             # Use unified transaction manager to apply updates
             result = unified_transaction_manager.update_match_statuses_and_process_predictions(
-                fixture_updates
+                fixture_updates,
+                process_predictions=process_predictions
             )
             
             if result.success:
@@ -168,7 +176,7 @@ class MatchStatusUpdater:
             logger.error(f"❌ Error updating recent matches: {e}")
             return 0
     
-    async def update_live_matches(self) -> int:
+    async def update_live_matches(self, process_predictions: bool = True) -> int:
         """
         Update currently live matches for all configured leagues
         Returns number of matches updated across all leagues
@@ -206,7 +214,7 @@ class MatchStatusUpdater:
                 logger.info("No live matches data received from API for any league")
                 return 0
             
-            logger.info(f"📥 Received live matches from {len(all_live_matches_data)} leagues")
+            logger.info(f"📥 Received {len(all_live_matches_data)} live fixtures from API")
             
             # Convert API data to fixture updates with league context
             fixture_updates = self._convert_api_data_to_updates(all_live_matches_data, leagues)
@@ -217,7 +225,8 @@ class MatchStatusUpdater:
             
             # Use unified transaction manager to apply updates
             result = unified_transaction_manager.update_match_statuses_and_process_predictions(
-                fixture_updates
+                fixture_updates,
+                process_predictions=process_predictions
             )
             
             if result.success:

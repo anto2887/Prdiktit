@@ -332,7 +332,7 @@ class EnhancedSmartScheduler:
             logger.error(f"❌ Critical error in processing cycle: {e}")
             audit_logger.error(f"PROCESSING_CYCLE_CRITICAL_ERROR: {str(e)}")
     
-    async def run_enhanced_processing_with_status_updates(self):
+    async def run_enhanced_processing_with_status_updates(self, run_secondary_processing: bool = False):
         """
         Enhanced processing cycle that includes status updates
         This method ensures it's called in a proper async context
@@ -366,9 +366,21 @@ class EnhancedSmartScheduler:
             except Exception as e:
                 logger.error(f"❌ Error updating match statuses from API: {e}")
             
-            # Step 2: Run unified processing (async)
-            logger.info("⚙️ Step 2: Running unified prediction and match processing (async)...")
-            processing_result = await self.processor.process_all_matches_async()
+            if run_secondary_processing:
+                # Optional secondary pass. Disabled by default to avoid duplicate processing.
+                logger.info("⚙️ Step 2: Running unified prediction and match processing (async)...")
+                processing_result = await self.processor.process_all_matches_async()
+            else:
+                logger.info("⚙️ Step 2: Skipped secondary processing pass (change-driven mode)")
+                processing_result = {
+                    "status": "success",
+                    "fixtures_updated": 0,
+                    "predictions_locked": 0,
+                    "predictions_processed": 0,
+                    "verification_passed": True,
+                    "operations_count": 0,
+                    "message": "Secondary processing skipped"
+                }
             
             # Step 3: Log final results
             if processing_result['status'] == 'success':

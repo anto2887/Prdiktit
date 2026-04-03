@@ -234,8 +234,11 @@ class UnifiedTransactionManager:
             verification_logger.error(f"VERIFICATION_ERROR: {self.transaction_id} - {str(e)}")
             return False
     
-    def update_match_statuses_and_process_predictions(self, 
-                                                     fixture_updates: List[Dict[str, Any]]) -> TransactionResult:
+    def update_match_statuses_and_process_predictions(
+        self,
+        fixture_updates: List[Dict[str, Any]],
+        process_predictions: bool = True
+    ) -> TransactionResult:
         """
         Update match statuses and process predictions in a single transaction
         
@@ -326,6 +329,9 @@ class UnifiedTransactionManager:
                         result.fixtures_updated += 1
                         logger.info(f"✅ Created fixture {fixture_id}: {fixture.home_team} vs {fixture.away_team} - Status: {fixture.status.value}, Score: {fixture.home_score}-{fixture.away_score}")
             
+            if not process_predictions:
+                return result
+
             # Step 2: Lock predictions for matches that have started
             current_time = datetime.now(timezone.utc)
             
@@ -395,7 +401,11 @@ class UnifiedTransactionManager:
                         match.away_score
                     )
                     
-                    # Update prediction (reprocess even if previously processed to ensure accuracy)
+                    # Skip noisy reprocessing when nothing changed.
+                    already_processed = old_status == 'PROCESSED'
+                    if already_processed and old_points == points:
+                        continue
+
                     prediction.points = points
                     prediction.prediction_status = PredictionStatus.PROCESSED
                     prediction.processed_at = datetime.now(timezone.utc)
@@ -421,7 +431,11 @@ class UnifiedTransactionManager:
                         'was_reprocessed': old_status == 'PROCESSED'
                     })
                     
-                    logger.info(f"Processed prediction {prediction.id}: {prediction.score1}-{prediction.score2} vs {match.home_score}-{match.away_score} = {points} points")
+                    logger.info(
+                        f"Processed prediction {prediction.id}: "
+                        f"{prediction.score1}-{prediction.score2} vs "
+                        f"{match.home_score}-{match.away_score} = {points} points"
+                    )
         
         return result
     
