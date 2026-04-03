@@ -636,52 +636,28 @@ async def regenerate_group_invite_code(
 @router.get("/{group_id}/analytics", response_model=DataResponse)
 async def get_group_analytics(
     group_id: int = Path(...),
+    season: str = Query(...),
+    week: int = Query(..., ge=1, le=40),
     current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
     """
-    Get group analytics
+    Same payload as GET /api/v1/analytics/group/{group_id}?season=&week=
     """
-    # Check if user is a member of the group
+    from ..services.analytics_service import AnalyticsService
+
     is_member = await check_group_membership(db, group_id, current_user.id)
-    
+
     if not is_member:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You are not a member of this group"
         )
-    
-    # Try to get from cache
-    cache_key = f"group_analytics:{group_id}"
-    cached_analytics = await cache.get(cache_key)
-    
-    if cached_analytics:
-        analytics = cached_analytics
-    else:
-        # This is a placeholder - you'll need to implement the actual repository function
-        # analytics = await get_group_analytics_db(db, group_id)
-        
-        # For now, return a mock response
-        analytics = {
-            "overall_stats": {
-                "total_predictions": 0,
-                "correct_predictions": 0,
-                "average_points": 0
-            },
-            "member_performance": [],
-            "prediction_patterns": {
-                "home_wins": 0,
-                "away_wins": 0,
-                "draws": 0
-            },
-            "weekly_trends": [],
-            "generated_at": datetime.now().isoformat()
-        }
-        
-        # Cache for 1 hour
-        await cache.set(cache_key, analytics, 3600)
-    
+
+    analytics_service = AnalyticsService(db, cache)
+    analytics = await analytics_service.get_or_build_group_analytics(group_id, season, week)
+
     return DataResponse(
         data=analytics
     )

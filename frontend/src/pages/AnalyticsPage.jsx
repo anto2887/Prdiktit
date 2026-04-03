@@ -1,115 +1,60 @@
-// frontend/src/pages/AnalyticsPage.jsx
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { useNotifications } from '../contexts/AppContext';
+// src/pages/AnalyticsPage.jsx — hub when multiple groups; auto-redirect when one group
+import React, { useEffect } from 'react';
+import { Link, Navigate } from 'react-router-dom';
+import { useAuth, useGroups } from '../contexts/AppContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import ErrorMessage from '../components/common/ErrorMessage';
-import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
 
 const AnalyticsPage = () => {
-  const { groupId } = useParams();
-  const { showError, showSuccess } = useNotifications();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [analytics, setAnalytics] = useState(null);
-  
-  // Guide state
-  const [showGuide, setShowGuide] = useState(false);
-  const [guideStep, setGuideStep] = useState(0);
+  const { user, loading: authLoading } = useAuth();
+  const { userGroups, loading: groupsLoading, fetchUserGroups } = useGroups();
 
   useEffect(() => {
-    loadAnalytics();
-  }, []);
+    if (user) fetchUserGroups();
+  }, [user, fetchUserGroups]);
 
-  const loadAnalytics = async () => {
-    try {
-      setLoading(true);
-      // Use the proper API client with session authentication
-      const { analyticsApi } = await import('../api');
-      const response = await analyticsApi.getGroupAnalytics(groupId);
-      
-      setAnalytics(response.data.data || {});
-    } catch (err) {
-      process.env.NODE_ENV === 'development' && console.error('Error loading analytics:', err);
-      setError('Failed to load analytics');
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (authLoading || (user && groupsLoading)) return <LoadingSpinner />;
+  if (!user) return <Navigate to="/login" replace />;
 
-  if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorMessage message={error} />;
+  if (userGroups?.length === 1) {
+    return <Navigate to={`/groups/${userGroups[0].id}/analytics`} replace />;
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20 md:pb-0">
-      {/* Mobile Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="px-4 py-3 flex justify-between items-center">
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">Analytics</h1>
-            <p className="text-sm text-gray-500 mt-1">Your prediction performance insights</p>
-          </div>
-          <HelpTooltip content="Start the guided tour to learn about analytics features">
-            <button
-              onClick={() => setShowGuide(true)}
-              className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-          </HelpTooltip>
+    <div className="min-h-screen bg-gray-50 pb-24 md:pb-8">
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-lg mx-auto px-4 py-4">
+          <h1 className="text-lg font-bold text-gray-900">Analytics</h1>
+          <p className="text-sm text-gray-500 mt-1">Pick a league to see group stats and leaderboards</p>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="p-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="text-center">
-            <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Analytics Coming Soon</h3>
-            <p className="text-gray-500 text-sm px-4">
-              Detailed analytics and performance insights will be available from Week 5 of the season.
-              This will include prediction trends, accuracy patterns, and competitive analysis.
-            </p>
+      <div className="max-w-lg mx-auto px-4 py-6 space-y-3">
+        {userGroups?.length === 0 ? (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 text-center">
+            <p className="text-gray-600 text-sm mb-4">Join a group to unlock analytics.</p>
+            <Link
+              to="/groups/join"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+            >
+              Join a group
+            </Link>
           </div>
-        </div>
+        ) : (
+          userGroups.map((g) => (
+            <Link
+              key={g.id}
+              to={`/groups/${g.id}/analytics`}
+              className="block bg-white rounded-lg border border-gray-200 p-4 shadow-sm hover:border-indigo-300 hover:shadow transition"
+            >
+              <div className="font-semibold text-gray-900">{g.name || `Group ${g.id}`}</div>
+              {g.league && <div className="text-xs text-gray-500 mt-1">{g.league}</div>}
+              <div className="text-sm text-indigo-600 mt-2 font-medium">View analytics →</div>
+            </Link>
+          ))
+        )}
       </div>
-      
-      {/* Guide/Help System */}
-      <OnboardingGuide
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        onComplete={() => setShowGuide(false)}
-        step={guideStep}
-        totalSteps={3}
-        steps={[
-          {
-            title: "Analytics Overview",
-            content: "The Analytics page provides detailed insights into your prediction performance and trends over time.",
-            action: "Next",
-            highlight: null
-          },
-          {
-            title: "Performance Metrics",
-            content: "Track your accuracy, points earned, and compare your performance with other players in your leagues.",
-            action: "Next",
-            highlight: null
-          },
-          {
-            title: "Coming Soon",
-            content: "Advanced analytics features including trend analysis, prediction patterns, and competitive insights will be available from Week 5.",
-            action: "Got it!",
-            highlight: null
-          }
-        ]}
-      />
     </div>
   );
 };
 
-export default AnalyticsPage; 
+export default AnalyticsPage;

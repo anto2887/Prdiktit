@@ -1,9 +1,17 @@
 // frontend/src/components/mobile/BottomTabNavigation.jsx
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useGroups } from '../../contexts/AppContext';
 
 const BottomTabNavigation = () => {
   const location = useLocation();
+  const { userGroups, currentGroup } = useGroups();
+
+  const analyticsPath = useMemo(() => {
+    if (currentGroup?.id != null) return `/groups/${currentGroup.id}/analytics`;
+    if (userGroups?.length === 1) return `/groups/${userGroups[0].id}/analytics`;
+    return '/analytics';
+  }, [currentGroup?.id, userGroups]);
 
   const tabs = [
     {
@@ -52,40 +60,49 @@ const BottomTabNavigation = () => {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden bottom-tab-nav">
       <div className="grid grid-cols-5 h-16">
-        {tabs.map((tab) => (
-          <NavLink
-            key={tab.id}
-            to={tab.path}
-            className={({ isActive }) => {
-              const isHomeActive =
-                tab.id === 'home' &&
-                (location.pathname === '/' ||
-                  location.pathname.startsWith('/dashboard'));
-              const active = isActive || isHomeActive;
+        {tabs.map((tab) => {
+          const target = tab.id === 'analytics' ? analyticsPath : tab.path;
+          const isAnalyticsRoute =
+            location.pathname === '/analytics' ||
+            /\/groups\/[^/]+\/analytics\/?$/.test(location.pathname);
 
-              return `flex flex-col items-center justify-center space-y-1 transition-colors ${
-                active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
-              }`;
-            }}
-          >
-            {({ isActive }) => {
-              const isHomeActive =
-                tab.id === 'home' &&
-                (location.pathname === '/' ||
-                  location.pathname.startsWith('/dashboard'));
-              const active = isActive || isHomeActive;
+          return (
+            <NavLink
+              key={tab.id}
+              to={target}
+              className={({ isActive }) => {
+                const isHomeActive =
+                  tab.id === 'home' &&
+                  (location.pathname === '/' ||
+                    location.pathname.startsWith('/dashboard'));
+                const analyticsActive = tab.id === 'analytics' && isAnalyticsRoute;
+                const active = isActive || isHomeActive || analyticsActive;
 
-              return (
-                <>
-                  <div className="w-6 h-6">
-                    {active ? <tab.activeIcon /> : <tab.icon />}
-                  </div>
-                  <span className="text-xs font-medium">{tab.label}</span>
-                </>
-              );
-            }}
-          </NavLink>
-        ))}
+                return `flex flex-col items-center justify-center space-y-1 transition-colors ${
+                  active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                }`;
+              }}
+            >
+              {({ isActive }) => {
+                const isHomeActive =
+                  tab.id === 'home' &&
+                  (location.pathname === '/' ||
+                    location.pathname.startsWith('/dashboard'));
+                const analyticsActive = tab.id === 'analytics' && isAnalyticsRoute;
+                const active = isActive || isHomeActive || analyticsActive;
+
+                return (
+                  <>
+                    <div className="w-6 h-6">
+                      {active ? <tab.activeIcon /> : <tab.icon />}
+                    </div>
+                    <span className="text-xs font-medium">{tab.label}</span>
+                  </>
+                );
+              }}
+            </NavLink>
+          );
+        })}
       </div>
     </nav>
   );

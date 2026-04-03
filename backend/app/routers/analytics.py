@@ -55,6 +55,45 @@ async def get_user_analytics(
             detail="Failed to retrieve user analytics"
         )
 
+
+@router.get("/group/{group_id}", response_model=DataResponse)
+async def get_group_analytics_summary(
+    group_id: int = Path(...),
+    season: str = Query(...),
+    week: int = Query(..., ge=1, le=40),
+    current_user: User = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache),
+):
+    """
+    Group rollup: standings-friendly stats, member usernames, prediction outcome mix, weekly trends.
+    Cached 1h; snapshot stored in group_analytics. Requires group membership.
+    """
+    try:
+        is_member = await check_group_membership(db, group_id, current_user.id)
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a member of this group",
+            )
+
+        analytics_service = AnalyticsService(db, cache)
+        data = await analytics_service.get_or_build_group_analytics(group_id, season, week)
+
+        return DataResponse(
+            message="Group analytics retrieved successfully",
+            data=data,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting group analytics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve group analytics",
+        )
+
+
 @router.get("/group/{group_id}/heatmap", response_model=DataResponse)
 async def get_group_heatmap(
     group_id: int = Path(...),

@@ -16,6 +16,7 @@ export { default as PredictionHistoryPage } from './PredictionHistoryPage';
 
 // Analytics pages
 export { default as AnalyticsPage } from './AnalyticsPage';
+export { default as GroupAnalyticsPage } from './GroupAnalyticsPage';
 
 // Group pages
 export { default as GroupsPage } from './GroupsPage';

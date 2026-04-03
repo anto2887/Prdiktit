@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, case
 
 from ..db.models import (
-    UserAnalytics, UserPrediction, Fixture, User, Group, 
-    GroupHeatmap, UserStreak, PredictionStatus, MatchStatus, group_members
+    UserAnalytics, UserPrediction, Fixture, User, Group,
+    GroupAnalytics, GroupHeatmap, UserStreak, PredictionStatus, MatchStatus, group_members
 )
 from ..db.repository import get_group_members
 from ..services.cache_service import RedisCache
@@ -655,7 +655,172 @@ class AnalyticsService:
         except Exception as e:
             logger.error(f"❌ Error generating heatmap for group {group_id}: {e}")
             raise
-    
+
+    async def get_or_build_group_analytics(self, group_id: int, season: str, current_week: int) -> Dict:
+        """
+        Group-level summary: overall stats, member leaderboard (with usernames), predicted-outcome
+        distribution, weekly trends. Redis (1h) + persisted snapshot in group_analytics.
+        """
+        period = f"{season}:w{current_week}"
+        cache_key = f"group_analytics:{group_id}:{period}"
+
+        if self.cache:
+            cached = await self.cache.get(cache_key)
+            if cached:
+                return cached
+
+        data = await self._compute_group_analytics(group_id, season, current_week)
+        await self._persist_group_analytics(group_id, period, data)
+        if self.cache:
+            await self.cache.set(cache_key, data, expiry=3600)
+        return data
+
+    async def _compute_group_analytics(self, group_id: int, season: str, current_week: int) -> Dict:
+        """Aggregate processed predictions for this group up to (not including) current_week."""
+        generated_at = datetime.now(timezone.utc).isoformat()
+
+        base_filter = and_(
+            UserPrediction.group_id == group_id,
+            UserPrediction.season == season,
+            UserPrediction.week < current_week,
+            UserPrediction.prediction_status == PredictionStatus.PROCESSED,
+        )
+
+        members = await get_group_members(self.db, group_id)
+        approved = [m for m in members if m.get("status") == "APPROVED"]
+        member_by_id = {m["user_id"]: m.get("username") or f"user_{m['user_id']}" for m in approved}
+
+        overall = self.db.query(
+            func.count(UserPrediction.id).label("total"),
+            func.coalesce(func.sum(UserPrediction.points), 0).label("pts"),
+            func.sum(
+                case((and_(UserPrediction.points.isnot(None), UserPrediction.points >= 1), 1), else_=0)
+            ).label("correct"),
+        ).filter(base_filter).first()
+
+        total_predictions = int(overall.total or 0)
+        total_points = int(overall.pts or 0)
+        correct_predictions = int(overall.correct or 0)
+        average_points = (
+            round(total_points / total_predictions, 2) if total_predictions else 0.0
+        )
+
+        agg_rows = (
+            self.db.query(
+                UserPrediction.user_id,
+                func.coalesce(func.sum(UserPrediction.points), 0).label("total_points"),
+                func.count(UserPrediction.id).label("pred_count"),
+                func.sum(
+                    case((and_(UserPrediction.points.isnot(None), UserPrediction.points >= 1), 1), else_=0)
+                ).label("correct_count"),
+            )
+            .filter(base_filter)
+            .group_by(UserPrediction.user_id)
+            .all()
+        )
+
+        stats_by_user = {r.user_id: r for r in agg_rows}
+
+        member_performance = []
+        for uid, username in sorted(member_by_id.items(), key=lambda x: x[0]):
+            row = stats_by_user.get(uid)
+            if row:
+                pc = int(row.pred_count or 0)
+                cc = int(row.correct_count or 0)
+                acc = round((cc / pc) * 100, 1) if pc else 0.0
+                member_performance.append(
+                    {
+                        "user_id": uid,
+                        "username": username,
+                        "total_points": int(row.total_points or 0),
+                        "prediction_count": pc,
+                        "correct_predictions": cc,
+                        "accuracy_percentage": acc,
+                    }
+                )
+            else:
+                member_performance.append(
+                    {
+                        "user_id": uid,
+                        "username": username,
+                        "total_points": 0,
+                        "prediction_count": 0,
+                        "correct_predictions": 0,
+                        "accuracy_percentage": 0.0,
+                    }
+                )
+
+        member_performance.sort(key=lambda x: (-x["total_points"], x["username"]))
+
+        scores = (
+            self.db.query(UserPrediction.score1, UserPrediction.score2)
+            .filter(base_filter)
+            .all()
+        )
+        home_wins = sum(1 for s in scores if s.score1 > s.score2)
+        away_wins = sum(1 for s in scores if s.score1 < s.score2)
+        draws = sum(1 for s in scores if s.score1 == s.score2)
+
+        week_rows = (
+            self.db.query(
+                UserPrediction.week,
+                func.coalesce(func.sum(UserPrediction.points), 0).label("week_points"),
+                func.count(UserPrediction.id).label("week_preds"),
+            )
+            .filter(base_filter)
+            .group_by(UserPrediction.week)
+            .order_by(UserPrediction.week.asc())
+            .all()
+        )
+        weekly_trends = []
+        for wr in week_rows:
+            wp = int(wr.week_preds or 0)
+            wpts = int(wr.week_points or 0)
+            weekly_trends.append(
+                {
+                    "week": wr.week,
+                    "total_points": wpts,
+                    "prediction_count": wp,
+                    "average_points": round(wpts / wp, 2) if wp else 0.0,
+                }
+            )
+
+        return {
+            "overall_stats": {
+                "total_predictions": total_predictions,
+                "correct_predictions": correct_predictions,
+                "average_points": average_points,
+            },
+            "member_performance": member_performance,
+            "prediction_patterns": {
+                "home_wins": home_wins,
+                "away_wins": away_wins,
+                "draws": draws,
+            },
+            "weekly_trends": weekly_trends,
+            "generated_at": generated_at,
+        }
+
+    async def _persist_group_analytics(self, group_id: int, period: str, data: Dict) -> None:
+        try:
+            self.db.query(GroupAnalytics).filter(
+                GroupAnalytics.group_id == group_id,
+                GroupAnalytics.analysis_type == "group_summary",
+                GroupAnalytics.period == period,
+            ).delete()
+            rec = GroupAnalytics(
+                group_id=group_id,
+                analysis_type="group_summary",
+                period=period,
+                data=data,
+                created_at=datetime.now(timezone.utc),
+            )
+            self.db.add(rec)
+            self.db.commit()
+        except Exception as e:
+            logger.error(f"Error persisting group analytics: {e}")
+            self.db.rollback()
+
     async def _store_group_heatmap(self, group_id: int, week: int, season: str, heatmap_data: Dict):
         """Store group heatmap in database"""
         

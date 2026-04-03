@@ -33,7 +33,7 @@ const ContextAwareNavigation = ({ groupId, currentPath }) => {
       highlight: group.weeks_until_next_rivalry === 0
     },
     {
-      path: `/analytics`,
+      path: `/groups/${groupId}/analytics`,
       label: 'Analytics',
       icon: '📈',
       description: 'Advanced performance insights and statistics'

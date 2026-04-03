@@ -676,10 +676,13 @@ export const predictionsApi = {
 };
 
 export const analyticsApi = {
-  getGroupAnalytics: async (groupId) => {
+  getGroupAnalytics: async (groupId, season, week) => {
     try {
-      process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupAnalytics called for groupId: ${groupId}`);
-      const response = await api.client.get(`/analytics/group/${groupId}`);
+      process.env.NODE_ENV === 'development' &&
+        console.log(`🌐 API: getGroupAnalytics groupId=${groupId} season=${season} week=${week}`);
+      const response = await api.client.get(`/analytics/group/${groupId}`, {
+        params: { season, week }
+      });
       process.env.NODE_ENV === 'development' && console.log(`🌐 API: getGroupAnalytics response:`, response.data);
       return response;
     } catch (error) {
