@@ -13,6 +13,8 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from ..core.config import settings
 from ..db.models import MatchStatus
+from ..db.database import SessionLocal
+from ..db.models import Fixture
 from ..utils.season_manager import SeasonManager
 from .unified_transaction_manager import unified_transaction_manager
 
@@ -284,6 +286,76 @@ class MatchStatusUpdater:
         except Exception as e:
             logger.error(f"❌ Error updating fixture {fixture_id}: {e}")
             return False
+
+    async def reconcile_stale_live_matches(
+        self,
+        stale_after_hours: int = 6,
+        limit: int = 25
+    ) -> Dict[str, Any]:
+        """
+        Detect stale fixtures stuck in live statuses and reconcile each by fixture ID.
+        A fixture is considered stale if it is still in a live status long after kickoff.
+        """
+        now = datetime.now(timezone.utc)
+        stale_before = now - timedelta(hours=stale_after_hours)
+        live_statuses = [
+            MatchStatus.FIRST_HALF,
+            MatchStatus.SECOND_HALF,
+            MatchStatus.HALFTIME,
+            MatchStatus.EXTRA_TIME,
+            MatchStatus.PENALTY,
+            MatchStatus.LIVE,
+        ]
+
+        db = SessionLocal()
+        try:
+            stale_fixtures = (
+                db.query(Fixture)
+                .filter(
+                    Fixture.status.in_(live_statuses),
+                    Fixture.date <= stale_before,
+                )
+                .order_by(Fixture.date.asc())
+                .limit(limit)
+                .all()
+            )
+            fixture_ids = [f.fixture_id for f in stale_fixtures]
+        finally:
+            db.close()
+
+        if not fixture_ids:
+            logger.info("🧹 Stale-live reconciliation: no stale live fixtures found")
+            return {
+                "checked": 0,
+                "reconciled": 0,
+                "failed": 0,
+                "fixture_ids": [],
+            }
+
+        logger.warning(
+            f"🧹 Stale-live reconciliation: found {len(fixture_ids)} stale live fixtures "
+            f"(older than {stale_after_hours}h), attempting refresh"
+        )
+
+        reconciled = 0
+        failed = 0
+        for fixture_id in fixture_ids:
+            ok = await self.update_specific_match(fixture_id)
+            if ok:
+                reconciled += 1
+            else:
+                failed += 1
+
+        logger.info(
+            f"🧹 Stale-live reconciliation complete: checked={len(fixture_ids)}, "
+            f"reconciled={reconciled}, failed={failed}"
+        )
+        return {
+            "checked": len(fixture_ids),
+            "reconciled": reconciled,
+            "failed": failed,
+            "fixture_ids": fixture_ids,
+        }
     
     async def _fetch_matches_by_date_range(self, start_date: str, end_date: str, league_id: int, season: int) -> List[Dict[str, Any]]:
         """

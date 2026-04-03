@@ -41,6 +41,7 @@ class SchedulerService:
         self.error_reset_time = None
         self.notification_scheduler = None
         self.last_reminder_check = None  # Track 15min reminder window
+        self.last_stale_reconcile_check = None
         self.final_statuses = [
             MatchStatus.FINISHED,
             MatchStatus.FINISHED_AET,
@@ -247,7 +248,13 @@ class SchedulerService:
             return "done_for_day"
         db = SessionLocal()
         try:
+            # Bound "live" detection to a realistic recent window so stale statuses
+            # do not force live cadence all day.
+            live_window_start = now - timedelta(hours=6)
+            live_window_end = now + timedelta(hours=2)
             live_count = db.query(Fixture).filter(
+                Fixture.date >= live_window_start,
+                Fixture.date <= live_window_end,
                 Fixture.status.in_([
                     MatchStatus.FIRST_HALF,
                     MatchStatus.SECOND_HALF,
@@ -277,6 +284,27 @@ class SchedulerService:
             if not self.scheduler or not self.match_updater:
                 logger.error("❌ Required services not available")
                 return 300
+
+            # Periodically reconcile fixtures that are stuck in live statuses.
+            if (
+                self.last_stale_reconcile_check is None
+                or (now - self.last_stale_reconcile_check).total_seconds() >= 21600
+            ):
+                try:
+                    stale_result = await self.match_updater.reconcile_stale_live_matches(
+                        stale_after_hours=6,
+                        limit=25,
+                    )
+                    logger.info(
+                        "🧹 Stale-live reconciliation run: "
+                        f"checked={stale_result.get('checked', 0)}, "
+                        f"reconciled={stale_result.get('reconciled', 0)}, "
+                        f"failed={stale_result.get('failed', 0)}"
+                    )
+                except Exception as e:
+                    logger.error(f"❌ Stale-live reconciliation error: {e}")
+                finally:
+                    self.last_stale_reconcile_check = now
 
             mode = self._get_mode_label(now)
 
