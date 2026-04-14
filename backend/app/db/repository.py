@@ -906,6 +906,7 @@ async def create_group(db: Session, admin_id: int, **group_data) -> Group:
             admin_id=admin_id,
             created=datetime.now(timezone.utc),
             created_week=created_week,
+            current_week=created_week,
             activation_week=activation_week,
             next_rivalry_week=next_rivalry_week,
             **group_data

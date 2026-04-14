@@ -28,6 +28,12 @@ from ..db import (
 )
 # Import the repository function with a different name to avoid conflict
 from ..db.repository import get_user_groups as get_user_groups_from_db
+from ..db.repository import (
+    get_season_info_for_league,
+    calculate_actual_week_in_season,
+    calculate_activation_week_with_boundaries,
+    calculate_next_rivalry_week_with_season_handling,
+)
 
 from ..db.models import (
     PendingMembership,
@@ -161,37 +167,34 @@ async def calculate_group_activation_data(group, db):
     logger = logging.getLogger(__name__)
     
     try:
-        # Use real database values instead of hardcoded fallbacks
-        created_week = group.created_week
-        activation_week = group.activation_week
-        next_rivalry_week = group.next_rivalry_week
-        current_week = group.current_week
-        
-        # If database values are missing, calculate them
-        if not all([created_week, activation_week, next_rivalry_week, current_week]):
-            logger.warning(f"Group {group.id} missing activation data, calculating fallback values")
-            
-            # Calculate current week based on actual season
-            from datetime import datetime, timezone
-            current_date = datetime.now(timezone.utc)
-            
-            # Import helper functions from repository.py to avoid circular imports
-            from ..db.repository import get_season_info_for_league, calculate_actual_week_in_season
-            
-            season_info = get_season_info_for_league(group.league)
-            current_week = calculate_actual_week_in_season(current_date, season_info)
-            
-            # Use reasonable defaults for missing values
-            created_week = created_week or 1
-            activation_week = activation_week or (created_week + 5)
-            next_rivalry_week = next_rivalry_week or (activation_week + 1)
-        
-        # Calculate progress and timing using real values
+        # Always derive current week from calendar + league season rules.
+        # Stored current_week can become stale and freeze countdowns.
+        current_date = datetime.now(timezone.utc)
+        season_info = get_season_info_for_league(group.league)
+        current_week = calculate_actual_week_in_season(current_date, season_info)
+
+        created_week = group.created_week or current_week
+        activation_week = group.activation_week or calculate_activation_week_with_boundaries(
+            created_week, group.league
+        )
+
+        # Default first rivalry week to post-activation schedule.
+        next_rivalry_week = group.next_rivalry_week or calculate_next_rivalry_week_with_season_handling(
+            activation_week, group.league
+        )
+
+        # If the stored next rivalry week is stale, roll it forward in 4-week cadence.
+        if next_rivalry_week < current_week:
+            weeks_behind = current_week - next_rivalry_week
+            cadence_steps = (weeks_behind + 3) // 4
+            next_rivalry_week += cadence_steps * 4
+            next_rivalry_week = min(next_rivalry_week, season_info["total_weeks"])
+
         weeks_until_activation = max(0, activation_week - current_week)
         weeks_until_next_rivalry = max(0, next_rivalry_week - current_week)
         
         # Calculate activation progress (0-100%)
-        if current_week >= activation_week:
+        if current_week >= activation_week or activation_week <= created_week:
             activation_progress = 100.0
         else:
             activation_progress = min(100, max(0, ((current_week - created_week) / (activation_week - created_week)) * 100))
@@ -199,15 +202,8 @@ async def calculate_group_activation_data(group, db):
         # Determine activation status
         is_activated = current_week >= activation_week
         
-        # Check if this is currently a rivalry week
-        is_rivalry_week = False
-        if is_activated and next_rivalry_week:
-            if current_week == next_rivalry_week:
-                is_rivalry_week = True
-            elif activation_week:
-                weeks_since_activation = current_week - activation_week
-                if weeks_since_activation >= 4 and (weeks_since_activation % 4 == 0):
-                    is_rivalry_week = True
+        # Single-source rivalry-week check based on reconciled schedule.
+        is_rivalry_week = bool(is_activated and weeks_until_next_rivalry == 0)
         
         logger.info(f"Group {group.id} using real data: created_week={created_week}, activation_week={activation_week}, current_week={current_week}, progress={activation_progress}%")
         
