@@ -525,13 +525,17 @@ async def get_prediction_by_id(db: Session, prediction_id: int) -> Optional[User
 async def get_user_prediction(
     db: Session, 
     user_id: int, 
-    fixture_id: int
+    fixture_id: int,
+    group_id: Optional[int] = None
 ) -> Optional[UserPrediction]:
-    """Get user's prediction for a fixture"""
-    return db.query(UserPrediction).filter(
+    """Get user's prediction for a fixture, optionally scoped to a group."""
+    query = db.query(UserPrediction).filter(
         UserPrediction.user_id == user_id,
         UserPrediction.fixture_id == fixture_id
-    ).first()
+    )
+    if group_id is not None:
+        query = query.filter(UserPrediction.group_id == group_id)
+    return query.first()
 
 async def get_user_predictions(
     db: Session, 

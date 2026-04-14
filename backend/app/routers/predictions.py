@@ -124,7 +124,12 @@ async def submit_prediction(
                 
         # Check for existing prediction using your actual repository function
         logger.info("Checking for existing prediction")
-        existing_prediction = await get_user_prediction(db, current_user.id, match_id)
+        existing_prediction = await get_user_prediction(
+            db,
+            current_user.id,
+            match_id,
+            prediction_data.group_id
+        )
         
         if existing_prediction:
             logger.info(f"Updating existing prediction: {existing_prediction.id}")
@@ -511,7 +516,8 @@ async def create_batch_predictions(
             existing_prediction = await get_user_prediction(
                 db, 
                 current_user.id, 
-                int(fixture_id)
+                int(fixture_id),
+                group_id
             )
             
             # Extract scores - handle both possible key formats
