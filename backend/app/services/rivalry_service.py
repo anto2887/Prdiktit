@@ -193,8 +193,7 @@ class RivalryService:
                     UserPrediction.prediction_status == PredictionStatus.PROCESSED
                 )
             ).filter(
-                group_members.c.group_id == group_id,
-                group_members.c.status == 'APPROVED'
+                group_members.c.group_id == group_id
             ).group_by(
                 User.id, User.username
             ).order_by(
@@ -217,6 +216,7 @@ class RivalryService:
             
         except Exception as e:
             logger.error(f"❌ Error getting group standings: {e}")
+            logger.exception("Full standings query traceback")
             return []
     
     async def _create_rivalry_pairs(self, group_id: int, standings: List[Dict], week: int, season: str) -> List[Dict]:
