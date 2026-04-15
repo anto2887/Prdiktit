@@ -2,6 +2,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts';
+import LoadingSpinner from './components/common/LoadingSpinner';
+import PostAuthRedirect from './components/auth/PostAuthRedirect';
 
 // Layout
 import MainLayout from './components/layout/MainLayout';
@@ -36,16 +38,28 @@ import {
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   return (
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
+        authLoading ? (
+          <LoadingSpinner fullScreen />
+        ) : isAuthenticated ? (
+          <PostAuthRedirect />
+        ) : (
+          <LoginPage />
+        )
       } />
       <Route path="/register" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />
+        authLoading ? (
+          <LoadingSpinner fullScreen />
+        ) : isAuthenticated ? (
+          <PostAuthRedirect />
+        ) : (
+          <RegisterPage />
+        )
       } />
       <Route path="/auth/oauth/google/callback" element={<OAuthCallbackPage />} />
       <Route path="/terms" element={<TermsPage />} />
@@ -80,7 +94,13 @@ const AppRoutes = () => {
       
       {/* Home route with redirect */}
       <Route path="/" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <HomePage />
+        authLoading ? (
+          <LoadingSpinner fullScreen />
+        ) : isAuthenticated ? (
+          <Navigate to="/dashboard" replace />
+        ) : (
+          <HomePage />
+        )
       } />
       
       {/* 404 route */}

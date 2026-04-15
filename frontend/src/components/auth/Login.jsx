@@ -1,27 +1,26 @@
 import React, { useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useAuth, useNotifications } from '../../contexts';
-import LoadingSpinner from '../common/LoadingSpinner';
+import { Link, useLocation } from 'react-router-dom';
+import { useNotifications } from '../../contexts';
 import OAuthLogin from './OAuthLogin';
 
+export const POST_LOGIN_REDIRECT_KEY = 'prdiktit_post_login_redirect';
+
 export const Login = () => {
-  const { isAuthenticated } = useAuth();
   const { showSuccess, showError } = useNotifications();
-  const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/dashboard';
-
+  // Preserve return URL across Google OAuth full-page redirect (callback reads this).
   useEffect(() => {
-    if (isAuthenticated) {
-      console.log('Login: User is authenticated, redirecting to:', from);
-      navigate(from, { replace: true });
+    const fromLoc = location.state?.from;
+    if (fromLoc?.pathname && fromLoc.pathname !== '/login') {
+      const target = `${fromLoc.pathname}${fromLoc.search || ''}${fromLoc.hash || ''}`;
+      try {
+        sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, target);
+      } catch {
+        /* ignore quota / private mode */
+      }
     }
-  }, [isAuthenticated, navigate, from]);
-
-  if (isAuthenticated) {
-    return <LoadingSpinner />;
-  }
+  }, [location.state?.from]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -47,11 +46,9 @@ export const Login = () => {
 
             <div>
                           <OAuthLogin 
-              onSuccess={(data) => {
-                // OAuth success is handled by OAuthCallbackPage
-                // No need to store JWT tokens - using session-based auth
+              onSuccess={() => {
+                // Full OAuth round-trip finishes on OAuthCallbackPage
                 showSuccess('Successfully logged in with Google');
-                navigate(from, { replace: true });
               }}
                 onError={(error) => {
                   showError(error || 'OAuth login failed');

@@ -2,6 +2,7 @@ import React from 'react';
 import OAuthCallback from '../components/auth/OAuthCallback';
 import { useAuth, useNotifications } from '../contexts';
 import { useNavigate } from 'react-router-dom';
+import { POST_LOGIN_REDIRECT_KEY } from '../components/auth/Login';
 
 const OAuthCallbackPage = () => {
   const { loginWithOAuth } = useAuth();
@@ -30,9 +31,18 @@ const OAuthCallbackPage = () => {
           // New user - account created
           showSuccess('Account created successfully! Welcome to PrdiktIt');
         }
-        
-        // Now redirect to dashboard after authentication state is updated
-        navigate('/dashboard', { replace: true });
+
+        let dest = '/dashboard';
+        try {
+          const saved = sessionStorage.getItem(POST_LOGIN_REDIRECT_KEY);
+          if (saved && saved.startsWith('/')) {
+            dest = saved;
+          }
+          sessionStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
+        } catch {
+          /* ignore */
+        }
+        navigate(dest, { replace: true });
       }
     } catch (error) {
       console.error('OAuth success handling error:', error);

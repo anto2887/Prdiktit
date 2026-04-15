@@ -72,7 +72,9 @@ const ActionTypes = {
 const initialState = {
   auth: {
     user: null,
-    loading: false,
+    // True until the first checkAuth() completes so ProtectedRoute does not flash
+    // to /login on refresh and lose the current URL.
+    loading: true,
     error: null,
     isAuthenticated: false
   },
@@ -165,7 +167,13 @@ const appReducer = (state, action) => {
     case ActionTypes.SET_AUTH_LOGOUT:
       return {
         ...state,
-        auth: { ...initialState.auth },
+        auth: {
+          ...initialState.auth,
+          loading: false,
+          isAuthenticated: false,
+          user: null,
+          error: null,
+        },
         user: { ...initialState.user },
         groups: { ...initialState.groups },
         predictions: { ...initialState.predictions }

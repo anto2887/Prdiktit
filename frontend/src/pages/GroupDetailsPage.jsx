@@ -1,5 +1,5 @@
 // src/pages/GroupDetailsPage.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { 
   useUser, 
@@ -61,6 +61,11 @@ const GroupDetailsPage = () => {
     loading: leaderboardLoading
   } = useLeagueContext();
 
+  const numericGroupId = useMemo(
+    () => (groupId ? parseInt(groupId, 10) : null),
+    [groupId]
+  );
+
   // Local state
   const [activeTab, setActiveTab] = useState('standings');
   const [membersLoading, setMembersLoading] = useState(false);
@@ -74,9 +79,16 @@ const GroupDetailsPage = () => {
   // Local loading state to prevent error flash
   const [localLoading, setLocalLoading] = useState(true);
   
-  // Prevent multiple fetches
+  // Prevent duplicate fetches (reset when route groupId changes — see effect below)
   const hasFetchedRef = useRef({});
-  const hasInitializedSeasonRef = useRef(false);
+
+  // When navigating between groups, clear one-shot flags and season so we refetch standings for the new group.
+  useEffect(() => {
+    if (!groupId) return;
+    hasFetchedRef.current = {};
+    setSelectedSeason(null);
+    setActiveTab('standings');
+  }, [groupId, setSelectedSeason]);
 
   // Effect: Fetch user profile
   useEffect(() => {
@@ -133,74 +145,35 @@ const GroupDetailsPage = () => {
   const loadGroupData = async () => {
     try {
       process.env.NODE_ENV === 'development' && console.log('📊 Loading group details and members...');
-      await Promise.all([
-        fetchGroupDetails(groupId),
-        fetchGroupMembers(groupId)
-      ]);
+      const details = await fetchGroupDetails(groupId);
+      await fetchGroupMembers(groupId);
+
+      // Load default season + standings immediately after group is known (avoids extra render/wait cycles).
+      if (details?.league && Number(details.id) === numericGroupId) {
+        setSeasonLoading(true);
+        try {
+          const season = SeasonManager.getCurrentSeason(details.league);
+          hasFetchedRef.current.leaderboard = true;
+          setSelectedSeason(season);
+          await fetchLeaderboard(details.id, { season });
+        } catch (err) {
+          process.env.NODE_ENV === 'development' && console.error('❌ Leaderboard load:', err);
+          showError('Failed to load leaderboard');
+        } finally {
+          setSeasonLoading(false);
+        }
+      }
     } catch (error) {
       process.env.NODE_ENV === 'development' && console.error('❌ Error loading group data:', error);
-      // Only show error notification if we're not in initial loading phase
-      // This prevents the brief error flash when navigating to group pages
       if (currentGroup) {
         showError('Failed to load group data');
       }
     }
   };
 
-  // Effect: Initialize season data
-  useEffect(() => {
-    process.env.NODE_ENV === 'development' && console.log('🎯 Effect: Initialize season data triggered', { 
-      hasCurrentGroup: !!currentGroup,
-      hasInitialized: hasInitializedSeasonRef.current,
-      selectedSeason
-    });
-    
-    if (currentGroup && !hasInitializedSeasonRef.current) {
-      process.env.NODE_ENV === 'development' && console.log('📅 Initializing season data...');
-      hasInitializedSeasonRef.current = true;
-      initializeSeasonData();
-    }
-  }, [currentGroup, selectedSeason]);
-
-  const initializeSeasonData = async () => {
-    try {
-      setSeasonLoading(true);
-      
-      // Set default season if not already set
-      if (!selectedSeason && currentGroup.league) {
-        const defaultSeason = SeasonManager.getCurrentSeason(currentGroup.league);
-        process.env.NODE_ENV === 'development' && console.log('📅 Setting default season:', defaultSeason);
-        setSelectedSeason(defaultSeason);
-      }
-      
-      // Load leaderboard for the selected season
-      if (selectedSeason) {
-        await loadLeaderboard();
-      }
-    } catch (error) {
-      process.env.NODE_ENV === 'development' && console.error('❌ Error initializing season data:', error);
-      showError('Failed to initialize season data');
-    } finally {
-      setSeasonLoading(false);
-    }
-  };
-
-  // Effect: Load leaderboard
-  useEffect(() => {
-    process.env.NODE_ENV === 'development' && console.log('🎯 Effect: Load leaderboard triggered', { 
-      selectedSeason,
-      hasCurrentGroup: !!currentGroup,
-      hasInitialized: hasInitializedSeasonRef.current
-    });
-    
-    if (selectedSeason && currentGroup && hasInitializedSeasonRef.current && !hasFetchedRef.current.leaderboard) {
-      process.env.NODE_ENV === 'development' && console.log('📊 Loading leaderboard...');
-      hasFetchedRef.current.leaderboard = true;
-      loadLeaderboard();
-    }
-  }, [selectedSeason, currentGroup]);
-
-  const loadLeaderboard = async () => {
+  const loadLeaderboard = useCallback(async () => {
+    if (!numericGroupId || !selectedSeason) return;
+    if (!currentGroup || currentGroup.id !== numericGroupId) return;
     try {
       process.env.NODE_ENV === 'development' && console.log('📊 Loading leaderboard for season:', selectedSeason);
       await fetchLeaderboard(currentGroup.id, { season: selectedSeason });
@@ -208,7 +181,15 @@ const GroupDetailsPage = () => {
       process.env.NODE_ENV === 'development' && console.error('❌ Error loading leaderboard:', error);
       showError('Failed to load leaderboard');
     }
-  };
+  }, [numericGroupId, selectedSeason, currentGroup, fetchLeaderboard, showError]);
+
+  // Refetch standings when season changes (SeasonSelector); initial load is handled in loadGroupData.
+  useEffect(() => {
+    if (!selectedSeason || !currentGroup || currentGroup.id !== numericGroupId) return;
+    if (hasFetchedRef.current.leaderboard) return;
+    hasFetchedRef.current.leaderboard = true;
+    loadLeaderboard();
+  }, [selectedSeason, currentGroup, numericGroupId, loadLeaderboard]);
 
   const handleSeasonChange = (newSeason) => {
     process.env.NODE_ENV === 'development' && console.log('📅 Season changed:', newSeason);
