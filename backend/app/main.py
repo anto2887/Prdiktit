@@ -857,110 +857,76 @@ async def test_group_activation_migration():
 @app.post("/api/v1/admin/populate-group-activation-data")
 async def populate_group_activation_data():
     """
-    Populate activation data for existing groups with real calculations
+    Populate stored activation fields on all groups using the same logic as GET /api/v1/groups:
+    canonical matchweek (fixture-driven), activation/rivalry boundaries, and next_rivalry
+    reconciliation. Safe to align DB columns with what the API computes.
     """
     import logging
+    from .routers.groups import calculate_group_activation_data
+
     logger = logging.getLogger(__name__)
-    
+
     db = None
     try:
-        # Get database session
         db = next(get_db())
-        
-        # Query all groups that need activation data
+
         groups = db.query(Group).all()
-        
+
         if not groups:
             return {"status": "success", "message": "No groups found to update", "data": []}
-        
+
         updated_groups = []
-        
+
         for group in groups:
             try:
                 logger.info(f"Processing group {group.id} ({group.name}) - created: {group.created}")
-                
-                # Calculate real activation data based on group creation date
-                created_datetime = group.created
-                current_date = datetime.utcnow()
-                
-                # Get season info for this group's league
-                season_info = get_season_info_for_league(group.league)
-                
-                # Calculate actual week in season when group was created
-                created_week = calculate_actual_week_in_season(created_datetime, season_info)
-                
-                # Activation week is 5 weeks after creation
-                activation_week = created_week + 5
-                
-                # Next rivalry week is 1 week after activation
-                next_rivalry_week = activation_week + 1
-                
-                # Calculate current week in season
-                current_week = calculate_actual_week_in_season(current_date, season_info)
-                
-                # Calculate weeks until activation
-                weeks_until_activation = max(0, activation_week - current_week)
-                
-                # Calculate weeks until next rivalry
-                weeks_until_next_rivalry = max(0, next_rivalry_week - current_week)
-                
-                # Calculate activation progress (0-100%)
-                if current_week >= activation_week:
-                    activation_progress = 100.0
-                else:
-                    activation_progress = min(100, max(0, ((current_week - created_week) / (activation_week - created_week)) * 100))
-                
-                # Determine activation status
-                is_activated = current_week >= activation_week
-                
-                # Check if this is currently a rivalry week
-                is_rivalry_week = False
-                if is_activated and next_rivalry_week:
-                    if current_week == next_rivalry_week:
-                        is_rivalry_week = True
-                    elif activation_week:
-                        weeks_since_activation = current_week - activation_week
-                        if weeks_since_activation >= 4 and (weeks_since_activation % 4 == 0):
-                            is_rivalry_week = True
-                
-                logger.info(f"Group {group.id} calculations: created_week={created_week}, activation_week={activation_week}, current_week={current_week}, progress={activation_progress}%")
-                
-                # Update group with calculated data
-                group.created_week = created_week
-                group.activation_week = activation_week
-                group.next_rivalry_week = next_rivalry_week
-                group.current_week = current_week
-                
+
+                # Seed created_week from creation timestamp when missing (matches create_group / migration)
+                if group.created is not None and group.created_week is None:
+                    created_datetime = group.created
+                    if created_datetime.tzinfo is None:
+                        created_datetime = created_datetime.replace(tzinfo=timezone.utc)
+                    season_info = get_season_info_for_league(group.league)
+                    group.created_week = calculate_actual_week_in_season(
+                        created_datetime, season_info
+                    )
+
+                activation_data = await calculate_group_activation_data(group, db)
+
+                group.created_week = activation_data["created_week"]
+                group.activation_week = activation_data["activation_week"]
+                group.next_rivalry_week = activation_data["next_rivalry_week"]
+                group.current_week = activation_data["current_week"]
+
                 updated_groups.append({
                     "id": group.id,
                     "name": group.name,
                     "league": group.league,
-                    "created_week": created_week,
-                    "activation_week": activation_week,
-                    "next_rivalry_week": next_rivalry_week,
-                    "current_week": current_week,
-                    "weeks_until_activation": weeks_until_activation,
-                    "weeks_until_next_rivalry": weeks_until_next_rivalry,
-                    "activation_progress": activation_progress,
-                    "is_activated": is_activated,
-                    "is_rivalry_week": is_rivalry_week
+                    "created_week": activation_data["created_week"],
+                    "activation_week": activation_data["activation_week"],
+                    "next_rivalry_week": activation_data["next_rivalry_week"],
+                    "current_week": activation_data["current_week"],
+                    "weeks_until_activation": activation_data["weeks_until_activation"],
+                    "weeks_until_next_rivalry": activation_data["weeks_until_next_rivalry"],
+                    "activation_progress": activation_data["activation_progress"],
+                    "is_activated": activation_data["is_activated"],
+                    "is_rivalry_week": activation_data["is_rivalry_week"],
                 })
-                
+
             except Exception as e:
                 logger.error(f"Error processing group {group.id}: {e}")
                 continue
-        
-        # Commit all changes
+
         db.commit()
-        
+
         logger.info(f"Successfully updated {len(updated_groups)} groups with real activation data")
-        
+
         return {
             "status": "success",
             "message": f"Updated {len(updated_groups)} groups with real activation data",
             "data": updated_groups
         }
-        
+
     except Exception as e:
         logger.error(f"Error in populate_group_activation_data: {e}")
         return {"status": "error", "message": str(e), "data": []}
