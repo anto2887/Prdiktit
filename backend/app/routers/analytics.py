@@ -194,7 +194,12 @@ async def assign_group_rivalries(
             )
         
         rivalry_service = RivalryService(db)
-        rivalries = await rivalry_service.assign_rivalries(group_id, week, season, group.league)
+        assignment_result = await rivalry_service.assign_rivalries_with_result(
+            group_id,
+            week,
+            season,
+            group.league
+        )
         
         return DataResponse(
             message="Rivalries assigned successfully",
@@ -202,7 +207,9 @@ async def assign_group_rivalries(
                 'group_id': group_id,
                 'week': week,
                 'season': season,
-                'rivalries': rivalries
+                'assigned': assignment_result.get('assigned', False),
+                'skip_reason': assignment_result.get('skip_reason'),
+                'rivalries': assignment_result.get('rivalries', [])
             }
         )
         

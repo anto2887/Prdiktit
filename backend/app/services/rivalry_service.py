@@ -62,7 +62,7 @@ class RivalryService:
             ]
     
     def _is_rivalry_week_for_group(self, group_id: int, week: int, season: str) -> bool:
-        """Check if this is a rivalry week for a specific group using group-relative activation"""
+        """Check if this is the group's scheduled rivalry week."""
         try:
             logger.info(f"🔍 Checking if week {week} is rivalry week for group {group_id}")
             
@@ -82,17 +82,12 @@ class RivalryService:
                 logger.info(f"Group {group_id} features not yet activated (week {week} < {group.activation_week})")
                 return False
             
-            # Check if this is a rivalry week
+            # Keep rivalry-week gate aligned with group payload logic:
+            # rivalry week is when the scheduled next_rivalry_week is reached.
             if week == group.next_rivalry_week:
                 logger.info(f"✅ Week {week} is rivalry week for group {group_id}")
                 return True
-            
-            # Check if this is a subsequent rivalry week (every 4 weeks after first activation)
-            weeks_since_activation = week - group.activation_week
-            if weeks_since_activation >= 4 and (weeks_since_activation % 4 == 0):
-                logger.info(f"✅ Week {week} is subsequent rivalry week for group {group_id} (every 4 weeks)")
-                return True
-            
+
             logger.info(f"❌ Week {week} is not a rivalry week for group {group_id}")
             return False
             
@@ -122,6 +117,47 @@ class RivalryService:
         except Exception as e:
             logger.error(f"❌ Error updating next rivalry week for group {group_id}: {e}")
             self.db.rollback()
+
+    async def _has_existing_assignments(self, group_id: int, week: int) -> bool:
+        """Return True if rivalry rows already exist for group/week."""
+        existing_count = self.db.query(func.count(RivalryPair.id)).filter(
+            RivalryPair.group_id == group_id,
+            RivalryPair.assigned_week == week
+        ).scalar()
+        return (existing_count or 0) > 0
+
+    async def assign_rivalries_with_result(self, group_id: int, week: int, season: str, league: str) -> Dict:
+        """
+        Assign rivalries with idempotent guard and diagnostics.
+        Returns a result envelope including assignment status and skip reason.
+        """
+        result = {
+            "assigned": False,
+            "skip_reason": None,
+            "group_id": group_id,
+            "week": week,
+            "season": season,
+            "rivalries": []
+        }
+        logger.info(f"🥊 Assigning rivalries for group {group_id}, week {week}, league {league}")
+
+        if not self._is_rivalry_week_for_group(group_id, week, season):
+            result["skip_reason"] = "not_rivalry_week"
+            logger.info(f"Skipping rivalry assignment for group {group_id}: {result['skip_reason']}")
+            return result
+
+        if await self._has_existing_assignments(group_id, week):
+            result["skip_reason"] = "already_assigned_for_week"
+            logger.info(f"Skipping rivalry assignment for group {group_id}: {result['skip_reason']}")
+            return result
+
+        # Reuse existing creation flow
+        rivalries = await self.assign_rivalries(group_id, week, season, league)
+        result["rivalries"] = rivalries
+        result["assigned"] = len(rivalries) > 0
+        if not result["assigned"]:
+            result["skip_reason"] = "insufficient_members_or_no_pairs_created"
+        return result
     
     async def assign_rivalries(self, group_id: int, week: int, season: str, league: str) -> List[Dict]:
         """
