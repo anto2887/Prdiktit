@@ -6,6 +6,7 @@ and improve maintainability.
 """
 
 import uuid
+import re
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
@@ -112,6 +113,69 @@ def calculate_next_rivalry_week_with_season_handling(activation_week, league):
         next_rivalry_week = season_info['total_weeks']
     
     return next_rivalry_week
+
+def extract_week_number_from_round(round_value: Optional[str]) -> Optional[int]:
+    """Extract numeric matchweek from fixture round text."""
+    if not round_value:
+        return None
+    match = re.search(r"\d+", str(round_value))
+    if not match:
+        return None
+    try:
+        return int(match.group())
+    except ValueError:
+        return None
+
+def calculate_canonical_matchweek(
+    db: Session,
+    league: str,
+    season: str,
+    now_utc: Optional[datetime] = None
+) -> int:
+    """
+    Resolve current matchweek from fixture data first, with calendar fallback.
+
+    Strategy:
+    - Use fixtures for the same league + season.
+    - Prefer highest parsed round/week where fixture kickoff has passed.
+    - If no kickoff has passed yet, use (first known fixture week - 1) clamped to >= 1.
+    - If fixtures/rounds are missing, fall back to season-date heuristic.
+    """
+    now_utc = now_utc or datetime.now(timezone.utc)
+    season_info = get_season_info_for_league(league)
+
+    fixtures = db.query(Fixture).filter(
+        Fixture.league == league,
+        Fixture.season == season
+    ).all()
+
+    if not fixtures:
+        return calculate_actual_week_in_season(now_utc, season_info)
+
+    played_weeks = []
+    known_weeks = []
+    for fixture in fixtures:
+        week_num = extract_week_number_from_round(getattr(fixture, "round", None))
+        if week_num is None:
+            continue
+        known_weeks.append(week_num)
+        fixture_date = fixture.date
+        if fixture_date:
+            if fixture_date.tzinfo is None:
+                fixture_date = fixture_date.replace(tzinfo=timezone.utc)
+            else:
+                fixture_date = fixture_date.astimezone(timezone.utc)
+            if fixture_date <= now_utc:
+                played_weeks.append(week_num)
+
+    if played_weeks:
+        return max(1, min(max(played_weeks), season_info["total_weeks"]))
+
+    if known_weeks:
+        pre_start_week = min(known_weeks) - 1
+        return max(1, min(pre_start_week, season_info["total_weeks"]))
+
+    return calculate_actual_week_in_season(now_utc, season_info)
 
 # =============================================================================
 # USER REPOSITORY FUNCTIONS

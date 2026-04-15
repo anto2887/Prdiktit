@@ -13,7 +13,7 @@ import time
 from aiohttp import web
 from app.db.database import SessionLocal
 from app.db.models import Fixture, MatchStatus, Group
-from app.db.repository import get_season_info_for_league, calculate_actual_week_in_season
+from app.db.repository import calculate_canonical_matchweek
 from app.utils.season_manager import SeasonManager
 
 # Add the backend directory to Python path
@@ -425,9 +425,13 @@ class SchedulerService:
 
             for group in candidate_groups:
                 try:
-                    season_info = get_season_info_for_league(group.league)
-                    group_week = calculate_actual_week_in_season(current_time, season_info)
                     season = SeasonManager.get_current_season(group.league)
+                    group_week = calculate_canonical_matchweek(
+                        db=db,
+                        league=group.league,
+                        season=season,
+                        now_utc=current_time
+                    )
 
                     result = await rivalry_service.assign_rivalries_with_result(
                         group.id,

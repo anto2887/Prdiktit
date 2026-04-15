@@ -30,10 +30,11 @@ from ..db import (
 from ..db.repository import get_user_groups as get_user_groups_from_db
 from ..db.repository import (
     get_season_info_for_league,
-    calculate_actual_week_in_season,
+    calculate_canonical_matchweek,
     calculate_activation_week_with_boundaries,
     calculate_next_rivalry_week_with_season_handling,
 )
+from ..utils.season_manager import SeasonManager
 
 from ..db.models import (
     PendingMembership,
@@ -167,11 +168,17 @@ async def calculate_group_activation_data(group, db):
     logger = logging.getLogger(__name__)
     
     try:
-        # Always derive current week from calendar + league season rules.
-        # Stored current_week can become stale and freeze countdowns.
+        # Resolve current week from fixture-driven canonical matchweek first.
+        # Stored current_week can become stale and calendar-only week can drift from matchweeks.
         current_date = datetime.now(timezone.utc)
         season_info = get_season_info_for_league(group.league)
-        current_week = calculate_actual_week_in_season(current_date, season_info)
+        current_season = SeasonManager.get_current_season(group.league)
+        current_week = calculate_canonical_matchweek(
+            db=db,
+            league=group.league,
+            season=current_season,
+            now_utc=current_date
+        )
 
         created_week = group.created_week or current_week
         activation_week = group.activation_week or calculate_activation_week_with_boundaries(
