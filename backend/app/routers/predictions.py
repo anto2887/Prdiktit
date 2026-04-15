@@ -35,6 +35,17 @@ from ..services.prediction_visibility import PredictionVisibilityService
 
 router = APIRouter()
 
+
+async def _invalidate_group_caches_if_needed(
+    cache: RedisCache, db: Session, group_id: Optional[int]
+) -> None:
+    if not group_id:
+        return
+    from ..services.group_cache_invalidation import invalidate_group_scoped_caches
+
+    await invalidate_group_scoped_caches(cache, db, group_id)
+
+
 @router.post("", response_model=DataResponse)
 async def submit_prediction(
     prediction_data: PredictionCreate,
@@ -153,7 +164,10 @@ async def submit_prediction(
                 await cache.delete(f"user_predictions:{current_user.id}")
             except Exception as cache_error:
                 logger.warning(f"Cache delete failed: {cache_error}")
-            
+            await _invalidate_group_caches_if_needed(
+                cache, db, existing_prediction.group_id
+            )
+
             logger.info("Prediction updated successfully")
             return DataResponse(
                 data={
@@ -260,7 +274,8 @@ async def submit_prediction(
             await cache.delete(f"user_predictions:{current_user.id}")
         except Exception as cache_error:
             logger.warning(f"Cache delete failed: {cache_error}")
-        
+        await _invalidate_group_caches_if_needed(cache, db, group_id)
+
         logger.info(f"Prediction created successfully: {new_prediction.id}")
         
         return DataResponse(
@@ -597,7 +612,8 @@ async def create_batch_predictions(
     
     # Clear cache
     await cache.delete(f"user_predictions:{current_user.id}")
-    
+    await _invalidate_group_caches_if_needed(cache, db, group_id)
+
     return DataResponse(
         data=results,
         message="Predictions saved successfully"
@@ -752,7 +768,8 @@ async def reset_prediction_endpoint(
     
     # Clear cache
     await cache.delete(f"user_predictions:{current_user.id}")
-    
+    await _invalidate_group_caches_if_needed(cache, db, prediction.group_id)
+
     return DataResponse(
         message="Prediction reset successfully"
     )

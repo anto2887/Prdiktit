@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import inspect, text
 
@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 from ..core.dependencies import get_current_active_user_from_session
 from ..db.session_manager import get_db
 from ..schemas import DataResponse, User
+from ..services.cache_service import get_cache, RedisCache
 from ..db.models import UserNotificationPreferences, User as UserModel
 
 # Add error handling for the MatchProcessor import
@@ -1186,3 +1187,34 @@ async def test_send_notification(
     sent = await notif.send_match_result(user_id, fixture, prediction, 3)
 
     return {"sent": sent, "debug": debug}
+
+
+@router.post("/repair-prediction-group-scoping", response_model=DataResponse)
+async def repair_prediction_group_scoping_endpoint(
+    dry_run: bool = Query(
+        True,
+        description="If true, reports actions only; no commits. Run with false after review.",
+    ),
+    current_user: User = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache),
+):
+    """
+    Fix predictions whose group_id does not match membership or fixture league.
+    After a real run (dry_run=false), invalidates Redis caches for affected groups.
+    """
+    from ..services.prediction_group_scoping import repair_misscoped_prediction_group_ids
+    from ..services.group_cache_invalidation import invalidate_group_scoped_caches
+
+    result = repair_misscoped_prediction_group_ids(db, dry_run=dry_run)
+    if not dry_run and result.get("affected_group_ids"):
+        for gid in result["affected_group_ids"]:
+            await invalidate_group_scoped_caches(cache, db, gid)
+    return DataResponse(
+        message=(
+            "Dry run complete — no database changes"
+            if dry_run
+            else "Prediction group scoping repair applied"
+        ),
+        data=result,
+    )

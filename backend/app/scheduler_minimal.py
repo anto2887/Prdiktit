@@ -15,6 +15,8 @@ from app.db.database import SessionLocal
 from app.db.models import Fixture, MatchStatus, Group
 from app.db.repository import calculate_canonical_matchweek
 from app.utils.season_manager import SeasonManager
+from app.services.cache_service import cache_instance
+from app.services.group_cache_invalidation import invalidate_group_scoped_caches
 
 # Add the backend directory to Python path
 backend_dir = Path(__file__).parent
@@ -442,6 +444,7 @@ class SchedulerService:
 
                     if result.get("assigned"):
                         assigned_count += 1
+                        await invalidate_group_scoped_caches(cache_instance, db, group.id)
                     else:
                         skipped_count += 1
                 except Exception as group_error:

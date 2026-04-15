@@ -173,7 +173,8 @@ async def assign_group_rivalries(
     week: int = Query(...),
     season: str = Query(...),
     current_user: User = Depends(get_current_active_user_from_session),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache),
 ):
     """
     Assign rivalries for a group (admin only)
@@ -200,7 +201,11 @@ async def assign_group_rivalries(
             season,
             group.league
         )
-        
+
+        if assignment_result.get("assigned"):
+            from ..services.group_cache_invalidation import invalidate_group_scoped_caches
+            await invalidate_group_scoped_caches(cache, db, group_id)
+
         return DataResponse(
             message="Rivalries assigned successfully",
             data={
