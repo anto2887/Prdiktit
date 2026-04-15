@@ -5,7 +5,7 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import SeasonManager from '../../utils/seasonManager';
 
-const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
+const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null }) => {
   const [currentSeason, setCurrentSeason] = useState(season);
 
   // Get current season dynamically if not provided
@@ -23,7 +23,7 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
   }, [currentSeason]);
   
   const { user } = useAuth();
-  const { showError, showSuccess } = useNotifications();
+  const { showError } = useNotifications();
   const { currentGroup } = useGroups();
   
   const [rivalries, setRivalries] = useState([]);
@@ -32,15 +32,16 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
   const [activeTab, setActiveTab] = useState('current');
   const [comebackChallengeData, setComebackChallengeData] = useState(null);
 
-  const ACTIVATION_WEEK = 5;
-  const rivalriesActive = currentWeek >= ACTIVATION_WEEK;
+  const pageGroup = group || currentGroup;
+  const activationWeek = pageGroup?.activation_week || 5;
+  const rivalriesActive = pageGroup?.is_activated ?? (currentWeek >= activationWeek);
 
   useEffect(() => {
     if (groupId && rivalriesActive) {
       loadRivalries();
       loadComebackChallengeData();
     }
-  }, [groupId, currentWeek, season]);
+  }, [groupId, rivalriesActive, currentSeason]);
 
   const loadRivalries = async () => {
     try {
@@ -49,16 +50,11 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
       
       // Use the proper API client with session authentication
       const { rivalriesApi } = await import('../../api');
-      const response = await rivalriesApi.getGroupRivalries(groupId);
-      
-      process.env.NODE_ENV === 'development' && console.log(`Rivalries response:`, response.data);
-      
-      // The API client already handles the response, so we can access the data directly
-      const data = response.data;
-      process.env.NODE_ENV === 'development' && console.log('Rivalries API response:', data);
-      
-      // Ensure rivalries is always an array
-      const rivalriesArray = Array.isArray(data.data) ? data.data : [];
+      const payload = await rivalriesApi.getGroupRivalries(groupId);
+      process.env.NODE_ENV === 'development' && console.log('Rivalries API response:', payload);
+
+      // API client returns normalized payload: { status, message, data }
+      const rivalriesArray = Array.isArray(payload?.data) ? payload.data : [];
       process.env.NODE_ENV === 'development' && console.log('Processed rivalries array:', rivalriesArray);
       setRivalries(rivalriesArray);
 
@@ -81,9 +77,7 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
       
       // Use the proper API client with session authentication
       const { rivalriesApi } = await import('../../api');
-      const response = await rivalriesApi.getComebackChallengeStatus(groupId);
-      
-      const data = response.data;
+      const data = await rivalriesApi.getComebackChallengeStatus(groupId);
       if (data.success) {
         setComebackChallengeData(data);
         process.env.NODE_ENV === 'development' && console.log('Comeback Challenge data loaded:', data);
@@ -96,7 +90,7 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null }) => {
 
   // Show activation message if rivalries not yet available
   if (!rivalriesActive) {
-    return <RivalryActivationMessage currentWeek={currentWeek} activationWeek={ACTIVATION_WEEK} />;
+    return <RivalryActivationMessage currentWeek={currentWeek} activationWeek={activationWeek} />;
   }
 
   if (loading) return <LoadingSpinner />;
@@ -663,14 +657,10 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
       
       // Use the proper API client with session authentication
       const { rivalriesApi } = await import('../../api');
-      const response = await rivalriesApi.getGroupRivalries(groupId);
-      
-      process.env.NODE_ENV === 'development' && console.log(`Compact rivalries response:`, response.data);
-      
-      const data = response.data;
-      process.env.NODE_ENV === 'development' && console.log('Compact rivalries API response:', data);
-      // Ensure rivalries is always an array
-      const rivalriesArray = Array.isArray(data.data) ? data.data : [];
+      const payload = await rivalriesApi.getGroupRivalries(groupId);
+      process.env.NODE_ENV === 'development' && console.log('Compact rivalries API response:', payload);
+      // API client returns normalized payload: { status, message, data }
+      const rivalriesArray = Array.isArray(payload?.data) ? payload.data : [];
       process.env.NODE_ENV === 'development' && console.log('Processed compact rivalries array:', rivalriesArray);
       setRivalries(rivalriesArray);
     } catch (err) {

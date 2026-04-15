@@ -1,7 +1,7 @@
 // src/pages/RivalryPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AppContext';
+import { useAuth, useGroups } from '../contexts/AppContext';
 import RivalryDashboard from '../components/rivalries/RivalryDashboard';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
@@ -10,7 +10,10 @@ import SeasonManager from '../utils/seasonManager';
 const RivalryPage = () => {
   const { groupId } = useParams();
   const { user, loading } = useAuth();
+  const { currentGroup, fetchGroupDetails, loading: groupsLoading } = useGroups();
   const [currentSeason, setCurrentSeason] = useState('');
+  const numericGroupId = parseInt(groupId, 10);
+  const pageGroup = currentGroup?.id === numericGroupId ? currentGroup : null;
   
   // Show loading while auth is being checked
   if (loading) {
@@ -27,42 +30,35 @@ const RivalryPage = () => {
     return <ErrorMessage message="Group ID is required" />;
   }
 
+  useEffect(() => {
+    if (groupId) {
+      fetchGroupDetails(groupId);
+    }
+  }, [groupId, fetchGroupDetails]);
+
   // Get current season dynamically
   useEffect(() => {
     try {
-      // Default to Premier League if no group context available
-      const season = SeasonManager.getCurrentSeason('Premier League');
+      const league = pageGroup?.league || 'Premier League';
+      const season = SeasonManager.getCurrentSeason(league);
       setCurrentSeason(season);
     } catch (error) {
       console.error('Error getting current season:', error);
       // Fallback to hardcoded season
       setCurrentSeason('2025-2026');
     }
-  }, []);
-  
-  // Get current week from user's season data or default to current week
-  const getCurrentWeek = () => {
-    // This should be fetched from the user's season data
-    // For now, we'll use a default or get it from localStorage
-    const storedWeek = localStorage.getItem('currentWeek');
-    if (storedWeek) {
-      return parseInt(storedWeek, 10);
-    }
-    
-    // Fallback: calculate current week based on season start
-    const seasonStart = new Date('2025-08-17'); // Premier League 2025-26 start
-    const now = new Date();
-    const weeksSinceStart = Math.floor((now - seasonStart) / (7 * 24 * 60 * 60 * 1000));
-    return Math.max(1, Math.min(38, weeksSinceStart + 1)); // Between 1-38 weeks
-  };
-  
-  const currentWeek = getCurrentWeek();
+  }, [pageGroup?.league]);
+
+  if (groupsLoading && !pageGroup) {
+    return <LoadingSpinner />;
+  }
   
   return (
     <RivalryDashboard 
       groupId={groupId}
-      currentWeek={currentWeek}
+      currentWeek={pageGroup?.current_week || 1}
       season={currentSeason}
+      group={pageGroup}
     />
   );
 };
