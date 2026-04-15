@@ -12,7 +12,9 @@ from datetime import datetime, timezone, timedelta
 import time
 from aiohttp import web
 from app.db.database import SessionLocal
-from app.db.models import Fixture, MatchStatus
+from app.db.models import Fixture, MatchStatus, Group
+from app.db.repository import get_season_info_for_league, calculate_actual_week_in_season
+from app.utils.season_manager import SeasonManager
 
 # Add the backend directory to Python path
 backend_dir = Path(__file__).parent
@@ -42,6 +44,7 @@ class SchedulerService:
         self.notification_scheduler = None
         self.last_reminder_check = None  # Track 15min reminder window
         self.last_stale_reconcile_check = None
+        self.last_rivalry_assignment_check = None
         self.final_statuses = [
             MatchStatus.FINISHED,
             MatchStatus.FINISHED_AET,
@@ -168,6 +171,17 @@ class SchedulerService:
                     logger.info("✅ Reminder check completed")
                 except Exception as e:
                     logger.error(f"❌ Reminder check error (non-fatal): {e}")
+
+            # Run automatic rivalry assignment sweep every 15 minutes.
+            if (
+                self.last_rivalry_assignment_check is None
+                or (current_time - self.last_rivalry_assignment_check).total_seconds() > 900
+            ):
+                try:
+                    await self._run_rivalry_assignment_sweep(current_time)
+                    self.last_rivalry_assignment_check = current_time
+                except Exception as e:
+                    logger.error(f"❌ Rivalry assignment sweep error (non-fatal): {e}")
 
             return True
 
@@ -389,6 +403,55 @@ class SchedulerService:
         except Exception as e:
             logger.error(f"❌ Error in fallback processing: {e}")
             raise
+
+    async def _run_rivalry_assignment_sweep(self, current_time: datetime):
+        """Automatically assign rivalries for due groups using idempotent service guard."""
+        db = SessionLocal()
+        try:
+            from app.services.rivalry_service import RivalryService
+
+            rivalry_service = RivalryService(db)
+            candidate_groups = db.query(Group).filter(
+                Group.activation_week.isnot(None),
+                Group.next_rivalry_week.isnot(None)
+            ).all()
+
+            if not candidate_groups:
+                logger.info("🥊 Rivalry sweep: no candidate groups found")
+                return
+
+            assigned_count = 0
+            skipped_count = 0
+
+            for group in candidate_groups:
+                try:
+                    season_info = get_season_info_for_league(group.league)
+                    group_week = calculate_actual_week_in_season(current_time, season_info)
+                    season = SeasonManager.get_current_season(group.league)
+
+                    result = await rivalry_service.assign_rivalries_with_result(
+                        group.id,
+                        group_week,
+                        season,
+                        group.league
+                    )
+
+                    if result.get("assigned"):
+                        assigned_count += 1
+                    else:
+                        skipped_count += 1
+                except Exception as group_error:
+                    logger.error(
+                        f"❌ Rivalry sweep group failure group_id={group.id}: {group_error}"
+                    )
+                    skipped_count += 1
+
+            logger.info(
+                "🥊 Rivalry sweep completed: "
+                f"groups={len(candidate_groups)}, assigned={assigned_count}, skipped={skipped_count}"
+            )
+        finally:
+            db.close()
 
 # Global scheduler instance
 scheduler_service = SchedulerService()
