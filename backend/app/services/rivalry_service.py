@@ -625,15 +625,17 @@ class RivalryService:
     async def get_group_rivalries(self, group_id: int) -> List[Dict]:
         """Get current rivalries for a group"""
         
-        active_rivalries = self.db.query(RivalryPair).filter(
-            RivalryPair.group_id == group_id,
-            RivalryPair.is_active == True
+        rivalry_rows = self.db.query(RivalryPair).filter(
+            RivalryPair.group_id == group_id
+        ).order_by(
+            RivalryPair.assigned_week.desc(),
+            RivalryPair.created_at.desc()
         ).all()
         
         # Convert to flat array format expected by frontend
         rivalries_list = []
         
-        for rivalry in active_rivalries:
+        for rivalry in rivalry_rows:
             user1 = self.db.query(User).filter(User.id == rivalry.user1_id).first()
             user2 = self.db.query(User).filter(User.id == rivalry.user2_id).first()
             
