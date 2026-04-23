@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 
 from ..db.models import (
-    RivalryPair, RivalryWeek, User, Group, UserPrediction, 
+    RivalryPair, RivalryWeek, User, Group, UserPrediction,
     group_members, PredictionStatus
 )
 from ..db.repository import get_group_members, check_group_membership
@@ -439,26 +439,30 @@ class RivalryService:
         
         logger.info(f"🏁 Checking rivalry outcomes for group {group_id}, week {week}, league {league}")
         
-        # Check if this is a rivalry week for this league
-        rivalry_weeks = self._get_rivalry_weeks(league, season)
-        if week not in rivalry_weeks:
-            logger.info(f"Week {week} is not a rivalry week for {league}")
-            return {'rivalries_processed': 0, 'bonuses_awarded': 0}
-        
         try:
-            # Get active rivalries for this group and week
+            # Use actual assigned rivalries as source of truth for outcomes.
             active_rivalries = self.db.query(RivalryPair).filter(
                 RivalryPair.group_id == group_id,
                 RivalryPair.assigned_week == week,
                 RivalryPair.is_active == True
             ).all()
+
+            if not active_rivalries:
+                logger.info(
+                    f"No active rivalry assignments for group {group_id}, week {week}"
+                )
+                return {'rivalries_processed': 0, 'bonuses_awarded': 0}
             
             bonuses_awarded = 0
             rivalries_processed = 0
             
             # Process each rivalry
             for rivalry in active_rivalries:
-                outcome = await self._process_rivalry_outcome(rivalry, week, season)
+                outcome = await self._process_rivalry_outcome(
+                    rivalry,
+                    week,
+                    season
+                )
                 if outcome['bonus_awarded']:
                     bonuses_awarded += 1
                 rivalries_processed += 1
@@ -478,8 +482,18 @@ class RivalryService:
         """Process outcome for a single rivalry"""
         
         # Get week points for both users
-        user1_points = await self._get_user_week_points(rivalry.user1_id, week, season)
-        user2_points = await self._get_user_week_points(rivalry.user2_id, week, season)
+        user1_points = await self._get_user_week_points(
+            rivalry.user1_id,
+            rivalry.group_id,
+            week,
+            season
+        )
+        user2_points = await self._get_user_week_points(
+            rivalry.user2_id,
+            rivalry.group_id,
+            week,
+            season
+        )
         
         bonus_awarded = False
         winner_id = None
@@ -498,11 +512,21 @@ class RivalryService:
             # Standard rivalry: Higher score wins
             if user1_points > user2_points:
                 winner_id = rivalry.user1_id
-                await self._award_rivalry_bonus(rivalry.user1_id, week, season)
+                await self._award_rivalry_bonus(
+                    rivalry.user1_id,
+                    rivalry.group_id,
+                    week,
+                    season
+                )
                 bonus_awarded = True
             elif user2_points > user1_points:
                 winner_id = rivalry.user2_id
-                await self._award_rivalry_bonus(rivalry.user2_id, week, season)
+                await self._award_rivalry_bonus(
+                    rivalry.user2_id,
+                    rivalry.group_id,
+                    week,
+                    season
+                )
                 bonus_awarded = True
             # Tie = no bonus
         
@@ -514,13 +538,14 @@ class RivalryService:
             'bonus_awarded': bonus_awarded
         }
     
-    async def _get_user_week_points(self, user_id: int, week: int, season: str) -> int:
+    async def _get_user_week_points(self, user_id: int, group_id: int, week: int, season: str) -> int:
         """Get user's total points for a specific week"""
         
         result = self.db.query(
             func.coalesce(func.sum(UserPrediction.points), 0)
         ).filter(
             UserPrediction.user_id == user_id,
+            UserPrediction.group_id == group_id,
             UserPrediction.week == week,
             UserPrediction.season == season,
             UserPrediction.prediction_status == PredictionStatus.PROCESSED
@@ -528,14 +553,16 @@ class RivalryService:
         
         return int(result or 0)
     
-    async def _award_rivalry_bonus(self, user_id: int, week: int, season: str):
+    async def _award_rivalry_bonus(self, user_id: int, group_id: int, week: int, season: str):
         """Award rivalry bonus points to a user"""
         
         # Update all user's predictions for this week to mark rivalry bonus
         self.db.query(UserPrediction).filter(
             UserPrediction.user_id == user_id,
+            UserPrediction.group_id == group_id,
             UserPrediction.week == week,
-            UserPrediction.season == season
+            UserPrediction.season == season,
+            UserPrediction.prediction_status == PredictionStatus.PROCESSED
         ).update({
             'is_rivalry_week': True,
             'bonus_points': 3
@@ -560,6 +587,31 @@ class RivalryService:
             user1 = self.db.query(User).filter(User.id == rivalry.user1_id).first()
             user2 = self.db.query(User).filter(User.id == rivalry.user2_id).first()
             
+            # Derive week result details for display (current + history).
+            # This avoids requiring extra schema migrations for outcome fields.
+            from ..utils.season_manager import SeasonManager
+            season = SeasonManager.get_current_season(rivalry.group.league if rivalry.group else "Premier League")
+            user1_points = await self._get_user_week_points(
+                rivalry.user1_id,
+                group_id,
+                rivalry.assigned_week,
+                season
+            )
+            user2_points = await self._get_user_week_points(
+                rivalry.user2_id,
+                group_id,
+                rivalry.assigned_week,
+                season
+            )
+            winner_id = None
+            winner_name = None
+            if user1_points > user2_points:
+                winner_id = rivalry.user1_id
+                winner_name = user1.username if user1 else "Unknown"
+            elif user2_points > user1_points:
+                winner_id = rivalry.user2_id
+                winner_name = user2.username if user2 else "Unknown"
+
             rivalry_data = {
                 'id': rivalry.id,
                 'user1_id': rivalry.user1_id,
@@ -571,6 +623,16 @@ class RivalryService:
                 'is_champion_challenge': rivalry.is_champion_challenge,
                 'created_at': rivalry.created_at.isoformat() if rivalry.created_at else None,
                 'ended_at': rivalry.ended_at.isoformat() if rivalry.ended_at else None,
+                'winner_id': winner_id,
+                'winner_name': winner_name,
+                'current_week_scores': {
+                    'user1_points': user1_points,
+                    'user2_points': user2_points
+                },
+                'final_scores': {
+                    'user1_points': user1_points,
+                    'user2_points': user2_points
+                },
                 # Comeback Challenge fields
                 'comeback_challenge_benchmark': float(rivalry.comeback_challenge_benchmark) if rivalry.comeback_challenge_benchmark else None,
                 'comeback_challenge_status': rivalry.comeback_challenge_status,
@@ -699,8 +761,18 @@ class RivalryService:
             logger.info(f"🎯 Processing Comeback Challenge outcome for rivalry {rivalry.id}")
             
             # Get week points for both users
-            user1_points = await self._get_user_week_points(rivalry.user1_id, week, season)
-            user2_points = await self._get_user_week_points(rivalry.user2_id, week, season)
+            user1_points = await self._get_user_week_points(
+                rivalry.user1_id,
+                rivalry.group_id,
+                week,
+                season
+            )
+            user2_points = await self._get_user_week_points(
+                rivalry.user2_id,
+                rivalry.group_id,
+                week,
+                season
+            )
             
             # Determine which user is the Comeback Challenge user
             comeback_user_id = None
@@ -728,7 +800,12 @@ class RivalryService:
             
             if comeback_success:
                 # Comeback Challenge user succeeded - they get bonus points
-                await self._award_rivalry_bonus(comeback_user_id, week, season)
+                await self._award_rivalry_bonus(
+                    comeback_user_id,
+                    rivalry.group_id,
+                    week,
+                    season
+                )
                 bonus_awarded = True
                 winner_id = comeback_user_id
                 

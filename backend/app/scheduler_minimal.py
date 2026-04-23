@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 import time
 from aiohttp import web
 from app.db.database import SessionLocal
-from app.db.models import Fixture, MatchStatus, Group
+from app.db.models import Fixture, MatchStatus, Group, RivalryPair
 from app.db.repository import calculate_canonical_matchweek
 from app.utils.season_manager import SeasonManager
 from app.services.cache_service import cache_instance
@@ -47,6 +47,7 @@ class SchedulerService:
         self.last_reminder_check = None  # Track 15min reminder window
         self.last_stale_reconcile_check = None
         self.last_rivalry_assignment_check = None
+        self.last_rivalry_outcome_check = None
         self.final_statuses = [
             MatchStatus.FINISHED,
             MatchStatus.FINISHED_AET,
@@ -184,6 +185,17 @@ class SchedulerService:
                     self.last_rivalry_assignment_check = current_time
                 except Exception as e:
                     logger.error(f"❌ Rivalry assignment sweep error (non-fatal): {e}")
+
+            # Run rivalry outcomes after rivalry week has passed.
+            if (
+                self.last_rivalry_outcome_check is None
+                or (current_time - self.last_rivalry_outcome_check).total_seconds() > 900
+            ):
+                try:
+                    await self._run_rivalry_outcome_sweep(current_time)
+                    self.last_rivalry_outcome_check = current_time
+                except Exception as e:
+                    logger.error(f"❌ Rivalry outcome sweep error (non-fatal): {e}")
 
             return True
 
@@ -456,6 +468,73 @@ class SchedulerService:
             logger.info(
                 "🥊 Rivalry sweep completed: "
                 f"groups={len(candidate_groups)}, assigned={assigned_count}, skipped={skipped_count}"
+            )
+        finally:
+            db.close()
+
+    async def _run_rivalry_outcome_sweep(self, current_time: datetime):
+        """Automatically process outcomes for rivalry weeks that have already passed."""
+        db = SessionLocal()
+        try:
+            from app.services.rivalry_service import RivalryService
+
+            rivalry_service = RivalryService(db)
+
+            due_rivalries = db.query(
+                RivalryPair.group_id,
+                RivalryPair.assigned_week,
+            ).filter(
+                RivalryPair.is_active == True
+            ).distinct().all()
+
+            if not due_rivalries:
+                logger.info("🏁 Rivalry outcome sweep: no active rivalries found")
+                return
+
+            processed_count = 0
+            skipped_count = 0
+
+            for group_id, assigned_week in due_rivalries:
+                group = db.query(Group).filter(Group.id == group_id).first()
+                if not group:
+                    skipped_count += 1
+                    continue
+
+                try:
+                    season = SeasonManager.get_current_season(group.league)
+                    group_week = calculate_canonical_matchweek(
+                        db=db,
+                        league=group.league,
+                        season=season,
+                        now_utc=current_time
+                    )
+
+                    # Only finalize when week has passed to avoid partial-week scoring.
+                    if group_week <= assigned_week:
+                        skipped_count += 1
+                        continue
+
+                    outcome = await rivalry_service.check_rivalry_outcomes(
+                        group_id=group_id,
+                        week=assigned_week,
+                        season=season,
+                        league=group.league
+                    )
+                    if outcome.get("rivalries_processed", 0) > 0:
+                        processed_count += 1
+                        await invalidate_group_scoped_caches(cache_instance, db, group_id)
+                    else:
+                        skipped_count += 1
+                except Exception as group_error:
+                    logger.error(
+                        "❌ Rivalry outcome sweep group failure "
+                        f"group_id={group_id}, week={assigned_week}: {group_error}"
+                    )
+                    skipped_count += 1
+
+            logger.info(
+                "🏁 Rivalry outcome sweep completed: "
+                f"pairs={len(due_rivalries)}, processed={processed_count}, skipped={skipped_count}"
             )
         finally:
             db.close()

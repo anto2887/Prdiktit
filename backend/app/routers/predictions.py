@@ -46,6 +46,82 @@ async def _invalidate_group_caches_if_needed(
     await invalidate_group_scoped_caches(cache, db, group_id)
 
 
+async def _resolve_prediction_group_id(
+    db: Session,
+    user_id: int,
+    fixture: Fixture,
+    requested_group_id: Optional[int] = None
+) -> Optional[int]:
+    """
+    Resolve the group context for a prediction.
+    - If requested_group_id is provided, validate membership and league match.
+    - If omitted, auto-resolve only when exactly one user group tracks this fixture league.
+      Otherwise raise explicit ambiguity error.
+    """
+    if requested_group_id is not None:
+        group = db.query(Group).filter(Group.id == requested_group_id).first()
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Group {requested_group_id} not found"
+            )
+        is_member = await check_group_membership(db, requested_group_id, user_id)
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You are not a member of group {requested_group_id}"
+            )
+        if fixture.league and group.league and fixture.league != group.league:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Group {requested_group_id} is for {group.league}, "
+                    f"but fixture belongs to {fixture.league}"
+                )
+            )
+        return requested_group_id
+
+    # No explicit group_id: resolve by fixture league.
+    candidate_groups = (
+        db.query(Group.id)
+        .join(group_members, Group.id == group_members.c.group_id)
+        .filter(
+            group_members.c.user_id == user_id,
+            Group.league == fixture.league
+        )
+        .all()
+    )
+    candidate_ids = [row.id for row in candidate_groups]
+
+    if len(candidate_ids) == 1:
+        return candidate_ids[0]
+
+    if len(candidate_ids) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Prediction group is ambiguous. You belong to multiple groups in this league; "
+                f"please provide group_id explicitly. Eligible groups: {candidate_ids}"
+            )
+        )
+
+    # League-specific groups not found; fallback to prior behavior: single membership fallback.
+    fallback_groups = (
+        db.query(Group.id)
+        .join(group_members, Group.id == group_members.c.group_id)
+        .filter(group_members.c.user_id == user_id)
+        .order_by(group_members.c.joined_at.asc())
+        .all()
+    )
+    if len(fallback_groups) == 1:
+        return fallback_groups[0].id
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="No unambiguous group context found for this prediction. Please provide group_id."
+    )
+
+
 @router.post("", response_model=DataResponse)
 async def submit_prediction(
     prediction_data: PredictionCreate,
@@ -133,13 +209,20 @@ async def submit_prediction(
         else:
             logger.warning("Fixture has no date, skipping deadline check")
                 
+        target_group_id = await _resolve_prediction_group_id(
+            db=db,
+            user_id=current_user.id,
+            fixture=fixture,
+            requested_group_id=prediction_data.group_id
+        )
+
         # Check for existing prediction using your actual repository function
         logger.info("Checking for existing prediction")
         existing_prediction = await get_user_prediction(
             db,
             current_user.id,
             match_id,
-            prediction_data.group_id
+            target_group_id
         )
         
         if existing_prediction:
@@ -202,53 +285,7 @@ async def submit_prediction(
         
         season = str(getattr(fixture, 'season', '2024'))
         
-        # Get group_id from request, or fall back to user's first group
-        group_id = prediction_data.group_id
-        
-        # If group_id provided, validate it
-        if group_id:
-            # Check if group exists
-            group_exists = db.query(Group).filter(Group.id == group_id).first()
-            if not group_exists:
-                logger.error(f"Invalid group_id {group_id} provided, group doesn't exist")
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Group {group_id} not found"
-                )
-            
-            # Check if user is a member of this group
-            is_member = await check_group_membership(db, group_id, current_user.id)
-            if not is_member:
-                logger.error(f"User {current_user.id} is not a member of group {group_id}")
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"You are not a member of group {group_id}"
-                )
-            
-            logger.info(f"Using provided group_id: {group_id}")
-        else:
-            # Fall back to user's first group (old behavior for backward compatibility)
-            user_groups = db.query(Group).join(
-                group_members, Group.id == group_members.c.group_id
-            ).filter(
-                group_members.c.user_id == current_user.id
-            ).order_by(group_members.c.joined_at.asc()).all()
-            
-            group_id = user_groups[0].id if user_groups else None
-            
-            # Validate group exists
-            if group_id:
-                group_exists = db.query(Group).filter(Group.id == group_id).first()
-                if not group_exists:
-                    logger.error(f"Invalid group_id {group_id} for user {current_user.id}, group doesn't exist")
-                    group_id = None
-            
-            if not group_id:
-                logger.warning(f"User {current_user.id} has no valid group membership for prediction")
-                # For now, allow prediction without group (will be fixed by migration)
-                group_id = None
-        
-        logger.info(f"Creating prediction: user={current_user.id}, fixture={match_id}, season={season}, week={week}, group={group_id}")
+        logger.info(f"Creating prediction: user={current_user.id}, fixture={match_id}, season={season}, week={week}, group={target_group_id}")
         
         # Use your actual repository function
         new_prediction = await create_prediction(
@@ -259,7 +296,7 @@ async def submit_prediction(
             away_score, 
             season,
             week,
-            group_id=group_id  # Added: group_id parameter
+            group_id=target_group_id
         )
         
         if not new_prediction:
@@ -274,7 +311,7 @@ async def submit_prediction(
             await cache.delete(f"user_predictions:{current_user.id}")
         except Exception as cache_error:
             logger.warning(f"Cache delete failed: {cache_error}")
-        await _invalidate_group_caches_if_needed(cache, db, group_id)
+        await _invalidate_group_caches_if_needed(cache, db, target_group_id)
 
         logger.info(f"Prediction created successfully: {new_prediction.id}")
         
@@ -288,7 +325,7 @@ async def submit_prediction(
                 "prediction_status": new_prediction.prediction_status.value if hasattr(new_prediction.prediction_status, 'value') else str(new_prediction.prediction_status),
                 "created": new_prediction.created.isoformat() if new_prediction.created else None,
                 "user_id": new_prediction.user_id,
-                "group_id": new_prediction.group_id  # Include group_id in response
+                "group_id": new_prediction.group_id
             },
             message="Prediction created successfully"
         )
@@ -495,29 +532,11 @@ async def create_batch_predictions(
     group_id = request_data.get('group_id')
     predictions_data = request_data.get('predictions', request_data)  # Support both formats
     
-    # Validate group_id if provided
     if group_id:
-        # Check if group exists
-        group_exists = db.query(Group).filter(Group.id == group_id).first()
-        if not group_exists:
-            logger.error(f"Invalid group_id {group_id} provided, group doesn't exist")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Group {group_id} not found"
-            )
-        
-        # Check if user is a member of this group
-        is_member = await check_group_membership(db, group_id, current_user.id)
-        if not is_member:
-            logger.error(f"User {current_user.id} is not a member of group {group_id}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"You are not a member of group {group_id}"
-            )
-        
         logger.info(f"Using provided group_id for batch predictions: {group_id}")
     
     results = []
+    touched_group_ids = set()
     
     for fixture_id, scores in predictions_data.items():
         try:
@@ -527,12 +546,19 @@ async def create_batch_predictions(
             if not fixture or fixture.status != MatchStatus.NOT_STARTED:
                 continue
             
+            prediction_group_id = await _resolve_prediction_group_id(
+                db=db,
+                user_id=current_user.id,
+                fixture=fixture,
+                requested_group_id=group_id
+            )
+
             # Check if user already has a prediction
             existing_prediction = await get_user_prediction(
                 db, 
                 current_user.id, 
                 int(fixture_id),
-                group_id
+                prediction_group_id
             )
             
             # Extract scores - handle both possible key formats
@@ -566,26 +592,6 @@ async def create_batch_predictions(
                     except Exception:
                         week = 0
                 
-                # Use provided group_id, or fall back to user's first group
-                prediction_group_id = group_id  # Use the group_id from request if provided
-                
-                if not prediction_group_id:
-                    # Fall back to user's first group (old behavior for backward compatibility)
-                    user_groups = db.query(Group).join(
-                        group_members, Group.id == group_members.c.group_id
-                    ).filter(
-                        group_members.c.user_id == current_user.id
-                    ).order_by(group_members.c.joined_at.asc()).all()
-                    
-                    prediction_group_id = user_groups[0].id if user_groups else None
-                    
-                    # Validate group exists
-                    if prediction_group_id:
-                        group_exists = db.query(Group).filter(Group.id == prediction_group_id).first()
-                        if not group_exists:
-                            logger.error(f"Invalid group_id {prediction_group_id} for user {current_user.id}, group doesn't exist")
-                            prediction_group_id = None
-                
                 prediction = await create_prediction(
                     db,
                     current_user.id,
@@ -598,6 +604,7 @@ async def create_batch_predictions(
                 )
             
             if prediction:
+                touched_group_ids.add(prediction.group_id)
                 results.append({
                     "prediction_id": prediction.id,
                     "fixture_id": prediction.fixture_id,
@@ -612,7 +619,8 @@ async def create_batch_predictions(
     
     # Clear cache
     await cache.delete(f"user_predictions:{current_user.id}")
-    await _invalidate_group_caches_if_needed(cache, db, group_id)
+    for touched_group_id in touched_group_ids:
+        await _invalidate_group_caches_if_needed(cache, db, touched_group_id)
 
     return DataResponse(
         data=results,
@@ -823,7 +831,8 @@ async def get_group_leaderboard(
             # Get predictions for this user in this group - ONLY from FINISHED matches
             predictions_query = db.query(
                 UserPrediction.id,
-                UserPrediction.points
+                UserPrediction.points,
+                UserPrediction.bonus_points
             ).join(
                 Fixture, UserPrediction.fixture_id == Fixture.fixture_id
             ).filter(
@@ -845,7 +854,7 @@ async def get_group_leaderboard(
             
             # Calculate stats
             total_predictions = len(predictions)
-            total_points = sum(p.points or 0 for p in predictions)
+            total_points = sum((p.points or 0) + (p.bonus_points or 0) for p in predictions)
             average_points = (total_points / total_predictions) if total_predictions > 0 else 0.0
             perfect_predictions = sum(1 for p in predictions if p.points == 3)
             accurate_predictions = sum(1 for p in predictions if (p.points or 0) > 0)
