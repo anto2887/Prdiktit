@@ -1,7 +1,7 @@
 // src/pages/PredictionFormPage.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { usePredictions, useMatches, useNotifications } from '../contexts/AppContext';
+import { usePredictions, useMatches, useNotifications, useGroups } from '../contexts/AppContext';
 
 // Components
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -32,6 +32,7 @@ const PredictionFormPage = () => {
   } = useMatches();
   
   const { showSuccess, showError } = useNotifications();
+  const { userGroups, currentGroup } = useGroups();
   
   const [prediction, setPrediction] = useState(null);
   const [match, setMatch] = useState(null);
@@ -39,6 +40,7 @@ const PredictionFormPage = () => {
   const [homeScore, setHomeScore] = useState('');
   const [awayScore, setAwayScore] = useState('');
   const [existingPrediction, setExistingPrediction] = useState(null);
+  const [selectedGroupId, setSelectedGroupId] = useState('');
   
   useEffect(() => {
     const loadData = async () => {
@@ -89,6 +91,23 @@ const PredictionFormPage = () => {
     }
   }, [userPredictions, match, id]);
 
+  useEffect(() => {
+    if (existingPrediction?.group_id) {
+      setSelectedGroupId(String(existingPrediction.group_id));
+      return;
+    }
+    if (currentGroup?.id) {
+      setSelectedGroupId(String(currentGroup.id));
+      return;
+    }
+    if (selectedGroupId) return;
+    if (!currentMatchLeague) return;
+    const eligible = userGroups.filter(g => g.league === currentMatchLeague);
+    if (eligible.length === 1) {
+      setSelectedGroupId(String(eligible[0].id));
+    }
+  }, [existingPrediction, currentGroup, userGroups]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Also update match state when selectedMatch changes
   useEffect(() => {
     if (selectedMatch && !match) {
@@ -105,10 +124,17 @@ const PredictionFormPage = () => {
     }
     
     try {
+      const eligibleGroups = userGroups.filter(g => g.league === currentMatchLeague);
+      if (eligibleGroups.length > 1 && !selectedGroupId) {
+        showError('Please select a group for this prediction');
+        return;
+      }
+
       const predictionData = {
         fixture_id: match.fixture_id,
         score1: parseInt(homeScore),
-        score2: parseInt(awayScore)
+        score2: parseInt(awayScore),
+        group_id: selectedGroupId ? parseInt(selectedGroupId, 10) : undefined
       };
       
       if (id || existingPrediction) {
@@ -134,6 +160,11 @@ const PredictionFormPage = () => {
 
   // Use either the match from state or the selected match
   const currentMatch = match || selectedMatch;
+  const currentMatchLeague = currentMatch?.league || null;
+  const eligibleGroupsForMatch = currentMatchLeague
+    ? userGroups.filter(g => g.league === currentMatchLeague)
+    : [];
+  const showGroupSelector = eligibleGroupsForMatch.length > 1 && !id && !existingPrediction;
   
   // Check if deadline has passed
   const isDeadlinePassed = currentMatch?.prediction_deadline 
@@ -264,6 +295,30 @@ const PredictionFormPage = () => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+                {showGroupSelector && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select league group for this prediction
+                    </label>
+                    <select
+                      value={selectedGroupId}
+                      onChange={(e) => setSelectedGroupId(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      required
+                    >
+                      <option value="">Choose a group...</option>
+                      {eligibleGroupsForMatch.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-600 mt-2">
+                      You belong to multiple {currentMatchLeague} groups; pick one to avoid ambiguity.
+                    </p>
+                  </div>
+                )}
+
                 <div className="bg-white border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Your Prediction</h3>
                   

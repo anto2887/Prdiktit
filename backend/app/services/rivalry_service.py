@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 
 from ..db.models import (
-    RivalryPair, RivalryWeek, User, Group, UserPrediction,
-    group_members, PredictionStatus
+    RivalryPair, RivalryWeek, User, Group, UserPrediction, Fixture,
+    group_members, PredictionStatus, MatchStatus
 )
 from ..db.repository import get_group_members, check_group_membership
 
@@ -466,6 +466,17 @@ class RivalryService:
                 if outcome['bonus_awarded']:
                     bonuses_awarded += 1
                 rivalries_processed += 1
+
+            # Move processed rivalries to history so UI can show past winners.
+            self.db.query(RivalryPair).filter(
+                RivalryPair.group_id == group_id,
+                RivalryPair.assigned_week == week,
+                RivalryPair.is_active == True
+            ).update({
+                'is_active': False,
+                'ended_at': datetime.now(timezone.utc)
+            })
+            self.db.commit()
             
             logger.info(f"✅ Processed {rivalries_processed} rivalries, awarded {bonuses_awarded} bonuses")
             
@@ -477,6 +488,45 @@ class RivalryService:
         except Exception as e:
             logger.error(f"❌ Error checking rivalry outcomes: {e}")
             raise
+
+    async def is_rivalry_week_ready_for_outcomes(self, group_id: int, week: int, season: str) -> bool:
+        """
+        Return True when all fixtures for this group/week are final.
+        This avoids relying on canonical week increments when there are matches in hand.
+        """
+        group = self.db.query(Group).filter(Group.id == group_id).first()
+        if not group:
+            return False
+
+        final_statuses = [
+            MatchStatus.FINISHED,
+            MatchStatus.FINISHED_AET,
+            MatchStatus.FINISHED_PEN,
+        ]
+
+        fixture_rows = (
+            self.db.query(Fixture.fixture_id, Fixture.status)
+            .join(UserPrediction, UserPrediction.fixture_id == Fixture.fixture_id)
+            .filter(
+                UserPrediction.group_id == group_id,
+                UserPrediction.week == week,
+                UserPrediction.season == season,
+                Fixture.league == group.league,
+                Fixture.season == season,
+            )
+            .distinct()
+            .all()
+        )
+
+        # If no fixtures were predicted for this group/week, allow processing to proceed
+        # (it will naturally result in ties/no bonuses).
+        if not fixture_rows:
+            return True
+
+        for _, status in fixture_rows:
+            if status not in final_statuses:
+                return False
+        return True
     
     async def _process_rivalry_outcome(self, rivalry: RivalryPair, week: int, season: str) -> Dict:
         """Process outcome for a single rivalry"""

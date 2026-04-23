@@ -502,15 +502,13 @@ class SchedulerService:
 
                 try:
                     season = SeasonManager.get_current_season(group.league)
-                    group_week = calculate_canonical_matchweek(
-                        db=db,
-                        league=group.league,
-                        season=season,
-                        now_utc=current_time
+                    # Finalize when fixture set for the rivalry week is complete.
+                    ready = await rivalry_service.is_rivalry_week_ready_for_outcomes(
+                        group_id=group_id,
+                        week=assigned_week,
+                        season=season
                     )
-
-                    # Only finalize when week has passed to avoid partial-week scoring.
-                    if group_week <= assigned_week:
+                    if not ready:
                         skipped_count += 1
                         continue
 

@@ -16,7 +16,7 @@ from ..services.cache_service import get_cache, RedisCache
 from ..services.analytics_service import AnalyticsService
 from ..services.rivalry_service import RivalryService
 from ..services.bonus_service import BonusPointsService
-from ..db.repository import check_group_membership, get_group_by_id
+from ..db.repository import check_group_membership, get_group_by_id, calculate_canonical_matchweek
 from ..schemas import User, ListResponse, DataResponse
 
 logger = logging.getLogger(__name__)
@@ -192,6 +192,22 @@ async def assign_group_rivalries(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only group admin can assign rivalries"
+            )
+
+        canonical_week = calculate_canonical_matchweek(
+            db=db,
+            league=group.league,
+            season=season,
+            now_utc=datetime.now(timezone.utc)
+        )
+        scheduled_week = group.next_rivalry_week or canonical_week
+        if week not in {canonical_week, scheduled_week}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Invalid rivalry assignment week={week}. "
+                    f"Allowed weeks: canonical_week={canonical_week}, scheduled_week={scheduled_week}."
+                )
             )
         
         rivalry_service = RivalryService(db)
