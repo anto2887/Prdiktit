@@ -143,7 +143,16 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null })
             <div className="flex items-center space-x-3">
               <span className="text-3xl">🎯</span>
               <div>
-                <h3 className="text-lg font-semibold text-purple-900">Comeback Challenge Active</h3>
+                <div className="flex items-center space-x-2">
+                  <h3 className="text-lg font-semibold text-purple-900">Comeback Challenge Active</h3>
+                  <span
+                    className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold cursor-help"
+                    title="Comeback Challenge is used only when the group has an odd number of members. The middle-position user in standings is selected as the comeback user and must beat the benchmark target. Even-sized groups use only standard rivalries."
+                    aria-label="Comeback challenge explanation"
+                  >
+                    ?
+                  </span>
+                </div>
                 <p className="text-sm text-purple-700">
                   Special challenge for users in the middle of the standings
                 </p>
@@ -445,6 +454,16 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <span className="text-2xl">🥊</span>
+          {!rivalry.is_comeback_challenge && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              Standard Rivalry
+            </span>
+          )}
+          {rivalry.is_comeback_challenge && (
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              🎯 Comeback Challenge
+            </span>
+          )}
           {rivalry.is_champion_challenge && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
               👑 Champion Challenge
@@ -495,6 +514,22 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
           <div className="flex justify-between text-sm">
             <span>{rivalry.user1_name}: {rivalry.current_week_scores.user1_points} pts</span>
             <span>{rivalry.user2_name}: {rivalry.current_week_scores.user2_points} pts</span>
+          </div>
+        </div>
+      )}
+
+      {/* Comeback challenge benchmark details */}
+      {rivalry.is_comeback_challenge && (
+        <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+          <div className="text-sm font-medium text-purple-800 mb-2">Comeback Target</div>
+          <div className="text-sm text-purple-700">
+            Benchmark: <span className="font-semibold">{rivalry.comeback_challenge_benchmark ?? 'N/A'}</span>
+          </div>
+          <div className="text-sm text-purple-700">
+            Achieved: <span className="font-semibold">{rivalry.current_week_scores?.user1_points ?? rivalry.final_scores?.user1_points ?? 0}</span>
+          </div>
+          <div className="text-xs mt-2 text-purple-700">
+            Status: {rivalry.comeback_challenge_status === 'completed' ? 'Bonus earned' : rivalry.comeback_challenge_status === 'failed' ? 'Target missed (no bonus)' : 'Pending'}
           </div>
         </div>
       )}
@@ -596,6 +631,16 @@ const HistoricalRivalryCard = ({ rivalry, userId }) => {
           {rivalry.user1_name} vs {rivalry.user2_name}
         </div>
         
+        {rivalry.is_comeback_challenge ? (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+            🎯 Comeback
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            Standard
+          </span>
+        )}
+
         {rivalry.is_champion_challenge && (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
             👑 Champion
@@ -632,6 +677,12 @@ const HistoricalRivalryCard = ({ rivalry, userId }) => {
           <div className="text-sm text-gray-500">Tie</div>
         )}
       </div>
+
+      {rivalry.is_comeback_challenge && (
+        <div className="mt-2 text-xs text-purple-700 text-center">
+          Benchmark: {rivalry.comeback_challenge_benchmark ?? 'N/A'} | Status: {rivalry.comeback_challenge_status === 'completed' ? 'Bonus earned' : rivalry.comeback_challenge_status === 'failed' ? 'Target missed' : 'Pending'}
+        </div>
+      )}
     </div>
   );
 };
