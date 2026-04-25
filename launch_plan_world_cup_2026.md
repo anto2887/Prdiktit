@@ -105,10 +105,10 @@ Acceptance:
 - [x] Schema supports all locked rules
 
 ## Day 3 - Payments backend foundation
-- [ ] Implement Stripe checkout session creation
-- [ ] Implement webhook signature validation
-- [ ] Implement idempotent payment processing
-- [ ] Credit wallet through immutable ledger
+- [x] Implement Stripe checkout session creation
+- [x] Implement webhook signature validation
+- [x] Implement idempotent payment processing
+- [x] Credit wallet through immutable ledger
 
 Acceptance:
 - [ ] Test payment credits exactly once

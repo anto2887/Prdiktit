@@ -315,6 +315,7 @@ async def shutdown_event():
 from .routers import auth, predictions, matches, groups, users, admin, notifications
 from .routers.analytics import router as analytics_router
 from .routers import oauth
+from .routers import payments
 
 # Override dependencies to use our dependency injection container
 from .core.dependencies import get_database_session
@@ -353,6 +354,14 @@ app.include_router(
     notifications.router,
     prefix=f"{settings.API_V1_STR}/notifications",
     tags=["notifications"],
+    dependencies=[Depends(get_database_session)],
+)
+
+logger.info("🔐 Main App: Including payments router...")
+app.include_router(
+    payments.router,
+    prefix=f"{settings.API_V1_STR}/payments",
+    tags=["payments"],
     dependencies=[Depends(get_database_session)],
 )
 

@@ -146,6 +146,14 @@ class ProductionSettings(Settings):
 
     # Notification base URL reuses existing FRONTEND_URL variable
     NOTIFICATION_BASE_URL: str = os.getenv("FRONTEND_URL", "https://prdiktit.com")
+
+    # Payments (Stripe)
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_SUCCESS_URL: str = os.getenv("STRIPE_SUCCESS_URL", "https://prdiktit.com/wallet?status=success")
+    STRIPE_CANCEL_URL: str = os.getenv("STRIPE_CANCEL_URL", "https://prdiktit.com/wallet?status=cancelled")
+    STRIPE_COIN_BUNDLES_JSON: str = os.getenv("STRIPE_COIN_BUNDLES_JSON", "[]")
     
     # Monitoring and observability
     SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")

@@ -98,6 +98,14 @@ class Settings(BaseSettings):
 
     # Notification links use the frontend URL when available
     NOTIFICATION_BASE_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+    # Payments (Stripe)
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_SUCCESS_URL: str = os.getenv("STRIPE_SUCCESS_URL", "https://prdiktit.com/wallet?status=success")
+    STRIPE_CANCEL_URL: str = os.getenv("STRIPE_CANCEL_URL", "https://prdiktit.com/wallet?status=cancelled")
+    STRIPE_COIN_BUNDLES_JSON: str = os.getenv("STRIPE_COIN_BUNDLES_JSON", "[]")
     
     # CORS settings - Production defaults (more restrictive)
     CORS_ALLOW_CREDENTIALS: bool = True
