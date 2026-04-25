@@ -86,7 +86,9 @@ Target go-live deadline: 2026-05-02
 - [x] Record legal policy requirements
 - [x] Add persistent launch tracking doc
 - [ ] Stripe/PayPal account setup completed in test mode
-- [ ] Terms/Privacy full draft completed for review
+- [x] Terms/Privacy full draft completed for review
+- [x] Frontend legal acceptance gate added to registration/OAuth completion flow
+- [x] Backend legal acceptance validation + acceptance metadata storage added for OAuth completion
 
 Acceptance:
 - [ ] No unresolved product-rule ambiguity

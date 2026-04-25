@@ -251,6 +251,9 @@ class UsernameSelectionRequest(BaseModel):
     email: str = Field(..., description="Email from OAuth provider")
     oauth_id: str = Field(..., description="OAuth provider's unique user ID")
     oauth_provider: str = Field(default="google", description="OAuth provider name")
+    accepted_terms: bool = Field(..., description="Whether user accepted Terms of Service")
+    accepted_privacy: bool = Field(..., description="Whether user accepted Privacy Policy")
+    is_over_18: bool = Field(..., description="Whether user confirms they are 18+")
 
 class OAuthUserData(BaseModel):
     """Schema for OAuth user data"""

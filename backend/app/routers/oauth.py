@@ -1,5 +1,6 @@
 import logging
 from typing import Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -15,6 +16,7 @@ from ..services.content_filter import content_filter
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["oauth"])
+CURRENT_TERMS_VERSION = "2026-04-25"
 
 @router.get("/google/login")
 async def google_oauth_login():
@@ -121,6 +123,18 @@ async def complete_oauth_registration(
     Complete OAuth registration with chosen username
     """
     try:
+        if not username_data.accepted_terms or not username_data.accepted_privacy:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You must accept the Terms of Service and Privacy Policy to create an account"
+            )
+
+        if not username_data.is_over_18:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You must confirm you are at least 18 years old to create an account"
+            )
+
         # Check for profanity first (defense in depth)
         if content_filter.contains_profanity(username_data.username):
             raise HTTPException(
@@ -141,7 +155,16 @@ async def complete_oauth_registration(
             username=username_data.username,
             email=username_data.email,
             oauth_provider=username_data.oauth_provider,
-            oauth_id=username_data.oauth_id
+            oauth_id=username_data.oauth_id,
+            settings={
+                "legal_acceptance": {
+                    "terms_accepted": True,
+                    "privacy_accepted": True,
+                    "is_over_18": True,
+                    "accepted_at": datetime.now(timezone.utc).isoformat(),
+                    "terms_version": CURRENT_TERMS_VERSION
+                }
+            }
         )
         
         # Create session for new user

@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 
 const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
   const [username, setUsername] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
+  const [isOver18, setIsOver18] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [isAvailable, setIsAvailable] = useState(null);
   const [error, setError] = useState('');
@@ -55,7 +58,10 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
           username,
           email: oauthData.email,
           oauth_id: oauthData.oauth_id,
-          oauth_provider: 'google'
+          oauth_provider: 'google',
+          accepted_terms: acceptedTerms,
+          accepted_privacy: acceptedPrivacy,
+          is_over_18: isOver18
         }),
       });
 
@@ -132,6 +138,48 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
           </div>
         )}
 
+        <div className="space-y-2 rounded-md bg-gray-50 dark:bg-gray-700 p-3">
+          <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              checked={isOver18}
+              onChange={(e) => setIsOver18(e.target.checked)}
+            />
+            <span>I confirm I am at least 18 years old.</span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+            />
+            <span>
+              I agree to the{' '}
+              <a href="/terms" className="text-blue-600 dark:text-blue-400 hover:underline">
+                Terms of Service
+              </a>
+              .
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              checked={acceptedPrivacy}
+              onChange={(e) => setAcceptedPrivacy(e.target.checked)}
+            />
+            <span>
+              I agree to the{' '}
+              <a href="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline">
+                Privacy Policy
+              </a>
+              .
+            </span>
+          </label>
+        </div>
+
         <div className="flex gap-3">
           <button
             type="button"
@@ -142,7 +190,15 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
           </button>
           <button
             type="submit"
-            disabled={!username || username.length < 3 || !isAvailable || isSubmitting}
+            disabled={
+              !username ||
+              username.length < 3 ||
+              !isAvailable ||
+              isSubmitting ||
+              !isOver18 ||
+              !acceptedTerms ||
+              !acceptedPrivacy
+            }
             className="flex-1 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Creating Account...' : 'Create Account'}
