@@ -36,15 +36,13 @@ class PaymentService:
     }
 
     @staticmethod
-    def _to_plain_dict(obj: Any) -> Dict[str, Any]:
-        """Convert Stripe SDK objects to plain dicts safely."""
+    def _safe_get(obj: Any, key: str, default: Any = None) -> Any:
+        """Get key from dict-like or attribute from object-like payloads."""
+        if obj is None:
+            return default
         if isinstance(obj, dict):
-            return obj
-        to_dict = getattr(obj, "to_dict_recursive", None)
-        if callable(to_dict):
-            return to_dict()
-        # Fallback: best-effort cast
-        return dict(obj)
+            return obj.get(key, default)
+        return getattr(obj, key, default)
 
     @staticmethod
     def _ensure_stripe_configured() -> None:
@@ -158,23 +156,36 @@ class PaymentService:
 
     @staticmethod
     def handle_checkout_session_completed(db: Session, event: Dict) -> Dict[str, object]:
-        event_dict = PaymentService._to_plain_dict(event)
-        data = event_dict.get("data", {})
-        session_obj = PaymentService._to_plain_dict(data.get("object", {}))
-        metadata = session_obj.get("metadata", {}) or {}
+        data_obj = PaymentService._safe_get(event, "data", {})
+        session_obj = PaymentService._safe_get(data_obj, "object", {})
+        metadata = PaymentService._safe_get(session_obj, "metadata", {}) or {}
+        if not isinstance(metadata, dict):
+            # Stripe objects can be attribute-based wrappers.
+            to_dict = getattr(metadata, "to_dict_recursive", None)
+            metadata = to_dict() if callable(to_dict) else {}
 
-        user_id = int(metadata.get("user_id"))
+        user_id_raw = metadata.get("user_id")
+        coins_raw = metadata.get("coins")
         bundle_id = metadata.get("bundle_id")
-        coins = int(metadata.get("coins"))
+        if not user_id_raw or not coins_raw:
+            raise ValueError("Missing user_id or coins in checkout metadata")
 
-        payment_status = session_obj.get("payment_status")
+        user_id = int(user_id_raw)
+        coins = int(coins_raw)
+
+        payment_status = PaymentService._safe_get(session_obj, "payment_status")
         if payment_status != "paid":
             return {"processed": False, "reason": f"payment_status={payment_status}"}
 
-        idempotency_key = f"stripe_checkout_completed:{session_obj['id']}"
-        external_ref = session_obj.get("payment_intent") or session_obj["id"]
-        currency = session_obj.get("currency")
-        amount_total = session_obj.get("amount_total")
+        session_id = PaymentService._safe_get(session_obj, "id")
+        if not session_id:
+            raise ValueError("Missing checkout session id in webhook payload")
+
+        idempotency_key = f"stripe_checkout_completed:{session_id}"
+        payment_intent = PaymentService._safe_get(session_obj, "payment_intent")
+        external_ref = payment_intent or session_id
+        currency = PaymentService._safe_get(session_obj, "currency")
+        amount_total = PaymentService._safe_get(session_obj, "amount_total")
         amount_money = Decimal(amount_total) / Decimal(100) if amount_total is not None else None
 
         result = CoinService.credit_coins_idempotent(
@@ -189,7 +200,7 @@ class PaymentService:
             details={
                 "source": "stripe_checkout_session_completed",
                 "bundle_id": bundle_id,
-                "checkout_session_id": session_obj["id"],
+                "checkout_session_id": session_id,
             },
         )
         db.commit()
