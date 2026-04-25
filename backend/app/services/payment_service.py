@@ -36,6 +36,17 @@ class PaymentService:
     }
 
     @staticmethod
+    def _to_plain_dict(obj: Any) -> Dict[str, Any]:
+        """Convert Stripe SDK objects to plain dicts safely."""
+        if isinstance(obj, dict):
+            return obj
+        to_dict = getattr(obj, "to_dict_recursive", None)
+        if callable(to_dict):
+            return to_dict()
+        # Fallback: best-effort cast
+        return dict(obj)
+
+    @staticmethod
     def _ensure_stripe_configured() -> None:
         if not settings.STRIPE_SECRET_KEY:
             raise ValueError("STRIPE_SECRET_KEY is not configured")
@@ -147,8 +158,10 @@ class PaymentService:
 
     @staticmethod
     def handle_checkout_session_completed(db: Session, event: Dict) -> Dict[str, object]:
-        session_obj = event["data"]["object"]
-        metadata = session_obj.get("metadata", {})
+        event_dict = PaymentService._to_plain_dict(event)
+        data = event_dict.get("data", {})
+        session_obj = PaymentService._to_plain_dict(data.get("object", {}))
+        metadata = session_obj.get("metadata", {}) or {}
 
         user_id = int(metadata.get("user_id"))
         bundle_id = metadata.get("bundle_id")
