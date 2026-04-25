@@ -76,6 +76,25 @@ const PrivacyPage = () => {
             matches and teams, not about individual users, but your predictions and points are calculated using this
             information.
           </p>
+
+          <h3 className="font-semibold mt-3 mb-1">2.5 Payments, Verification, and Compliance Data</h3>
+          <ul className="list-disc ml-5 space-y-1">
+            <li>
+              Payment transaction metadata related to coin purchases processed by third-party payment providers (such as
+              processor transaction IDs, payment status, timestamp, and purchased bundle identifiers).
+            </li>
+            <li>
+              Limited payout and compliance data required to process prizes (for example, payout account details and
+              verification status).
+            </li>
+            <li>
+              Identity verification details required for payout eligibility checks, including government ID verification
+              status and related audit records.
+            </li>
+            <li>
+              Terms acceptance records, including the accepted terms version and acceptance timestamp.
+            </li>
+          </ul>
         </section>
 
         <section>
@@ -83,6 +102,9 @@ const PrivacyPage = () => {
           <ul className="list-disc ml-5 space-y-1">
             <li>To create and manage your account and authentication sessions.</li>
             <li>To process and display your predictions, scores, and group leaderboards.</li>
+            <li>To process coin purchases and maintain wallet/transaction records.</li>
+            <li>To verify age, eligibility, identity, and compliance for prize payout operations.</li>
+            <li>To enforce our Terms, anti-fraud controls, and fair-play policies.</li>
             <li>To provide and improve the Service, including debugging issues and monitoring performance.</li>
             <li>To detect, prevent, and address security or abuse incidents.</li>
             <li>To communicate with you about your account, service updates, or important notices.</li>
@@ -117,6 +139,14 @@ const PrivacyPage = () => {
               Service providers that help us operate the Service (e.g., logging, monitoring, error tracking, email).
             </li>
             <li>
+              Payment and payout providers (for example, Stripe for purchases and PayPal for payouts), only as needed to
+              process transactions, payouts, and related compliance checks.
+            </li>
+            <li>
+              Identity verification and fraud-prevention providers, where required to validate eligibility and secure
+              payout operations.
+            </li>
+            <li>
               Third parties when required by law, regulation, or legal process, or to protect our rights or the safety
               of users.
             </li>
@@ -138,6 +168,14 @@ const PrivacyPage = () => {
             <li>
               Session records typically expire after a limited period (for example, 7 days) in line with our session
               management logic.
+            </li>
+            <li>
+              Payment, transaction, and payout records may be retained for accounting, tax, fraud prevention, and legal
+              compliance purposes.
+            </li>
+            <li>
+              Terms acceptance and identity verification records may be retained as needed to demonstrate compliance,
+              resolve disputes, and enforce eligibility requirements.
             </li>
             <li>
               Logs may be retained for a reasonable period for security and debugging, then deleted or anonymized.

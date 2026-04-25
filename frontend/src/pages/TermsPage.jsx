@@ -36,7 +36,7 @@ const TermsPage = () => {
         <section>
           <h2 className="text-lg font-semibold mb-2">2. Eligibility &amp; Accounts</h2>
           <ul className="list-disc ml-5 space-y-1">
-            <li>You must be at least 13 years old (or the minimum age in your jurisdiction) to use Prdiktit.</li>
+            <li>You must be at least 18 years old to create an account, use the Service, or be eligible for any prize payout.</li>
             <li>
               You are responsible for maintaining the confidentiality of your login credentials and for all activity
               under your account.
@@ -44,6 +44,10 @@ const TermsPage = () => {
             <li>
               You agree that the information you provide to us (such as email, username) is accurate and kept up to
               date.
+            </li>
+            <li>
+              New users must read and accept these Terms before using protected areas of the Service. If you do not
+              accept these Terms, you may not use Prdiktit.
             </li>
           </ul>
         </section>
@@ -101,7 +105,41 @@ const TermsPage = () => {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold mb-2">7. Availability &amp; Changes to the Service</h2>
+          <h2 className="text-lg font-semibold mb-2">7. Coins, Purchases, and Refund Policy</h2>
+          <p className="mb-2">
+            Prdiktit may offer virtual coins and related in-app features (including power-ups). Coins and power-ups are
+            virtual items used only within the Service and do not represent cash, stored value, or any real-world
+            property right.
+          </p>
+          <p className="mb-2">
+            Coin purchases are processed through third-party payment processors (such as Stripe). You agree to comply
+            with the payment processor terms that apply to your transaction.
+          </p>
+          <p>
+            All purchases are final. To the maximum extent permitted by law, Prdiktit does not provide refunds for coin
+            purchases or consumed power-ups, including in cases of duplicate same-day power-up usage where the gameplay
+            effect does not stack.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-lg font-semibold mb-2">8. Prize Payouts, Verification, and Fraud Controls</h2>
+          <p className="mb-2">
+            Any prize payout is handled separately from gameplay purchases and is currently processed via PayPal.
+            Receiving a payout requires successful identity verification using a valid government-issued ID.
+          </p>
+          <p className="mb-2">
+            We may request additional information to verify identity, eligibility, residency, and compliance with
+            applicable law. Failure to complete verification may result in payout delay, denial, or forfeiture.
+          </p>
+          <p>
+            We reserve the right to investigate and disqualify accounts for fraud, abuse, duplicate-account behavior, or
+            other conduct that undermines fair competition, and to withhold or cancel payouts where permitted by law.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-lg font-semibold mb-2">9. Availability &amp; Changes to the Service</h2>
           <p className="mb-2">
             We may modify, suspend, or discontinue any part of the Service at any time, including leagues, scoring
             rules, or group features, with or without notice.
@@ -113,7 +151,7 @@ const TermsPage = () => {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold mb-2">8. Disclaimers</h2>
+          <h2 className="text-lg font-semibold mb-2">10. Disclaimers</h2>
           <p className="mb-2">
             The Service is provided on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis. To the maximum
             extent permitted by law, we disclaim all warranties, express or implied, including implied warranties of
@@ -126,7 +164,7 @@ const TermsPage = () => {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold mb-2">9. Limitation of Liability</h2>
+          <h2 className="text-lg font-semibold mb-2">11. Limitation of Liability</h2>
           <p className="mb-2">
             To the maximum extent permitted by law, Prdiktit and its operators will not be liable for any indirect,
             incidental, special, consequential, or punitive damages, or for any loss of profits or data, arising out of
@@ -139,7 +177,7 @@ const TermsPage = () => {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold mb-2">10. Termination</h2>
+          <h2 className="text-lg font-semibold mb-2">12. Termination</h2>
           <p className="mb-2">
             We may suspend or terminate your access to the Service at any time if we believe you have violated these
             Terms, misused the Service, or created risk or possible legal exposure for us or other users.
@@ -155,7 +193,7 @@ const TermsPage = () => {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold mb-2">11. Governing Law</h2>
+          <h2 className="text-lg font-semibold mb-2">13. Governing Law</h2>
           <p className="mb-2">
             These Terms are governed by the laws of the State of Colorado, USA, without regard to its conflict of law
             principles.
@@ -168,7 +206,7 @@ const TermsPage = () => {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold mb-2">12. Changes to These Terms</h2>
+          <h2 className="text-lg font-semibold mb-2">14. Changes to These Terms</h2>
           <p className="mb-2">
             We may update these Terms from time to time. When we do, we will update the &ldquo;Last updated&rdquo; date
             at the top of this page. For material changes, we may provide additional notice (such as a banner in the
@@ -178,7 +216,7 @@ const TermsPage = () => {
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold mb-2">13. Contact Us</h2>
+          <h2 className="text-lg font-semibold mb-2">15. Contact Us</h2>
           <p>
             If you have questions about these Terms, you can contact us at:
             <br />
