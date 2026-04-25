@@ -99,7 +99,7 @@ Acceptance:
 - [x] Define power-up catalog/activation schema
 - [x] Define canonical-entry + lock metadata schema
 - [x] Define non-stacking DB constraints
-- [ ] Create migration + rollback notes
+- [x] Create migration + rollback notes
 
 Acceptance:
 - [x] Schema supports all locked rules

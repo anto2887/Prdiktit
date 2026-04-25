@@ -69,6 +69,7 @@ repomix-output.txt
 # Project documentation files
 changelog
 projectguide
+backend/WORLDCUP_SCHEMA_MIGRATION_README.md
 
 # Frontend
 frontend/node_modules/
