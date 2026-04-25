@@ -158,6 +158,7 @@ class PaymentService:
     def handle_checkout_session_completed(db: Session, event: Dict) -> Dict[str, object]:
         data_obj = PaymentService._safe_get(event, "data", {})
         session_obj = PaymentService._safe_get(data_obj, "object", {})
+        session_id = PaymentService._safe_get(session_obj, "id")
         metadata = PaymentService._safe_get(session_obj, "metadata", {}) or {}
         if not isinstance(metadata, dict):
             # Stripe objects can be attribute-based wrappers.
@@ -167,6 +168,21 @@ class PaymentService:
         user_id_raw = metadata.get("user_id")
         coins_raw = metadata.get("coins")
         bundle_id = metadata.get("bundle_id")
+
+        # Fallback: fetch authoritative checkout session directly from Stripe
+        # if webhook payload metadata is missing or malformed.
+        if (not user_id_raw or not coins_raw) and session_id:
+            PaymentService._ensure_stripe_configured()
+            fetched = stripe.checkout.Session.retrieve(session_id)
+            fetched_meta = PaymentService._safe_get(fetched, "metadata", {}) or {}
+            if not isinstance(fetched_meta, dict):
+                to_dict = getattr(fetched_meta, "to_dict_recursive", None)
+                fetched_meta = to_dict() if callable(to_dict) else {}
+            metadata = fetched_meta or metadata
+            user_id_raw = metadata.get("user_id")
+            coins_raw = metadata.get("coins")
+            bundle_id = metadata.get("bundle_id", bundle_id)
+
         if not user_id_raw or not coins_raw:
             raise ValueError("Missing user_id or coins in checkout metadata")
 
@@ -177,7 +193,6 @@ class PaymentService:
         if payment_status != "paid":
             return {"processed": False, "reason": f"payment_status={payment_status}"}
 
-        session_id = PaymentService._safe_get(session_obj, "id")
         if not session_id:
             raise ValueError("Missing checkout session id in webhook payload")
 

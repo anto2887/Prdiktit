@@ -92,10 +92,12 @@ async def stripe_webhook(
         logger.warning("Webhook signature verification failed: %s", exc)
         raise HTTPException(status_code=400, detail="Invalid webhook signature") from exc
 
-    event_type = PaymentService._safe_get(event, "type")
+    to_dict = getattr(event, "to_dict_recursive", None)
+    normalized_event = to_dict() if callable(to_dict) else event
+    event_type = PaymentService._safe_get(normalized_event, "type")
     if event_type == "checkout.session.completed":
         try:
-            result = PaymentService.handle_checkout_session_completed(db, event)
+            result = PaymentService.handle_checkout_session_completed(db, normalized_event)
             return {"success": True, "event_type": event_type, "result": result}
         except Exception as exc:
             db.rollback()
