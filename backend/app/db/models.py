@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean, Column, ForeignKey, Integer, String,
-    DateTime, Enum, Text, Table, JSON, UniqueConstraint, Index, Float, CheckConstraint, Numeric
+    DateTime, Date, Enum, Text, Table, JSON, UniqueConstraint, Index, Float, CheckConstraint, Numeric
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -25,6 +25,26 @@ class MembershipStatus(enum.Enum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+
+
+class CoinTransactionType(enum.Enum):
+    CREDIT_PURCHASE = "CREDIT_PURCHASE"
+    CREDIT_ADMIN = "CREDIT_ADMIN"
+    CREDIT_PROMO = "CREDIT_PROMO"
+    DEBIT_POWERUP = "DEBIT_POWERUP"
+    DEBIT_ADJUSTMENT = "DEBIT_ADJUSTMENT"
+
+
+class PowerUpType(enum.Enum):
+    FREEZE = "FREEZE"
+    SHIELD = "SHIELD"
+    MULTIPLIER = "MULTIPLIER"
+
+
+class PowerUpStatus(enum.Enum):
+    APPLIED = "APPLIED"
+    BLOCKED_BY_SHIELD = "BLOCKED_BY_SHIELD"
+    EXPIRED = "EXPIRED"
 
 # Association tables
 group_members = Table(
@@ -65,6 +85,12 @@ class User(Base):
     admin_groups = relationship("Group", back_populates="admin", foreign_keys="Group.admin_id")
     notification_preferences = relationship(
         "UserNotificationPreferences",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    wallet = relationship(
+        "UserWallet",
         back_populates="user",
         uselist=False,
         cascade="all, delete-orphan",
@@ -299,6 +325,176 @@ class UserResults(Base):
     
     # Relationships
     user = relationship("User")
+
+
+class UserWallet(Base):
+    __tablename__ = "user_wallets"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    balance_coins = Column(Integer, nullable=False, default=0)
+    lifetime_purchased_coins = Column(Integer, nullable=False, default=0)
+    lifetime_spent_coins = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    user = relationship("User", back_populates="wallet")
+
+    __table_args__ = (
+        CheckConstraint("balance_coins >= 0", name="check_wallet_balance_non_negative"),
+    )
+
+
+class CoinLedgerEntry(Base):
+    __tablename__ = "coin_ledger_entries"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    wallet_id = Column(Integer, ForeignKey("user_wallets.id", ondelete="CASCADE"), nullable=False, index=True)
+    transaction_type = Column(Enum(CoinTransactionType), nullable=False)
+    amount_coins = Column(Integer, nullable=False)
+    balance_after = Column(Integer, nullable=False)
+    currency = Column(String(8), nullable=True)
+    amount_money = Column(Numeric(10, 2), nullable=True)
+    idempotency_key = Column(String(255), nullable=True, unique=True, index=True)
+    external_ref = Column(String(255), nullable=True, index=True)
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    user = relationship("User")
+    wallet = relationship("UserWallet")
+
+    __table_args__ = (
+        Index("idx_coin_ledger_user_created", "user_id", "created_at"),
+        CheckConstraint("amount_coins != 0", name="check_ledger_non_zero_amount"),
+    )
+
+
+class PowerUpCatalog(Base):
+    __tablename__ = "powerup_catalog"
+
+    id = Column(Integer, primary_key=True)
+    powerup_type = Column(Enum(PowerUpType), nullable=False, unique=True, index=True)
+    display_name = Column(String(64), nullable=False)
+    description = Column(Text, nullable=True)
+    base_cost_coins = Column(Integer, nullable=False)
+    is_enabled = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("base_cost_coins > 0", name="check_powerup_base_cost_positive"),
+    )
+
+
+class PowerUpActivation(Base):
+    __tablename__ = "powerup_activations"
+
+    id = Column(Integer, primary_key=True)
+    purchaser_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    target_user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    fixture_id = Column(Integer, ForeignKey("fixtures.fixture_id"), nullable=True, index=True)
+    powerup_type = Column(Enum(PowerUpType), nullable=False, index=True)
+    effective_utc_date = Column(Date, nullable=False, index=True)
+    status = Column(Enum(PowerUpStatus), nullable=False, default=PowerUpStatus.APPLIED, index=True)
+    cost_multiplier = Column(Integer, nullable=False, default=1)
+    base_cost_coins = Column(Integer, nullable=False)
+    charged_cost_coins = Column(Integer, nullable=False)
+    ledger_entry_id = Column(Integer, ForeignKey("coin_ledger_entries.id"), nullable=True, index=True)
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    purchaser = relationship("User", foreign_keys=[purchaser_user_id])
+    target = relationship("User", foreign_keys=[target_user_id])
+    source_group = relationship("Group")
+    fixture = relationship("Fixture")
+    ledger_entry = relationship("CoinLedgerEntry")
+
+    __table_args__ = (
+        Index(
+            "idx_powerup_target_day_type_group",
+            "target_user_id",
+            "effective_utc_date",
+            "powerup_type",
+            "source_group_id",
+        ),
+        CheckConstraint("cost_multiplier IN (1, 2)", name="check_powerup_cost_multiplier"),
+        CheckConstraint("base_cost_coins > 0", name="check_powerup_base_cost_positive_activation"),
+        CheckConstraint("charged_cost_coins > 0", name="check_powerup_charged_cost_positive"),
+    )
+
+
+class PowerUpDailyEffect(Base):
+    __tablename__ = "powerup_daily_effects"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    effective_utc_date = Column(Date, nullable=False, index=True)
+    powerup_type = Column(Enum(PowerUpType), nullable=False, index=True)
+    fixture_id = Column(Integer, ForeignKey("fixtures.fixture_id"), nullable=True, index=True)
+    activation_id = Column(Integer, ForeignKey("powerup_activations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    user = relationship("User")
+    source_group = relationship("Group")
+    fixture = relationship("Fixture")
+    activation = relationship("PowerUpActivation")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "source_group_id",
+            "effective_utc_date",
+            "powerup_type",
+            "fixture_id",
+            name="_powerup_daily_effect_uc",
+        ),
+    )
+
+
+class GlobalCompetitionWindow(Base):
+    __tablename__ = "global_competition_windows"
+
+    id = Column(Integer, primary_key=True)
+    competition_code = Column(String(64), nullable=False, index=True)
+    season = Column(String(32), nullable=False, index=True)
+    canonical_lock_at_utc = Column(DateTime, nullable=True)
+    canonical_locked_at_utc = Column(DateTime, nullable=True)
+    is_canonical_locked = Column(Boolean, nullable=False, default=False, index=True)
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("competition_code", "season", name="_global_competition_window_uc"),
+    )
+
+
+class GlobalCanonicalEntry(Base):
+    __tablename__ = "global_canonical_entries"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    competition_code = Column(String(64), nullable=False, index=True)
+    season = Column(String(32), nullable=False, index=True)
+    is_locked = Column(Boolean, nullable=False, default=False, index=True)
+    locked_at = Column(DateTime, nullable=True)
+    tie_break_rivalries_won = Column(Integer, nullable=False, default=0)
+    total_points_snapshot = Column(Integer, nullable=False, default=0)
+    details = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    user = relationship("User")
+    source_group = relationship("Group")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "competition_code", "season", name="_global_canonical_entry_uc"),
+        Index("idx_global_canonical_competition_rank", "competition_code", "season", "total_points_snapshot"),
+    )
 
 class GroupAuditLog(Base):
     __tablename__ = "group_audit_logs"

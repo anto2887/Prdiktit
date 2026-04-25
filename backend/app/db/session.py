@@ -9,7 +9,9 @@ from .database import engine, SessionLocal
 from . import (
     User, Group, Fixture, Team, UserPrediction, TeamTracker,
     PendingMembership, UserResults, GroupAuditLog, GroupAnalytics,
-    UserAnalytics, RivalryPair, RivalryWeek, UserStreak, GroupHeatmap
+    UserAnalytics, RivalryPair, RivalryWeek, UserStreak, GroupHeatmap,
+    UserWallet, CoinLedgerEntry, PowerUpCatalog, PowerUpActivation,
+    PowerUpDailyEffect, GlobalCompetitionWindow, GlobalCanonicalEntry
 )
 
 logger = logging.getLogger(__name__)

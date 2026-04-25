@@ -95,14 +95,14 @@ Acceptance:
 - [ ] External setup status documented
 
 ## Day 2 - DB and migration plan
-- [ ] Define wallet/ledger schema
-- [ ] Define power-up catalog/activation schema
-- [ ] Define canonical-entry + lock metadata schema
-- [ ] Define non-stacking DB constraints
+- [x] Define wallet/ledger schema
+- [x] Define power-up catalog/activation schema
+- [x] Define canonical-entry + lock metadata schema
+- [x] Define non-stacking DB constraints
 - [ ] Create migration + rollback notes
 
 Acceptance:
-- [ ] Schema supports all locked rules
+- [x] Schema supports all locked rules
 
 ## Day 3 - Payments backend foundation
 - [ ] Implement Stripe checkout session creation
