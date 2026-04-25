@@ -133,6 +133,7 @@ class PaymentService:
             line_items=[{"price": bundle.price_id, "quantity": 1}],
             success_url=settings.STRIPE_SUCCESS_URL,
             cancel_url=settings.STRIPE_CANCEL_URL,
+            client_reference_id=str(user_id),
             metadata={
                 "user_id": str(user_id),
                 "bundle_id": bundle.bundle_id,

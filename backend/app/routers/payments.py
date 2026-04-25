@@ -1,4 +1,5 @@
 import logging
+import json
 from typing import Dict
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -92,8 +93,13 @@ async def stripe_webhook(
         logger.warning("Webhook signature verification failed: %s", exc)
         raise HTTPException(status_code=400, detail="Invalid webhook signature") from exc
 
-    to_dict = getattr(event, "to_dict_recursive", None)
-    normalized_event = to_dict() if callable(to_dict) else event
+    # Prefer the verified raw payload JSON for deterministic field access.
+    try:
+        normalized_event = json.loads(payload.decode("utf-8"))
+    except Exception:
+        to_dict = getattr(event, "to_dict_recursive", None)
+        normalized_event = to_dict() if callable(to_dict) else event
+
     event_type = PaymentService._safe_get(normalized_event, "type")
     if event_type == "checkout.session.completed":
         try:
