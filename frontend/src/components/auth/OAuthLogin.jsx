@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 
-const OAuthLogin = ({ onSuccess, onError }) => {
+const OAuthLogin = ({ onSuccess, onError, disabled = false, disabledReason = '' }) => {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
@@ -80,12 +80,16 @@ const OAuthLogin = ({ onSuccess, onError }) => {
     <div className="w-full">
       <button
         onClick={handleGoogleLogin}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
         className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <FcGoogle className="w-5 h-5" />
         {isLoading ? 'Connecting...' : 'Continue with Google'}
       </button>
+
+      {!isLoading && disabled && disabledReason && (
+        <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">{disabledReason}</p>
+      )}
       
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">

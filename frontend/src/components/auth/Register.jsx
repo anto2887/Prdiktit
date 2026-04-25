@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FcGoogle } from 'react-icons/fc';
 import OAuthLogin from './OAuthLogin';
 
 export const Register = () => {
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -29,6 +30,8 @@ export const Register = () => {
           </div>
 
           <OAuthLogin 
+            disabled={!acceptedTerms}
+            disabledReason="Please accept the Terms and Privacy Policy to continue."
             onSuccess={(data) => {
               // OAuth success is handled by OAuthCallbackPage
               // No need to store JWT tokens - using session-based auth
@@ -39,6 +42,28 @@ export const Register = () => {
               console.error('OAuth registration error:', error);
             }}
           />
+
+          <div className="mt-5">
+            <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                checked={acceptedTerms}
+                onChange={(e) => setAcceptedTerms(e.target.checked)}
+              />
+              <span>
+                I am at least 18 years old and I agree to the{' '}
+                <Link to="/terms" className="text-blue-600 dark:text-blue-400 hover:underline">
+                  Terms of Service
+                </Link>{' '}
+                and{' '}
+                <Link to="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline">
+                  Privacy Policy
+                </Link>
+                .
+              </span>
+            </label>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">

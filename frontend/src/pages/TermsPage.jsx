@@ -220,7 +220,7 @@ const TermsPage = () => {
           <p>
             If you have questions about these Terms, you can contact us at:
             <br />
-            <span className="font-mono">[your-contact-email@example.com]</span>
+            <span className="font-mono">prdiktitadmin@prdiktit.com</span>
           </p>
         </section>
       </main>

@@ -258,7 +258,7 @@ const PrivacyPage = () => {
             If you have questions or requests regarding this Privacy Policy or our data practices, you can contact us
             at:
             <br />
-            <span className="font-mono">[your-contact-email@example.com]</span>
+            <span className="font-mono">prdiktitadmin@prdiktit.com</span>
           </p>
         </section>
       </main>
