@@ -12,6 +12,15 @@ from ..db.session_manager import get_db
 from ..schemas import DataResponse, User
 from ..services.cache_service import get_cache, RedisCache
 from ..db.models import UserNotificationPreferences, User as UserModel
+from ..db.models import (
+    UserWallet,
+    CoinLedgerEntry,
+    PowerUpCatalog,
+    PowerUpActivation,
+    PowerUpDailyEffect,
+    GlobalCompetitionWindow,
+    GlobalCanonicalEntry,
+)
 
 # Add error handling for the MatchProcessor import
 try:
@@ -24,6 +33,16 @@ except ImportError as e:
     MATCH_PROCESSOR_AVAILABLE = False
 
 router = APIRouter()
+
+WORLDCUP_SCHEMA_TABLES = [
+    UserWallet.__table__,
+    CoinLedgerEntry.__table__,
+    PowerUpCatalog.__table__,
+    PowerUpActivation.__table__,
+    PowerUpDailyEffect.__table__,
+    GlobalCompetitionWindow.__table__,
+    GlobalCanonicalEntry.__table__,
+]
 
 @router.post("/process-matches", response_model=DataResponse)
 async def process_completed_matches(
@@ -622,6 +641,126 @@ async def migrate_users_settings(db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Users settings migration failed: {str(e)}"
+        )
+
+
+@router.get("/test-worldcup-economy-schema")
+async def test_worldcup_economy_schema(db: Session = Depends(get_db)):
+    """Check status of World Cup economy schema tables."""
+    try:
+        inspector = inspect(db.bind)
+        existing_tables = set(inspector.get_table_names())
+        table_status = {
+            table.name: (table.name in existing_tables) for table in WORLDCUP_SCHEMA_TABLES
+        }
+        all_present = all(table_status.values())
+
+        return {
+            "success": True,
+            "message": "World Cup economy schema status",
+            "status": "migrated" if all_present else "not_migrated",
+            "all_tables_present": all_present,
+            "tables": table_status,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"❌ Failed to verify World Cup economy schema: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to verify World Cup economy schema: {str(e)}",
+        )
+
+
+@router.post("/migrate-worldcup-economy-schema")
+async def migrate_worldcup_economy_schema(db: Session = Depends(get_db)):
+    """Create World Cup economy schema tables for wallet, powerups, and global canonical flows."""
+    try:
+        logger.info("🔄 Starting World Cup economy schema migration...")
+
+        created_or_verified = []
+        for table in WORLDCUP_SCHEMA_TABLES:
+            table.create(bind=db.bind, checkfirst=True)
+            created_or_verified.append(table.name)
+
+        db.commit()
+
+        inspector = inspect(db.bind)
+        existing_tables = set(inspector.get_table_names())
+        table_status = {
+            table.name: (table.name in existing_tables) for table in WORLDCUP_SCHEMA_TABLES
+        }
+        all_present = all(table_status.values())
+
+        if not all_present:
+            missing = [name for name, exists in table_status.items() if not exists]
+            raise RuntimeError(f"Migration incomplete, missing tables: {missing}")
+
+        logger.info("✅ World Cup economy schema migration completed")
+        return {
+            "success": True,
+            "message": "World Cup economy schema migration completed",
+            "migration_type": "worldcup_economy_schema",
+            "tables_created_or_verified": created_or_verified,
+            "tables": table_status,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"❌ World Cup economy schema migration failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"World Cup economy schema migration failed: {str(e)}",
+        )
+
+
+@router.post("/rollback-worldcup-economy-schema")
+async def rollback_worldcup_economy_schema(
+    confirm: bool = Query(False, description="Must be true to allow rollback"),
+    db: Session = Depends(get_db),
+):
+    """Rollback World Cup economy schema tables (destructive)."""
+    if not confirm:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Rollback is destructive. Re-run with confirm=true to proceed.",
+        )
+
+    try:
+        logger.warning("⚠️ Starting rollback for World Cup economy schema tables...")
+
+        dropped_or_verified = []
+        for table in reversed(WORLDCUP_SCHEMA_TABLES):
+            table.drop(bind=db.bind, checkfirst=True)
+            dropped_or_verified.append(table.name)
+
+        db.commit()
+
+        inspector = inspect(db.bind)
+        existing_tables = set(inspector.get_table_names())
+        table_status = {
+            table.name: (table.name in existing_tables) for table in WORLDCUP_SCHEMA_TABLES
+        }
+        any_remaining = any(table_status.values())
+
+        if any_remaining:
+            remaining = [name for name, exists in table_status.items() if exists]
+            raise RuntimeError(f"Rollback incomplete, remaining tables: {remaining}")
+
+        logger.warning("✅ World Cup economy schema rollback completed")
+        return {
+            "success": True,
+            "message": "World Cup economy schema rollback completed",
+            "migration_type": "worldcup_economy_schema_rollback",
+            "tables_dropped_or_verified": dropped_or_verified,
+            "tables": table_status,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error(f"❌ World Cup economy rollback failed: {str(e)}")
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"World Cup economy rollback failed: {str(e)}",
         )
 
 @router.get("/test-users-updated-at")
