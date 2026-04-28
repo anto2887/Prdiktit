@@ -86,3 +86,42 @@ class CoinService:
             "balance_after": wallet.balance_coins,
             "ledger_entry_id": ledger.id,
         }
+
+    @staticmethod
+    def debit_coins(
+        db: Session,
+        *,
+        user_id: int,
+        amount_coins: int,
+        transaction_type: CoinTransactionType = CoinTransactionType.DEBIT_POWERUP,
+        external_ref: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Debit coins from wallet. Raises ValueError if insufficient balance."""
+        if amount_coins <= 0:
+            raise ValueError("amount_coins must be positive for debit")
+
+        wallet = CoinService.get_or_create_wallet(db, user_id)
+        if wallet.balance_coins < amount_coins:
+            raise ValueError("Insufficient coin balance")
+
+        wallet.balance_coins -= amount_coins
+        wallet.lifetime_spent_coins += amount_coins
+
+        ledger = CoinLedgerEntry(
+            user_id=user_id,
+            wallet_id=wallet.id,
+            transaction_type=transaction_type,
+            amount_coins=-amount_coins,
+            balance_after=wallet.balance_coins,
+            external_ref=external_ref,
+            details=details,
+        )
+        db.add(ledger)
+        db.flush()
+
+        return {
+            "debited": True,
+            "balance_after": wallet.balance_coins,
+            "ledger_entry_id": ledger.id,
+        }

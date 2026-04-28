@@ -114,11 +114,11 @@ Acceptance:
 - [ ] Test payment credits exactly once
 
 ## Day 4 - Power-up purchase/activation engine
-- [ ] Enforce source_group_id on targeted usage
-- [ ] Enforce 2x outside-group pricing
-- [ ] Enforce no-stacking constraints
-- [ ] Enforce multiplier one fixture/day rule
-- [ ] Enforce duplicate-charge behavior
+- [x] Enforce source_group_id on targeted usage
+- [x] Enforce 2x outside-group pricing
+- [x] Enforce no-stacking constraints
+- [x] Enforce multiplier one fixture/day rule
+- [x] Enforce duplicate-charge behavior
 
 Acceptance:
 - [ ] Activation API passes edge-case matrix

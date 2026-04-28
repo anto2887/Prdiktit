@@ -316,6 +316,7 @@ from .routers import auth, predictions, matches, groups, users, admin, notificat
 from .routers.analytics import router as analytics_router
 from .routers import oauth
 from .routers import payments
+from .routers import powerups
 
 # Override dependencies to use our dependency injection container
 from .core.dependencies import get_database_session
@@ -362,6 +363,14 @@ app.include_router(
     payments.router,
     prefix=f"{settings.API_V1_STR}/payments",
     tags=["payments"],
+    dependencies=[Depends(get_database_session)],
+)
+
+logger.info("🔐 Main App: Including powerups router...")
+app.include_router(
+    powerups.router,
+    prefix=f"{settings.API_V1_STR}/powerups",
+    tags=["powerups"],
     dependencies=[Depends(get_database_session)],
 )
 

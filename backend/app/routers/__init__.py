@@ -6,6 +6,7 @@ from .predictions import router as predictions_router
 from .groups import router as groups_router
 from .analytics import router as analytics_router
 from .payments import router as payments_router
+from .powerups import router as powerups_router
 
 # This allows other modules to import directly from app.routers
 # Example: from app.routers import auth_router, users_router, analytics_router
