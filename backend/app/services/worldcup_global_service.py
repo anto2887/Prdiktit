@@ -100,6 +100,52 @@ class WorldCupGlobalService:
             self.db.refresh(window)
         return window
 
+    def force_unlock(
+        self,
+        season: str = DEFAULT_WORLD_CUP_SEASON,
+        competition_code: str = WORLD_CUP_COMPETITION_CODE,
+        clear_entries: bool = False,
+    ) -> Dict:
+        window = self.get_or_create_window(season=season, competition_code=competition_code)
+        window.is_canonical_locked = False
+        window.canonical_locked_at_utc = None
+        self.db.commit()
+
+        cleared_entries = 0
+        unlocked_entries = 0
+        if clear_entries:
+            cleared_entries = (
+                self.db.query(GlobalCanonicalEntry)
+                .filter(
+                    GlobalCanonicalEntry.competition_code == competition_code,
+                    GlobalCanonicalEntry.season == season,
+                )
+                .delete(synchronize_session=False)
+            )
+        else:
+            unlocked_entries = (
+                self.db.query(GlobalCanonicalEntry)
+                .filter(
+                    GlobalCanonicalEntry.competition_code == competition_code,
+                    GlobalCanonicalEntry.season == season,
+                )
+                .update(
+                    {
+                        GlobalCanonicalEntry.is_locked: False,
+                        GlobalCanonicalEntry.locked_at: None,
+                    },
+                    synchronize_session=False,
+                )
+            )
+
+        self.db.commit()
+        self.db.refresh(window)
+        return {
+            "is_canonical_locked": bool(window.is_canonical_locked),
+            "cleared_entries": int(cleared_entries),
+            "unlocked_entries": int(unlocked_entries),
+        }
+
     def _group_points_rows(self, season: str):
         total_points_expr = func.coalesce(func.sum(UserPrediction.points + UserPrediction.bonus_points), 0)
         rows = (

@@ -868,6 +868,47 @@ async def lock_worldcup_canonical_entries(
             detail=f"Failed to lock World Cup canonical entries: {str(e)}",
         )
 
+
+@router.post("/unlock-worldcup-canonical-entries")
+async def unlock_worldcup_canonical_entries(
+    season: str = Query(DEFAULT_WORLD_CUP_SEASON),
+    clear_entries: bool = Query(
+        False,
+        description="If true, deletes existing canonical entries for this competition+season",
+    ),
+    confirm: bool = Query(False, description="Must be true to unlock canonical entries"),
+    db: Session = Depends(get_db),
+):
+    """Unlock World Cup canonical selection for pre-launch testing."""
+    if not confirm:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unlock requires explicit confirmation. Re-run with confirm=true.",
+        )
+
+    try:
+        svc = WorldCupGlobalService(db)
+        result = svc.force_unlock(
+            season=season,
+            competition_code=WORLD_CUP_COMPETITION_CODE,
+            clear_entries=clear_entries,
+        )
+        return {
+            "success": True,
+            "message": "World Cup canonical entries unlocked",
+            "competition_code": WORLD_CUP_COMPETITION_CODE,
+            "season": season,
+            "clear_entries": clear_entries,
+            "result": result,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error("❌ Failed to unlock World Cup canonical entries: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to unlock World Cup canonical entries: {str(e)}",
+        )
+
 @router.get("/test-users-updated-at")
 async def test_users_updated_at(db: Session = Depends(get_db)):
     """
