@@ -32,6 +32,7 @@ from .models import (
 )
 
 import logging
+from ..services.powerup_scoring_service import apply_powerup_modifiers
 
 logger = logging.getLogger(__name__)
 
@@ -1157,11 +1158,19 @@ async def process_match_predictions(db: Session, fixture_id: int) -> int:
         old_points = prediction.points
         
         # Calculate points based on FINAL scores
-        points = calculate_points(
+        base_points = calculate_points(
             prediction.score1,
             prediction.score2,
             fixture.home_score,
             fixture.away_score
+        )
+        points, _mod = apply_powerup_modifiers(
+            db,
+            user_id=prediction.user_id,
+            group_id=prediction.group_id,
+            fixture_id=prediction.fixture_id,
+            fixture_date=fixture.date,
+            base_points=base_points,
         )
         
         # Update prediction (reprocess to ensure accuracy)

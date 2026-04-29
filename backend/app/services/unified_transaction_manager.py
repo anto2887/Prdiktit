@@ -17,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from ..db.database import SessionLocal
 from ..db.models import Fixture, UserPrediction, MatchStatus, PredictionStatus
 from ..db.repository import calculate_points
+from .powerup_scoring_service import apply_powerup_modifiers
 
 # Configure specialized loggers
 logger = logging.getLogger(__name__)
@@ -393,12 +394,20 @@ class UnifiedTransactionManager:
                     old_status = prediction.prediction_status.value
                     old_points = prediction.points
                     
-                    # Calculate points based on FINAL scores
-                    points = calculate_points(
+                    # Calculate points based on FINAL scores + power-up modifiers
+                    base_points = calculate_points(
                         prediction.score1,
                         prediction.score2,
                         match.home_score,
                         match.away_score
+                    )
+                    points, mod_details = apply_powerup_modifiers(
+                        session,
+                        user_id=prediction.user_id,
+                        group_id=prediction.group_id,
+                        fixture_id=prediction.fixture_id,
+                        fixture_date=match.date,
+                        base_points=base_points,
                     )
                     
                     # Skip noisy reprocessing when nothing changed.
@@ -428,6 +437,8 @@ class UnifiedTransactionManager:
                         'new_status': 'PROCESSED',
                         'old_points': old_points,
                         'new_points': points,
+                        'base_points': base_points,
+                        'modifiers': mod_details,
                         'was_reprocessed': old_status == 'PROCESSED'
                     })
                     
@@ -517,12 +528,20 @@ class UnifiedTransactionManager:
                 old_status = prediction.prediction_status.value
                 old_points = prediction.points
                 
-                # Calculate points based on FINAL scores
-                points = calculate_points(
+                # Calculate points based on FINAL scores + power-up modifiers
+                base_points = calculate_points(
                     prediction.score1,
                     prediction.score2,
                     fixture.home_score,
                     fixture.away_score
+                )
+                points, mod_details = apply_powerup_modifiers(
+                    session,
+                    user_id=prediction.user_id,
+                    group_id=prediction.group_id,
+                    fixture_id=prediction.fixture_id,
+                    fixture_date=fixture.date,
+                    base_points=base_points,
                 )
                 
                 # Update prediction (reprocess to ensure accuracy)
@@ -547,6 +566,8 @@ class UnifiedTransactionManager:
                     'new_status': 'PROCESSED',
                     'old_points': old_points,
                     'new_points': points,
+                    'base_points': base_points,
+                    'modifiers': mod_details,
                     'match_date': fixture.date.isoformat(),
                     'processed_at': datetime.now(timezone.utc).isoformat()
                 })
