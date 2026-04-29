@@ -773,6 +773,28 @@ export const seasonsApi = {
   }
 };
 
+export const paymentsApi = {
+  getWallet: async () => api.client.get('/payments/wallet'),
+  getCoinBundles: async () => api.client.get('/payments/coin-bundles'),
+  createCheckoutSession: async (bundleId, countryCode = null) =>
+    api.client.post('/payments/checkout-session', {
+      bundle_id: bundleId,
+      country_code: countryCode || undefined,
+    }),
+};
+
+export const powerupsApi = {
+  getCatalog: async () => api.client.get('/powerups/catalog'),
+  activate: async (payload) => api.client.post('/powerups/activate', payload),
+};
+
+export const worldcupApi = {
+  getGlobalLeaderboard: async (season = '2026', limit = 100) =>
+    api.client.get('/worldcup/global-leaderboard', { params: { season, limit } }),
+  getCanonicalStatus: async (season = '2026') =>
+    api.client.get('/worldcup/canonical-status', { params: { season } }),
+};
+
 // Add debug logging for enhanced scheduler
 process.env.NODE_ENV === 'development' && console.log('Enhanced Scheduler API loaded:', Object.keys(enhancedSchedulerApi));
 

@@ -6,6 +6,9 @@ export { default as OAuthCallbackPage } from './OAuthCallbackPage';
 export { default as DashboardPage } from './DashboardPage';
 export { default as ProfilePage } from './ProfilePage';
 export { default as SettingsPage } from './SettingsPage';
+export { default as WalletPage } from './WalletPage';
+export { default as PowerUpsPage } from './PowerUpsPage';
+export { default as GlobalLeaderboardPage } from './GlobalLeaderboardPage';
 export { default as TermsPage } from './TermsPage';
 export { default as PrivacyPage } from './PrivacyPage';
 

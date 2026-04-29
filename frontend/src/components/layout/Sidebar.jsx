@@ -42,6 +42,48 @@ const Sidebar = () => {
                   Predictions
                 </NavLink>
               </li>
+              <li>
+                <NavLink
+                  to="/wallet"
+                  className={({ isActive }) =>
+                    `flex items-center p-2 rounded-lg ${
+                      isActive
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`
+                  }
+                >
+                  Wallet
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  to="/powerups"
+                  className={({ isActive }) =>
+                    `flex items-center p-2 rounded-lg ${
+                      isActive
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`
+                  }
+                >
+                  Power-ups
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  to="/worldcup/leaderboard"
+                  className={({ isActive }) =>
+                    `flex items-center p-2 rounded-lg ${
+                      isActive
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`
+                  }
+                >
+                  Global Pot
+                </NavLink>
+              </li>
             </ul>
           </div>
 

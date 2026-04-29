@@ -17,6 +17,9 @@ import {
   DashboardPage,
   ProfilePage,
   SettingsPage,
+  WalletPage,
+  PowerUpsPage,
+  GlobalLeaderboardPage,
   TermsPage,
   PrivacyPage,
   PredictionsPage,
@@ -71,6 +74,9 @@ const AppRoutes = () => {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/wallet" element={<WalletPage />} />
+        <Route path="/powerups" element={<PowerUpsPage />} />
+        <Route path="/worldcup/leaderboard" element={<GlobalLeaderboardPage />} />
         
         {/* Prediction routes */}
         <Route path="/predictions" element={<PredictionsPage />} />
