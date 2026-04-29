@@ -21,6 +21,11 @@ from ..db.models import (
     GlobalCompetitionWindow,
     GlobalCanonicalEntry,
 )
+from ..services.worldcup_global_service import (
+    DEFAULT_WORLD_CUP_SEASON,
+    WORLD_CUP_COMPETITION_CODE,
+    WorldCupGlobalService,
+)
 
 # Add error handling for the MatchProcessor import
 try:
@@ -761,6 +766,106 @@ async def rollback_worldcup_economy_schema(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"World Cup economy rollback failed: {str(e)}",
+        )
+
+
+@router.get("/worldcup-canonical-status")
+async def worldcup_canonical_status(
+    season: str = Query(DEFAULT_WORLD_CUP_SEASON),
+    db: Session = Depends(get_db),
+):
+    """Get World Cup canonical lock status and lock window metadata."""
+    try:
+        svc = WorldCupGlobalService(db)
+        window = svc.maybe_auto_lock(
+            season=season, competition_code=WORLD_CUP_COMPETITION_CODE
+        )
+        return {
+            "success": True,
+            "competition_code": WORLD_CUP_COMPETITION_CODE,
+            "season": season,
+            "is_canonical_locked": bool(window.is_canonical_locked),
+            "canonical_lock_at_utc": (
+                window.canonical_lock_at_utc.isoformat() if window.canonical_lock_at_utc else None
+            ),
+            "canonical_locked_at_utc": (
+                window.canonical_locked_at_utc.isoformat() if window.canonical_locked_at_utc else None
+            ),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error("❌ Failed to get World Cup canonical status: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get World Cup canonical status: {str(e)}",
+        )
+
+
+@router.post("/refresh-worldcup-canonical-entries")
+async def refresh_worldcup_canonical_entries(
+    season: str = Query(DEFAULT_WORLD_CUP_SEASON),
+    db: Session = Depends(get_db),
+):
+    """Refresh canonical entries (best group per user) for World Cup global ranking."""
+    try:
+        svc = WorldCupGlobalService(db)
+        result = svc.refresh_canonical_entries(
+            season=season, competition_code=WORLD_CUP_COMPETITION_CODE
+        )
+        return {
+            "success": True,
+            "message": "World Cup canonical entries refreshed",
+            "competition_code": WORLD_CUP_COMPETITION_CODE,
+            "season": season,
+            "result": result,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error("❌ Failed to refresh World Cup canonical entries: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to refresh World Cup canonical entries: {str(e)}",
+        )
+
+
+@router.post("/lock-worldcup-canonical-entries")
+async def lock_worldcup_canonical_entries(
+    season: str = Query(DEFAULT_WORLD_CUP_SEASON),
+    confirm: bool = Query(False, description="Must be true to lock canonical entries"),
+    db: Session = Depends(get_db),
+):
+    """Force-lock World Cup canonical entry source group selection."""
+    if not confirm:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Canonical lock is irreversible for this season. Re-run with confirm=true.",
+        )
+
+    try:
+        svc = WorldCupGlobalService(db)
+        window = svc.force_lock(
+            season=season, competition_code=WORLD_CUP_COMPETITION_CODE
+        )
+        refresh_result = svc.refresh_canonical_entries(
+            season=season, competition_code=WORLD_CUP_COMPETITION_CODE
+        )
+        return {
+            "success": True,
+            "message": "World Cup canonical entries locked",
+            "competition_code": WORLD_CUP_COMPETITION_CODE,
+            "season": season,
+            "is_canonical_locked": bool(window.is_canonical_locked),
+            "canonical_locked_at_utc": (
+                window.canonical_locked_at_utc.isoformat() if window.canonical_locked_at_utc else None
+            ),
+            "refresh_result": refresh_result,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error("❌ Failed to lock World Cup canonical entries: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to lock World Cup canonical entries: {str(e)}",
         )
 
 @router.get("/test-users-updated-at")
