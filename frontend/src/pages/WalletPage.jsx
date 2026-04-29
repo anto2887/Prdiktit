@@ -7,6 +7,7 @@ const WalletPage = () => {
   const [loading, setLoading] = useState(true);
   const [buyingBundleId, setBuyingBundleId] = useState(null);
   const [error, setError] = useState('');
+  const [countryCode, setCountryCode] = useState(null);
 
   const normalizeList = (response) => {
     const payload = response?.data;
@@ -20,13 +21,24 @@ const WalletPage = () => {
     response?.data?.data?.balance_coins ??
     0;
 
+  const detectCountryCode = () => {
+    if (typeof navigator === 'undefined') return null;
+    const locale = navigator.language || '';
+    const parts = locale.split('-');
+    if (parts.length < 2) return null;
+    const code = (parts[1] || '').toUpperCase();
+    return /^[A-Z]{2}$/.test(code) ? code : null;
+  };
+
   const loadWalletData = async () => {
     try {
       setLoading(true);
       setError('');
+      const detected = detectCountryCode();
+      setCountryCode(detected);
       const [walletRes, bundlesRes] = await Promise.all([
         paymentsApi.getWallet(),
-        paymentsApi.getCoinBundles(),
+        paymentsApi.getCoinBundles(detected),
       ]);
       setBalance(normalizeWallet(walletRes));
       setBundles(normalizeList(bundlesRes));
@@ -45,7 +57,7 @@ const WalletPage = () => {
     try {
       setBuyingBundleId(bundle.bundle_id);
       setError('');
-      const response = await paymentsApi.createCheckoutSession(bundle.bundle_id);
+      const response = await paymentsApi.createCheckoutSession(bundle.bundle_id, countryCode);
       const url = response?.data?.url || response?.data?.data?.url;
       if (url) {
         window.location.href = url;

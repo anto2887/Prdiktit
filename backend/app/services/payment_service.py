@@ -27,12 +27,18 @@ class CoinBundle:
 class PaymentService:
     """Stripe checkout and webhook fulfillment for coin purchases."""
     LATAM_COUNTRIES = {
-        "AR", "BO", "BR", "CL", "CO", "CR", "DO", "EC", "GT", "HN",
+        "AR", "BO", "CL", "CO", "CR", "DO", "EC", "GT", "HN",
         "MX", "NI", "PA", "PE", "PY", "SV", "UY", "VE",
     }
     EMERGING_COUNTRIES = {
-        "BD", "ET", "GH", "ID", "IN", "KE", "MM", "NG", "NP", "PK",
+        "BD", "ET", "GH", "ID", "IN", "KE", "MM", "NP", "PK",
         "TZ", "UG", "VN", "ZA",
+    }
+    COUNTRY_TIER_OVERRIDES = {
+        "BR": "brl",
+        "NG": "ngn",
+        "FR": "eur",
+        "IT": "eur",
     }
 
     @staticmethod
@@ -94,11 +100,40 @@ class PaymentService:
         if not country_code:
             return "default"
         code = country_code.strip().upper()
+        override_tier = PaymentService.COUNTRY_TIER_OVERRIDES.get(code)
+        if override_tier:
+            return override_tier
         if code in PaymentService.LATAM_COUNTRIES:
             return "latam"
         if code in PaymentService.EMERGING_COUNTRIES:
             return "emerging"
         return "default"
+
+    @staticmethod
+    def get_coin_bundles_for_country(country_code: Optional[str]) -> List[CoinBundle]:
+        desired_tier = PaymentService.determine_pricing_tier(country_code)
+        bundles = PaymentService.get_coin_bundles()
+
+        grouped: Dict[str, List[CoinBundle]] = {}
+        for bundle in bundles:
+            grouped.setdefault(bundle.bundle_id, []).append(bundle)
+
+        selected: List[CoinBundle] = []
+        for bundle_id, options in grouped.items():
+            preferred = next((b for b in options if b.tier == desired_tier), None)
+            if preferred:
+                selected.append(preferred)
+                continue
+
+            default_candidate = next((b for b in options if b.tier == "default"), None)
+            if default_candidate:
+                selected.append(default_candidate)
+                continue
+
+            selected.append(options[0])
+
+        selected.sort(key=lambda b: b.coins)
+        return selected
 
     @staticmethod
     def get_bundle_by_id(bundle_id: str, country_code: Optional[str] = None) -> CoinBundle:

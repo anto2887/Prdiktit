@@ -2,7 +2,7 @@ import logging
 import json
 from typing import Dict
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -24,10 +24,11 @@ class CreateCheckoutSessionRequest(BaseModel):
 
 @router.get("/coin-bundles")
 async def list_coin_bundles(
+    country_code: str | None = Query(default=None, min_length=2, max_length=2),
     current_user: User = Depends(get_current_active_user_from_session),
 ):
     try:
-        bundles = PaymentService.get_coin_bundles()
+        bundles = PaymentService.get_coin_bundles_for_country(country_code)
         return {
             "success": True,
             "data": [

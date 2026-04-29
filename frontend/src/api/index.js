@@ -775,7 +775,10 @@ export const seasonsApi = {
 
 export const paymentsApi = {
   getWallet: async () => api.client.get('/payments/wallet'),
-  getCoinBundles: async () => api.client.get('/payments/coin-bundles'),
+  getCoinBundles: async (countryCode = null) =>
+    api.client.get('/payments/coin-bundles', {
+      params: countryCode ? { country_code: countryCode } : {},
+    }),
   createCheckoutSession: async (bundleId, countryCode = null) =>
     api.client.post('/payments/checkout-session', {
       bundle_id: bundleId,
