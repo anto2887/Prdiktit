@@ -106,7 +106,8 @@ export const computeWeeklyPerformance = (predictions, season = getCurrentSeason(
   const weekGroups = groupPredictionsByWeek(predictions, season);
   
   // Get all possible weeks for the season
-  const allWeeks = getSeasonWeeks(season);
+  const totalWeeks = getSeasonWeeks(season);
+  const allWeeks = Array.from({ length: Math.max(0, totalWeeks) }, (_, i) => i + 1);
   
   // Calculate stats for each week
   const weeklyPerformance = allWeeks.map(weekNumber => {

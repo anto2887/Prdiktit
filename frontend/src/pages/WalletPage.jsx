@@ -8,7 +8,13 @@ const WalletPage = () => {
   const [buyingBundleId, setBuyingBundleId] = useState(null);
   const [error, setError] = useState('');
 
-  const normalizeList = (response) => response?.data || response?.data?.data || [];
+  const normalizeList = (response) => {
+    const payload = response?.data;
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(response?.data?.data)) return response.data.data;
+    return [];
+  };
   const normalizeWallet = (response) =>
     response?.data?.balance_coins ??
     response?.data?.data?.balance_coins ??

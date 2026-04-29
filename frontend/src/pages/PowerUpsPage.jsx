@@ -17,6 +17,11 @@ const PowerUpsPage = () => {
   const [fixtureId, setFixtureId] = useState('');
 
   const sourceGroupId = currentGroup?.id || '';
+  const asArray = (payload) => {
+    if (Array.isArray(payload)) return payload;
+    if (Array.isArray(payload?.data)) return payload.data;
+    return [];
+  };
 
   const selectedPowerup = useMemo(
     () => catalog.find((item) => item.powerup_type === powerupType),
@@ -32,8 +37,8 @@ const PowerUpsPage = () => {
           powerupsApi.getCatalog(),
           sourceGroupId ? groupsApi.getGroupMembers(sourceGroupId) : Promise.resolve({ data: [] }),
         ]);
-        setCatalog(catalogRes?.data || catalogRes?.data?.data || []);
-        setMembers(membersRes?.data || membersRes?.data?.data || []);
+        setCatalog(asArray(catalogRes?.data));
+        setMembers(asArray(membersRes?.data));
       } catch (e) {
         setError(e?.message || 'Failed to load power-up data');
       } finally {
