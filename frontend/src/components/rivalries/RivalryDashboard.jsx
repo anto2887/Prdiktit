@@ -4,8 +4,10 @@ import { useAuth, useNotifications, useGroups } from '../../contexts/AppContext'
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import SeasonManager from '../../utils/seasonManager';
+import { useI18n } from '../../i18n';
 
 const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null }) => {
+  const { t } = useI18n();
   const [currentSeason, setCurrentSeason] = useState(season);
 
   // Get current season dynamically if not provided
@@ -115,21 +117,21 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null })
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center">
               <span className="mr-3">🥊</span>
-              Rivalries
+              {t('rivalries.title')}
               {isRivalryWeek && (
                 <span className="ml-3 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                  🔥 RIVALRY WEEK!
+                  🔥 {t('rivalries.weekBadge')}
                 </span>
               )}
             </h1>
             <p className="mt-2 text-gray-600">
-              Compete head-to-head with your league rivals for bonus points
+              {t('rivalries.subtitle')}
             </p>
           </div>
           
           {isRivalryWeek && (
             <div className="text-right">
-              <div className="text-sm text-gray-600">Bonus Points Available</div>
+              <div className="text-sm text-gray-600">{t('rivalries.bonusPointsAvailable')}</div>
               <div className="text-2xl font-bold text-red-600">+3 pts</div>
             </div>
           )}
@@ -198,8 +200,8 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null })
       <div className="mb-6">
         <nav className="flex space-x-8">
           {[
-            { id: 'current', label: 'Current Rivalries', count: activeRivalries.length },
-            { id: 'history', label: 'History', count: historicalRivalries.length }
+            { id: 'current', label: t('rivalries.currentRivalries'), count: activeRivalries.length },
+            { id: 'history', label: t('rivalries.history'), count: historicalRivalries.length }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -244,25 +246,27 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null })
 };
 
 // Rivalry activation message
-const RivalryActivationMessage = ({ currentWeek, activationWeek }) => (
+const RivalryActivationMessage = ({ currentWeek, activationWeek }) => {
+  const { t } = useI18n();
+  return (
   <div className="max-w-2xl mx-auto text-center py-12">
     <div className="w-20 h-20 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
       <span className="text-4xl">🥊</span>
     </div>
     
     <h2 className="text-2xl font-bold text-gray-900 mb-4">
-      Rivalries Incoming! 🔥
+      {t('rivalries.incoming')}
     </h2>
     
     <p className="text-lg text-gray-600 mb-4">
-      Rivalry assignments will begin in <strong>Week {activationWeek}</strong>
+      {t('rivalries.assignmentsBeginIn')} <strong>{t('rivalries.week')} {activationWeek}</strong>
     </p>
     
     <div className="bg-red-50 rounded-lg p-6 mb-6">
       <div className="flex items-center justify-center space-x-4 mb-4">
-        <div className="text-2xl font-bold text-red-600">Week {currentWeek}</div>
+        <div className="text-2xl font-bold text-red-600">{t('rivalries.week')} {currentWeek}</div>
         <div className="text-gray-400">/</div>
-        <div className="text-2xl font-bold text-gray-600">Week {activationWeek}</div>
+        <div className="text-2xl font-bold text-gray-600">{t('rivalries.week')} {activationWeek}</div>
       </div>
       
       <div className="w-full bg-red-200 rounded-full h-3">
@@ -273,33 +277,34 @@ const RivalryActivationMessage = ({ currentWeek, activationWeek }) => (
       </div>
       
       <p className="text-sm text-red-700 mt-3">
-        {activationWeek - currentWeek} more weeks until rivalries activate
+        {activationWeek - currentWeek} {t('rivalries.weeksUntilActivate')}
       </p>
     </div>
     
     <div className="text-left bg-gray-50 rounded-lg p-6">
-      <h3 className="font-semibold text-gray-900 mb-3">How Rivalries Work:</h3>
+      <h3 className="font-semibold text-gray-900 mb-3">{t('rivalries.howItWorks')}</h3>
       <ul className="space-y-2 text-sm text-gray-600">
         <li className="flex items-center space-x-2">
           <span className="text-red-500">🥊</span>
-          <span>Auto-assigned rivals based on performance proximity</span>
+          <span>{t('rivalries.rule1')}</span>
         </li>
         <li className="flex items-center space-x-2">
           <span className="text-red-500">👑</span>
-          <span>Champion Challenge for odd-numbered groups</span>
+          <span>{t('rivalries.rule2')}</span>
         </li>
         <li className="flex items-center space-x-2">
           <span className="text-red-500">🏆</span>
-          <span>+3 bonus points for beating your rival</span>
+          <span>{t('rivalries.rule3')}</span>
         </li>
         <li className="flex items-center space-x-2">
           <span className="text-red-500">📅</span>
-          <span>Monthly rivalry weeks with special challenges</span>
+          <span>{t('rivalries.rule4')}</span>
         </li>
       </ul>
     </div>
   </div>
-);
+  );
+};
 
 // Current rivalries tab
 const CurrentRivalriesTab = ({ rivalries, currentWeek, isRivalryWeek, userId }) => {

@@ -7,8 +7,10 @@ import MatchAvailabilityCheck from './MatchAvailabilityCheck';
 import TimezoneIndicator from '../common/TimezoneIndicator';
 import { formatKickoffTime, formatDeadlineTime, isDateInPast } from '../../utils/dateUtils';
 import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
+import { useI18n } from '../../i18n';
 
 const PredictionList = () => {
+  const { t } = useI18n();
   const { fixtures, loading: matchesLoading, error: matchesError } = useMatches();
   const { userPredictions, loading: predictionsLoading } = usePredictions();
   
@@ -24,7 +26,7 @@ const PredictionList = () => {
     return (
       <div className="flex justify-center items-center min-h-64">
         <LoadingSpinner />
-        <span className="ml-3 text-gray-500 dark:text-gray-400">Updating match data...</span>
+        <span className="ml-3 text-gray-500 dark:text-gray-400">{t('predictions.updatingMatchData')}</span>
       </div>
     );
   }
@@ -58,18 +60,18 @@ const PredictionList = () => {
     <MatchAvailabilityCheck>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Upcoming Matches</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('predictions.upcomingMatches')}</h2>
           <div className="flex items-center gap-4">
-            <HelpTooltip content="View your timezone settings and match times">
+            <HelpTooltip content={t('predictions.tooltipTimezone')}>
               <TimezoneIndicator showDetails={true} />
             </HelpTooltip>
             <Link
               to="/predictions/history"
               className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
             >
-              View History →
+              {t('predictions.viewHistory')} →
             </Link>
-            <HelpTooltip content="Start the guided tour to learn about making predictions">
+            <HelpTooltip content={t('predictions.tooltipGuide')}>
               <button
                 onClick={() => setShowGuide(true)}
                 className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -86,7 +88,7 @@ const PredictionList = () => {
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
           <div className="flex items-center justify-center">
             <span className="text-sm text-blue-800 dark:text-blue-200">
-              📅 Showing matches from <strong>{(() => {
+              📅 {t('predictions.showingMatchesFrom')} <strong>{(() => {
                 const today = new Date();
                 const nextWeek = new Date(today);
                 nextWeek.setDate(today.getDate() + 7);
@@ -98,7 +100,7 @@ const PredictionList = () => {
 
         {upcomingMatches.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <p className="text-gray-500 dark:text-gray-400 mb-4">No upcoming matches available for prediction</p>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">{t('predictions.noUpcomingMatches')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -175,7 +177,7 @@ const PredictionList = () => {
                       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
                         <div className="flex items-center justify-center space-x-4">
                           <div className="text-center">
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Your Prediction</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('predictions.yourPrediction')}</p>
                             <div className="flex items-center space-x-2">
                               <span className="font-bold text-lg text-gray-900 dark:text-gray-100">{prediction.score1}</span>
                               <span className="text-gray-500 dark:text-gray-400">-</span>
@@ -184,7 +186,7 @@ const PredictionList = () => {
                           </div>
                         </div>
                         <p className="text-xs text-green-600 dark:text-green-400 text-center mt-2">
-                          ✓ Prediction submitted
+                          ✓ {t('predictions.submitted')}
                         </p>
                       </div>
                     )}
@@ -193,7 +195,7 @@ const PredictionList = () => {
                     <div className="space-y-2">
                       {deadlinePassed ? (
                         <div className="w-full py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-sm">
-                          Prediction Deadline Passed
+                          {t('predictions.deadlinePassed')}
                         </div>
                       ) : (
                         <Link 
@@ -204,7 +206,7 @@ const PredictionList = () => {
                               : 'bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600'
                             }`}
                         >
-                          {hasPrediction ? 'Edit Prediction' : 'Make Prediction'}
+                          {hasPrediction ? t('predictions.editPrediction') : t('predictions.makePrediction')}
                         </Link>
                       )}
                       
@@ -244,27 +246,27 @@ const PredictionList = () => {
         totalSteps={4}
         steps={[
           {
-            title: "Making Predictions",
-            content: "This page shows upcoming matches you can predict. Click on any match to make your prediction for the final score.",
-            action: "Next",
+            title: t('predictions.guideTitle1'),
+            content: t('predictions.guideContent1'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Prediction Deadlines",
-            content: "Each match has a deadline for predictions. Make sure to submit before the deadline passes!",
-            action: "Next",
+            title: t('predictions.guideTitle2'),
+            content: t('predictions.guideContent2'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Your Predictions",
-            content: "Matches you&apos;ve already predicted will show your score prediction. You can edit predictions until the deadline.",
-            action: "Next",
+            title: t('predictions.guideTitle3'),
+            content: t('predictions.guideContent3'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Scoring System",
-            content: "Perfect predictions (exact score) earn 3 points. Correct results (right winner/draw) earn 1 point. Good luck!",
-            action: "Got it!",
+            title: t('predictions.guideTitle4'),
+            content: t('predictions.guideContent4'),
+            action: t('common.gotIt'),
             highlight: null
           }
         ]}

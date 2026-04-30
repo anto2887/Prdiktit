@@ -332,7 +332,7 @@ const GroupDetailsPage = () => {
             {selectedSeason && currentGroup.league && (
               <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <p className="text-sm text-blue-800 dark:text-blue-200">
-                  Showing {currentGroup.league} season: <strong>{SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}</strong>
+                  {t('groupDetails.showingSeason')} {currentGroup.league}: <strong>{SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}</strong>
                 </p>
               </div>
             )}
@@ -348,25 +348,25 @@ const GroupDetailsPage = () => {
                   <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Rank
+                        {t('groupDetails.rank')}
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Player
+                        {t('groupDetails.player')}
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Points
+                        {t('groupDetails.points')}
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Predictions
+                        {t('groupDetails.predictions')}
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Perfect
+                        {t('groupDetails.perfect')}
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Accuracy
+                        {t('groupDetails.accuracy')}
                       </th>
                       <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                        Avg Points
+                        {t('groupDetails.avgPoints')}
                       </th>
                     </tr>
                   </thead>
@@ -386,7 +386,7 @@ const GroupDetailsPage = () => {
                             <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                               {entry.username}
                               {entry.username === profile?.username && (
-                                <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(You)</span>
+                                <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">({t('common.you')})</span>
                               )}
                             </div>
                           </td>
@@ -412,12 +412,12 @@ const GroupDetailsPage = () => {
                         <td colSpan="7" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                           {selectedSeason ? (
                             <>
-                              No predictions found for {SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}.
+                              {t('groupDetails.noPredictionsForSeason')} {SeasonManager.getSeasonForDisplay(currentGroup.league, selectedSeason)}.
                               <br />
-                              <span className="text-sm">Members will appear here once they make predictions.</span>
+                              <span className="text-sm">{t('groupDetails.membersAppearAfterPredictions')}</span>
                             </>
                           ) : (
-                            'Loading season data...'
+                            t('groupDetails.loadingSeasonData')
                           )}
                         </td>
                       </tr>
@@ -433,10 +433,10 @@ const GroupDetailsPage = () => {
           <div className="p-6">
             <div className="mb-4">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                Group Members ({groupMembers.length})
+                {t('groupDetails.groupMembers')} ({groupMembers.length})
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Manage your league members and their permissions.
+                {t('groupDetails.manageMembersDescription')}
               </p>
             </div>
             
@@ -445,16 +445,16 @@ const GroupDetailsPage = () => {
                 <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Member
+                      {t('groupDetails.member')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Role
+                      {t('groupDetails.role')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Joined
+                      {t('groupDetails.joined')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Status
+                      {t('groupDetails.status')}
                     </th>
                   </tr>
                 </thead>
@@ -465,7 +465,7 @@ const GroupDetailsPage = () => {
                         <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {member.username}
                           {member.username === profile?.username && (
-                            <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(You)</span>
+                            <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">({t('common.you')})</span>
                           )}
                         </div>
                       </td>
@@ -504,7 +504,7 @@ const GroupDetailsPage = () => {
                     <span className="font-medium text-gray-900 dark:text-gray-100">
                       {member.username}
                       {member.username === profile?.username && (
-                        <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">(You)</span>
+                        <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">({t('common.you')})</span>
                       )}
                     </span>
                     <span
@@ -518,7 +518,7 @@ const GroupDetailsPage = () => {
                     </span>
                   </div>
                   <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Joined {new Date(member.joined_at).toLocaleDateString()} ·{' '}
+                    {t('groupDetails.joined')} {new Date(member.joined_at).toLocaleDateString()} ·{' '}
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
                         member.status === 'APPROVED'
