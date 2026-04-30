@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useGroups } from '../../contexts/AppContext';
+import { useI18n } from '../../i18n';
 
 const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
   const { userGroups, currentGroup } = useGroups();
+  const { t } = useI18n();
   const [isVisible, setIsVisible] = useState(true);
 
   // Get the group data from either currentGroup or userGroups
@@ -39,7 +41,7 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-lg font-semibold text-yellow-800">
-            ⚠️ Activation Data Loading
+            ⚠️ {t('groupActivation.loadingTitle')}
           </h3>
           <button
             onClick={() => setIsVisible(false)}
@@ -49,7 +51,7 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
           </button>
         </div>
         <p className="text-sm text-yellow-700">
-          Group activation information is being calculated. Please refresh the page in a few moments.
+          {t('groupActivation.loadingBody')}
         </p>
       </div>
     );
@@ -59,7 +61,7 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-6 shadow-sm">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-800">
-          {is_activated ? '🎉 Group Features Active!' : '⏳ Group Features Unlocking Soon'}
+          {is_activated ? `🎉 ${t('groupActivation.activeTitle')}` : `⏳ ${t('groupActivation.unlockingTitle')}`}
         </h3>
         <button
           onClick={() => setIsVisible(false)}
@@ -73,8 +75,8 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
         // Pre-activation state
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>Progress to activation</span>
-            <span>{weeks_until_activation} weeks remaining</span>
+            <span>{t('groupActivation.progressToActivation')}</span>
+            <span>{weeks_until_activation} {t('groupActivation.weeksRemaining')}</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-3">
             <div
@@ -83,21 +85,21 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
             />
           </div>
           <p className="text-sm text-gray-600">
-            Features will unlock at week {activation_week} (currently week {current_week})
+            {t('groupActivation.unlockAtWeek')} {activation_week} ({t('groupActivation.currentlyWeek')} {current_week})
           </p>
           
           {/* Activation countdown */}
           {weeks_until_activation > 0 && (
             <div className="bg-blue-100 border border-blue-300 rounded-md p-3">
               <p className="text-sm text-blue-800 font-medium">
-                🚀 {weeks_until_activation === 1 ? 'Next week' : `${weeks_until_activation} weeks`} until:
+                🚀 {weeks_until_activation === 1 ? t('groupActivation.nextWeek') : `${weeks_until_activation} ${t('rivalries.week').toLowerCase()}`} {t('groupActivation.until')}
               </p>
               <ul className="text-sm text-blue-700 mt-1 space-y-1">
-                <li>• Rivalry challenges unlock</li>
-                <li>• Advanced analytics become available</li>
-                <li>• Bonus point opportunities</li>
-                <li>• Enhanced group features</li>
-                <li>• Comeback Challenge activation 🆕</li>
+                <li>• {t('groupActivation.featureRivalryUnlock')}</li>
+                <li>• {t('groupActivation.featureAnalytics')}</li>
+                <li>• {t('groupActivation.featureBonuses')}</li>
+                <li>• {t('groupActivation.featureEnhanced')}</li>
+                <li>• {t('groupActivation.featureComeback')}</li>
               </ul>
             </div>
           )}
@@ -107,15 +109,15 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
         <div className="space-y-3">
           <div className="bg-green-100 border border-green-300 rounded-md p-3 mb-3">
             <p className="text-sm text-green-800 font-medium">
-              ✅ All group features are now active!
+              ✅ {t('groupActivation.allFeaturesActive')}
             </p>
           </div>
 
           {showRivalryProgress && (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm text-gray-600">
-                <span>Next rivalry week</span>
-                <span>{weeks_until_next_rivalry === 0 ? 'This week!' : `${weeks_until_next_rivalry} weeks away`}</span>
+                <span>{t('groupActivation.nextRivalryWeek')}</span>
+                <span>{weeks_until_next_rivalry === 0 ? t('groupActivation.thisWeek') : `${weeks_until_next_rivalry} ${t('groupActivation.weeksAway')}`}</span>
               </div>
               
               {weeks_until_next_rivalry > 0 ? (
@@ -128,13 +130,13 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
               ) : (
                 <div className="bg-purple-100 border border-purple-300 rounded-md p-3">
                   <p className="text-sm text-purple-800 font-medium">
-                    ⚔️ Rivalry Week is here! Challenge your group members!
+                    ⚔️ {t('groupActivation.rivalryWeekHere')}
                   </p>
                 </div>
               )}
 
               <p className="text-sm text-gray-600">
-                Rivalry weeks occur every 4 weeks after activation
+                {t('groupActivation.rivalryCadence')}
               </p>
             </div>
           )}
@@ -142,24 +144,24 @@ const GroupActivationProgress = ({ groupId, showRivalryProgress = true }) => {
           {/* Feature highlights */}
           <div className="grid grid-cols-2 gap-3 mt-4">
             <div className="bg-indigo-50 border border-indigo-200 rounded-md p-3">
-              <h4 className="text-sm font-medium text-indigo-800 mb-1">📊 Analytics</h4>
-              <p className="text-xs text-indigo-600">Advanced performance insights</p>
+              <h4 className="text-sm font-medium text-indigo-800 mb-1">📊 {t('groupActivation.analytics')}</h4>
+              <p className="text-xs text-indigo-600">{t('groupActivation.analyticsDesc')}</p>
             </div>
             <div className="bg-orange-50 border border-orange-200 rounded-md p-3">
-              <h4 className="text-sm font-medium text-orange-800 mb-1">🎯 Rivalries</h4>
-              <p className="text-xs text-orange-600">Weekly challenges & competitions</p>
+              <h4 className="text-sm font-medium text-orange-800 mb-1">🎯 {t('groupActivation.rivalries')}</h4>
+              <p className="text-xs text-orange-600">{t('groupActivation.rivalriesDesc')}</p>
             </div>
             <div className="bg-green-50 border border-green-200 rounded-md p-3">
-              <h4 className="text-sm font-medium text-green-800 mb-1">⭐ Bonuses</h4>
-              <p className="text-xs text-green-600">Extra point opportunities</p>
+              <h4 className="text-sm font-medium text-green-800 mb-1">⭐ {t('groupActivation.bonuses')}</h4>
+              <p className="text-xs text-green-600">{t('groupActivation.bonusesDesc')}</p>
             </div>
             <div className="bg-purple-50 border border-purple-200 rounded-md p-3">
-              <h4 className="text-sm font-medium text-purple-800 mb-1">🏆 Leaderboards</h4>
-              <p className="text-xs text-purple-600">Enhanced competitive tracking</p>
+              <h4 className="text-sm font-medium text-purple-800 mb-1">🏆 {t('groupActivation.leaderboards')}</h4>
+              <p className="text-xs text-purple-600">{t('groupActivation.leaderboardsDesc')}</p>
             </div>
             <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-              <h4 className="text-sm font-medium text-yellow-800 mb-1">🎯 Comeback Challenge</h4>
-              <p className="text-xs text-yellow-600">Special challenges for middle users</p>
+              <h4 className="text-sm font-medium text-yellow-800 mb-1">🎯 {t('groupActivation.comebackChallenge')}</h4>
+              <p className="text-xs text-yellow-600">{t('groupActivation.comebackChallengeDesc')}</p>
             </div>
           </div>
         </div>

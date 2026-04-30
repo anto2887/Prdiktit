@@ -9,9 +9,9 @@ const AdSlot = ({ placement }) => {
   return (
     <div className="my-4">
       <SponsoredCard
-        title={config.title}
-        body={config.body}
-        cta={config.cta}
+        title={config.titleKey || config.title}
+        body={config.bodyKey || config.body}
+        cta={config.ctaKey || config.cta}
         href={config.href}
       />
     </div>

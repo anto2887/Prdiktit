@@ -1,9 +1,11 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useGroups } from '../../contexts/AppContext';
+import { useI18n } from '../../i18n';
 
 const ContextAwareNavigation = ({ groupId, currentPath }) => {
   const { userGroups, currentGroup } = useGroups();
+  const { t } = useI18n();
   
   // Get the group data from either currentGroup or userGroups
   const group = currentGroup || userGroups.find(g => g.id === groupId);
@@ -15,35 +17,35 @@ const ContextAwareNavigation = ({ groupId, currentPath }) => {
   const navigationItems = [
     {
       path: `/groups/${groupId}`,
-      label: 'Standings',
+      label: t('groupDetails.standings'),
       icon: '🏆',
-      description: 'View group leaderboard and standings'
+      description: t('contextNav.standingsDesc')
     },
     {
       path: `/groups/${groupId}/predictions`,
-      label: 'Predictions',
+      label: t('nav.predictions'),
       icon: '📊',
-      description: 'View all group predictions and results'
+      description: t('contextNav.predictionsDesc')
     },
     {
       path: `/groups/${groupId}/rivalries`,
-      label: 'Rivalries',
+      label: t('groupDetails.rivalries'),
       icon: '⚔️',
-      description: 'Weekly rivalry challenges and competitions',
+      description: t('contextNav.rivalriesDesc'),
       highlight: group.weeks_until_next_rivalry === 0
     },
     {
       path: `/groups/${groupId}/analytics`,
-      label: 'Analytics',
+      label: t('groupActivation.analytics'),
       icon: '📈',
-      description: 'Advanced performance insights and statistics'
+      description: t('contextNav.analyticsDesc')
     }
   ];
 
   return (
     <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-4 mb-6">
       <h3 className="text-lg font-semibold text-gray-800 mb-4">
-        🚀 Group Features Active - Enhanced Navigation Available
+        🚀 {t('contextNav.activeTitle')}
       </h3>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -69,7 +71,7 @@ const ContextAwareNavigation = ({ groupId, currentPath }) => {
               {item.highlight && (
                 <div className="absolute -top-2 -right-2">
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 animate-pulse">
-                    🔥 Hot
+                    🔥 {t('contextNav.hot')}
                   </span>
                 </div>
               )}
@@ -81,14 +83,14 @@ const ContextAwareNavigation = ({ groupId, currentPath }) => {
       {group.weeks_until_next_rivalry === 0 && (
         <div className="mt-4 p-3 bg-purple-100 border border-purple-300 rounded-md">
           <p className="text-sm text-purple-800 font-medium text-center">
-            ⚔️ This is a Rivalry Week! Challenge your group members and compete for glory!
+            ⚔️ {t('contextNav.rivalryWeekNotice')}
           </p>
         </div>
       )}
       
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-600">
-          All enhanced features are now available for your group. Explore the new capabilities above!
+          {t('contextNav.footerNote')}
         </p>
       </div>
     </div>

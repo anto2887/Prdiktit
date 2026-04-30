@@ -1,20 +1,20 @@
 export const adPlacements = {
   dashboard: {
-    title: 'World Cup Challenge Partner',
-    body: 'Boost your matchday edge with curated stats and tournament trends.',
-    cta: 'Explore partner offer',
+    titleKey: 'ads.dashboardTitle',
+    bodyKey: 'ads.dashboardBody',
+    ctaKey: 'ads.dashboardCta',
     href: '/worldcup/leaderboard',
   },
   predictions: {
-    title: 'Prediction Insights Partner',
-    body: 'See fixture momentum and team form before finalizing predictions.',
-    cta: 'Open insights',
+    titleKey: 'ads.predictionsTitle',
+    bodyKey: 'ads.predictionsBody',
+    ctaKey: 'ads.predictionsCta',
     href: '/predictions',
   },
   groupDetails: {
-    title: 'League Sponsor',
-    body: 'Invite friends faster with premium league tools and reminders.',
-    cta: 'See tools',
+    titleKey: 'ads.groupDetailsTitle',
+    bodyKey: 'ads.groupDetailsBody',
+    ctaKey: 'ads.groupDetailsCta',
     href: '/groups',
   },
 };
