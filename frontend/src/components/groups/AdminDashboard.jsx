@@ -3,8 +3,10 @@ import { useParams } from 'react-router-dom';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import { useI18n } from '../../i18n';
 
 const AdminDashboard = () => {
+  const { t } = useI18n();
   const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(null);
   const { groupId } = useParams();
@@ -38,7 +40,7 @@ const AdminDashboard = () => {
       // Only show error notification if we're not in initial loading phase
       // This prevents the brief error flash when navigating to group pages
       if (currentGroup) {
-        showError('Failed to load group data');
+        showError(t('groupManagement.failedLoadData'));
       }
     }
   };
@@ -47,11 +49,11 @@ const AdminDashboard = () => {
     try {
       const success = await manageMember(groupId, userId, action);
       if (success) {
-        showSuccess(`Successfully ${action.toLowerCase()}ed member`);
+        showSuccess(t('groupManagement.memberActionSuccess'));
         loadGroupData(); // Refresh member list
       }
     } catch (err) {
-      showError(`Failed to ${action.toLowerCase()} member`);
+      showError(t('groupManagement.memberActionFailed'));
     }
   };
 
@@ -59,17 +61,17 @@ const AdminDashboard = () => {
     try {
       const newCode = await regenerateInviteCode(groupId);
       if (newCode) {
-        showSuccess('Successfully regenerated invite code');
+        showSuccess(t('groupManagement.regeneratedSuccess'));
         setShowRegenerateConfirm(false);
       }
     } catch (err) {
-      showError('Failed to regenerate invite code');
+      showError(t('groupManagement.regeneratedFailed'));
     }
   };
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
-  if (!currentGroup) return <ErrorMessage message="Group not found" />;
+  if (!currentGroup) return <ErrorMessage message={t('groupManagement.groupNotFound')} />;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -84,10 +86,10 @@ const AdminDashboard = () => {
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Created: {new Date(currentGroup.created_at).toLocaleDateString()}
+              {t('groupManagement.created')}: {new Date(currentGroup.created_at).toLocaleDateString()}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Members: {members.length}
+              {t('groups.members')}: {members.length}
             </p>
           </div>
         </div>
@@ -96,14 +98,14 @@ const AdminDashboard = () => {
         <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="font-semibold text-gray-700 dark:text-gray-300">Invite Code</h3>
+              <h3 className="font-semibold text-gray-700 dark:text-gray-300">{t('groupManagement.inviteCode')}</h3>
               <p className="text-xl font-mono mt-1 text-gray-900 dark:text-gray-100">{currentGroup.invite_code}</p>
             </div>
             <button
               onClick={() => setShowRegenerateConfirm(true)}
               className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-600"
             >
-              Regenerate Code
+              {t('groupManagement.regenerateCode')}
             </button>
           </div>
         </div>
@@ -113,7 +115,7 @@ const AdminDashboard = () => {
       {pendingRequests.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            Pending Requests ({pendingRequests.length})
+            {t('groupManagement.pendingRequests')} ({pendingRequests.length})
           </h2>
           <div className="space-y-4">
             {pendingRequests.map(request => (
@@ -122,7 +124,7 @@ const AdminDashboard = () => {
                 <div>
                   <p className="font-medium text-gray-900 dark:text-gray-100">{request.username}</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Requested: {new Date(request.requested_at).toLocaleDateString()}
+                    {t('groupManagement.requested')}: {new Date(request.requested_at).toLocaleDateString()}
                   </p>
                 </div>
                 <div className="space-x-2">
@@ -130,13 +132,13 @@ const AdminDashboard = () => {
                     onClick={() => handleMemberAction(request.user_id, 'APPROVE')}
                     className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded hover:bg-green-700 dark:hover:bg-green-600"
                   >
-                    Approve
+                    {t('groupManagement.approve')}
                   </button>
                   <button
                     onClick={() => handleMemberAction(request.user_id, 'REJECT')}
                     className="px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded hover:bg-red-700 dark:hover:bg-red-600"
                   >
-                    Reject
+                    {t('groupManagement.reject')}
                   </button>
                 </div>
               </div>
@@ -148,7 +150,7 @@ const AdminDashboard = () => {
       {/* Members List Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-          Members ({members.length})
+          {t('groups.members')} ({members.length})
         </h2>
         <div className="space-y-4">
           {members.map(member => (
@@ -157,7 +159,7 @@ const AdminDashboard = () => {
               <div>
                 <p className="font-medium text-gray-900 dark:text-gray-100">{member.username}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Joined: {new Date(member.joined_at).toLocaleDateString()}
+                  {t('groupDetails.joined')}: {new Date(member.joined_at).toLocaleDateString()}
                 </p>
               </div>
               {member.role !== 'ADMIN' && (
@@ -166,7 +168,7 @@ const AdminDashboard = () => {
                     onClick={() => handleMemberAction(member.user_id, 'REMOVE')}
                     className="px-4 py-2 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/40"
                   >
-                    Remove
+                    {t('groupManagement.remove')}
                   </button>
                 </div>
               )}
@@ -179,22 +181,22 @@ const AdminDashboard = () => {
       {showRegenerateConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Regenerate Invite Code?</h3>
+            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">{t('groupManagement.regenerateConfirmTitle')}</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              This will invalidate the current invite code. Users will need the new code to join the group.
+              {t('groupManagement.regenerateConfirmBody')}
             </p>
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setShowRegenerateConfirm(false)}
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleRegenerateCode}
                 className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-600"
               >
-                Regenerate
+                {t('groupManagement.regenerate')}
               </button>
             </div>
           </div>

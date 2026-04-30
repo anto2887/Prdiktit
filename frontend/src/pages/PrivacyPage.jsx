@@ -1,266 +1,255 @@
 // frontend/src/pages/PrivacyPage.jsx
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { useI18n } from '../i18n';
+
+const PRIVACY_COPY = {
+  en: {
+    title: 'Privacy Policy',
+    back: 'Back to Dashboard',
+    sections: [
+      {
+        h: '1. Introduction',
+        p: [
+          'This Privacy Policy explains how Prdiktit collects, uses, and protects your information.',
+          'By using the service, you agree to the practices described in this policy.',
+        ],
+      },
+      {
+        h: '2. Data We Collect',
+        p: [
+          'Account data (email, username, authentication metadata).',
+          'Gameplay data (predictions, points, groups, rankings).',
+          'Operational data (session identifiers, logs, anti-abuse records).',
+          'Payment/compliance metadata (coin purchase events, payout verification status).',
+        ],
+      },
+      {
+        h: '3. How We Use Data',
+        p: [
+          'To run accounts, predictions, leaderboards, and wallet flows.',
+          'To enforce legal/policy requirements including age eligibility (18+) and fraud controls.',
+          'To support payout operations requiring identity verification before approval.',
+        ],
+      },
+      {
+        h: '4. Data Sharing',
+        p: [
+          'We do not sell personal data.',
+          'We may share necessary data with infrastructure/payment/verification providers and as required by law.',
+        ],
+      },
+      {
+        h: '5. Retention and Security',
+        p: [
+          'We retain data as needed for service delivery, legal compliance, anti-fraud, and dispute resolution.',
+          'We apply reasonable technical and organizational safeguards.',
+        ],
+      },
+      {
+        h: '6. Your Rights',
+        p: [
+          'Depending on your jurisdiction, you may request access, correction, or deletion of personal data.',
+        ],
+      },
+      {
+        h: '7. Contact',
+        p: ['For privacy requests: prdiktitadmin@prdiktit.com'],
+      },
+    ],
+  },
+  es: {
+    title: 'Politica de privacidad',
+    back: 'Volver al panel',
+    sections: [
+      {
+        h: '1. Introduccion',
+        p: [
+          'Esta Politica de privacidad explica como Prdiktit recopila, usa y protege tu informacion.',
+          'Al usar el servicio, aceptas las practicas descritas en esta politica.',
+        ],
+      },
+      {
+        h: '2. Datos que recopilamos',
+        p: [
+          'Datos de cuenta (correo, usuario, metadatos de autenticacion).',
+          'Datos de juego (predicciones, puntos, grupos, rankings).',
+          'Datos operativos (identificadores de sesion, logs, registros antiabuso).',
+          'Metadatos de pago/cumplimiento (compras de monedas, estado de verificacion para pagos).',
+        ],
+      },
+      {
+        h: '3. Como usamos los datos',
+        p: [
+          'Para operar cuentas, predicciones, clasificaciones y billetera.',
+          'Para aplicar requisitos legales y de politica, incluida elegibilidad por edad (18+) y controles antifraude.',
+          'Para operar pagos de premios que requieren verificacion de identidad antes de la aprobacion.',
+        ],
+      },
+      {
+        h: '4. Comparticion de datos',
+        p: [
+          'No vendemos datos personales.',
+          'Podemos compartir datos necesarios con proveedores de infraestructura/pagos/verificacion y cuando la ley lo exija.',
+        ],
+      },
+      {
+        h: '5. Retencion y seguridad',
+        p: [
+          'Conservamos datos segun sea necesario para el servicio, cumplimiento legal, antifraude y resolucion de disputas.',
+          'Aplicamos medidas tecnicas y organizativas razonables.',
+        ],
+      },
+      {
+        h: '6. Tus derechos',
+        p: ['Segun tu jurisdiccion, puedes solicitar acceso, correccion o eliminacion de tus datos personales.'],
+      },
+      {
+        h: '7. Contacto',
+        p: ['Para solicitudes de privacidad: prdiktitadmin@prdiktit.com'],
+      },
+    ],
+  },
+  fr: {
+    title: 'Politique de confidentialite',
+    back: 'Retour au tableau de bord',
+    sections: [
+      {
+        h: '1. Introduction',
+        p: [
+          'Cette Politique de confidentialite explique comment Prdiktit collecte, utilise et protege vos informations.',
+          "En utilisant le service, vous acceptez les pratiques decrites dans cette politique.",
+        ],
+      },
+      {
+        h: '2. Donnees collectees',
+        p: [
+          'Donnees de compte (e-mail, nom utilisateur, metadonnees d\'authentification).',
+          'Donnees de jeu (pronostics, points, groupes, classements).',
+          'Donnees operationnelles (identifiants de session, journaux, traces anti-abus).',
+          'Metadonnees paiement/conformite (achats de pieces, statut de verification des paiements).',
+        ],
+      },
+      {
+        h: '3. Utilisation des donnees',
+        p: [
+          'Pour faire fonctionner les comptes, pronostics, classements et portefeuille.',
+          'Pour appliquer les exigences legales et de politique, y compris l\'eligibilite d\'age (18+) et les controles anti-fraude.',
+          'Pour les paiements de recompense exigeant une verification d\'identite avant approbation.',
+        ],
+      },
+      {
+        h: '4. Partage des donnees',
+        p: [
+          'Nous ne vendons pas de donnees personnelles.',
+          'Nous pouvons partager les donnees necessaires avec des prestataires d\'infrastructure/paiement/verification et lorsque la loi l\'exige.',
+        ],
+      },
+      {
+        h: '5. Conservation et securite',
+        p: [
+          'Nous conservons les donnees selon les besoins du service, de la conformite legale, de l\'anti-fraude et de la resolution des litiges.',
+          'Nous appliquons des mesures techniques et organisationnelles raisonnables.',
+        ],
+      },
+      {
+        h: '6. Vos droits',
+        p: [
+          'Selon votre juridiction, vous pouvez demander l\'acces, la correction ou la suppression de vos donnees personnelles.',
+        ],
+      },
+      {
+        h: '7. Contact',
+        p: ['Pour les demandes de confidentialite: prdiktitadmin@prdiktit.com'],
+      },
+    ],
+  },
+  pt: {
+    title: 'Politica de privacidade',
+    back: 'Voltar ao painel',
+    sections: [
+      {
+        h: '1. Introducao',
+        p: [
+          'Esta Politica de privacidade explica como o Prdiktit coleta, usa e protege suas informacoes.',
+          'Ao usar o servico, voce concorda com as praticas descritas nesta politica.',
+        ],
+      },
+      {
+        h: '2. Dados que coletamos',
+        p: [
+          'Dados de conta (e-mail, usuario, metadados de autenticacao).',
+          'Dados de jogo (previsoes, pontos, grupos, rankings).',
+          'Dados operacionais (identificadores de sessao, logs, registros antiabuso).',
+          'Metadados de pagamento/conformidade (eventos de compra de moedas, status de verificacao para pagamentos).',
+        ],
+      },
+      {
+        h: '3. Como usamos os dados',
+        p: [
+          'Para operar contas, previsoes, classificacoes e carteira.',
+          'Para aplicar exigencias legais e de politica, incluindo elegibilidade por idade (18+) e controles antifraude.',
+          'Para suportar pagamentos de premios com verificacao de identidade antes da aprovacao.',
+        ],
+      },
+      {
+        h: '4. Compartilhamento de dados',
+        p: [
+          'Nao vendemos dados pessoais.',
+          'Podemos compartilhar dados necessarios com provedores de infraestrutura/pagamento/verificacao e quando exigido por lei.',
+        ],
+      },
+      {
+        h: '5. Retencao e seguranca',
+        p: [
+          'Retemos dados conforme necessario para entrega do servico, conformidade legal, antifraude e resolucao de disputas.',
+          'Aplicamos medidas tecnicas e organizacionais razoaveis de protecao.',
+        ],
+      },
+      {
+        h: '6. Seus direitos',
+        p: [
+          'Dependendo da sua jurisdicao, voce pode solicitar acesso, correcao ou exclusao de dados pessoais.',
+        ],
+      },
+      {
+        h: '7. Contato',
+        p: ['Para solicitacoes de privacidade: prdiktitadmin@prdiktit.com'],
+      },
+    ],
+  },
+};
 
 const PrivacyPage = () => {
+  const { locale } = useI18n();
+  const copy = PRIVACY_COPY[locale] || PRIVACY_COPY.en;
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Privacy Policy</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{copy.title}</h1>
           </div>
-          <a
-            href="/dashboard"
+          <Link
+            to="/dashboard"
             className="text-sm text-blue-600 hover:text-blue-800 font-medium"
           >
-            ← Back to Dashboard
-          </a>
+            ← {copy.back}
+          </Link>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8 text-sm text-gray-800">
-        <section>
-          <h2 className="text-lg font-semibold mb-2">1. Introduction</h2>
-          <p className="mb-2">
-            This Privacy Policy explains how Prdiktit (&ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;) collects,
-            uses, and protects your information when you use our website and services, including{' '}
-            <code>https://prdiktit.com</code> (the &ldquo;Service&rdquo;).
-          </p>
-          <p>
-            By using the Service, you agree to the collection and use of information in accordance with this Policy.
-          </p>
-          <p className="mt-2">
-            Prdiktit is operated from the United States. When you use the Service, your information is processed and
-            stored in the United States, primarily in Colorado and in the regions used by our hosting providers.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">2. Information We Collect</h2>
-
-          <h3 className="font-semibold mt-2 mb-1">2.1 Account Information</h3>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Email address and username when you register.</li>
-            <li>Password (stored as a hashed value, not in plain text) for non-OAuth accounts.</li>
-            <li>
-              For Google OAuth sign-in, we may receive your Google account ID, email address, and basic profile
-              information from Google. We do <strong>not</strong> receive your Google password.
-            </li>
-          </ul>
-
-          <h3 className="font-semibold mt-3 mb-1">2.2 Usage &amp; Gameplay Data</h3>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Predictions you submit (fixture IDs, predicted scores, timestamps, season, week, points earned).</li>
-            <li>Group membership and roles (groups you create or join, admin/member status).</li>
-            <li>Leaderboards, user stats, and other aggregations derived from your predictions.</li>
-          </ul>
-
-          <h3 className="font-semibold mt-3 mb-1">2.3 Technical &amp; Log Data</h3>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>
-              Session information stored in your browser&rsquo;s <code>sessionStorage</code> (a session ID) and sent to
-              the backend via the <code>X-Session-ID</code> header to keep you logged in.
-            </li>
-            <li>
-              Server logs that may include IP address, request URLs, timestamps, error messages, and basic environment
-              information. These logs are used for debugging, security, and performance monitoring.
-            </li>
-            <li>
-              Information related to rate limiting and abuse detection (e.g., IP-based request counts, paths accessed).
-            </li>
-          </ul>
-
-          <h3 className="font-semibold mt-3 mb-1">2.4 Third-Party Data</h3>
-          <p className="mb-2">
-            We obtain match fixtures, teams, and scores from third-party football data providers. This data is about
-            matches and teams, not about individual users, but your predictions and points are calculated using this
-            information.
-          </p>
-
-          <h3 className="font-semibold mt-3 mb-1">2.5 Payments, Verification, and Compliance Data</h3>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>
-              Payment transaction metadata related to coin purchases processed by third-party payment providers (such as
-              processor transaction IDs, payment status, timestamp, and purchased bundle identifiers).
-            </li>
-            <li>
-              Limited payout and compliance data required to process prizes (for example, payout account details and
-              verification status).
-            </li>
-            <li>
-              Identity verification details required for payout eligibility checks, including government ID verification
-              status and related audit records.
-            </li>
-            <li>
-              Terms acceptance records, including the accepted terms version and acceptance timestamp.
-            </li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">3. How We Use Your Information</h2>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>To create and manage your account and authentication sessions.</li>
-            <li>To process and display your predictions, scores, and group leaderboards.</li>
-            <li>To process coin purchases and maintain wallet/transaction records.</li>
-            <li>To verify age, eligibility, identity, and compliance for prize payout operations.</li>
-            <li>To enforce our Terms, anti-fraud controls, and fair-play policies.</li>
-            <li>To provide and improve the Service, including debugging issues and monitoring performance.</li>
-            <li>To detect, prevent, and address security or abuse incidents.</li>
-            <li>To communicate with you about your account, service updates, or important notices.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">4. Legal Bases (where applicable)</h2>
-          <p className="mb-2">
-            Where data protection laws (such as GDPR) apply, we rely on the following legal bases:
-          </p>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Performance of a contract: to provide the Service and maintain your account.</li>
-            <li>Legitimate interests: to secure, operate, and improve the Service.</li>
-            <li>Consent: where we rely on your consent, such as for certain optional communications or cookies.</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">5. How We Share Your Information</h2>
-          <p className="mb-2">
-            We do not sell your personal data, including as &ldquo;sell&rdquo; is defined under US state privacy laws
-            such as the Colorado Privacy Act.
-          </p>
-          <p className="mb-2">We may share your information with:</p>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>
-              Hosting and infrastructure providers (e.g., Railway for application hosting, Postgres, Redis) that store
-              and process data on our behalf.
-            </li>
-            <li>
-              Service providers that help us operate the Service (e.g., logging, monitoring, error tracking, email).
-            </li>
-            <li>
-              Payment and payout providers (for example, Stripe for purchases and PayPal for payouts), only as needed to
-              process transactions, payouts, and related compliance checks.
-            </li>
-            <li>
-              Identity verification and fraud-prevention providers, where required to validate eligibility and secure
-              payout operations.
-            </li>
-            <li>
-              Third parties when required by law, regulation, or legal process, or to protect our rights or the safety
-              of users.
-            </li>
-          </ul>
-          <p className="mt-2">
-            We may display your username, predictions, and points in public or group leaderboards and stats as part of
-            the core functionality of Prdiktit.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">6. Data Retention</h2>
-          <p className="mb-2">
-            We retain your personal data for as long as necessary to provide the Service and for legitimate business
-            purposes, such as maintaining leaderboards and historical stats, complying with legal obligations, and
-            resolving disputes.
-          </p>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>
-              Session records typically expire after a limited period (for example, 7 days) in line with our session
-              management logic.
-            </li>
-            <li>
-              Payment, transaction, and payout records may be retained for accounting, tax, fraud prevention, and legal
-              compliance purposes.
-            </li>
-            <li>
-              Terms acceptance and identity verification records may be retained as needed to demonstrate compliance,
-              resolve disputes, and enforce eligibility requirements.
-            </li>
-            <li>
-              Logs may be retained for a reasonable period for security and debugging, then deleted or anonymized.
-            </li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">7. Cookies &amp; Local Storage</h2>
-          <p className="mb-2">
-            Prdiktit primarily uses browser <code>sessionStorage</code> to store a session ID, which is required to
-            keep you logged in and to authenticate API requests via the <code>X-Session-ID</code> header.
-          </p>
-          <p className="mb-2">
-            We may also rely on essential cookies set by our hosting provider or infrastructure (for example, for load
-            balancing or security). These are used only to provide and protect the Service.
-          </p>
-          <p>
-            You can clear your browser storage or use private browsing modes, but doing so may log you out or affect
-            the functionality of the Service.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">8. Data Security</h2>
-          <p className="mb-2">
-            We use reasonable technical and organizational measures to protect your information, such as:
-          </p>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Storing passwords using hashing algorithms rather than plain text.</li>
-            <li>Using randomized session IDs for authentication.</li>
-            <li>Restricting database access to authorized infrastructure.</li>
-          </ul>
-          <p className="mt-2">
-            However, no method of transmission or storage is 100% secure. We cannot guarantee absolute security, but we
-            work to protect your data and respond to issues promptly.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">9. Your Rights &amp; Choices</h2>
-          <p className="mb-2">Depending on your location, you may have rights including:</p>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Accessing the personal data we hold about you.</li>
-            <li>Requesting correction of inaccurate or incomplete data.</li>
-            <li>Requesting deletion of your account and personal data.</li>
-            <li>Objecting to or restricting certain types of processing.</li>
-          </ul>
-          <p className="mt-2">
-            To exercise these rights, please contact us at the email address below. We may need to verify your identity
-            before fulfilling your request.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">10. International Transfers</h2>
-          <p>
-            Depending on your location and where our infrastructure is hosted, your information may be processed in
-            countries that may not have the same level of data protection as your home jurisdiction. We take steps to
-            ensure that appropriate safeguards are in place when required by law.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">11. Changes to This Policy</h2>
-          <p className="mb-2">
-            We may update this Privacy Policy from time to time. When we do, we will update the &ldquo;Last
-            updated&rdquo; date at the top of this page. For material changes, we may provide additional notice (such
-            as a banner in the app or email notification).
-          </p>
-          <p>
-            Your continued use of the Service after changes become effective constitutes your acceptance of the updated
-            Policy.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">12. Contact Us</h2>
-          <p>
-            If you have questions or requests regarding this Privacy Policy or our data practices, you can contact us
-            at:
-            <br />
-            <span className="font-mono">prdiktitadmin@prdiktit.com</span>
-          </p>
-        </section>
+        {copy.sections.map((section) => (
+          <section key={section.h}>
+            <h2 className="text-lg font-semibold mb-2">{section.h}</h2>
+            {section.p.map((line) => (
+              <p key={line} className="mb-2">
+                {line}
+              </p>
+            ))}
+          </section>
+        ))}
       </main>
     </div>
   );

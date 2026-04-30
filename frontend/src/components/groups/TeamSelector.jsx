@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { useI18n } from '../../i18n';
 
 // Optimized team card component with improved image handling
 const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadStates, handleImageLoad }) => (
@@ -54,6 +55,7 @@ const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadState
 TeamCard.displayName = 'TeamCard';
 
 const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) => {
+  const { t } = useI18n();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -126,12 +128,12 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
       } else {
         process.env.NODE_ENV === 'development' && console.error("Invalid teams data format:", response.data);
         setTeams([]);
-        setError("No teams available. Please try again later.");
+        setError(t('teamSelector.noTeamsAvailableShort'));
       }
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error loading teams:', err);
-      setError('Failed to load teams. Please try refreshing the page.');
-      showError('Failed to load teams. Please try refreshing the page.');
+      setError(t('teamSelector.loadFailed'));
+      showError(t('teamSelector.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -166,7 +168,7 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
           onClick={loadTeams}
           className="ml-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
-          Try Again
+          {t('common.tryAgain')}
         </button>
       </div>
     );
@@ -175,7 +177,7 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
   if (!Array.isArray(teams) || teams.length === 0) {
     return (
       <div className="text-gray-500 py-4">
-        No teams available for this league. Please try selecting a different league.
+        {t('teamSelector.noTeamsForLeague')}
       </div>
     );
   }
@@ -187,7 +189,7 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
         <div className="flex-1 max-w-md">
           <input
             type="text"
-            placeholder="Search teams..."
+            placeholder={t('teamSelector.searchTeams')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -199,14 +201,14 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
             onClick={handleSelectAll}
             className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
           >
-            {teams.every(team => selectedTeams.includes(team.id)) ? 'Deselect All' : 'Select All'}
+            {teams.every(team => selectedTeams.includes(team.id)) ? t('teamSelector.deselectAll') : t('teamSelector.selectAll')}
           </button>
           {selectedTeams.length > 0 && (
             <button
               onClick={handleClearSelection}
               className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
             >
-              Clear ({selectedTeams.length})
+              {t('teamSelector.clear')} ({selectedTeams.length})
             </button>
           )}
         </div>
@@ -231,8 +233,8 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
       {selectedTeams.length > 0 && (
         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
           <p className="text-sm text-blue-700">
-            {selectedTeams.length} team{selectedTeams.length !== 1 ? 's' : ''} selected
-            {searchTerm && ` (filtered from ${teams.length} total teams)`}
+            {selectedTeams.length} {selectedTeams.length !== 1 ? t('teamSelector.teams') : t('teamSelector.team')} {t('teamSelector.selected')}
+            {searchTerm && ` (${t('teamSelector.filteredFrom')} ${teams.length} ${t('teamSelector.totalTeams')})`}
           </p>
         </div>
       )}

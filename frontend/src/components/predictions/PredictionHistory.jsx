@@ -4,8 +4,10 @@ import { usePredictions, useUser } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import SeasonManager from '../../utils/seasonManager';
+import { useI18n } from '../../i18n';
 
 const PredictionHistory = () => {
+  const { t } = useI18n();
   const { userPredictions, fetchUserPredictions, loading, error } = usePredictions();
   const { profile } = useUser();
   const [availableSeasons, setAvailableSeasons] = useState([]);
@@ -94,28 +96,28 @@ const PredictionHistory = () => {
     <div className="max-w-6xl mx-auto p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Prediction History</h1>
-        <p className="text-gray-600 dark:text-gray-400">View all your predictions and their results</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('history.title')}</h1>
+        <p className="text-gray-600 dark:text-gray-400">{t('history.subtitle')}</p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Points</div>
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.totalPoints')}</div>
           <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalPoints}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Predictions</div>
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.totalPredictions')}</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{totalPredictions}</div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Perfect Scores</div>
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('stats.perfectScores')}</div>
           <div className="text-2xl font-bold text-green-600 dark:text-green-400">
             {filteredPredictions.filter(p => p.points === 3).length}
           </div>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">Average Points</div>
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.averagePoints')}</div>
           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
             {totalPredictions > 0 ? (totalPoints / totalPredictions).toFixed(1) : '0.0'}
           </div>
@@ -125,16 +127,16 @@ const PredictionHistory = () => {
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Filters</h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('history.filters')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Season</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('global.season')}</label>
               <select
                 value={selectedSeason}
                 onChange={(e) => setSelectedSeason(e.target.value)}
                 className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded px-3 py-2"
               >
-                <option value="">All Seasons</option>
+                <option value="">{t('history.allSeasons')}</option>
                 {availableSeasons.map((season) => (
                   <option key={season.value} value={season.value}>
                     {season.label}
@@ -143,30 +145,30 @@ const PredictionHistory = () => {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Week</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('rivalries.week')}</label>
               <select
                 value={filters.week}
                 onChange={(e) => setFilters({...filters, week: e.target.value})}
                 className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md px-3 py-2"
               >
-                <option value="">All Weeks</option>
+                <option value="">{t('history.allWeeks')}</option>
                 {Array.from({ length: 38 }, (_, i) => i + 1).map(week => (
-                  <option key={week} value={week}>Week {week}</option>
+                  <option key={week} value={week}>{t('rivalries.week')} {week}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('groupDetails.status')}</label>
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({...filters, status: e.target.value})}
                 className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md px-3 py-2"
               >
-                <option value="">All Statuses</option>
-                <option value="EDITABLE">Editable</option>
-                <option value="SUBMITTED">Submitted</option>
-                <option value="LOCKED">Locked</option>
-                <option value="PROCESSED">Processed</option>
+                <option value="">{t('history.allStatuses')}</option>
+                <option value="EDITABLE">{t('recentPredictions.statusEditable')}</option>
+                <option value="SUBMITTED">{t('recentPredictions.statusSubmitted')}</option>
+                <option value="LOCKED">{t('recentPredictions.statusLocked')}</option>
+                <option value="PROCESSED">{t('history.statusProcessed')}</option>
               </select>
             </div>
           </div>
@@ -180,22 +182,22 @@ const PredictionHistory = () => {
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Match
+                  {t('history.match')}
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Your Prediction
+                  {t('mobile.yourPrediction')}
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actual Result
+                  {t('mobile.actualResult')}
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Points
+                  {t('groupDetails.points')}
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
+                  {t('groupDetails.status')}
                 </th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Date
+                  {t('history.date')}
                 </th>
               </tr>
             </thead>
@@ -214,13 +216,13 @@ const PredictionHistory = () => {
                             />
                           )}
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {prediction.fixture?.home_team || 'Home Team'}
+                            {prediction.fixture?.home_team || t('history.homeTeam')}
                           </span>
                         </div>
-                        <span className="text-gray-500 dark:text-gray-400">vs</span>
+                        <span className="text-gray-500 dark:text-gray-400">{t('matches.vs')}</span>
                         <div className="flex items-center space-x-2">
                           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {prediction.fixture?.away_team || 'Away Team'}
+                            {prediction.fixture?.away_team || t('history.awayTeam')}
                           </span>
                           {prediction.fixture?.away_team_logo && (
                             <img 
@@ -232,7 +234,7 @@ const PredictionHistory = () => {
                         </div>
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {prediction.fixture?.league || 'Unknown League'}
+                        {prediction.fixture?.league || t('history.unknownLeague')}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -246,13 +248,13 @@ const PredictionHistory = () => {
                           {prediction.fixture.home_score} - {prediction.fixture.away_score}
                         </span>
                       ) : (
-                        <span className="text-gray-400 dark:text-gray-500 text-sm">Not played</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-sm">{t('history.notPlayed')}</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       {prediction.points !== null ? (
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${getPointsBadge(prediction.points)}`}>
-                          {prediction.points} pts
+                          {prediction.points} {t('profile.pts')}
                         </span>
                       ) : (
                         <span className="text-gray-400 dark:text-gray-500 text-sm">-</span>
@@ -266,7 +268,7 @@ const PredictionHistory = () => {
                     <td className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                       {prediction.fixture?.date ? 
                         new Date(prediction.fixture.date).toLocaleDateString() : 
-                        'TBD'
+                        t('history.tbd')
                       }
                     </td>
                   </tr>
@@ -274,7 +276,7 @@ const PredictionHistory = () => {
               ) : (
                 <tr>
                   <td colSpan="6" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                    No predictions found with the current filters.
+                    {t('history.noneForFilters')}
                   </td>
                 </tr>
               )}

@@ -116,7 +116,7 @@ const GroupDetailsPage = () => {
     });
     
     if (location.state?.newGroup && location.state?.groupName) {
-      showSuccess(`League "${location.state.groupName}" created successfully!`);
+      showSuccess(`${t('groupDetails.createdSuccessPrefix')} "${location.state.groupName}" ${t('groupDetails.createdSuccessSuffix')}`);
     }
   }, [location.state, showSuccess]);
 
@@ -161,7 +161,7 @@ const GroupDetailsPage = () => {
           await fetchLeaderboard(details.id, { season });
         } catch (err) {
           process.env.NODE_ENV === 'development' && console.error('❌ Leaderboard load:', err);
-          showError('Failed to load leaderboard');
+          showError(t('groupDetails.loadLeaderboardFailed'));
         } finally {
           setSeasonLoading(false);
         }
@@ -169,7 +169,7 @@ const GroupDetailsPage = () => {
     } catch (error) {
       process.env.NODE_ENV === 'development' && console.error('❌ Error loading group data:', error);
       if (currentGroup) {
-        showError('Failed to load group data');
+        showError(t('groupManagement.failedLoadData'));
       }
     }
   };
@@ -182,7 +182,7 @@ const GroupDetailsPage = () => {
       await fetchLeaderboard(currentGroup.id, { season: selectedSeason });
     } catch (error) {
       process.env.NODE_ENV === 'development' && console.error('❌ Error loading leaderboard:', error);
-      showError('Failed to load leaderboard');
+      showError(t('groupDetails.loadLeaderboardFailed'));
     }
   }, [numericGroupId, selectedSeason, currentGroup, fetchLeaderboard, showError]);
 
@@ -211,7 +211,7 @@ const GroupDetailsPage = () => {
   }
 
   if (!currentGroup) {
-    return <ErrorMessage message="Group not found" />;
+    return <ErrorMessage message={t('groupManagement.groupNotFound')} />;
   }
 
   return (
@@ -229,8 +229,8 @@ const GroupDetailsPage = () => {
               </span>
               <span>{groupMembers.length} {t('groups.members')}</span>
               {currentGroup.invite_code && (
-                <HelpTooltip content="Share this invite code with friends to let them join your league">
-                  <span>Code: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs cursor-help text-gray-900 dark:text-gray-100">{currentGroup.invite_code}</code></span>
+                <HelpTooltip content={t('groupDetails.shareInviteHelp')}>
+                  <span>{t('groupDetails.code')}: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs cursor-help text-gray-900 dark:text-gray-100">{currentGroup.invite_code}</code></span>
                 </HelpTooltip>
               )}
             </div>
@@ -545,33 +545,33 @@ const GroupDetailsPage = () => {
         totalSteps={5}
         steps={[
           {
-            title: "League Overview",
-            content: "This is your league's main page. Here you can view standings, manage members, and access league features.",
-            action: "Next",
+            title: t('groupDetails.guideTitle1'),
+            content: t('groupDetails.guideContent1'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Standings Tab",
-            content: "View the current leaderboard and see how all members are performing. Use filters to view specific seasons and weeks.",
-            action: "Next",
+            title: t('groupDetails.guideTitle2'),
+            content: t('groupDetails.guideContent2'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Members Tab",
-            content: "See all league members, their roles, and when they joined. Admins can manage member permissions here.",
-            action: "Next",
+            title: t('groupDetails.guideTitle3'),
+            content: t('groupDetails.guideContent3'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "League Features",
-            content: "Access predictions page to see all member predictions, rivalry statistics, and league management tools.",
-            action: "Next",
+            title: t('groupDetails.guideTitle4'),
+            content: t('groupDetails.guideContent4'),
+            action: t('common.next'),
             highlight: null
           },
           {
-                    title: "Season Filter",
-        content: "Use the season selector to view standings for specific time periods. Different leagues have different season formats.",
-            action: "Got it!",
+            title: t('groupDetails.guideTitle5'),
+            content: t('groupDetails.guideContent5'),
+            action: t('common.gotIt'),
             highlight: null
           }
         ]}

@@ -5,8 +5,10 @@ import { Link } from 'react-router-dom';
 // Components
 import GroupForm from '../components/groups/GroupForm';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
+import { useI18n } from '../i18n';
 
 const CreateGroupPage = () => {
+  const { t } = useI18n();
   // Guide state
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
@@ -14,15 +16,15 @@ const CreateGroupPage = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Create New League</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('createGroup.title')}</h1>
         <div className="flex items-center gap-4">
           <Link
             to="/groups"
             className="text-blue-600 hover:text-blue-800"
           >
-            ← Back to Leagues
+            ← {t('createGroup.backToLeagues')}
           </Link>
-          <HelpTooltip content="Start the guided tour to learn about creating leagues">
+          <HelpTooltip content={t('createGroup.guideHelp')}>
             <button
               onClick={() => setShowGuide(true)}
               className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
@@ -46,27 +48,27 @@ const CreateGroupPage = () => {
         totalSteps={4}
         steps={[
           {
-            title: "Create Your League",
-            content: "Create a private league where you can compete with friends and family in football predictions.",
-            action: "Next",
+            title: t('createGroup.guideTitle1'),
+            content: t('createGroup.guideContent1'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Choose League Name",
-            content: "Give your league a unique name that reflects your group. This will be visible to all members.",
-            action: "Next",
+            title: t('createGroup.guideTitle2'),
+            content: t('createGroup.guideContent2'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Select League Type",
-            content: "Choose which football league to follow. Different leagues have different seasons and match schedules.",
-            action: "Next",
+            title: t('createGroup.guideTitle3'),
+            content: t('createGroup.guideContent3'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Invite Friends",
-            content: "Once created, you&apos;ll get an invite code to share with friends. They can join using this code!",
-            action: "Got it!",
+            title: t('createGroup.guideTitle4'),
+            content: t('createGroup.guideContent4'),
+            action: t('common.gotIt'),
             highlight: null
           }
         ]}

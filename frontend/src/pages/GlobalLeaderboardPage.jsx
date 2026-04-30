@@ -21,7 +21,7 @@ const GlobalLeaderboardPage = () => {
       setStatus(statusRes?.data || statusRes?.data?.data || null);
       setRows(leaderboardRes?.data || leaderboardRes?.data?.data || []);
     } catch (e) {
-      setError(e?.message || 'Failed to load global leaderboard');
+      setError(e?.message || t('global.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -41,7 +41,7 @@ const GlobalLeaderboardPage = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-700 dark:text-gray-200">Season</label>
+          <label className="text-sm text-gray-700 dark:text-gray-200">{t('global.season')}</label>
           <input
             value={season}
             onChange={(e) => setSeason(e.target.value)}
@@ -52,8 +52,8 @@ const GlobalLeaderboardPage = () => {
 
       {status && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-sm text-gray-700 dark:text-gray-200">
-          Canonical lock: <span className="font-medium">{status.is_canonical_locked ? 'Locked' : 'Open'}</span>
-          {status.canonical_lock_at_utc ? ` | Scheduled lock: ${status.canonical_lock_at_utc}` : ''}
+          {t('global.canonicalLock')}: <span className="font-medium">{status.is_canonical_locked ? t('global.locked') : t('global.open')}</span>
+          {status.canonical_lock_at_utc ? ` | ${t('global.scheduledLock')}: ${status.canonical_lock_at_utc}` : ''}
         </div>
       )}
 
@@ -65,7 +65,7 @@ const GlobalLeaderboardPage = () => {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         {loading ? (
-          <div className="p-4 text-sm text-gray-500 dark:text-gray-300">Loading leaderboard...</div>
+          <div className="p-4 text-sm text-gray-500 dark:text-gray-300">{t('global.loading')}</div>
         ) : rows.length === 0 ? (
           <div className="p-4 text-sm text-gray-500 dark:text-gray-300">
             {t('global.noEntries')}
@@ -74,11 +74,11 @@ const GlobalLeaderboardPage = () => {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900/40">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Rank</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">User</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Points</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Rivalry Wins</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Canonical Group</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">{t('groupDetails.rank')}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">{t('global.user')}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">{t('groupDetails.points')}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">{t('global.rivalryWins')}</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">{t('global.canonicalGroup')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">

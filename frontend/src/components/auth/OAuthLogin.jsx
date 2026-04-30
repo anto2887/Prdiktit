@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { FcGoogle } from 'react-icons/fc';
+import { useI18n } from '../../i18n';
 
 const OAuthLogin = ({ onSuccess, onError, disabled = false, disabledReason = '' }) => {
+  const { t } = useI18n();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleGoogleLogin = async () => {
@@ -60,15 +62,15 @@ const OAuthLogin = ({ onSuccess, onError, disabled = false, disabledReason = '' 
       console.error('🔐 OAuth Flow: Complete error details:', error);
       console.error('🔐 OAuth Flow: Error stack:', error.stack);
       
-      let errorMessage = 'Failed to initiate OAuth login';
+      let errorMessage = t('auth.oauthInitFailed');
       if (error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error: Unable to reach the OAuth service';
+        errorMessage = t('auth.oauthNetworkError');
       } else if (error.message.includes('Unexpected token')) {
-        errorMessage = 'Server error: OAuth service returned invalid response';
+        errorMessage = t('auth.oauthInvalidResponse');
       } else if (error.message.includes('JSON')) {
-        errorMessage = 'Server error: Invalid response format';
+        errorMessage = t('auth.oauthInvalidFormat');
       } else {
-        errorMessage = `OAuth error: ${error.message}`;
+        errorMessage = `${t('auth.oauthErrorPrefix')}: ${error.message}`;
       }
       
       onError?.(errorMessage);
@@ -84,7 +86,7 @@ const OAuthLogin = ({ onSuccess, onError, disabled = false, disabledReason = '' 
         className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         <FcGoogle className="w-5 h-5" />
-        {isLoading ? 'Connecting...' : 'Continue with Google'}
+        {isLoading ? t('auth.connecting') : t('auth.continueWithGoogle')}
       </button>
 
       {!isLoading && disabled && disabledReason && (
@@ -93,7 +95,7 @@ const OAuthLogin = ({ onSuccess, onError, disabled = false, disabledReason = '' 
       
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">
-          New users will be able to choose their username after Google authentication
+          {t('auth.newUsersChooseUsername')}
         </p>
       </div>
     </div>

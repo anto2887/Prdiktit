@@ -5,8 +5,10 @@ import { Link } from 'react-router-dom';
 // Components
 import JoinGroup from '../components/groups/JoinGroup';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
+import { useI18n } from '../i18n';
 
 const JoinGroupPage = () => {
+  const { t } = useI18n();
   // Guide state
   const [showGuide, setShowGuide] = useState(false);
   const [guideStep, setGuideStep] = useState(0);
@@ -14,15 +16,15 @@ const JoinGroupPage = () => {
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Join a League</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('joinGroup.pageTitle')}</h1>
         <div className="flex items-center gap-4">
           <Link
             to="/groups"
             className="text-blue-600 hover:text-blue-800"
           >
-            ← Back to Leagues
+            ← {t('createGroup.backToLeagues')}
           </Link>
-          <HelpTooltip content="Start the guided tour to learn about joining leagues">
+          <HelpTooltip content={t('joinGroup.guideHelp')}>
             <button
               onClick={() => setShowGuide(true)}
               className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
@@ -46,21 +48,21 @@ const JoinGroupPage = () => {
         totalSteps={3}
         steps={[
           {
-            title: "Join a League",
-            content: "Join an existing league using an invite code provided by the league admin.",
-            action: "Next",
+            title: t('joinGroup.guideTitle1'),
+            content: t('joinGroup.guideContent1'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Enter Invite Code",
-            content: "Enter the 8-character invite code exactly as provided. The code is case-insensitive.",
-            action: "Next",
+            title: t('joinGroup.guideTitle2'),
+            content: t('joinGroup.guideContent2'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Start Competing",
-            content: "Once joined, you&apos;ll be able to make predictions and compete with other league members!",
-            action: "Got it!",
+            title: t('joinGroup.guideTitle3'),
+            content: t('joinGroup.guideContent3'),
+            action: t('common.gotIt'),
             highlight: null
           }
         ]}

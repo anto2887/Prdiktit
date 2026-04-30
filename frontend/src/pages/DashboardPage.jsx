@@ -285,7 +285,7 @@ const DashboardPage = React.memo(() => {
   if (errors.length > 0) {
     return (
       <ErrorMessage 
-        title="Could not load dashboard" 
+        title={t('dashboard.loadErrorTitle')} 
         message={errors[0]}
         onRetry={handleRetry}
       />
@@ -295,8 +295,8 @@ const DashboardPage = React.memo(() => {
   return (
     <div className="container mx-auto px-4 py-8 pb-20 md:pb-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <HelpTooltip content="Start the guided tour to learn about your dashboard">
+        <h1 className="text-2xl font-bold">{t('nav.dashboard')}</h1>
+        <HelpTooltip content={t('dashboard.tooltipGuide')}>
           <button
             onClick={() => setShowGuide(true)}
             className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
@@ -385,7 +385,7 @@ const DashboardPage = React.memo(() => {
       <section className="mb-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">{t('dashboard.yourStats')}</h2>
-          <HelpTooltip content="View your overall prediction performance and statistics">
+          <HelpTooltip content={t('dashboard.tooltipStats')}>
             <span className="text-gray-400">ℹ️</span>
           </HelpTooltip>
         </div>
@@ -395,7 +395,7 @@ const DashboardPage = React.memo(() => {
       {/* Live matches section */}
       {liveMatches && liveMatches.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-xl font-semibold mb-4">Live Matches</h2>
+          <h2 className="text-xl font-semibold mb-4">{t('dashboard.liveMatches')}</h2>
           <LiveMatches matches={liveMatches} />
         </section>
       )}
@@ -405,8 +405,8 @@ const DashboardPage = React.memo(() => {
         {/* Mobile: collapsible */}
         <details className="md:hidden bg-white rounded-lg border border-gray-200">
           <summary className="flex items-center justify-between px-4 py-3 cursor-pointer">
-            <h2 className="text-lg font-semibold">Upcoming Matches</h2>
-            <span className="text-sm text-gray-500">Tap to expand</span>
+            <h2 className="text-lg font-semibold">{t('predictions.upcomingMatches')}</h2>
+            <span className="text-sm text-gray-500">{t('common.tapToExpand')}</span>
           </summary>
           <div className="border-t border-gray-200">
             <UpcomingMatches matches={fixtures} />
@@ -415,7 +415,7 @@ const DashboardPage = React.memo(() => {
 
         {/* Desktop: always visible */}
         <div className="hidden md:block">
-          <h2 className="text-xl font-semibold mb-4">Upcoming Matches</h2>
+          <h2 className="text-xl font-semibold mb-4">{t('predictions.upcomingMatches')}</h2>
           <UpcomingMatches matches={fixtures} />
         </div>
       </section>
@@ -424,7 +424,7 @@ const DashboardPage = React.memo(() => {
       <section className="mb-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">{t('recentPredictions.title')}</h2>
-          <HelpTooltip content="Your latest predictions and their results">
+          <HelpTooltip content={t('dashboard.tooltipRecentPredictions')}>
             <span className="text-gray-400">ℹ️</span>
           </HelpTooltip>
         </div>
@@ -442,7 +442,7 @@ const DashboardPage = React.memo(() => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">{t('groups.yourGroups')}</h2>
             <div className="flex gap-2">
-              <HelpTooltip content="Join an existing league using an invite code">
+              <HelpTooltip content={t('groups.tooltipJoinLeague')}>
                 <Link
                   to="/groups/join"
                   className="px-4 py-2 border border-blue-600 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50"
@@ -450,7 +450,7 @@ const DashboardPage = React.memo(() => {
                   {t('groups.joinLeague')}
                 </Link>
               </HelpTooltip>
-              <HelpTooltip content="Create a new league and invite friends to compete">
+              <HelpTooltip content={t('groups.tooltipCreateLeague')}>
                 <Link
                   to="/groups/create"
                   className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
@@ -495,24 +495,22 @@ const DashboardPage = React.memo(() => {
         <section className="mb-8">
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="text-center py-12">
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                You&apos;re not in any leagues yet
-              </h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">{t('groups.emptyStateTitle')}</h3>
               <p className="text-gray-500 mb-6">
-                Join a league to start making predictions and competing with friends
+                {t('dashboard.emptyLeaguesSubtitle')}
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <Link
                   to="/groups/join"
                   className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 hover:bg-blue-700"
                 >
-                  Join League
+                  {t('groups.joinLeague')}
                 </Link>
                 <Link
                   to="/groups/create"
                   className="inline-flex items-center px-6 py-3 border border-blue-600 rounded-md shadow-sm text-base font-medium text-blue-600 bg-white hover:bg-blue-50"
                 >
-                  Create League
+                  {t('groups.createLeague')}
                 </Link>
               </div>
             </div>
@@ -529,33 +527,33 @@ const DashboardPage = React.memo(() => {
         totalSteps={5}
         steps={[
           {
-            title: "Welcome to Your Dashboard!",
-            content: "This is your central hub for all football prediction activities. Let&apos;s explore what you can do here.",
-            action: "Next",
+            title: t('dashboard.guideWelcomeTitle'),
+            content: t('dashboard.guideWelcomeContent'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Your Stats",
-            content: "View your overall performance including total points, prediction accuracy, and ranking across all your leagues.",
-            action: "Next",
+            title: t('dashboard.guideStatsTitle'),
+            content: t('dashboard.guideStatsContent'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Recent Predictions",
-            content: "See your latest predictions and their results. Track how well you&apos;re performing in recent matches.",
-            action: "Next",
+            title: t('dashboard.guideRecentTitle'),
+            content: t('dashboard.guideRecentContent'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Your Groups",
-            content: "Manage your leagues here. Join existing leagues or create new ones to compete with friends.",
-            action: "Next",
+            title: t('dashboard.guideLeaguesTitle'),
+            content: t('dashboard.guideLeaguesContent'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Navigation",
-            content: "Use the navigation menu to access predictions, analytics, and other features. Everything is just a click away!",
-            action: "Got it!",
+            title: t('dashboard.guideNavigationTitle'),
+            content: t('dashboard.guideNavigationContent'),
+            action: t('common.gotIt'),
             highlight: null
           }
         ]}

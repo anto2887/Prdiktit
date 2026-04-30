@@ -2,10 +2,12 @@ import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useNotifications } from '../../contexts';
 import OAuthLogin from './OAuthLogin';
+import { useI18n } from '../../i18n';
 
 export const POST_LOGIN_REDIRECT_KEY = 'prdiktit_post_login_redirect';
 
 export const Login = () => {
+  const { t } = useI18n();
   const { showSuccess, showError } = useNotifications();
   const location = useLocation();
 
@@ -31,7 +33,7 @@ export const Login = () => {
           className="mx-auto h-12 w-auto"
         />
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-          Sign in to PrdiktIt
+          {t('auth.signInToPrdiktit')}
         </h2>
       </div>
 
@@ -40,7 +42,7 @@ export const Login = () => {
           <div className="space-y-6">
             <div className="text-center">
               <p className="text-gray-600 dark:text-gray-400">
-                Sign in to your PrdiktIt account using Google OAuth2
+                {t('auth.signInWithGoogleBody')}
               </p>
             </div>
 
@@ -48,35 +50,35 @@ export const Login = () => {
                           <OAuthLogin 
               onSuccess={() => {
                 // Full OAuth round-trip finishes on OAuthCallbackPage
-                showSuccess('Successfully logged in with Google');
+                showSuccess(t('auth.loginSuccessGoogle'));
               }}
                 onError={(error) => {
-                  showError(error || 'OAuth login failed');
+                  showError(error || t('auth.oauthLoginFailed'));
                 }}
               />
             </div>
 
             <div className="text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                New to PrdiktIt?{' '}
+                {t('auth.newToPrdiktit')}{' '}
                 <Link 
                   to="/register" 
                   className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
                 >
-                  Create your account
+                  {t('auth.createAccount')}
                 </Link>
               </p>
               
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">For Existing Users</h3>
+                <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">{t('auth.existingUsers')}</h3>
                 <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-                  If you have an existing username/password account, please contact support to migrate to OAuth2.
+                  {t('auth.existingUsersBody')}
                 </p>
                 <Link
                   to="/reset-password"
                   className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300 underline"
                 >
-                  Forgot your password?
+                  {t('auth.forgotPassword')}
                 </Link>
               </div>
             </div>

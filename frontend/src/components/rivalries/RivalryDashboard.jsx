@@ -62,8 +62,8 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null })
 
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error loading rivalries:', err);
-      setError('Failed to load rivalry data');
-      showError('Failed to load rivalries');
+      setError(t('rivalry.loadFailed'));
+      showError(t('rivalry.loadFailed'));
       // Ensure rivalries is always an array even on error
       setRivalries([]);
     } finally {
@@ -146,24 +146,25 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null })
               <span className="text-3xl">🎯</span>
               <div>
                 <div className="flex items-center space-x-2">
-                  <h3 className="text-lg font-semibold text-purple-900">Comeback Challenge Active</h3>
+                  <h3 className="text-lg font-semibold text-purple-900">{t('rivalry.comebackChallengeActive')}</h3>
+                  
                   <span
                     className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold cursor-help"
-                    title="Comeback Challenge is used only when the group has an odd number of members. The middle-position user in standings is selected as the comeback user and must beat the benchmark target. Even-sized groups use only standard rivalries."
+                    title={t('rivalry.comebackHelp')}
                     aria-label="Comeback challenge explanation"
                   >
                     ?
                   </span>
                 </div>
                 <p className="text-sm text-purple-700">
-                  Special challenge for users in the middle of the standings
+                  {t('rivalry.comebackActiveDesc')}
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm text-purple-600">Challenge Status</div>
+              <div className="text-sm text-purple-600">{t('rivalry.challengeStatus')}</div>
               <div className="text-lg font-bold text-purple-800">
-                {comebackChallengeData.rivalries.filter(r => r.is_comeback_challenge).length} Active
+                {comebackChallengeData.rivalries.filter(r => r.is_comeback_challenge).length} {t('rivalry.active')}
               </div>
             </div>
           </div>
@@ -174,21 +175,21 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null })
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <div className="text-center">
-                    <div className="text-sm text-purple-600">Comeback User</div>
+                    <div className="text-sm text-purple-600">{t('rivalry.comebackUser')}</div>
                     <div className="font-medium text-purple-900">{rivalry.user1.username}</div>
                   </div>
                   <div className="text-2xl text-purple-500">🥊</div>
                   <div className="text-center">
-                    <div className="text-sm text-purple-600">Challenger</div>
+                    <div className="text-sm text-purple-600">{t('rivalry.challenger')}</div>
                     <div className="font-medium text-purple-900">{rivalry.user2.username}</div>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-purple-600">Target Score</div>
+                  <div className="text-sm text-purple-600">{t('rivalry.targetScore')}</div>
                   <div className="text-lg font-bold text-purple-800">
-                    {rivalry.comeback_challenge_benchmark || 'N/A'}
+                    {rivalry.comeback_challenge_benchmark || t('rivalry.na')}
                   </div>
-                  <div className="text-xs text-purple-500">Average of 2 users above</div>
+                  <div className="text-xs text-purple-500">{t('rivalry.avgOfTwoAbove')}</div>
                 </div>
               </div>
             </div>
@@ -308,15 +309,16 @@ const RivalryActivationMessage = ({ currentWeek, activationWeek }) => {
 
 // Current rivalries tab
 const CurrentRivalriesTab = ({ rivalries, currentWeek, isRivalryWeek, userId }) => {
+  const { t } = useI18n();
   if (rivalries.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
           <span className="text-2xl">🤝</span>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Rivalries</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">{t('rivalry.noActiveTitle')}</h3>
         <p className="text-gray-500">
-          Rivalries will be assigned based on group performance. Check back during rivalry weeks!
+          {t('rivalry.noActiveBody')}
         </p>
       </div>
     );
@@ -334,7 +336,7 @@ const CurrentRivalriesTab = ({ rivalries, currentWeek, isRivalryWeek, userId }) 
       {/* User's rivalries */}
       {userRivalries.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Your Rivalries</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('rivalry.yourRivalries')}</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {userRivalries.map((rivalry) => (
               <RivalryCard 
@@ -355,7 +357,7 @@ const CurrentRivalriesTab = ({ rivalries, currentWeek, isRivalryWeek, userId }) 
         <section>
           <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
             <span className="mr-2">👑</span>
-            Champion Challenges
+            {t('rivalry.championChallenges')}
           </h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {championChallenges.map((rivalry) => (
@@ -373,7 +375,7 @@ const CurrentRivalriesTab = ({ rivalries, currentWeek, isRivalryWeek, userId }) 
       {/* Standard rivalries */}
       {standardRivalries.length > 0 && (
         <section>
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">All Group Rivalries</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('rivalry.allGroupRivalries')}</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {standardRivalries.map((rivalry) => (
               <RivalryCard 
@@ -394,15 +396,16 @@ const CurrentRivalriesTab = ({ rivalries, currentWeek, isRivalryWeek, userId }) 
 
 // History tab
 const HistoryTab = ({ rivalries, userId }) => {
+  const { t } = useI18n();
   if (rivalries.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
           <span className="text-2xl">📚</span>
         </div>
-        <h3 className="text-lg font-medium text-gray-900 mb-2">No Rivalry History</h3>
+        <h3 className="text-lg font-medium text-gray-900 mb-2">{t('rivalry.noHistoryTitle')}</h3>
         <p className="text-gray-500">
-          Past rivalries and outcomes will appear here after rivalry weeks conclude.
+          {t('rivalry.noHistoryBody')}
         </p>
       </div>
     );
@@ -423,7 +426,7 @@ const HistoryTab = ({ rivalries, userId }) => {
         .map(([week, weekRivalries]) => (
           <div key={week} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Week {week} Rivalries
+              {t('rivalries.week')} {week} {t('rivalry.rivalriesLabel')}
             </h3>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -444,6 +447,7 @@ const HistoryTab = ({ rivalries, userId }) => {
 
 // Individual rivalry card
 const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }) => {
+  const { t } = useI18n();
   const isUserInvolved = rivalry.user1_id === userId || rivalry.user2_id === userId;
   const userPosition = rivalry.user1_id === userId ? 'user1' : 'user2';
   const opponentPosition = userPosition === 'user1' ? 'user2' : 'user1';
@@ -461,24 +465,25 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
           <span className="text-2xl">🥊</span>
           {!rivalry.is_comeback_challenge && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              Standard Rivalry
+              {t('rivalry.standardRivalry')}
+              
             </span>
           )}
           {rivalry.is_comeback_challenge && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-              🎯 Comeback Challenge
+              🎯 {t('rivalry.comebackChallenge')}
             </span>
           )}
           {rivalry.is_champion_challenge && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-              👑 Champion Challenge
+              👑 {t('rivalry.championChallenge')}
             </span>
           )}
         </div>
         
         {isRivalryWeek && (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            🔥 Active
+            🔥 {t('rivalry.active')}
           </span>
         )}
       </div>
@@ -492,12 +497,12 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
             {rivalry.user1_name}
           </div>
           <div className="text-sm text-gray-500">
-            {rivalry.user1_rank ? `#${rivalry.user1_rank}` : 'Rank N/A'}
+            {rivalry.user1_rank ? `#${rivalry.user1_rank}` : t('rivalry.rankNA')}
           </div>
         </div>
         
         <div className="mx-4">
-          <span className="text-gray-400 font-bold">VS</span>
+          <span className="text-gray-400 font-bold">{t('matches.vs').toUpperCase()}</span>
         </div>
         
         <div className="text-center flex-1">
@@ -507,7 +512,7 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
             {rivalry.user2_name}
           </div>
           <div className="text-sm text-gray-500">
-            {rivalry.user2_rank ? `#${rivalry.user2_rank}` : 'Rank N/A'}
+            {rivalry.user2_rank ? `#${rivalry.user2_rank}` : t('rivalry.rankNA')}
           </div>
         </div>
       </div>
@@ -515,7 +520,7 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
       {/* Current week scores (if rivalry week) */}
       {isRivalryWeek && rivalry.current_week_scores && (
         <div className="mb-4 p-3 bg-white rounded-lg border">
-          <div className="text-sm font-medium text-gray-700 mb-2">This Week&apos;s Performance</div>
+          <div className="text-sm font-medium text-gray-700 mb-2">{t('rivalry.thisWeekPerformance')}</div>
           <div className="flex justify-between text-sm">
             <span>{rivalry.user1_name}: {rivalry.current_week_scores.user1_points} pts</span>
             <span>{rivalry.user2_name}: {rivalry.current_week_scores.user2_points} pts</span>
@@ -526,15 +531,15 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
       {/* Comeback challenge benchmark details */}
       {rivalry.is_comeback_challenge && (
         <div className="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
-          <div className="text-sm font-medium text-purple-800 mb-2">Comeback Target</div>
+          <div className="text-sm font-medium text-purple-800 mb-2">{t('rivalry.comebackTarget')}</div>
           <div className="text-sm text-purple-700">
-            Benchmark: <span className="font-semibold">{rivalry.comeback_challenge_benchmark ?? 'N/A'}</span>
+            {t('rivalry.benchmark')}: <span className="font-semibold">{rivalry.comeback_challenge_benchmark ?? t('rivalry.na')}</span>
           </div>
           <div className="text-sm text-purple-700">
-            Achieved: <span className="font-semibold">{rivalry.current_week_scores?.user1_points ?? rivalry.final_scores?.user1_points ?? 0}</span>
+            {t('rivalry.achieved')}: <span className="font-semibold">{rivalry.current_week_scores?.user1_points ?? rivalry.final_scores?.user1_points ?? 0}</span>
           </div>
           <div className="text-xs mt-2 text-purple-700">
-            Status: {rivalry.comeback_challenge_status === 'completed' ? 'Bonus earned' : rivalry.comeback_challenge_status === 'failed' ? 'Target missed (no bonus)' : 'Pending'}
+            {t('groupDetails.status')}: {rivalry.comeback_challenge_status === 'completed' ? t('rivalry.bonusEarned') : rivalry.comeback_challenge_status === 'failed' ? t('rivalry.targetMissed') : t('recentPredictions.statusPending')}
           </div>
         </div>
       )}
@@ -542,7 +547,7 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
       {/* Rivalry record */}
       {rivalry.record && (
         <div className="text-center">
-          <div className="text-sm text-gray-600">Head-to-Head Record</div>
+          <div className="text-sm text-gray-600">{t('rivalry.headToHead')}</div>
           <div className="font-medium">
             {isUserInvolved ? (
               <span>
@@ -563,7 +568,9 @@ const RivalryCard = ({ rivalry, currentWeek, isRivalryWeek, isUserCard, userId }
 };
 
 // Champion challenge card (special layout)
-const ChampionChallengeCard = ({ rivalry, currentWeek, isRivalryWeek }) => (
+const ChampionChallengeCard = ({ rivalry, currentWeek, isRivalryWeek }) => {
+  const { t } = useI18n();
+  return (
   <div className={`rounded-lg border-2 p-6 ${
     isRivalryWeek 
       ? 'border-yellow-300 bg-yellow-50' 
@@ -573,12 +580,12 @@ const ChampionChallengeCard = ({ rivalry, currentWeek, isRivalryWeek }) => (
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center space-x-2">
         <span className="text-2xl">👑</span>
-        <span className="font-bold text-yellow-800">Champion Challenge</span>
+        <span className="font-bold text-yellow-800">{t('rivalry.championChallenge')}</span>
       </div>
       
       {isRivalryWeek && (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-          🔥 Active
+          🔥 {t('rivalry.active')}
         </span>
       )}
     </div>
@@ -593,11 +600,11 @@ const ChampionChallengeCard = ({ rivalry, currentWeek, isRivalryWeek }) => (
           <span>👑</span>
         </div>
         <div className="text-sm text-yellow-700">
-          {rivalry.champion_rank ? `Rank #${rivalry.champion_rank}` : 'Champion'}
+          {rivalry.champion_rank ? `${t('groupDetails.rank')} #${rivalry.champion_rank}` : t('rivalry.champion')}
         </div>
       </div>
       
-      <div className="text-center text-gray-500 font-medium">VS</div>
+      <div className="text-center text-gray-500 font-medium">{t('matches.vs').toUpperCase()}</div>
       
       {/* Challengers */}
       <div className="space-y-2">
@@ -605,7 +612,7 @@ const ChampionChallengeCard = ({ rivalry, currentWeek, isRivalryWeek }) => (
           <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
             <span className="font-medium">{challenger.name}</span>
             <span className="text-sm text-gray-500">
-              {challenger.rank ? `#${challenger.rank}` : 'Challenger'}
+              {challenger.rank ? `#${challenger.rank}` : t('rivalry.challenger')}
             </span>
           </div>
         ))}
@@ -614,18 +621,20 @@ const ChampionChallengeCard = ({ rivalry, currentWeek, isRivalryWeek }) => (
 
     {/* Champion challenge rules */}
     <div className="mt-4 p-3 bg-white rounded border text-sm">
-      <div className="font-medium text-gray-900 mb-1">Challenge Rules:</div>
+      <div className="font-medium text-gray-900 mb-1">{t('rivalry.challengeRules')}</div>
       <ul className="text-gray-600 text-xs space-y-1">
-        <li>• Champion must beat ALL challengers to win</li>
-        <li>• Challengers only need to beat the champion</li>
-        <li>• +3 bonus points for winners</li>
+        <li>• {t('rivalry.ruleChampionAll')}</li>
+        <li>• {t('rivalry.ruleChallengerChampion')}</li>
+        <li>• {t('rivalry.ruleBonusWinners')}</li>
       </ul>
     </div>
   </div>
-);
+  );
+};
 
 // Historical rivalry card
 const HistoricalRivalryCard = ({ rivalry, userId }) => {
+  const { t } = useI18n();
   const isUserInvolved = rivalry.user1_id === userId || rivalry.user2_id === userId;
   const userWon = rivalry.winner_id === userId;
   
@@ -656,10 +665,10 @@ const HistoricalRivalryCard = ({ rivalry, userId }) => {
       {/* Final scores */}
       <div className="flex justify-between text-sm mb-2">
         <span className={rivalry.winner_id === rivalry.user1_id ? 'font-bold text-green-600' : ''}>
-          {rivalry.user1_name}: {rivalry.final_scores?.user1_points || 0} pts
+          {rivalry.user1_name}: {rivalry.final_scores?.user1_points || 0} {t('profile.pts')}
         </span>
         <span className={rivalry.winner_id === rivalry.user2_id ? 'font-bold text-green-600' : ''}>
-          {rivalry.user2_name}: {rivalry.final_scores?.user2_points || 0} pts
+          {rivalry.user2_name}: {rivalry.final_scores?.user2_points || 0} {t('profile.pts')}
         </span>
       </div>
       
@@ -671,7 +680,7 @@ const HistoricalRivalryCard = ({ rivalry, userId }) => {
               ? userWon ? 'text-green-600' : 'text-red-600'
               : 'text-gray-600'
           }`}>
-            {rivalry.winner_name} won
+            {rivalry.winner_name} {t('rivalry.won')}
             {isUserInvolved && (
               <span className="ml-1">
                 {userWon ? '🎉' : '😔'}
@@ -679,13 +688,13 @@ const HistoricalRivalryCard = ({ rivalry, userId }) => {
             )}
           </div>
         ) : (
-          <div className="text-sm text-gray-500">Tie</div>
+          <div className="text-sm text-gray-500">{t('rivalry.tie')}</div>
         )}
       </div>
 
       {rivalry.is_comeback_challenge && (
         <div className="mt-2 text-xs text-purple-700 text-center">
-          Benchmark: {rivalry.comeback_challenge_benchmark ?? 'N/A'} | Status: {rivalry.comeback_challenge_status === 'completed' ? 'Bonus earned' : rivalry.comeback_challenge_status === 'failed' ? 'Target missed' : 'Pending'}
+          {t('rivalry.benchmark')}: {rivalry.comeback_challenge_benchmark ?? t('rivalry.na')} | {t('groupDetails.status')}: {rivalry.comeback_challenge_status === 'completed' ? t('rivalry.bonusEarned') : rivalry.comeback_challenge_status === 'failed' ? t('rivalry.targetMissedShort') : t('recentPredictions.statusPending')}
         </div>
       )}
     </div>
@@ -697,6 +706,7 @@ export default RivalryDashboard;
 // ===== COMPACT RIVALRY WIDGET =====
 
 export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
+  const { t } = useI18n();
   const [rivalries, setRivalries] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -746,10 +756,11 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
       <div className="flex items-center justify-between mb-3">
         <h4 className="font-medium text-gray-900 flex items-center">
           <span className="mr-2">🥊</span>
-          Your Rivalries
+          {t('rivalry.yourRivalries')}
+          
           {isRivalryWeek && (
             <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-              Active!
+              {t('mobile.activeWeek')}
             </span>
           )}
         </h4>
@@ -764,7 +775,7 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
       {userRivalries.length > 2 && (
         <div className="mt-3 text-center">
           <span className="text-xs text-gray-500">
-            +{userRivalries.length - 2} more rivalries
+            +{userRivalries.length - 2} {t('mobile.moreRivalries')}
           </span>
         </div>
       )}
@@ -773,6 +784,7 @@ export const CompactRivalryWidget = ({ groupId, currentWeek, userId }) => {
 };
 
 const CompactRivalryItem = ({ rivalry, userId }) => {
+  const { t } = useI18n();
   const isUser1 = rivalry.user1_id === userId;
   const opponentName = isUser1 ? rivalry.user2_name : rivalry.user1_name;
   const userWins = isUser1 ? rivalry.record?.user1_wins : rivalry.record?.user2_wins;
@@ -782,7 +794,7 @@ const CompactRivalryItem = ({ rivalry, userId }) => {
     <div className="flex items-center justify-between p-2 bg-white rounded border">
       <div className="flex items-center space-x-2">
         <span className="text-sm">🥊</span>
-        <span className="font-medium text-sm">vs {opponentName}</span>
+        <span className="font-medium text-sm">{t('matches.vs')} {opponentName}</span>
         {rivalry.is_champion_challenge && (
           <span className="text-xs">👑</span>
         )}
@@ -793,7 +805,7 @@ const CompactRivalryItem = ({ rivalry, userId }) => {
           {userWins || 0}-{opponentWins || 0}
         </div>
         <div className="text-xs text-gray-500">
-          {rivalry.record?.ties > 0 && `${rivalry.record.ties} ties`}
+          {rivalry.record?.ties > 0 && `${rivalry.record.ties} ${t('rivalry.ties')}`}
         </div>
       </div>
     </div>
@@ -803,6 +815,7 @@ const CompactRivalryItem = ({ rivalry, userId }) => {
 // ===== RIVALRY WEEK BANNER =====
 
 export const RivalryWeekBanner = ({ isRivalryWeek, currentWeek }) => {
+  const { t } = useI18n();
   if (!isRivalryWeek) return null;
 
   return (
@@ -811,16 +824,16 @@ export const RivalryWeekBanner = ({ isRivalryWeek, currentWeek }) => {
         <div className="flex items-center space-x-3">
           <span className="text-3xl">🔥</span>
           <div>
-            <h3 className="font-bold text-lg">RIVALRY WEEK {currentWeek}!</h3>
+            <h3 className="font-bold text-lg">{t('rivalry.weekBannerTitle')} {currentWeek}!</h3>
             <p className="text-red-100 text-sm">
-              Beat your rivals to earn +3 bonus points
+              {t('rivalry.weekBannerBody')}
             </p>
           </div>
         </div>
         
         <div className="text-right">
           <div className="text-2xl font-bold">+3</div>
-          <div className="text-xs text-red-100">bonus pts</div>
+          <div className="text-xs text-red-100">{t('rivalry.bonusPts')}</div>
         </div>
       </div>
     </div>
@@ -830,6 +843,7 @@ export const RivalryWeekBanner = ({ isRivalryWeek, currentWeek }) => {
 // ===== MOBILE RIVALRY CARD =====
 
 export const MobileRivalryCard = ({ rivalry, currentWeek, isRivalryWeek, userId }) => {
+  const { t } = useI18n();
   const isUserInvolved = rivalry.user1_id === userId || rivalry.user2_id === userId;
   const userPosition = rivalry.user1_id === userId ? 'user1' : 'user2';
   const opponentName = userPosition === 'user1' ? rivalry.user2_name : rivalry.user1_name;
@@ -852,7 +866,7 @@ export const MobileRivalryCard = ({ rivalry, currentWeek, isRivalryWeek, userId 
         
         {isRivalryWeek && (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-            Active
+            {t('rivalry.active')}
           </span>
         )}
       </div>
@@ -860,12 +874,12 @@ export const MobileRivalryCard = ({ rivalry, currentWeek, isRivalryWeek, userId 
       {/* Matchup - simplified for mobile */}
       <div className="text-center mb-3">
         <div className="font-medium text-gray-900">
-          {isUserInvolved ? `You vs ${opponentName}` : `${rivalry.user1_name} vs ${rivalry.user2_name}`}
+          {isUserInvolved ? `${t('common.you')} ${t('matches.vs')} ${opponentName}` : `${rivalry.user1_name} ${t('matches.vs')} ${rivalry.user2_name}`}
         </div>
         
         {rivalry.record && (
           <div className="text-sm text-gray-600 mt-1">
-            Record: {rivalry.record.user1_wins}-{rivalry.record.user2_wins}
+            {t('mobile.record')}: {rivalry.record.user1_wins}-{rivalry.record.user2_wins}
             {rivalry.record.ties > 0 && `-${rivalry.record.ties}`}
           </div>
         )}
@@ -875,8 +889,8 @@ export const MobileRivalryCard = ({ rivalry, currentWeek, isRivalryWeek, userId 
       {isRivalryWeek && rivalry.current_week_scores && (
         <div className="bg-white rounded p-2 text-sm">
           <div className="flex justify-between">
-            <span>You: {rivalry.current_week_scores[`${userPosition}_points`] || 0} pts</span>
-            <span>{opponentName}: {rivalry.current_week_scores[`${userPosition === 'user1' ? 'user2' : 'user1'}_points`] || 0} pts</span>
+            <span>{t('common.you')}: {rivalry.current_week_scores[`${userPosition}_points`] || 0} {t('profile.pts')}</span>
+            <span>{opponentName}: {rivalry.current_week_scores[`${userPosition === 'user1' ? 'user2' : 'user1'}_points`] || 0} {t('profile.pts')}</span>
           </div>
         </div>
       )}

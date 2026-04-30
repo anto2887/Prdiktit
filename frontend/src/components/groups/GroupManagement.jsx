@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useGroups, useUser, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import { useI18n } from '../../i18n';
 
 const GroupManagement = () => {
+  const { t } = useI18n();
   const { groupId } = useParams();
   const navigate = useNavigate();
   const { showSuccess, showError } = useNotifications();
@@ -51,7 +53,7 @@ const GroupManagement = () => {
       // Fetch group details first
       const groupDetails = await fetchGroupDetails(groupId);
       if (!groupDetails) {
-        showError('Failed to load group details');
+        showError(t('groupManagement.failedLoadGroupDetails'));
         return;
       }
       
@@ -69,7 +71,7 @@ const GroupManagement = () => {
         process.env.NODE_ENV === 'development' && console.log('User role in group:', userRole);
         
         if (userRole !== 'ADMIN') {
-          showError('You are not authorized to manage this group');
+          showError(t('groupManagement.notAuthorized'));
           navigate(`/groups/${groupId}`);
           return;
         }
@@ -105,7 +107,7 @@ const GroupManagement = () => {
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('GroupManagement: Error loading group data:', err);
       if (mountedRef.current) {
-        showError('Failed to load group data');
+        showError(t('groupManagement.failedLoadData'));
       }
     } finally {
       if (mountedRef.current) {
@@ -145,7 +147,7 @@ const GroupManagement = () => {
       await loadGroupData();
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('Error reloading group data:', err);
-      showError('Failed to reload group data');
+      showError(t('groupManagement.failedReloadData'));
     } finally {
       setLocalLoading(false);
       loadingRef.current = false;
@@ -161,14 +163,14 @@ const GroupManagement = () => {
       const success = await manageMember(groupId, userId, action);
       
       if (success) {
-        showSuccess(`Successfully ${action.toLowerCase()}ed member`);
+        showSuccess(t('groupManagement.memberActionSuccess'));
         await reloadGroupData();
       } else {
-        showError(`Failed to ${action.toLowerCase()} member`);
+        showError(t('groupManagement.memberActionFailed'));
       }
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('GroupManagement: Error managing member:', err);
-      showError(`Failed to ${action.toLowerCase()} member`);
+      showError(t('groupManagement.memberActionFailed'));
     } finally {
       if (mountedRef.current) {
         setLocalLoading(false);
@@ -186,7 +188,7 @@ const GroupManagement = () => {
       const response = await regenerateInviteCode(groupId);
       
       if (response && response.status === 'success') {
-        showSuccess('Successfully regenerated invite code');
+        showSuccess(t('groupManagement.regeneratedSuccess'));
         setShowRegenerateConfirm(false);
         
         if (response.data && response.data.new_code) {
@@ -196,11 +198,11 @@ const GroupManagement = () => {
           }));
         }
       } else {
-        throw new Error(response?.message || 'Failed to regenerate invite code');
+        throw new Error(response?.message || t('groupManagement.regeneratedFailed'));
       }
     } catch (err) {
       process.env.NODE_ENV === 'development' && console.error('GroupManagement: Error regenerating code:', err);
-      showError('Failed to regenerate invite code');
+      showError(t('groupManagement.regeneratedFailed'));
     } finally {
       if (mountedRef.current) {
         setLocalLoading(false);
@@ -209,12 +211,12 @@ const GroupManagement = () => {
   };
 
   if (!profile) {
-    return <ErrorMessage message="Profile not loaded. Please refresh the page." />;
+    return <ErrorMessage message={t('groupManagement.profileNotLoaded')} />;
   }
 
   if (loading || localLoading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
-  if (!currentGroup) return <ErrorMessage message="Group not found" />;
+  if (!currentGroup) return <ErrorMessage message={t('groupManagement.groupNotFound')} />;
   
   return (
     <div className="container mx-auto px-4 py-8">
@@ -229,14 +231,14 @@ const GroupManagement = () => {
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Created: {new Date(currentGroup.created_at).toLocaleDateString()}
+              {t('groupManagement.created')}: {new Date(currentGroup.created_at).toLocaleDateString()}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Members: {members.length}
+              {t('groups.members')}: {members.length}
             </p>
             {pendingRequests.length > 0 && (
               <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
-                Pending: {pendingRequests.length}
+                {t('groupManagement.pending')}: {pendingRequests.length}
               </p>
             )}
           </div>
@@ -246,7 +248,7 @@ const GroupManagement = () => {
         <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="font-semibold text-gray-700 dark:text-gray-300">Invite Code</h3>
+              <h3 className="font-semibold text-gray-700 dark:text-gray-300">{t('groupManagement.inviteCode')}</h3>
               <p className="text-xl font-mono mt-1 text-gray-900 dark:text-gray-100">{currentGroup.invite_code}</p>
             </div>
             <button
@@ -254,7 +256,7 @@ const GroupManagement = () => {
               disabled={localLoading}
               className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50"
             >
-              Regenerate Code
+              {t('groupManagement.regenerateCode')}
             </button>
           </div>
         </div>
@@ -264,7 +266,7 @@ const GroupManagement = () => {
       {pendingRequests.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            Pending Requests ({pendingRequests.length})
+            {t('groupManagement.pendingRequests')} ({pendingRequests.length})
           </h2>
           <div className="space-y-4">
             {pendingRequests.map(request => (
@@ -273,9 +275,9 @@ const GroupManagement = () => {
                 <div>
                   <p className="font-medium text-gray-900 dark:text-gray-100">{request.username}</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Requested: {request.requested_at ? 
+                    {t('groupManagement.requested')}: {request.requested_at ? 
                       new Date(request.requested_at).toLocaleDateString() : 
-                      'Unknown'}
+                      t('history.tbd')}
                   </p>
                 </div>
                 <div className="space-x-2">
@@ -284,14 +286,14 @@ const GroupManagement = () => {
                     disabled={localLoading}
                     className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50"
                   >
-                    Approve
+                    {t('groupManagement.approve')}
                   </button>
                   <button
                     onClick={() => handleMemberAction(request.user_id, 'REJECT')}
                     disabled={localLoading}
                     className="px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded hover:bg-red-700 dark:hover:bg-red-600 disabled:opacity-50"
                   >
-                    Reject
+                    {t('groupManagement.reject')}
                   </button>
                 </div>
               </div>
@@ -303,7 +305,7 @@ const GroupManagement = () => {
       {/* Members List Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-          Members ({members.length})
+          {t('groups.members')} ({members.length})
         </h2>
         <div className="space-y-4">
           {members.map(member => (
@@ -312,12 +314,12 @@ const GroupManagement = () => {
               <div>
                 <p className="font-medium text-gray-900 dark:text-gray-100">{member.username}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Role: {member.role || 'MEMBER'}
+                  {t('groupDetails.role')}: {member.role || 'MEMBER'}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Joined: {member.joined_at ? 
+                  {t('groupDetails.joined')}: {member.joined_at ? 
                     new Date(member.joined_at).toLocaleDateString() : 
-                    'Unknown'}
+                    t('history.tbd')}
                 </p>
               </div>
               {member.role !== 'ADMIN' && member.user_id !== currentGroup.admin_id && (
@@ -327,7 +329,7 @@ const GroupManagement = () => {
                     disabled={localLoading}
                     className="px-4 py-2 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded hover:bg-red-200 dark:hover:bg-red-900/40 disabled:opacity-50"
                   >
-                    Remove
+                    {t('groupManagement.remove')}
                   </button>
                 </div>
               )}
@@ -340,23 +342,23 @@ const GroupManagement = () => {
       {showRegenerateConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Regenerate Invite Code?</h3>
+            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">{t('groupManagement.regenerateConfirmTitle')}</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              This will invalidate the current invite code. Users will need the new code to join the group.
+              {t('groupManagement.regenerateConfirmBody')}
             </p>
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setShowRegenerateConfirm(false)}
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleRegenerateCode}
                 disabled={localLoading}
                 className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50"
               >
-                Regenerate
+                {t('groupManagement.regenerate')}
               </button>
             </div>
           </div>
@@ -367,16 +369,16 @@ const GroupManagement = () => {
       {showRemoveConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-md w-full">
-            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">Remove Member?</h3>
+            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">{t('groupManagement.removeConfirmTitle')}</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Are you sure you want to remove this member from the group?
+              {t('groupManagement.removeConfirmBody')}
             </p>
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setShowRemoveConfirm(null)}
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => {
@@ -386,7 +388,7 @@ const GroupManagement = () => {
                 disabled={localLoading}
                 className="px-4 py-2 bg-red-600 dark:bg-red-500 text-white rounded hover:bg-red-700 dark:hover:bg-red-600 disabled:opacity-50"
               >
-                Remove
+                {t('groupManagement.remove')}
               </button>
             </div>
           </div>

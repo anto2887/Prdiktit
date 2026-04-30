@@ -1,228 +1,271 @@
 // frontend/src/pages/TermsPage.jsx
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useI18n } from '../i18n';
+
+const TERMS_COPY = {
+  en: {
+    title: 'Terms of Service',
+    back: 'Back to Dashboard',
+    sections: [
+      {
+        h: '1. Introduction',
+        p: [
+          'These Terms of Service govern your use of Prdiktit and related services.',
+          'By creating an account or using the service, you agree to these Terms.',
+        ],
+      },
+      {
+        h: '2. Eligibility',
+        p: ['You must be at least 18 years old to register, use the service, and be eligible for payouts.'],
+      },
+      {
+        h: '3. Service Nature',
+        p: [
+          'Prdiktit is a football prediction game experience.',
+          'It is not real-money betting or gambling.',
+        ],
+      },
+      {
+        h: '4. Coins, Purchases, and Refunds',
+        p: [
+          'Coins and power-ups are virtual items usable only inside Prdiktit.',
+          'All purchases are final. No refunds are provided for coins or consumed power-ups, including duplicate same-day usage.',
+        ],
+      },
+      {
+        h: '5. Payout Verification',
+        p: [
+          'Prize payouts are processed via PayPal.',
+          'Government-issued ID verification is required before payout approval.',
+        ],
+      },
+      {
+        h: '6. Fair Play and Enforcement',
+        p: [
+          'We may restrict or terminate accounts for fraud, abuse, botting, or manipulation of predictions/leaderboards.',
+        ],
+      },
+      {
+        h: '7. Liability and Availability',
+        p: [
+          'Service is provided "as is" and "as available".',
+          'We do not guarantee uninterrupted availability or error-free operation.',
+        ],
+      },
+      {
+        h: '8. Governing Law',
+        p: ['These Terms are governed by the laws of Colorado, USA.'],
+      },
+      {
+        h: '9. Contact',
+        p: ['For legal questions, contact: prdiktitadmin@prdiktit.com'],
+      },
+    ],
+  },
+  es: {
+    title: 'Terminos del servicio',
+    back: 'Volver al panel',
+    sections: [
+      {
+        h: '1. Introduccion',
+        p: [
+          'Estos Terminos del servicio regulan el uso de Prdiktit y servicios relacionados.',
+          'Al crear una cuenta o usar el servicio, aceptas estos Terminos.',
+        ],
+      },
+      {
+        h: '2. Elegibilidad',
+        p: ['Debes tener al menos 18 anos para registrarte, usar el servicio y ser elegible para pagos.'],
+      },
+      {
+        h: '3. Naturaleza del servicio',
+        p: [
+          'Prdiktit es una experiencia de predicciones de futbol.',
+          'No es apuestas ni juego con dinero real.',
+        ],
+      },
+      {
+        h: '4. Monedas, compras y reembolsos',
+        p: [
+          'Las monedas y potenciadores son articulos virtuales de uso exclusivo dentro de Prdiktit.',
+          'Todas las compras son finales. No hay reembolsos por monedas o potenciadores consumidos, incluido uso duplicado el mismo dia.',
+        ],
+      },
+      {
+        h: '5. Verificacion para pagos',
+        p: [
+          'Los pagos de premios se procesan mediante PayPal.',
+          'Se requiere verificacion de identidad con documento oficial antes de aprobar un pago.',
+        ],
+      },
+      {
+        h: '6. Juego limpio y medidas',
+        p: ['Podemos restringir o cerrar cuentas por fraude, abuso, bots o manipulacion de predicciones/clasificaciones.'],
+      },
+      {
+        h: '7. Responsabilidad y disponibilidad',
+        p: [
+          'El servicio se ofrece "tal cual" y "segun disponibilidad".',
+          'No garantizamos disponibilidad ininterrumpida ni funcionamiento sin errores.',
+        ],
+      },
+      {
+        h: '8. Ley aplicable',
+        p: ['Estos Terminos se rigen por las leyes de Colorado, EE. UU.'],
+      },
+      {
+        h: '9. Contacto',
+        p: ['Para consultas legales: prdiktitadmin@prdiktit.com'],
+      },
+    ],
+  },
+  fr: {
+    title: "Conditions d'utilisation",
+    back: 'Retour au tableau de bord',
+    sections: [
+      {
+        h: '1. Introduction',
+        p: [
+          "Ces Conditions d'utilisation regissent votre usage de Prdiktit et des services associes.",
+          'En creant un compte ou en utilisant le service, vous acceptez ces Conditions.',
+        ],
+      },
+      {
+        h: '2. Eligibilite',
+        p: ['Vous devez avoir au moins 18 ans pour creer un compte, utiliser le service et etre eligible aux paiements.'],
+      },
+      {
+        h: '3. Nature du service',
+        p: [
+          'Prdiktit est une experience de pronostics football.',
+          "Ce n'est pas un service de paris ou de jeux d'argent reel.",
+        ],
+      },
+      {
+        h: '4. Pieces, achats et remboursements',
+        p: [
+          "Les pieces et bonus sont des objets virtuels utilisables uniquement dans Prdiktit.",
+          "Tous les achats sont definitifs. Aucun remboursement n'est accorde pour les pieces ou bonus consommes, y compris en cas d'usage duplique le meme jour.",
+        ],
+      },
+      {
+        h: '5. Verification des paiements',
+        p: [
+          'Les paiements de recompense sont traites via PayPal.',
+          "Une verification d'identite avec piece officielle est requise avant validation du paiement.",
+        ],
+      },
+      {
+        h: '6. Jeu equitable et application',
+        p: ['Nous pouvons restreindre ou suspendre les comptes en cas de fraude, abus, bots ou manipulation des pronostics/classements.'],
+      },
+      {
+        h: '7. Responsabilite et disponibilite',
+        p: [
+          'Le service est fourni "en l\'etat" et "selon disponibilite".',
+          "Nous ne garantissons pas une disponibilite ininterrompue ou un fonctionnement sans erreur.",
+        ],
+      },
+      {
+        h: '8. Droit applicable',
+        p: ['Ces Conditions sont regies par les lois du Colorado (Etats-Unis).'],
+      },
+      {
+        h: '9. Contact',
+        p: ['Pour toute question legale: prdiktitadmin@prdiktit.com'],
+      },
+    ],
+  },
+  pt: {
+    title: 'Termos de servico',
+    back: 'Voltar ao painel',
+    sections: [
+      {
+        h: '1. Introducao',
+        p: [
+          'Estes Termos de servico regem o uso do Prdiktit e servicos relacionados.',
+          'Ao criar uma conta ou usar o servico, voce concorda com estes Termos.',
+        ],
+      },
+      {
+        h: '2. Elegibilidade',
+        p: ['Voce deve ter pelo menos 18 anos para se cadastrar, usar o servico e ser elegivel a pagamentos.'],
+      },
+      {
+        h: '3. Natureza do servico',
+        p: [
+          'Prdiktit e uma experiencia de previsoes de futebol.',
+          'Nao e aposta ou jogo com dinheiro real.',
+        ],
+      },
+      {
+        h: '4. Moedas, compras e reembolsos',
+        p: [
+          'Moedas e power-ups sao itens virtuais de uso exclusivo dentro do Prdiktit.',
+          'Todas as compras sao finais. Nao ha reembolso para moedas ou power-ups consumidos, inclusive uso duplicado no mesmo dia.',
+        ],
+      },
+      {
+        h: '5. Verificacao de pagamento',
+        p: [
+          'Pagamentos de premio sao processados via PayPal.',
+          'Verificacao de identidade com documento oficial e obrigatoria antes da aprovacao do pagamento.',
+        ],
+      },
+      {
+        h: '6. Jogo limpo e aplicacao',
+        p: ['Podemos restringir ou encerrar contas por fraude, abuso, bots ou manipulacao de previsoes/rankings.'],
+      },
+      {
+        h: '7. Responsabilidade e disponibilidade',
+        p: [
+          'O servico e fornecido "como esta" e "conforme disponibilidade".',
+          'Nao garantimos disponibilidade ininterrupta nem operacao sem erros.',
+        ],
+      },
+      {
+        h: '8. Lei aplicavel',
+        p: ['Estes Termos sao regidos pelas leis do Colorado, EUA.'],
+      },
+      {
+        h: '9. Contato',
+        p: ['Para duvidas legais: prdiktitadmin@prdiktit.com'],
+      },
+    ],
+  },
+};
 
 const TermsPage = () => {
+  const { locale } = useI18n();
+  const copy = TERMS_COPY[locale] || TERMS_COPY.en;
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 py-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Terms of Service</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{copy.title}</h1>
           </div>
           <Link
             to="/dashboard"
             className="text-sm text-blue-600 hover:text-blue-800 font-medium"
           >
-            ← Back to Dashboard
+            ← {copy.back}
           </Link>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-8 text-sm text-gray-800">
-        <section>
-          <h2 className="text-lg font-semibold mb-2">1. Introduction</h2>
-          <p className="mb-2">
-            Welcome to Prdiktit (&ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;). These Terms of Service
-            (&ldquo;Terms&rdquo;) govern your access to and use of the Prdiktit website and services (collectively,
-            the &ldquo;Service&rdquo;), including <code>https://prdiktit.com</code>.
-          </p>
-          <p>
-            By creating an account or using the Service, you agree to be bound by these Terms. If you do not agree, do
-            not use Prdiktit.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">2. Eligibility &amp; Accounts</h2>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>You must be at least 18 years old to create an account, use the Service, or be eligible for any prize payout.</li>
-            <li>
-              You are responsible for maintaining the confidentiality of your login credentials and for all activity
-              under your account.
-            </li>
-            <li>
-              You agree that the information you provide to us (such as email, username) is accurate and kept up to
-              date.
-            </li>
-            <li>
-              New users must read and accept these Terms before using protected areas of the Service. If you do not
-              accept these Terms, you may not use Prdiktit.
-            </li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">3. Nature of the Service (No Real-Money Gambling)</h2>
-          <p className="mb-2">
-            Prdiktit is a football match prediction game. Users can make predictions on match scores, earn points, and
-            compare results in groups and leaderboards.
-          </p>
-          <p>
-            Prdiktit does <strong>not</strong> involve real-money betting or gambling. No real-money wagers, payouts,
-            or prizes are provided through the Service. You are solely responsible for complying with any local laws
-            that may apply to your use of prediction or fantasy-style services.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">4. Acceptable Use</h2>
-          <p className="mb-2">You agree not to use the Service to:</p>
-          <ul className="list-disc ml-5 space-y-1">
-            <li>Harass, threaten, or abuse other users.</li>
-            <li>Post or use offensive, hateful, or illegal content (including usernames and group names).</li>
-            <li>Attempt to hack, disrupt, or overload the Service or its infrastructure.</li>
-            <li>Scrape data or reverse engineer the Service except as allowed by applicable law.</li>
-            <li>Manipulate scores, predictions, or leaderboards in bad faith (e.g., automated bots, exploits).</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">5. User Content &amp; Groups</h2>
-          <p className="mb-2">
-            You may create or join groups, set group names and descriptions, and submit predictions. You retain
-            ownership of your content, but you grant us a non-exclusive, worldwide, royalty-free license to use,
-            display, and distribute that content within the Service (for example in group pages, leaderboards, and user
-            stats).
-          </p>
-          <p>
-            We may remove or restrict content or groups at our discretion if we believe they violate these Terms or
-            applicable law.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">6. Third-Party Data &amp; Services</h2>
-          <p className="mb-2">
-            Prdiktit uses third-party football data providers (e.g., match fixtures, teams, scores) and hosting
-            providers (such as Railway for application hosting, databases, and caching).
-          </p>
-          <p>
-            Match information (including status, kickoff times, and scores) is provided &ldquo;as is&rdquo; from these
-            providers. We do not guarantee that such information is always accurate, complete, or up to date, and we
-            are not responsible for any errors or delays in third-party data.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">7. Coins, Purchases, and Refund Policy</h2>
-          <p className="mb-2">
-            Prdiktit may offer virtual coins and related in-app features (including power-ups). Coins and power-ups are
-            virtual items used only within the Service and do not represent cash, stored value, or any real-world
-            property right.
-          </p>
-          <p className="mb-2">
-            Coin purchases are processed through third-party payment processors (such as Stripe). You agree to comply
-            with the payment processor terms that apply to your transaction.
-          </p>
-          <p>
-            All purchases are final. To the maximum extent permitted by law, Prdiktit does not provide refunds for coin
-            purchases or consumed power-ups, including in cases of duplicate same-day power-up usage where the gameplay
-            effect does not stack.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">8. Prize Payouts, Verification, and Fraud Controls</h2>
-          <p className="mb-2">
-            Any prize payout is handled separately from gameplay purchases and is currently processed via PayPal.
-            Receiving a payout requires successful identity verification using a valid government-issued ID.
-          </p>
-          <p className="mb-2">
-            We may request additional information to verify identity, eligibility, residency, and compliance with
-            applicable law. Failure to complete verification may result in payout delay, denial, or forfeiture.
-          </p>
-          <p>
-            We reserve the right to investigate and disqualify accounts for fraud, abuse, duplicate-account behavior, or
-            other conduct that undermines fair competition, and to withhold or cancel payouts where permitted by law.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">9. Availability &amp; Changes to the Service</h2>
-          <p className="mb-2">
-            We may modify, suspend, or discontinue any part of the Service at any time, including leagues, scoring
-            rules, or group features, with or without notice.
-          </p>
-          <p>
-            We do not guarantee that the Service will be available at all times or free from interruptions, bugs, or
-            security vulnerabilities.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">10. Disclaimers</h2>
-          <p className="mb-2">
-            The Service is provided on an &ldquo;as is&rdquo; and &ldquo;as available&rdquo; basis. To the maximum
-            extent permitted by law, we disclaim all warranties, express or implied, including implied warranties of
-            merchantability, fitness for a particular purpose, and non-infringement.
-          </p>
-          <p>
-            We make no warranty regarding the accuracy of match data, predictions, scores, or leaderboards, or that the
-            Service will meet your requirements or be uninterrupted, secure, or error-free.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">11. Limitation of Liability</h2>
-          <p className="mb-2">
-            To the maximum extent permitted by law, Prdiktit and its operators will not be liable for any indirect,
-            incidental, special, consequential, or punitive damages, or for any loss of profits or data, arising out of
-            or in connection with your use of the Service.
-          </p>
-          <p>
-            Our total aggregate liability for any claims relating to the Service will be limited to the amount you have
-            paid us, if any, in the twelve (12) months prior to the claim.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">12. Termination</h2>
-          <p className="mb-2">
-            We may suspend or terminate your access to the Service at any time if we believe you have violated these
-            Terms, misused the Service, or created risk or possible legal exposure for us or other users.
-          </p>
-          <p>
-            You may stop using the Service at any time. You may also request that we delete your account as described
-            in our{' '}
-            <Link to="/privacy" className="text-blue-600 hover:underline">
-              Privacy Policy
-            </Link>
-            .
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">13. Governing Law</h2>
-          <p className="mb-2">
-            These Terms are governed by the laws of the State of Colorado, USA, without regard to its conflict of law
-            principles.
-          </p>
-          <p>
-            You agree that any disputes arising out of or relating to these Terms or the Service will be brought
-            exclusively in the state or federal courts located in Colorado, USA, and you consent to the personal
-            jurisdiction of those courts.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">14. Changes to These Terms</h2>
-          <p className="mb-2">
-            We may update these Terms from time to time. When we do, we will update the &ldquo;Last updated&rdquo; date
-            at the top of this page. For material changes, we may provide additional notice (such as a banner in the
-            app or email notification).
-          </p>
-          <p>Your continued use of the Service after changes become effective constitutes your acceptance.</p>
-        </section>
-
-        <section>
-          <h2 className="text-lg font-semibold mb-2">15. Contact Us</h2>
-          <p>
-            If you have questions about these Terms, you can contact us at:
-            <br />
-            <span className="font-mono">prdiktitadmin@prdiktit.com</span>
-          </p>
-        </section>
+        {copy.sections.map((section) => (
+          <section key={section.h}>
+            <h2 className="text-lg font-semibold mb-2">{section.h}</h2>
+            {section.p.map((line) => (
+              <p key={line} className="mb-2">
+                {line}
+              </p>
+            ))}
+          </section>
+        ))}
       </main>
     </div>
   );

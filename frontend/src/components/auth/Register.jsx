@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import OAuthLogin from './OAuthLogin';
+import { useI18n } from '../../i18n';
 
 export const Register = () => {
+  const { t } = useI18n();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   return (
@@ -14,10 +16,10 @@ export const Register = () => {
           className="mx-auto h-12 w-auto"
         />
         <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
-          Create your account
+          {t('auth.createAccount')}
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-          Join PrdiktIt using your Google account
+          {t('auth.joinWithGoogle')}
         </p>
       </div>
 
@@ -25,13 +27,13 @@ export const Register = () => {
         <div className="bg-white dark:bg-gray-800 py-8 px-4 shadow sm:rounded-lg sm:px-10">
           <div className="text-center mb-6">
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              New users can only register using Google OAuth2 for enhanced security and convenience.
+              {t('auth.registerGoogleOnly')}
             </p>
           </div>
 
           <OAuthLogin 
             disabled={!acceptedTerms}
-            disabledReason="Please accept the Terms and Privacy Policy to continue."
+            disabledReason={t('auth.acceptTermsToContinue')}
             onSuccess={(data) => {
               // OAuth success is handled by OAuthCallbackPage
               // No need to store JWT tokens - using session-based auth
@@ -52,13 +54,13 @@ export const Register = () => {
                 onChange={(e) => setAcceptedTerms(e.target.checked)}
               />
               <span>
-                I am at least 18 years old and I agree to the{' '}
+                {t('auth.confirmOver18AndAgree')}{' '}
                 <Link to="/terms" className="text-blue-600 dark:text-blue-400 hover:underline">
-                  Terms of Service
+                  {t('legal.termsTitle')}
                 </Link>{' '}
-                and{' '}
+                {t('common.and')}{' '}
                 <Link to="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline">
-                  Privacy Policy
+                  {t('legal.privacyTitle')}
                 </Link>
                 .
               </span>
@@ -67,23 +69,23 @@ export const Register = () => {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              Already have an account?{' '}
+              {t('auth.alreadyHaveAccount')}{' '}
               <Link 
                 to="/login" 
                 className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
               >
-                Sign in here
+                {t('auth.signInHere')}
               </Link>
             </p>
           </div>
 
           <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">Why Google OAuth2?</h3>
+            <h3 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">{t('auth.whyGoogle')}</h3>
             <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
-              <li>• Enhanced security with Google's authentication</li>
-              <li>• No need to remember another password</li>
-              <li>• Quick one-click registration</li>
-              <li>• Choose your own custom username</li>
+              <li>• {t('auth.whyGoogle1')}</li>
+              <li>• {t('auth.whyGoogle2')}</li>
+              <li>• {t('auth.whyGoogle3')}</li>
+              <li>• {t('auth.whyGoogle4')}</li>
             </ul>
           </div>
         </div>

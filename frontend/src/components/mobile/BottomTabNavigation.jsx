@@ -183,6 +183,7 @@ export const MobilePredictionCard = ({
   onUpdatePrediction, 
   isLocked = false 
 }) => {
+  const { t } = useI18n();
   const [homeScore, setHomeScore] = useState(prediction?.home_score || '');
   const [awayScore, setAwayScore] = useState(prediction?.away_score || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -242,7 +243,7 @@ export const MobilePredictionCard = ({
             </span>
           </div>
           
-          <span className="text-gray-400 dark:text-gray-500 text-sm mx-3">vs</span>
+          <span className="text-gray-400 dark:text-gray-500 text-sm mx-3">{t('matches.vs')}</span>
           
           <div className="flex items-center space-x-2 flex-1 justify-end">
             <span className="font-medium text-sm truncate text-gray-900 dark:text-gray-100">
@@ -266,6 +267,7 @@ export const MobilePredictionCard = ({
             prediction={prediction}
             fixture={fixture}
             hasResult={hasResult}
+            t={t}
           />
         ) : isEditing ? (
           <PredictionEditor
@@ -275,12 +277,14 @@ export const MobilePredictionCard = ({
             onAwayScoreChange={setAwayScore}
             onSave={handleSave}
             onCancel={handleCancel}
+            t={t}
           />
         ) : (
           <PredictionView
             prediction={prediction}
             onEdit={() => setIsEditing(true)}
             timeUntilDeadline={timeUntilDeadline}
+            t={t}
           />
         )}
       </div>
@@ -289,24 +293,24 @@ export const MobilePredictionCard = ({
 };
 
 // Prediction display for completed matches
-const PredictionDisplay = ({ prediction, fixture, hasResult }) => {
+const PredictionDisplay = ({ prediction, fixture, hasResult, t }) => {
   const points = prediction?.points || 0;
-  const predictedScore = prediction ? `${prediction.home_score}-${prediction.away_score}` : 'No prediction';
-  const actualScore = hasResult ? `${fixture.home_score}-${fixture.away_score}` : 'In progress';
+  const predictedScore = prediction ? `${prediction.home_score}-${prediction.away_score}` : t('mobile.noPrediction');
+  const actualScore = hasResult ? `${fixture.home_score}-${fixture.away_score}` : t('mobile.inProgress');
 
   let accuracyClass = 'bg-gray-100 text-gray-800';
-  let accuracyText = 'Pending';
+  let accuracyText = t('recentPredictions.statusPending');
   
   if (hasResult && prediction) {
     if (points === 3) {
       accuracyClass = 'bg-green-100 text-green-800';
-      accuracyText = '🎯 Perfect!';
+      accuracyText = `🎯 ${t('recentPredictions.statusPerfect')}!`;
     } else if (points === 1) {
       accuracyClass = 'bg-yellow-100 text-yellow-800';
-      accuracyText = '✓ Correct result';
+      accuracyText = `✓ ${t('stats.correctResults')}`;
     } else {
       accuracyClass = 'bg-red-100 text-red-800';
-      accuracyText = '✗ Wrong';
+      accuracyText = `✗ ${t('mobile.wrong')}`;
     }
   }
 
@@ -314,13 +318,13 @@ const PredictionDisplay = ({ prediction, fixture, hasResult }) => {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm text-gray-600 dark:text-gray-400">Your prediction</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">{t('mobile.yourPrediction')}</div>
           <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{predictedScore}</div>
         </div>
         
         {hasResult && (
           <div className="text-right">
-            <div className="text-sm text-gray-600 dark:text-gray-400">Actual result</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{t('mobile.actualResult')}</div>
             <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{actualScore}</div>
           </div>
         )}
@@ -333,7 +337,7 @@ const PredictionDisplay = ({ prediction, fixture, hasResult }) => {
         
         {hasResult && (
           <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            {points} point{points !== 1 ? 's' : ''}
+            {points} {points !== 1 ? t('mobile.points') : t('mobile.point')}
           </span>
         )}
       </div>
@@ -348,12 +352,13 @@ const PredictionEditor = ({
   onHomeScoreChange, 
   onAwayScoreChange, 
   onSave, 
-  onCancel 
+  onCancel,
+  t
 }) => {
   return (
     <div className="space-y-4">
       <div className="text-sm font-medium text-gray-900 dark:text-gray-100 text-center">
-        Enter your prediction
+        {t('mobile.enterPrediction')}
       </div>
       
       <div className="flex items-center justify-center space-x-4">
@@ -385,14 +390,14 @@ const PredictionEditor = ({
           onClick={onCancel}
           className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-gray-800"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           onClick={onSave}
           disabled={homeScore === '' || awayScore === ''}
           className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Save
+          {t('common.save')}
         </button>
       </div>
     </div>
@@ -400,7 +405,7 @@ const PredictionEditor = ({
 };
 
 // Prediction view for existing predictions
-const PredictionView = ({ prediction, onEdit, timeUntilDeadline }) => {
+const PredictionView = ({ prediction, onEdit, timeUntilDeadline, t }) => {
   const predictedScore = prediction ? `${prediction.home_score}-${prediction.away_score}` : null;
   const canEdit = timeUntilDeadline > 0;
 
@@ -408,12 +413,12 @@ const PredictionView = ({ prediction, onEdit, timeUntilDeadline }) => {
     <div className="space-y-3">
       {predictedScore ? (
         <div className="text-center">
-          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">Your prediction</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('mobile.yourPrediction')}</div>
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{predictedScore}</div>
         </div>
       ) : (
         <div className="text-center py-4">
-          <div className="text-gray-500 dark:text-gray-400 mb-2">No prediction yet</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-2">{t('stats.noPredictionsYet')}</div>
         </div>
       )}
       
@@ -422,13 +427,13 @@ const PredictionView = ({ prediction, onEdit, timeUntilDeadline }) => {
           onClick={onEdit}
           className="w-full px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
         >
-          {predictedScore ? 'Edit Prediction' : 'Make Prediction'}
+          {predictedScore ? t('predictions.editPrediction') : t('predictions.makePrediction')}
         </button>
       )}
       
       {timeUntilDeadline <= 0 && !prediction && (
         <div className="text-center text-sm text-red-600 dark:text-red-400">
-          Prediction deadline has passed
+          {t('predictions.deadlinePassed')}
         </div>
       )}
     </div>
@@ -439,6 +444,7 @@ const PredictionView = ({ prediction, onEdit, timeUntilDeadline }) => {
 
 // frontend/src/components/mobile/RivalryStatus.jsx
 export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
+  const { t } = useI18n();
   if (!rivalries || rivalries.length === 0) {
     return null;
   }
@@ -451,10 +457,10 @@ export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center">
           <span className="mr-2">🥊</span>
-          Rivalries
+          {t('groupDetails.rivalries')}
           {isRivalryWeek && (
             <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
-              Active Week!
+              {t('mobile.activeWeek')}
             </span>
           )}
         </h3>
@@ -464,14 +470,14 @@ export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
             onClick={onViewDetails}
             className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
           >
-            View All
+            {t('recentPredictions.viewAll')}
           </button>
         )}
       </div>
 
       {activeRivalries.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          No active rivalries. Check back during rivalry weeks!
+          {t('mobile.noActiveRivalries')}
         </p>
       ) : (
         <div className="space-y-3">
@@ -482,7 +488,7 @@ export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
           {activeRivalries.length > 2 && (
             <div className="text-center pt-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">
-                +{activeRivalries.length - 2} more rivalries
+                +{activeRivalries.length - 2} {t('mobile.moreRivalries')}
               </span>
             </div>
           )}
@@ -493,6 +499,7 @@ export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
 };
 
 const RivalryCard = ({ rivalry, isRivalryWeek }) => {
+  const { t } = useI18n();
   return (
     <div className={`p-3 rounded-lg border ${
       isRivalryWeek ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
@@ -502,7 +509,7 @@ const RivalryCard = ({ rivalry, isRivalryWeek }) => {
           <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
             {rivalry.user1_name}
           </span>
-          <span className="text-xs text-gray-500 dark:text-gray-400">vs</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">{t('matches.vs')}</span>
           <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
             {rivalry.user2_name}
           </span>
@@ -510,14 +517,14 @@ const RivalryCard = ({ rivalry, isRivalryWeek }) => {
         
         {rivalry.is_champion_challenge && (
           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
-            👑 Champion Challenge
+            👑 {t('groupActivation.comebackChallenge')}
           </span>
         )}
       </div>
       
       {rivalry.record && (
         <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-          Record: {rivalry.record.wins}-{rivalry.record.losses}
+          {t('mobile.record')}: {rivalry.record.wins}-{rivalry.record.losses}
           {rivalry.record.ties > 0 && `-${rivalry.record.ties}`}
         </div>
       )}

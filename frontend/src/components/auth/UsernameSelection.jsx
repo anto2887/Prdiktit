@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useI18n } from '../../i18n';
 
 const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
+  const { t } = useI18n();
   const [username, setUsername] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
@@ -36,7 +38,7 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
     } catch (error) {
       console.error('Username check error:', error);
       setIsAvailable(false);
-      setError('Failed to check username availability');
+      setError(t('auth.usernameCheckFailed'));
     } finally {
       setIsChecking(false);
     }
@@ -67,7 +69,7 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to complete registration');
+        throw new Error(errorData.detail || t('auth.completeRegistrationFailed'));
       }
 
       const data = await response.json();
@@ -75,18 +77,18 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
       
     } catch (error) {
       console.error('Registration error:', error);
-      setError(error.message || 'Failed to complete registration');
+      setError(error.message || t('auth.completeRegistrationFailed'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const getUsernameStatus = () => {
-    if (username.length < 3) return 'Enter at least 3 characters';
-    if (isChecking) return 'Checking availability...';
+    if (username.length < 3) return t('auth.enterAtLeast3Chars');
+    if (isChecking) return t('auth.checkingAvailability');
     if (isAvailable === null) return '';
-    if (isAvailable) return 'Username is available!';
-    return error || 'Username not available';
+    if (isAvailable) return t('auth.usernameAvailable');
+    return error || t('auth.usernameNotAvailable');
   };
 
   const getStatusColor = () => {
@@ -100,19 +102,19 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
   return (
     <div className="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Choose Your Username</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('auth.chooseUsername')}</h2>
         <p className="text-gray-600 dark:text-gray-400">
-          Welcome! Please choose a username for your account.
+          {t('auth.welcomeChooseUsername')}
         </p>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-          Email: {oauthData.email}
+          {t('auth.emailLabel')}: {oauthData.email}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Username
+            {t('profile.username')}
           </label>
           <input
             type="text"
@@ -120,11 +122,11 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Enter your username"
+            placeholder={t('auth.enterUsername')}
             minLength={3}
             maxLength={30}
             pattern="[a-zA-Z0-9_]+"
-            title="Only letters, numbers, and underscores allowed"
+            title={t('auth.usernamePatternTitle')}
             required
           />
           <p className={`text-sm mt-1 ${getStatusColor()}`}>
@@ -146,7 +148,7 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
               checked={isOver18}
               onChange={(e) => setIsOver18(e.target.checked)}
             />
-            <span>I confirm I am at least 18 years old.</span>
+            <span>{t('auth.confirmOver18')}</span>
           </label>
           <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input
@@ -156,9 +158,9 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
               onChange={(e) => setAcceptedTerms(e.target.checked)}
             />
             <span>
-              I agree to the{' '}
+              {t('auth.iAgreeTo')}{' '}
               <a href="/terms" className="text-blue-600 dark:text-blue-400 hover:underline">
-                Terms of Service
+                {t('legal.termsTitle')}
               </a>
               .
             </span>
@@ -171,9 +173,9 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
               onChange={(e) => setAcceptedPrivacy(e.target.checked)}
             />
             <span>
-              I agree to the{' '}
+              {t('auth.iAgreeTo')}{' '}
               <a href="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline">
-                Privacy Policy
+                {t('legal.privacyTitle')}
               </a>
               .
             </span>
@@ -186,7 +188,7 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
             onClick={onCancel}
             className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
@@ -201,18 +203,18 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
             }
             className="flex-1 px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? 'Creating Account...' : 'Create Account'}
+            {isSubmitting ? t('auth.creatingAccount') : t('auth.createAccount')}
           </button>
         </div>
       </form>
 
       <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
-        <p>Username requirements:</p>
+        <p>{t('auth.usernameRequirements')}</p>
         <ul className="mt-1 space-y-1">
-          <li>• 3-30 characters long</li>
-          <li>• Only letters, numbers, and underscores</li>
-          <li>• Must be unique</li>
-          <li>• Cannot be changed after creation</li>
+          <li>• {t('auth.usernameReq1')}</li>
+          <li>• {t('auth.usernameReq2')}</li>
+          <li>• {t('auth.usernameReq3')}</li>
+          <li>• {t('auth.usernameReq4')}</li>
         </ul>
       </div>
     </div>
