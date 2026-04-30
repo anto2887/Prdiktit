@@ -19,8 +19,10 @@ import LeagueTable from '../components/dashboard/LeagueTable';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
+import { useI18n } from '../i18n';
 
 const DashboardPage = React.memo(() => {
+  const { t } = useI18n();
   // Basic component mount logging
   console.log('DashboardPage: Component mounted');
   
@@ -310,7 +312,7 @@ const DashboardPage = React.memo(() => {
       {userGroups && userGroups.length > 0 && (
         <section className="mb-8">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">
-            📊 Group Progress Overview
+            📊 {t('dashboard.groupProgressOverview')}
           </h2>
           <div className="space-y-4">
             {userGroups.map((group) => (
@@ -324,15 +326,15 @@ const DashboardPage = React.memo(() => {
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-blue-100 text-blue-800'
                   }`}>
-                    {group.is_activated ? 'Active' : 'Unlocking Soon'}
+                    {group.is_activated ? t('dashboard.active') : t('dashboard.unlockingSoon')}
                   </span>
                 </div>
                 
                 {!group.is_activated ? (
                   <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>Progress to activation</span>
-                      <span>{group.weeks_until_activation} weeks remaining</span>
+                      <span>{t('groupActivation.progressToActivation')}</span>
+                      <span>{group.weeks_until_activation} {t('groupActivation.weeksRemaining')}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
                       <div
@@ -341,20 +343,20 @@ const DashboardPage = React.memo(() => {
                       />
                     </div>
                     <p className="text-sm text-gray-600">
-                      Features will unlock at week {group.activation_week} (currently week {group.current_week})
+                      {t('groupActivation.unlockAtWeek')} {group.activation_week} ({t('groupActivation.currentlyWeek')} {group.current_week})
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="bg-green-50 border border-green-200 rounded-md p-3">
                       <p className="text-sm text-green-800 font-medium">
-                        ✅ All group features are now active!
+                        ✅ {t('groupActivation.allFeaturesActive')}
                       </p>
                     </div>
                     
                     <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>Next rivalry week</span>
-                      <span>{group.weeks_until_next_rivalry === 0 ? 'This week!' : `${group.weeks_until_next_rivalry} weeks away`}</span>
+                      <span>{t('groupActivation.nextRivalryWeek')}</span>
+                      <span>{group.weeks_until_next_rivalry === 0 ? t('groupActivation.thisWeek') : `${group.weeks_until_next_rivalry} ${t('groupActivation.weeksAway')}`}</span>
                     </div>
                     
                     {group.weeks_until_next_rivalry > 0 ? (
@@ -367,7 +369,7 @@ const DashboardPage = React.memo(() => {
                     ) : (
                       <div className="bg-purple-100 border border-purple-300 rounded-md p-3">
                         <p className="text-sm text-purple-800 font-medium">
-                          ⚔️ Rivalry Week is here! Challenge your group members!
+                          ⚔️ {t('groupActivation.rivalryWeekHere')}
                         </p>
                       </div>
                     )}
@@ -382,7 +384,7 @@ const DashboardPage = React.memo(() => {
       {/* Stats section */}
       <section className="mb-8">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Your Stats</h2>
+          <h2 className="text-xl font-semibold">{t('dashboard.yourStats')}</h2>
           <HelpTooltip content="View your overall prediction performance and statistics">
             <span className="text-gray-400">ℹ️</span>
           </HelpTooltip>
@@ -421,7 +423,7 @@ const DashboardPage = React.memo(() => {
       {/* Recent predictions section */}
       <section className="mb-8">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Your Recent Predictions</h2>
+          <h2 className="text-xl font-semibold">{t('recentPredictions.title')}</h2>
           <HelpTooltip content="Your latest predictions and their results">
             <span className="text-gray-400">ℹ️</span>
           </HelpTooltip>
@@ -438,14 +440,14 @@ const DashboardPage = React.memo(() => {
       {userGroups && (userGroups.length > 0 ? (
         <section className="mb-8">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Your Groups</h2>
+            <h2 className="text-xl font-semibold">{t('groups.yourGroups')}</h2>
             <div className="flex gap-2">
               <HelpTooltip content="Join an existing league using an invite code">
                 <Link
                   to="/groups/join"
                   className="px-4 py-2 border border-blue-600 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50"
                 >
-                  Join League
+                  {t('groups.joinLeague')}
                 </Link>
               </HelpTooltip>
               <HelpTooltip content="Create a new league and invite friends to compete">
@@ -453,7 +455,7 @@ const DashboardPage = React.memo(() => {
                   to="/groups/create"
                   className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
                 >
-                  Create League
+                  {t('groups.createLeague')}
                 </Link>
               </HelpTooltip>
             </div>
@@ -468,20 +470,20 @@ const DashboardPage = React.memo(() => {
                     <h3 className="text-lg font-medium text-gray-900">{group.name}</h3>
                     {group.role === 'ADMIN' && (
                       <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        Admin
+                        {t('groups.admin')}
                       </span>
                     )}
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{group.league}</p>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">
-                      {group.member_count || 1} members
+                      {group.member_count || 1} {t('groups.members')}
                     </span>
                     <Link
                       to={`/groups/${group.id}`}
                       className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
-                      View League →
+                      {t('groups.viewLeague')} →
                     </Link>
                   </div>
                 </div>
