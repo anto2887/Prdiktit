@@ -2,10 +2,12 @@
 import React, { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useGroups } from '../../contexts/AppContext';
+import { useI18n } from '../../i18n';
 
 const BottomTabNavigation = () => {
   const location = useLocation();
   const { userGroups, currentGroup } = useGroups();
+  const { t } = useI18n();
 
   const analyticsPath = useMemo(() => {
     if (currentGroup?.id != null) return `/groups/${currentGroup.id}/analytics`;
@@ -16,35 +18,35 @@ const BottomTabNavigation = () => {
   const tabs = [
     {
       id: 'home',
-      label: 'Home',
+      label: t('tabs.home'),
       path: '/',
       icon: HomeIcon,
       activeIcon: HomeIconSolid
     },
     {
       id: 'groups',
-      label: 'Groups',
+      label: t('tabs.groups'),
       path: '/groups',
       icon: UsersIcon,
       activeIcon: UsersIconSolid
     },
     {
       id: 'predict',
-      label: 'Predict',
+      label: t('tabs.predict'),
       path: '/predictions',
       icon: ClipboardIcon,
       activeIcon: ClipboardIconSolid
     },
     {
       id: 'analytics',
-      label: 'Analytics',
+      label: t('tabs.analytics'),
       path: '/analytics',
       icon: ChartIcon,
       activeIcon: ChartIconSolid
     },
     {
       id: 'profile',
-      label: 'Profile',
+      label: t('tabs.profile'),
       path: '/profile',
       icon: UserIcon,
       activeIcon: UserIconSolid

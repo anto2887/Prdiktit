@@ -103,7 +103,7 @@ const Navigation = () => {
                         className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         role="menuitem"
                       >
-                        Your Profile
+                        {t('nav.yourProfile')}
                       </Link>
                       <Link
                         to="/settings"
@@ -111,7 +111,7 @@ const Navigation = () => {
                         className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         role="menuitem"
                       >
-                        Settings
+                        {t('nav.settings')}
                       </Link>
                       <Link
                         to="/groups"
@@ -119,7 +119,7 @@ const Navigation = () => {
                         className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         role="menuitem"
                       >
-                        My Leagues
+                        {t('nav.myLeagues')}
                       </Link>
                       <div className="px-4 py-2">
                         <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
@@ -141,7 +141,7 @@ const Navigation = () => {
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
                         role="menuitem"
                       >
-                        Sign out
+                        {t('nav.signOut')}
                       </button>
                     </div>
                   )}
@@ -153,13 +153,13 @@ const Navigation = () => {
                   to="/login"
                   className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
                 >
-                  Sign in
+                  {t('nav.signIn')}
                 </Link>
                 <Link
                   to="/register"
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
                 >
-                  Sign up
+                  {t('nav.signUp')}
                 </Link>
               </div>
             )}

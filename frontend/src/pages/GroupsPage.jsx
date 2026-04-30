@@ -7,9 +7,11 @@ import { useGroups } from '../contexts/AppContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
+import { useI18n } from '../i18n';
 
 const GroupsPage = () => {
   const { userGroups, fetchUserGroups, loading, error } = useGroups();
+  const { t } = useI18n();
   
   // Guide state
   const [showGuide, setShowGuide] = useState(false);
@@ -30,27 +32,27 @@ const GroupsPage = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-gray-900">My Leagues</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{t('groups.myLeagues')}</h1>
         <div className="flex items-center gap-4">
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <HelpTooltip content="Join an existing league using an invite code">
+            <HelpTooltip content={t('groups.tooltipJoinLeague')}>
               <Link
                 to="/groups/join"
                 className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 text-center"
               >
-                Join League
+                {t('groups.joinLeague')}
               </Link>
             </HelpTooltip>
-            <HelpTooltip content="Create a new private league and invite friends">
+            <HelpTooltip content={t('groups.tooltipCreateLeague')}>
               <Link
                 to="/groups/create"
                 className="w-full md:w-auto px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 text-center"
               >
-                Create League
+                {t('groups.createLeague')}
               </Link>
             </HelpTooltip>
           </div>
-          <HelpTooltip content="Start the guided tour to learn about leagues">
+          <HelpTooltip content={t('groups.tooltipGuide')}>
             <button
               onClick={() => setShowGuide(true)}
               className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
@@ -69,7 +71,7 @@ const GroupsPage = () => {
             You&apos;re not in any leagues yet
           </h3>
           <p className="text-gray-500 mb-4">
-            Join a league to start making predictions
+            {t('groups.emptyStateSubtitle')}
           </p>
         </div>
       ) : (
@@ -87,13 +89,13 @@ const GroupsPage = () => {
               <div className="px-6 py-4 bg-gray-50">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-500">
-                    {group.member_count} members
+                    {group.member_count} {t('groups.members')}
                   </span>
                   <Link
                     to={`/groups/${group.id}`}
                     className="text-blue-600 hover:text-blue-800 text-sm"
                   >
-                    View League →
+                    {t('groups.viewLeague')} →
                   </Link>
                 </div>
               </div>
@@ -111,27 +113,27 @@ const GroupsPage = () => {
         totalSteps={4}
         steps={[
           {
-            title: "Welcome to Leagues!",
-            content: "Leagues are private groups where you can compete with friends and family in football predictions.",
-            action: "Next",
+            title: t('groups.myLeagues'),
+            content: t('groups.guideWelcomeContent'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Join a League",
-            content: "Use the 'Join League' button to enter an existing league using an invite code from a friend.",
-            action: "Next",
+            title: t('groups.guideJoinTitle'),
+            content: t('groups.guideJoinContent'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Create Your Own",
-            content: "Create a new league and invite friends using the &apos;Create League&apos; button. You&apos;ll get a unique invite code to share.",
-            action: "Next",
+            title: t('groups.guideCreateTitle'),
+            content: t('groups.guideCreateContent'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "League Features",
-            content: "Each league has its own leaderboard, predictions page, and analytics. Click 'View League' to explore!",
-            action: "Got it!",
+            title: t('groups.guideFeaturesTitle'),
+            content: t('groups.guideFeaturesContent'),
+            action: t('common.gotIt'),
             highlight: null
           }
         ]}

@@ -1,9 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useGroups } from '../../contexts/AppContext';
+import { useI18n } from '../../i18n';
 
 const Sidebar = () => {
   const { userGroups } = useGroups();
+  const { t } = useI18n();
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-800 shadow-lg hidden md:block">
@@ -11,7 +13,7 @@ const Sidebar = () => {
         <nav className="space-y-6">
           <div>
             <h3 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-              Navigation
+              {t('nav.navigation')}
             </h3>
             <ul className="space-y-2">
               <li>
@@ -25,7 +27,7 @@ const Sidebar = () => {
                     }`
                   }
                 >
-                  Dashboard
+                  {t('nav.dashboard')}
                 </NavLink>
               </li>
               <li>
@@ -39,7 +41,7 @@ const Sidebar = () => {
                     }`
                   }
                 >
-                  Predictions
+                  {t('nav.predictions')}
                 </NavLink>
               </li>
               <li>
@@ -53,7 +55,7 @@ const Sidebar = () => {
                     }`
                   }
                 >
-                  Wallet
+                  {t('nav.wallet')}
                 </NavLink>
               </li>
               <li>
@@ -67,7 +69,7 @@ const Sidebar = () => {
                     }`
                   }
                 >
-                  Power-ups
+                  {t('nav.powerups')}
                 </NavLink>
               </li>
               <li>
@@ -81,7 +83,7 @@ const Sidebar = () => {
                     }`
                   }
                 >
-                  Global Pot
+                  {t('nav.globalPot')}
                 </NavLink>
               </li>
             </ul>
@@ -89,7 +91,7 @@ const Sidebar = () => {
 
           <div>
             <h3 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
-              Your Groups
+              {t('groups.yourGroups')}
             </h3>
             <ul className="space-y-2">
               {userGroups.map(group => (
@@ -113,7 +115,7 @@ const Sidebar = () => {
                   to="/groups/create"
                   className="flex items-center p-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
-                  + Create Group
+                  + {t('groups.createGroup')}
                 </NavLink>
               </li>
               <li>
@@ -121,7 +123,7 @@ const Sidebar = () => {
                   to="/groups/join"
                   className="flex items-center p-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
-                  🔗 Join Group
+                  🔗 {t('groups.joinGroup')}
                 </NavLink>
               </li>
             </ul>

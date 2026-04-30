@@ -13,8 +13,10 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
 import AdSlot from '../ads/AdSlot';
+import { useI18n } from '../../i18n';
 
 const Dashboard = () => {
+  const { t } = useI18n();
   const { profile, stats, loading: userLoading, error: userError } = useUser();
   const { loading: predictionsLoading, error: predictionsError } = usePredictions();
   const { userGroups, fetchUserGroups, loading: groupsLoading, error: groupsError } = useGroups();
@@ -117,10 +119,10 @@ const Dashboard = () => {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            Welcome back, {profile?.username}!
+            {t('dashboard.welcomeBack')}, {profile?.username}!
           </h1>
           <div className="flex items-center space-x-3">
-            <HelpTooltip content="Start the guided tour to learn about your dashboard">
+              <HelpTooltip content={t('dashboard.tooltipGuide')}>
               <button
                 onClick={() => setShowGuide(true)}
                 className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -130,11 +132,11 @@ const Dashboard = () => {
                 </svg>
               </button>
             </HelpTooltip>
-            <Link
+              <Link
               to="/predictions/new"
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
-            >
-              Post Your Prediction →
+              >
+              {t('dashboard.postPrediction')} →
             </Link>
           </div>
         </div>
@@ -147,8 +149,8 @@ const Dashboard = () => {
         <section id="stats-section" className="bg-white dark:bg-gray-800 rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Your Stats</h2>
-              <HelpTooltip content="View your overall prediction performance and statistics">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('dashboard.yourStats')}</h2>
+              <HelpTooltip content={t('dashboard.tooltipStats')}>
                 <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -164,8 +166,8 @@ const Dashboard = () => {
         <section id="recent-predictions" className="bg-white dark:bg-gray-800 rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">Recent Predictions</h2>
-              <HelpTooltip content="Your latest predictions and their results">
+              <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('dashboard.recentPredictions')}</h2>
+              <HelpTooltip content={t('dashboard.tooltipRecentPredictions')}>
                 <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -182,22 +184,22 @@ const Dashboard = () => {
       <section id="leagues-section" className="bg-white dark:bg-gray-800 rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">My Leagues</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('groups.myLeagues')}</h2>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-              <HelpTooltip content="Join an existing league using an invite code">
+              <HelpTooltip content={t('groups.tooltipJoinLeague')}>
                 <Link
                   to="/groups/join"
                   className="inline-flex items-center justify-center px-4 py-2 border border-blue-600 dark:border-blue-500 rounded-md shadow-sm text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
                 >
-                  Join League
+                  {t('groups.joinLeague')}
                 </Link>
               </HelpTooltip>
-              <HelpTooltip content="Create a new league and invite friends to compete">
+              <HelpTooltip content={t('groups.tooltipCreateLeague')}>
                 <Link
                   to="/groups/create"
                   className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
                 >
-                  Create League
+                  {t('groups.createLeague')}
                 </Link>
               </HelpTooltip>
             </div>
@@ -207,23 +209,23 @@ const Dashboard = () => {
           {!userGroups || userGroups.length === 0 ? (
             <div className="text-center py-12 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
-                You&apos;re not in any leagues yet
+                {t('groups.emptyStateTitle')}
               </h3>
               <p className="text-gray-500 dark:text-gray-400 mb-6">
-                Join a league to start making predictions and competing with friends
+                {t('dashboard.emptyLeaguesSubtitle')}
               </p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <Link
                   to="/groups/join"
                   className="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600"
                 >
-                  Enter League Code →
+                  {t('dashboard.enterLeagueCode')} →
                 </Link>
                 <Link
                   to="/groups/create"
                   className="inline-flex items-center px-6 py-3 border border-blue-600 dark:border-blue-500 rounded-md shadow-sm text-base font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700"
                 >
-                  Create Your Own League
+                  {t('groups.createLeague')}
                 </Link>
               </div>
             </div>

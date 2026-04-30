@@ -7,8 +7,10 @@ import PredictionList from '../components/predictions/PredictionList';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
 import AdSlot from '../components/ads/AdSlot';
+import { useI18n } from '../i18n';
 
 const PredictionsPage = () => {
+  const { t } = useI18n();
   const { fetchUserPredictions, loading: predictionsLoading, error: predictionsError } = usePredictions();
   const { fetchFixtures, loading: matchesLoading, error: matchesError } = useMatches();
   const { fetchUserGroups, loading: groupsLoading, error: groupsError } = useGroups();
@@ -98,7 +100,7 @@ const PredictionsPage = () => {
     return (
       <div className="flex justify-center items-center min-h-64">
         <LoadingSpinner />
-        <span className="ml-3 text-gray-500">Loading matches and predictions...</span>
+        <span className="ml-3 text-gray-500">{t('predictions.loading')}</span>
       </div>
     );
   }
@@ -108,7 +110,7 @@ const PredictionsPage = () => {
     return (
       <ErrorMessage 
         message={errors[0]} 
-        title="Failed to load predictions data"
+        title={t('predictions.errorTitle')}
       />
     );
   }

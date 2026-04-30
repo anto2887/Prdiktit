@@ -16,8 +16,10 @@ import GroupActivationProgress from '../components/common/GroupActivationProgres
 import ContextAwareNavigation from '../components/common/ContextAwareNavigation';
 import MobileCard from '../components/mobile/MobileCard';
 import AdSlot from '../components/ads/AdSlot';
+import { useI18n } from '../i18n';
 
 const GroupDetailsPage = () => {
+  const { t } = useI18n();
   const { groupId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -225,7 +227,7 @@ const GroupDetailsPage = () => {
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                 {currentGroup.league}
               </span>
-              <span>{groupMembers.length} members</span>
+              <span>{groupMembers.length} {t('groups.members')}</span>
               {currentGroup.invite_code && (
                 <HelpTooltip content="Share this invite code with friends to let them join your league">
                   <span>Code: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs cursor-help text-gray-900 dark:text-gray-100">{currentGroup.invite_code}</code></span>
@@ -236,33 +238,33 @@ const GroupDetailsPage = () => {
           
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
-            <HelpTooltip content="View all predictions made by league members">
+            <HelpTooltip content={t('groupDetails.tooltipPredictions')}>
               <button
                 onClick={() => navigate(`/groups/${groupId}/predictions`)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
               >
-                📊 Predictions
+                📊 {t('nav.predictions')}
               </button>
             </HelpTooltip>
-            <HelpTooltip content="View rivalry statistics and head-to-head matchups">
+            <HelpTooltip content={t('groupDetails.tooltipRivalries')}>
               <button
                 onClick={() => navigate(`/groups/${groupId}/rivalries`)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800"
               >
-                🥊 Rivalries
+                🥊 {t('groupDetails.rivalries')}
               </button>
             </HelpTooltip>
             {profile?.id === currentGroup.admin_id && (
-              <HelpTooltip content="Manage league settings and members">
+              <HelpTooltip content={t('groupDetails.tooltipManage')}>
                 <button
                   onClick={() => navigate(`/groups/${groupId}/manage`)}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
                 >
-                  ⚙️ Manage
+                  ⚙️ {t('groupDetails.manage')}
                 </button>
               </HelpTooltip>
             )}
-            <HelpTooltip content="Start the guided tour to learn about league features">
+            <HelpTooltip content={t('groupDetails.tooltipGuide')}>
               <button
                 onClick={() => setShowGuide(true)}
                 className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -295,7 +297,7 @@ const GroupDetailsPage = () => {
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              Standings
+              {t('groupDetails.standings')}
             </button>
             <button
               onClick={() => setActiveTab('members')}
@@ -305,7 +307,7 @@ const GroupDetailsPage = () => {
                   : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              Members ({groupMembers.length})
+              {t('groupDetails.members')} ({groupMembers.length})
             </button>
           </nav>
         </div>
