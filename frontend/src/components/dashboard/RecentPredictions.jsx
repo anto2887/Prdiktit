@@ -3,8 +3,10 @@ import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { usePredictions } from '../../contexts/AppContext';
 import { formatDate } from '../../utils/dateUtils';
+import { useI18n } from '../../i18n';
 
 const RecentPredictions = () => {
+  const { t } = useI18n();
   const { userPredictions, predictionsLoading } = usePredictions();
 
   // Debug logging
@@ -45,7 +47,7 @@ const RecentPredictions = () => {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Your Recent Predictions
+          {t('recentPredictions.title')}
         </h3>
         <div className="animate-pulse">
           <div className="space-y-3">
@@ -65,21 +67,21 @@ const RecentPredictions = () => {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Your Recent Predictions
+          {t('recentPredictions.title')}
         </h3>
         {predictionsLoading ? (
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Loading predictions...</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">{t('recentPredictions.loading')}</p>
         ) : (
           <div>
                          <p className="text-gray-500 dark:text-gray-400 text-sm">
-               No predictions made yet. Start predicting match outcomes to see them here!
+               {t('recentPredictions.emptyBody')}
              </p>
              <div className="mt-3">
                <Link
                  to="/predictions/new"
                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600"
                >
-                 Make Your First Prediction
+                 {t('recentPredictions.makeFirstPrediction')}
                </Link>
              </div>
             {process.env.NODE_ENV === 'development' && (
@@ -98,13 +100,13 @@ const RecentPredictions = () => {
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Your Recent Predictions
+          {t('recentPredictions.title')}
         </h3>
         <Link
           to="/predictions/history"
           className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
         >
-          View All →
+          {t('recentPredictions.viewAll')} →
         </Link>
       </div>
       <div className="space-y-3">
@@ -126,12 +128,12 @@ const RecentPredictions = () => {
              'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'
            }`}>
              {prediction.prediction_status === 'PROCESSED' ? 
-               (prediction.points === 3 ? 'Perfect' : 
-                prediction.points === 1 ? 'Partial' : 
-                prediction.points === 0 ? 'Incorrect' : 'Pending') :
-               prediction.prediction_status === 'EDITABLE' ? 'Editable' :
-               prediction.prediction_status === 'SUBMITTED' ? 'Submitted' :
-               prediction.prediction_status === 'LOCKED' ? 'Locked' :
+              (prediction.points === 3 ? t('recentPredictions.statusPerfect') : 
+               prediction.points === 1 ? t('recentPredictions.statusPartial') : 
+               prediction.points === 0 ? t('recentPredictions.statusIncorrect') : t('recentPredictions.statusPending')) :
+              prediction.prediction_status === 'EDITABLE' ? t('recentPredictions.statusEditable') :
+              prediction.prediction_status === 'SUBMITTED' ? t('recentPredictions.statusSubmitted') :
+              prediction.prediction_status === 'LOCKED' ? t('recentPredictions.statusLocked') :
                prediction.prediction_status
              }
            </span>

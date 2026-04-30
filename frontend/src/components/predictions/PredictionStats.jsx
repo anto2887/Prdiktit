@@ -4,8 +4,10 @@ import { useUser } from '../../contexts/AppContext';
 import { useWeeklyStats } from '../../hooks/useWeeklyStats';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import { useI18n } from '../../i18n';
 
 export const PredictionStats = () => {
+  const { t } = useI18n();
   const { profile, stats, loading: userLoading, error: userError } = useUser();
   const { 
     recentWeeksPerformance, 
@@ -26,9 +28,9 @@ export const PredictionStats = () => {
   // Prepare chart data from real weekly performance
   const chartData = {
     pointsDistribution: [
-      { label: 'Perfect Score (3 pts)', value: stats?.perfect_predictions || 0 },
-      { label: 'Correct Result (1 pt)', value: stats?.correct_results || 0 },
-      { label: 'Incorrect (0 pts)', value: stats?.incorrect_predictions || 0 }
+      { label: t('profile.perfectScore3pts'), value: stats?.perfect_predictions || 0 },
+      { label: t('profile.correctResult1pt'), value: stats?.correct_results || 0 },
+      { label: t('profile.incorrect0pts'), value: stats?.incorrect_predictions || 0 }
     ],
     weeklyPerformance: recentWeeksPerformance
   };
@@ -36,34 +38,34 @@ export const PredictionStats = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Prediction Statistics</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('profile.predictionStats')}</h1>
         <Link
           to="/predictions/new"
           className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
         >
-          New Prediction
+          {t('predictions.makePrediction')}
         </Link>
       </div>
       
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-blue-500 dark:border-blue-400">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Points</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.totalPoints')}</h3>
           <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats?.total_points || 0}</p>
         </div>
         
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-green-500 dark:border-green-400">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Perfect Predictions</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.perfectPredictions')}</h3>
           <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats?.perfect_predictions || 0}</p>
         </div>
         
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-yellow-500 dark:border-yellow-400">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Correct Results</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('stats.correctResults')}</h3>
           <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">{stats?.correct_results || 0}</p>
         </div>
         
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border-l-4 border-purple-500 dark:border-purple-400">
-          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Average Points</h3>
+          <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.averagePoints')}</h3>
           <p className="mt-2 text-3xl font-bold text-gray-900 dark:text-gray-100">
             {(stats?.average_points || 0).toFixed(1)}
           </p>
@@ -72,7 +74,7 @@ export const PredictionStats = () => {
       
       {/* Detailed Stats */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Prediction Accuracy</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('profile.predictionAccuracy')}</h2>
         
         <div className="space-y-4">
           {chartData.pointsDistribution.map((item, index) => (
@@ -85,7 +87,7 @@ export const PredictionStats = () => {
                 </div>
                 <div className="text-right">
                   <span className="text-xs font-semibold inline-block text-gray-600 dark:text-gray-400">
-                    {item.value} predictions
+                    {item.value} {t('profile.predictions')}
                   </span>
                 </div>
               </div>
@@ -103,7 +105,7 @@ export const PredictionStats = () => {
       
       {/* Weekly Performance */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Weekly Performance</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('profile.weeklyPerformance')}</h2>
         
         {hasData && chartData.weeklyPerformance.length > 0 ? (
           <div className="h-64 flex items-end space-x-2">
@@ -119,18 +121,18 @@ export const PredictionStats = () => {
                     height: `${Math.max(20, (week.points / Math.max(...chartData.weeklyPerformance.map(w => w.points))) * 200)}px` 
                   }}
                 ></div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">Week {week.week}</div>
-                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{week.points} pts</div>
-                <div className="text-xs text-gray-400 dark:text-gray-500">{week.predictions} predictions</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('rivalries.week')} {week.week}</div>
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{week.points} {t('profile.pts')}</div>
+                <div className="text-xs text-gray-400 dark:text-gray-500">{week.predictions} {t('profile.predictions')}</div>
               </div>
             ))}
           </div>
         ) : (
           <div className="text-center py-12">
             <div className="text-4xl mb-2">📊</div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No weekly data yet</h3>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">{t('profile.noWeeklyDataYet')}</h3>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Make some predictions to see your weekly performance here!
+              {t('profile.noWeeklyDataBody')}
             </p>
           </div>
         )}
@@ -139,19 +141,19 @@ export const PredictionStats = () => {
       {/* Season Summary */}
       {hasData && (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Season Summary</h2>
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('profile.seasonSummary')}</h2>
           
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{statistics.totalWeeksWithData}</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Active Weeks</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('profile.activeWeeks')}</div>
             </div>
             
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {statistics.averagePointsPerWeek.toFixed(1)}
               </div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Avg Points/Week</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('profile.avgPointsPerWeek')}</div>
             </div>
             
             <div className="text-center">
@@ -159,13 +161,13 @@ export const PredictionStats = () => {
                 {statistics.bestWeek ? statistics.bestWeek.points : 0}
               </div>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                Best Week {statistics.bestWeek ? `(Week ${statistics.bestWeek.week})` : ''}
+                {t('profile.bestWeekLabel')} {statistics.bestWeek ? `(${t('rivalries.week')} ${statistics.bestWeek.week})` : ''}
               </div>
             </div>
             
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{statistics.consistencyScore}%</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">Consistency</div>
+              <div className="text-sm text-gray-500 dark:text-gray-400">{t('profile.consistency')}</div>
             </div>
           </div>
         </div>
@@ -173,10 +175,10 @@ export const PredictionStats = () => {
       
       {/* Team Performance */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Team Performance</h2>
+        <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('profile.teamPerformance')}</h2>
         
         <p className="text-gray-500 dark:text-gray-400 text-center py-12">
-          Team performance analytics will be available after you make more predictions
+          {t('profile.teamPerformanceBody')}
         </p>
       </div>
     </div>

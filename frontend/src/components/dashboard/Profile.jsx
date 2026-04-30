@@ -2,9 +2,11 @@ import React from 'react';
 import { useUser } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import { useI18n } from '../../i18n';
 
 const Profile = () => {
   const { profile, stats, loading, error } = useUser();
+  const { t } = useI18n();
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
@@ -26,7 +28,7 @@ const Profile = () => {
                   {profile?.username}
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Member since{' '}
+                  {t('profile.memberSince')}{' '}
                   {profile?.created_at
                     ? new Date(profile.created_at).toLocaleDateString()
                     : '—'}
@@ -41,14 +43,14 @@ const Profile = () => {
           <div className="space-y-6">
             {/* Account Info */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Account Information</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('profile.accountInfo')}</h3>
               <dl className="mt-2 divide-y divide-gray-200 dark:divide-gray-700">
                 <div className="py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center">
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Username</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.username')}</dt>
                   <dd className="text-sm text-gray-900 dark:text-gray-100 mt-1 sm:mt-0">{profile?.username}</dd>
                 </div>
                 <div className="py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center">
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">Member Since</dt>
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.memberSinceLabel')}</dt>
                   <dd className="text-sm text-gray-900 dark:text-gray-100 mt-1 sm:mt-0">
                     {profile?.created_at
                       ? new Date(profile.created_at).toLocaleDateString()
@@ -60,11 +62,11 @@ const Profile = () => {
 
             {/* Stats Overview */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Prediction Statistics</h3>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('profile.predictionStats')}</h3>
               <dl className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="px-4 py-5 bg-gray-50 dark:bg-gray-700 shadow rounded-lg overflow-hidden">
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Total Points
+                    {t('profile.totalPoints')}
                   </dt>
                   <dd className="mt-1 text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
                     {stats?.total_points || 0}
@@ -72,7 +74,7 @@ const Profile = () => {
                 </div>
                 <div className="px-4 py-5 bg-gray-50 dark:bg-gray-700 shadow rounded-lg overflow-hidden">
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Perfect Predictions
+                    {t('profile.perfectPredictions')}
                   </dt>
                   <dd className="mt-1 text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
                     {stats?.perfect_predictions || 0}
@@ -80,7 +82,7 @@ const Profile = () => {
                 </div>
                 <div className="px-4 py-5 bg-gray-50 dark:bg-gray-700 shadow rounded-lg overflow-hidden">
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Total Predictions
+                    {t('profile.totalPredictions')}
                   </dt>
                   <dd className="mt-1 text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
                     {stats?.total_predictions || 0}
@@ -88,7 +90,7 @@ const Profile = () => {
                 </div>
                 <div className="px-4 py-5 bg-gray-50 dark:bg-gray-700 shadow rounded-lg overflow-hidden">
                   <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Average Points
+                    {t('profile.averagePoints')}
                   </dt>
                   <dd className="mt-1 text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
                     {stats?.average_points?.toFixed(1) || '0.0'}

@@ -5,8 +5,10 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import TimezoneIndicator from '../common/TimezoneIndicator';
 import { formatKickoffTime, formatShortDate } from '../../utils/dateUtils';
+import { useI18n } from '../../i18n';
 
 const UpcomingMatches = () => {
+  const { t } = useI18n();
   const { fixtures, fetchFixtures, loading, error } = useMatches();
   const { userPredictions } = usePredictions();
   const [upcomingMatches, setUpcomingMatches] = useState([]);
@@ -50,7 +52,7 @@ const UpcomingMatches = () => {
       {/* Timezone indicator header */}
       <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b dark:border-gray-600">
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Upcoming Matches</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('predictions.upcomingMatches')}</h3>
           <TimezoneIndicator showDetails={false} />
         </div>
       </div>
@@ -100,7 +102,7 @@ const UpcomingMatches = () => {
                       {prediction.score1}-{prediction.score2}
                     </span>
                   ) : (
-                    <span className="text-sm text-gray-500 dark:text-gray-400">vs</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{t('matches.vs')}</span>
                   )}
                 </div>
 
@@ -129,11 +131,11 @@ const UpcomingMatches = () => {
                 <span className="text-gray-500 dark:text-gray-400">{match.league}</span>
                 {prediction ? (
                   <span className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full text-xs">
-                    Prediction Made
+                    {t('matches.predictionMade')}
                   </span>
                 ) : (
                   <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full text-xs">
-                    Predict Now
+                    {t('matches.predictNow')}
                   </span>
                 )}
               </div>
@@ -145,8 +147,8 @@ const UpcomingMatches = () => {
       {/* Show message if no upcoming matches */}
       {upcomingMatches.length === 0 && (
         <div className="p-6 text-center text-gray-500 dark:text-gray-400">
-          <p className="mb-2">No upcoming matches available for prediction</p>
-          <p className="text-sm text-gray-400 dark:text-gray-500">Check back later for new fixtures</p>
+          <p className="mb-2">{t('predictions.noUpcomingMatches')}</p>
+          <p className="text-sm text-gray-400 dark:text-gray-500">{t('matches.checkBackLater')}</p>
         </div>
       )}
 
@@ -156,7 +158,7 @@ const UpcomingMatches = () => {
           to="/predictions"
           className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
         >
-          View all upcoming matches →
+          {t('matches.viewAllUpcoming')} →
         </Link>
       </div>
     </div>

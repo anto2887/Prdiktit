@@ -244,7 +244,7 @@ const Dashboard = () => {
                           <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">{group.name}</h4>
                           {group.role === 'ADMIN' && (
                             <span className="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full">
-                              Admin
+                              {t('groups.admin')}
                             </span>
                           )}
                         </div>
@@ -260,15 +260,15 @@ const Dashboard = () => {
                             <div className="grid grid-cols-3 gap-2 text-center">
                               <div>
                                 <div className="text-lg font-bold text-blue-600 dark:text-blue-400">{userStats.points}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">Points</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{t('groupDetails.points')}</div>
                               </div>
                               <div>
                                 <div className="text-lg font-bold text-green-600 dark:text-green-400">#{userStats.rank}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">Rank</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{t('groupDetails.rank')}</div>
                               </div>
                               <div>
                                 <div className="text-lg font-bold text-purple-600 dark:text-purple-400">{userStats.total_predictions}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">Predictions</div>
+                                <div className="text-xs text-gray-500 dark:text-gray-400">{t('groupDetails.predictions')}</div>
                               </div>
                             </div>
                           )}
@@ -276,13 +276,13 @@ const Dashboard = () => {
                         
                         <div className="flex justify-between items-center">
                           <span className="text-sm text-gray-500 dark:text-gray-400">
-                            {group.member_count || 1} members
+                            {group.member_count || 1} {t('groups.members')}
                           </span>
                           <Link
                             to={`/groups/${group.id}`}
                             className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
                           >
-                            View League →
+                            {t('groups.viewLeague')} →
                           </Link>
                         </div>
                       </div>
@@ -304,33 +304,33 @@ const Dashboard = () => {
         totalSteps={5}
         steps={[
           {
-            title: "Welcome to Your Dashboard!",
-            content: "This is your central hub for managing predictions, tracking performance, and competing in leagues. Let&apos;s explore the key features.",
-            action: "Next",
+            title: t('dashboard.guideWelcomeTitle'),
+            content: t('dashboard.guideWelcomeContent'),
+            action: t('common.next'),
             highlight: null
           },
           {
-            title: "Your Statistics",
-            content: "View your overall prediction performance including total points, accuracy, and ranking across all your leagues.",
-            action: "Next",
+            title: t('dashboard.guideStatsTitle'),
+            content: t('dashboard.guideStatsContent'),
+            action: t('common.next'),
             highlight: "stats-section"
           },
           {
-            title: "Recent Predictions",
-            content: "See your latest predictions and their results. Perfect predictions earn 3 points, correct results earn 1 point.",
-            action: "Next",
+            title: t('dashboard.guideRecentTitle'),
+            content: t('dashboard.guideRecentContent'),
+            action: t('common.next'),
             highlight: "recent-predictions"
           },
           {
-            title: "My Leagues",
-            content: "Manage your leagues here. Join existing leagues with invite codes or create new ones to compete with friends.",
-            action: "Next",
+            title: t('dashboard.guideLeaguesTitle'),
+            content: t('dashboard.guideLeaguesContent'),
+            action: t('common.next'),
             highlight: "leagues-section"
           },
           {
-            title: "Getting Started",
-            content: "Click 'Post Your Prediction' to make new predictions, or visit your leagues to see how you rank against friends!",
-            action: "Got it!",
+            title: t('dashboard.guideStartTitle'),
+            content: t('dashboard.guideStartContent'),
+            action: t('common.gotIt'),
             highlight: null
           }
         ]}

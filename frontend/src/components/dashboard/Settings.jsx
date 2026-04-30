@@ -4,10 +4,12 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import { applyTheme } from '../../utils/theme';
 import api from '../../api';
+import { useI18n } from '../../i18n';
 
 const Settings = () => {
   const { profile, loading, error, updateProfile } = useUser();
   const { showSuccess, showError } = useNotifications();
+  const { t } = useI18n();
   const systemThemeWatcher = useRef(null);
 
   // Notification preferences (backend-driven, separate table)
@@ -131,10 +133,10 @@ const Settings = () => {
         }
       });
       if (success) {
-        showSuccess('Settings saved');
+        showSuccess(t('settings.saved'));
       }
     } catch (err) {
-      showError(err.message || 'Failed to update settings');
+      showError(err.message || t('settings.saveFailed'));
     }
   };
 
@@ -144,7 +146,7 @@ const Settings = () => {
         {/* Notification Settings */}
         <div className="px-6 py-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            Notification Settings
+            {t('settings.notificationSettings')}
           </h2>
           <div className="space-y-4">
             {/* Master toggle: Email Notifications */}
@@ -154,10 +156,10 @@ const Settings = () => {
                   htmlFor="email_enabled"
                   className="text-sm font-medium text-gray-700 dark:text-gray-300"
                 >
-                  Email Notifications
+                  {t('settings.emailNotifications')}
                 </label>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Turn all PrediktIt emails on or off.
+                  {t('settings.emailNotificationsDesc')}
                 </p>
               </div>
               <button
@@ -186,10 +188,10 @@ const Settings = () => {
                     htmlFor="prediction_reminders"
                     className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    Prediction Reminders
+                    {t('settings.predictionReminders')}
                   </label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Reminders before matches you can still predict.
+                    {t('settings.predictionRemindersDesc')}
                   </p>
                 </div>
                 <button
@@ -214,7 +216,7 @@ const Settings = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      24 hours before
+                      {t('settings.reminder24h')}
                     </span>
                   </div>
                   <button
@@ -238,7 +240,7 @@ const Settings = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <span className="text-sm text-gray-700 dark:text-gray-300">
-                      1 hour before
+                      {t('settings.reminder1h')}
                     </span>
                   </div>
                   <button
@@ -267,10 +269,10 @@ const Settings = () => {
                     htmlFor="match_result_updates"
                     className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    Match Result Updates
+                    {t('settings.matchResultUpdates')}
                   </label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Notified when a match you predicted finishes.
+                    {t('settings.matchResultUpdatesDesc')}
                   </p>
                 </div>
                 <button
@@ -298,10 +300,10 @@ const Settings = () => {
                     htmlFor="group_activity"
                     className="text-sm font-medium text-gray-700 dark:text-gray-300"
                   >
-                    Group Activity
+                    {t('settings.groupActivity')}
                   </label>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    New members joining your groups · Rival assignments.
+                    {t('settings.groupActivityDesc')}
                   </p>
                 </div>
                 <button
@@ -328,7 +330,7 @@ const Settings = () => {
         {/* Display Preferences */}
         <div className="px-6 py-4">
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            Display Preferences
+            {t('settings.displayPreferences')}
           </h2>
           <div className="space-y-4">
             <div>
@@ -336,7 +338,7 @@ const Settings = () => {
                 htmlFor="theme" 
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Theme
+                {t('settings.theme')}
               </label>
               <select
                 id="theme"
@@ -345,9 +347,9 @@ const Settings = () => {
                 onChange={handleDisplayPreferenceChange}
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
               >
-                <option value="light">Light</option>
-                <option value="dark">Dark</option>
-                <option value="system">System</option>
+                <option value="light">{t('settings.themeLight')}</option>
+                <option value="dark">{t('settings.themeDark')}</option>
+                <option value="system">{t('settings.themeSystem')}</option>
               </select>
             </div>
 
@@ -356,7 +358,7 @@ const Settings = () => {
                 htmlFor="timezone" 
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Timezone (Display Only)
+                {t('settings.timezoneDisplayOnly')}
               </label>
               <select
                 id="timezone"
@@ -365,7 +367,7 @@ const Settings = () => {
                 onChange={handleDisplayPreferenceChange}
                 disabled
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 bg-gray-100 text-gray-500 rounded-md cursor-not-allowed"
-                title="Timezone is automatically detected from your browser"
+                title={t('settings.timezoneAutoTitle')}
               >
                 {Intl.supportedValuesOf('timeZone').map(zone => (
                   <option key={zone} value={zone}>
@@ -374,7 +376,7 @@ const Settings = () => {
                 ))}
               </select>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Your browser's timezone is used automatically
+                {t('settings.timezoneAutoBody')}
               </p>
             </div>
 
@@ -383,7 +385,7 @@ const Settings = () => {
                 htmlFor="dateFormat" 
                 className="block text-sm font-medium text-gray-700 dark:text-gray-300"
               >
-                Time Format (Display Only)
+                {t('settings.timeFormatDisplayOnly')}
               </label>
               <select
                 id="dateFormat"
@@ -392,13 +394,13 @@ const Settings = () => {
                 onChange={handleDisplayPreferenceChange}
                 disabled
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 bg-gray-100 text-gray-500 rounded-md cursor-not-allowed"
-                title="Time format uses browser defaults"
+                title={t('settings.timeFormatAutoTitle')}
               >
-                <option value="12hour">12 Hour</option>
-                <option value="24hour">24 Hour</option>
+                <option value="12hour">{t('settings.format12')}</option>
+                <option value="24hour">{t('settings.format24')}</option>
               </select>
               <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                Time format follows your browser's locale settings
+                {t('settings.timeFormatAutoBody')}
               </p>
             </div>
           </div>
@@ -412,7 +414,7 @@ const Settings = () => {
               onClick={handleSaveSettings}
               className="bg-blue-600 dark:bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
             >
-              Save Settings
+              {t('settings.save')}
             </button>
           </div>
         </div>
