@@ -6,6 +6,7 @@ import Routes from './Routes';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import NotificationContainer from './components/common/NotificationContainer';
 import { initializeTheme, clearSavedTheme } from './utils/theme';
+import { I18nProvider } from './i18n';
 import './styles.css';
 
 // Theme initializer component (must be inside AppProvider)
@@ -45,18 +46,20 @@ function App() {
   
   return (
     <ErrorBoundary>
-      <AppProvider>
-        <BrowserRouter
-          future={{
-            v7_startTransition: true,
-            v7_relativeSplatPath: true
-          }}
-        >
-          <ThemeInitializer />
-          <Routes />
-          <NotificationContainer />
-        </BrowserRouter>
-      </AppProvider>
+      <I18nProvider>
+        <AppProvider>
+          <BrowserRouter
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true
+            }}
+          >
+            <ThemeInitializer />
+            <Routes />
+            <NotificationContainer />
+          </BrowserRouter>
+        </AppProvider>
+      </I18nProvider>
     </ErrorBoundary>
   );
 }

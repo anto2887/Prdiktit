@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { worldcupApi } from '../api';
+import { useI18n } from '../i18n';
 
 const GlobalLeaderboardPage = () => {
+  const { t } = useI18n();
   const [season, setSeason] = useState('2026');
   const [status, setStatus] = useState(null);
   const [rows, setRows] = useState([]);
@@ -33,9 +35,9 @@ const GlobalLeaderboardPage = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Global Leaderboard</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('global.title')}</h1>
           <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-            World Cup canonical standings with rivalry-win tie-break.
+            {t('global.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -66,7 +68,7 @@ const GlobalLeaderboardPage = () => {
           <div className="p-4 text-sm text-gray-500 dark:text-gray-300">Loading leaderboard...</div>
         ) : rows.length === 0 ? (
           <div className="p-4 text-sm text-gray-500 dark:text-gray-300">
-            No canonical entries yet for this season.
+            {t('global.noEntries')}
           </div>
         ) : (
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">

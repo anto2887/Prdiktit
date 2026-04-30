@@ -6,6 +6,7 @@ import { usePredictions, useMatches, useGroups } from '../contexts/AppContext';
 import PredictionList from '../components/predictions/PredictionList';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
+import AdSlot from '../components/ads/AdSlot';
 
 const PredictionsPage = () => {
   const { fetchUserPredictions, loading: predictionsLoading, error: predictionsError } = usePredictions();
@@ -112,7 +113,12 @@ const PredictionsPage = () => {
     );
   }
 
-  return <PredictionList />;
+  return (
+    <div>
+      <AdSlot placement="predictions" />
+      <PredictionList />
+    </div>
+  );
 };
 
 export default PredictionsPage;

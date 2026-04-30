@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { groupsApi, powerupsApi } from '../api';
 import { useGroups } from '../contexts/AppContext';
+import { useI18n } from '../i18n';
 
 const PowerUpsPage = () => {
+  const { t } = useI18n();
   const { currentGroup } = useGroups();
   const [catalog, setCatalog] = useState([]);
   const [members, setMembers] = useState([]);
@@ -90,9 +92,9 @@ const PowerUpsPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Power-ups</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('powerups.title')}</h1>
         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-          Activate freeze, shield, and multiplier with UTC day rules.
+          {t('powerups.subtitle')}
         </p>
       </div>
 
@@ -199,7 +201,7 @@ const PowerUpsPage = () => {
           disabled={submitting || !sourceGroupId}
           className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
         >
-          {submitting ? 'Activating...' : 'Activate'}
+          {submitting ? t('powerups.activating') : t('powerups.activate')}
         </button>
       </form>
     </div>

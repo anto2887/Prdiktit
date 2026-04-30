@@ -15,6 +15,7 @@ import OnboardingGuide, { HelpTooltip } from '../components/onboarding/Onboardin
 import GroupActivationProgress from '../components/common/GroupActivationProgress';
 import ContextAwareNavigation from '../components/common/ContextAwareNavigation';
 import MobileCard from '../components/mobile/MobileCard';
+import AdSlot from '../components/ads/AdSlot';
 
 const GroupDetailsPage = () => {
   const { groupId } = useParams();
@@ -280,6 +281,7 @@ const GroupDetailsPage = () => {
 
       {/* Context-Aware Navigation */}
       <ContextAwareNavigation groupId={parseInt(groupId)} currentPath={location.pathname} />
+      <AdSlot placement="groupDetails" />
 
       {/* Navigation Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700 mb-6">

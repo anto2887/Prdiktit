@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { paymentsApi } from '../api';
+import { useI18n } from '../i18n';
 
 const WalletPage = () => {
+  const { t } = useI18n();
   const [balance, setBalance] = useState(0);
   const [bundles, setBundles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,14 +76,14 @@ const WalletPage = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Wallet</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('wallet.title')}</h1>
         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-          Buy coins and use them for power-ups.
+          {t('wallet.subtitle')}
         </p>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="text-sm text-gray-500 dark:text-gray-300">Current Balance</div>
+        <div className="text-sm text-gray-500 dark:text-gray-300">{t('wallet.balance')}</div>
         <div className="text-3xl font-semibold text-blue-600 dark:text-blue-400 mt-2">
           {balance} coins
         </div>
@@ -94,12 +96,12 @@ const WalletPage = () => {
       )}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Coin bundles</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('wallet.coinBundles')}</h2>
         {loading ? (
-          <div className="text-gray-500 dark:text-gray-300 text-sm">Loading bundles...</div>
+          <div className="text-gray-500 dark:text-gray-300 text-sm">{t('wallet.loadingBundles')}</div>
         ) : bundles.length === 0 ? (
           <div className="text-gray-500 dark:text-gray-300 text-sm">
-            No bundles are currently available.
+            {t('wallet.noBundles')}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -119,7 +121,7 @@ const WalletPage = () => {
                   disabled={buyingBundleId === bundle.bundle_id}
                   className="mt-4 w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
                 >
-                  {buyingBundleId === bundle.bundle_id ? 'Starting checkout...' : 'Buy'}
+                  {buyingBundleId === bundle.bundle_id ? t('wallet.startingCheckout') : t('wallet.buy')}
                 </button>
               </div>
             ))}

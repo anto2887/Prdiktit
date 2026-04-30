@@ -12,6 +12,7 @@ import RecentPredictions from './RecentPredictions';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
+import AdSlot from '../ads/AdSlot';
 
 const Dashboard = () => {
   const { profile, stats, loading: userLoading, error: userError } = useUser();
@@ -138,6 +139,7 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+      <AdSlot placement="dashboard" />
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

@@ -2,10 +2,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, useNotifications } from '../../contexts/AppContext';
+import { useI18n } from '../../i18n';
 
 const Navigation = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const { showSuccess } = useNotifications();
+  const { locale, setLocale, t } = useI18n();
   const navigate = useNavigate();
   
   // Add state and ref for dropdown
@@ -119,6 +121,21 @@ const Navigation = () => {
                       >
                         My Leagues
                       </Link>
+                      <div className="px-4 py-2">
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                          {t('common.language')}
+                        </label>
+                        <select
+                          value={locale}
+                          onChange={(e) => setLocale(e.target.value)}
+                          className="w-full text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-2 py-1"
+                        >
+                          <option value="en">{t('common.english')}</option>
+                          <option value="es">{t('common.spanish')}</option>
+                          <option value="fr">{t('common.french')}</option>
+                          <option value="pt">{t('common.portuguese')}</option>
+                        </select>
+                      </div>
                       <button
                         onClick={handleLogout}
                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
