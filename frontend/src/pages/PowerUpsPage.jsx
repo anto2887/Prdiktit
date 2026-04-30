@@ -29,6 +29,12 @@ const PowerUpsPage = () => {
     () => catalog.find((item) => item.powerup_type === powerupType),
     [catalog, powerupType]
   );
+  const getPowerupLabel = (type, fallbackName = '') => {
+    if (type === 'SHIELD') return t('powerups.shield');
+    if (type === 'FREEZE') return t('powerups.freeze');
+    if (type === 'MULTIPLIER') return t('powerups.multiplier');
+    return fallbackName || type;
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -42,7 +48,7 @@ const PowerUpsPage = () => {
         setCatalog(asArray(catalogRes?.data));
         setMembers(asArray(membersRes?.data));
       } catch (e) {
-        setError(e?.message || 'Failed to load power-up data');
+        setError(e?.message || t('powerups.loadFailed'));
       } finally {
         setLoading(false);
       }
@@ -59,7 +65,7 @@ const PowerUpsPage = () => {
   const onActivate = async (event) => {
     event.preventDefault();
     if (!sourceGroupId) {
-      setError('Select a current group before activating power-ups.');
+      setError(t('powerups.selectGroupFirst'));
       return;
     }
 
@@ -83,7 +89,7 @@ const PowerUpsPage = () => {
       const response = await powerupsApi.activate(payload);
       setResult(response?.data || response?.data?.data || response);
     } catch (e) {
-      setError(e?.message || 'Power-up activation failed');
+      setError(e?.message || t('powerups.activationFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -99,28 +105,28 @@ const PowerUpsPage = () => {
       </div>
 
       {loading ? (
-        <div className="text-sm text-gray-500 dark:text-gray-300">Loading power-up catalog...</div>
+        <div className="text-sm text-gray-500 dark:text-gray-300">{t('powerups.loadingCatalog')}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {catalog.map((item) => (
             <div key={item.powerup_type} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
               <div className="text-sm text-gray-500 dark:text-gray-300">{item.powerup_type}</div>
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">{item.display_name}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{item.base_cost_coins} coins</div>
+              <div className="text-lg font-semibold text-gray-900 dark:text-white">{getPowerupLabel(item.powerup_type, item.display_name)}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{item.base_cost_coins} {t('powerups.coins')}</div>
             </div>
           ))}
         </div>
       )}
 
       <form onSubmit={onActivate} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Activate power-up</h2>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('powerups.activatePowerup')}</h2>
         <div className="text-sm text-gray-600 dark:text-gray-300">
-          Source group: {sourceGroupId || 'No current group selected'}
+          {t('powerups.sourceGroup')}: {sourceGroupId || t('powerups.noCurrentGroupSelected')}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="text-sm">
-            <span className="block mb-1 text-gray-700 dark:text-gray-200">Power-up</span>
+            <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.powerup')}</span>
             <select
               value={powerupType}
               onChange={(e) => setPowerupType(e.target.value)}
@@ -128,14 +134,14 @@ const PowerUpsPage = () => {
             >
               {catalog.map((item) => (
                 <option key={item.powerup_type} value={item.powerup_type}>
-                  {item.display_name}
+                  {getPowerupLabel(item.powerup_type, item.display_name)}
                 </option>
               ))}
             </select>
           </label>
 
           <label className="text-sm">
-            <span className="block mb-1 text-gray-700 dark:text-gray-200">Effective UTC date</span>
+            <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.effectiveUtcDate')}</span>
             <input
               type="date"
               value={effectiveUtcDate}
@@ -147,14 +153,14 @@ const PowerUpsPage = () => {
 
           {powerupType === 'FREEZE' && (
             <label className="text-sm md:col-span-2">
-              <span className="block mb-1 text-gray-700 dark:text-gray-200">Target user</span>
+              <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.targetUser')}</span>
               <select
                 value={targetUserId}
                 onChange={(e) => setTargetUserId(e.target.value)}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
                 required
               >
-                <option value="">Select target user</option>
+                <option value="">{t('powerups.selectTargetUser')}</option>
                 {members.map((member) => (
                   <option key={member.user_id} value={member.user_id}>
                     {member.username}
@@ -166,7 +172,7 @@ const PowerUpsPage = () => {
 
           {powerupType === 'MULTIPLIER' && (
             <label className="text-sm md:col-span-2">
-              <span className="block mb-1 text-gray-700 dark:text-gray-200">Fixture ID</span>
+              <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.fixtureId')}</span>
               <input
                 type="number"
                 value={fixtureId}
@@ -180,7 +186,7 @@ const PowerUpsPage = () => {
 
         {selectedPowerup && (
           <div className="text-sm text-gray-600 dark:text-gray-300">
-            Base cost: <span className="font-medium">{selectedPowerup.base_cost_coins} coins</span>
+            {t('powerups.baseCost')}: <span className="font-medium">{selectedPowerup.base_cost_coins} {t('powerups.coins')}</span>
           </div>
         )}
 
@@ -192,7 +198,7 @@ const PowerUpsPage = () => {
 
         {result && (
           <div className="rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 p-3 text-sm text-green-700 dark:text-green-300">
-            Activation complete. Charged: {result.charged_cost_coins ?? result?.data?.charged_cost_coins} coins.
+            {t('powerups.activationCompleteCharged')}: {result.charged_cost_coins ?? result?.data?.charged_cost_coins} {t('powerups.coins')}.
           </div>
         )}
 
