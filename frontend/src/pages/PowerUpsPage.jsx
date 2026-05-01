@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { groupsApi, paymentsApi, powerupsApi } from '../api';
+import { groupsApi, paymentsApi, powerupsApi, usersApi } from '../api';
 import { CoinIcon, PowerupTypeIcon, powerupAccentBg } from '../components/icons/GameIcons';
 import { useGroups, usePredictions } from '../contexts/AppContext';
 import { useI18n } from '../i18n';
@@ -30,6 +30,8 @@ const PowerUpsPage = () => {
   const [targetUserLoading, setTargetUserLoading] = useState(false);
   const [showTargetUserOptions, setShowTargetUserOptions] = useState(false);
   const [activeTargetUserIndex, setActiveTargetUserIndex] = useState(-1);
+  const [freezeTargetMatchDates, setFreezeTargetMatchDates] = useState([]);
+  const [freezeTargetMatchDatesLoading, setFreezeTargetMatchDatesLoading] = useState(false);
   const [selectedMultiplierFixtureId, setSelectedMultiplierFixtureId] = useState('');
   const targetUserComboboxRef = useRef(null);
 
@@ -100,10 +102,17 @@ const PowerUpsPage = () => {
   }, [predictedMatches]);
   const selectedTargetInSourceGroup = useMemo(() => {
     if (powerupType !== 'FREEZE' || !targetUserId) return true;
-    return targetUserOptions.some((member) => String(member.user_id) === String(targetUserId));
-  }, [targetUserOptions, powerupType, targetUserId]);
+    return members.some((member) => String(member.user_id) === String(targetUserId));
+  }, [members, powerupType, targetUserId]);
   const requiredInventoryUnits =
     powerupType === 'FREEZE' && targetUserId && !selectedTargetInSourceGroup ? 2 : 1;
+  const freezeDateCounts = useMemo(() => {
+    const counts = {};
+    freezeTargetMatchDates.forEach((date) => {
+      counts[date] = (counts[date] || 0) + 1;
+    });
+    return counts;
+  }, [freezeTargetMatchDates]);
   const formatDisplayDate = (rawDate) => {
     if (!rawDate) return '';
     const parsed = new Date(`${rawDate}T00:00:00Z`);
@@ -229,10 +238,24 @@ const PowerUpsPage = () => {
       }
       return;
     }
+    if (powerupType === 'FREEZE') {
+      if (!targetUserId) {
+        setEffectiveUtcDate('');
+        return;
+      }
+      if (freezeTargetMatchDates.length === 0) {
+        setEffectiveUtcDate('');
+        return;
+      }
+      if (!freezeTargetMatchDates.includes(effectiveUtcDate)) {
+        setEffectiveUtcDate(freezeTargetMatchDates[0]);
+      }
+      return;
+    }
     if (!effectiveUtcDate) {
       setEffectiveUtcDate(new Date().toISOString().slice(0, 10));
     }
-  }, [effectiveUtcDate, predictedMatchDates, powerupType]);
+  }, [effectiveUtcDate, predictedMatchDates, freezeTargetMatchDates, powerupType, targetUserId]);
 
   useEffect(() => {
     if (powerupType !== 'MULTIPLIER') {
@@ -245,6 +268,7 @@ const PowerUpsPage = () => {
     setTargetUserQuery('');
     setActiveTargetUserIndex(-1);
     setShowTargetUserOptions(false);
+    setFreezeTargetMatchDates([]);
   }, [sourceGroupId]);
 
   useEffect(() => {
@@ -285,6 +309,47 @@ const PowerUpsPage = () => {
 
     return () => clearTimeout(timeoutId);
   }, [targetUserQuery, sourceGroupId, powerupType, members, t]);
+
+  useEffect(() => {
+    const loadFreezeTargetDates = async () => {
+      if (powerupType !== 'FREEZE' || !sourceGroupId || !targetUserId) {
+        setFreezeTargetMatchDates([]);
+        setFreezeTargetMatchDatesLoading(false);
+        return;
+      }
+      try {
+        setFreezeTargetMatchDatesLoading(true);
+        const response = await usersApi.getUserPredictions(Number(targetUserId), {
+          group_id: Number(sourceGroupId),
+        });
+        const rows = asArray(response?.data);
+        const now = Date.now();
+        const dates = rows
+          .map((prediction) => {
+            const fixture = prediction?.fixture || {};
+            const rawDate =
+              fixture?.date ??
+              fixture?.kickoff_utc ??
+              fixture?.start_time_utc ??
+              prediction?.fixture_date ??
+              prediction?.match_date;
+            if (!rawDate) return null;
+            const kickoff = new Date(rawDate);
+            if (Number.isNaN(kickoff.getTime()) || kickoff.getTime() <= now) return null;
+            return kickoff.toISOString().slice(0, 10);
+          })
+          .filter(Boolean);
+        const uniqueDates = [...new Set(dates)].sort();
+        setFreezeTargetMatchDates(uniqueDates);
+      } catch (e) {
+        setError(e?.message || t('powerups.loadFailed'));
+        setFreezeTargetMatchDates([]);
+      } finally {
+        setFreezeTargetMatchDatesLoading(false);
+      }
+    };
+    loadFreezeTargetDates();
+  }, [powerupType, sourceGroupId, targetUserId, t]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -357,6 +422,10 @@ const PowerUpsPage = () => {
     }
     if (powerupType === 'FREEZE' && !targetUserId) {
       setError(t('powerups.selectTargetUserRequired'));
+      return;
+    }
+    if (powerupType === 'FREEZE' && (!effectiveUtcDate || !freezeTargetMatchDates.includes(effectiveUtcDate))) {
+      setError(t('powerups.selectFreezeMatchDateFirst'));
       return;
     }
     if (powerupType === 'SHIELD' && (!effectiveUtcDate || !predictedMatchDates.includes(effectiveUtcDate))) {
@@ -614,7 +683,7 @@ const PowerUpsPage = () => {
             </select>
           </label>
 
-          {powerupType !== 'MULTIPLIER' && powerupType !== 'SHIELD' && (
+          {powerupType !== 'MULTIPLIER' && powerupType !== 'SHIELD' && powerupType !== 'FREEZE' && (
             <label className="text-sm">
               <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.matchDate')}</span>
               <input
@@ -707,6 +776,50 @@ const PowerUpsPage = () => {
                       <div className="font-medium">{formatDisplayDate(date)}</div>
                       <div className="text-[11px] opacity-75">
                         {matchesByDateCount[date] || 0} {t('powerups.matches')}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {powerupType === 'FREEZE' && (
+            <div className="text-sm md:col-span-2">
+              <span className="block mb-2 text-gray-700 dark:text-gray-200">{t('powerups.matchDate')}</span>
+              {!targetUserId ? (
+                <div className="rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-200">
+                  {t('powerups.selectTargetUserFirstForDates')}
+                </div>
+              ) : freezeTargetMatchDatesLoading ? (
+                <div className="rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-3 text-xs text-gray-600 dark:text-gray-300">
+                  {t('powerups.loadingMatchDates')}
+                </div>
+              ) : freezeTargetMatchDates.length === 0 ? (
+                <div className="rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-200">
+                  {t('powerups.noPredictedMatchDatesForTarget')}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {t('powerups.selectFreezeMatchDateHint')}
+                </div>
+              )}
+              {targetUserId && freezeTargetMatchDates.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {freezeTargetMatchDates.map((date) => (
+                    <button
+                      key={date}
+                      type="button"
+                      onClick={() => setEffectiveUtcDate(date)}
+                      className={`rounded-md border px-3 py-2 text-sm text-left transition-colors ${
+                        effectiveUtcDate === date
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200'
+                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <div className="font-medium">{formatDisplayDate(date)}</div>
+                      <div className="text-[11px] opacity-75">
+                        {freezeDateCounts[date] || 0} {t('powerups.matches')}
                       </div>
                     </button>
                   ))}
@@ -862,7 +975,8 @@ const PowerUpsPage = () => {
             !sourceGroupId ||
             selectedInventoryCount < requiredInventoryUnits ||
             (powerupType === 'MULTIPLIER' && !multiplierSelectedMatch) ||
-            (powerupType === 'SHIELD' && !effectiveUtcDate)
+            (powerupType === 'SHIELD' && !effectiveUtcDate) ||
+            (powerupType === 'FREEZE' && !effectiveUtcDate)
           }
           className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
         >
