@@ -146,10 +146,33 @@ const GroupForm = () => {
   return (
     <div className="max-w-3xl mx-auto p-6">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">{t('groups.createLeague')}</h1>
-        
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">{t('groups.createLeague')}</h1>
+
+        <div
+          data-tour="tour-create-group-progress"
+          className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600 dark:text-gray-300"
+        >
+          <span className={`font-medium ${step === 1 ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+            1. {t('groupForm.leagueName')}
+          </span>
+          <span className="text-gray-400" aria-hidden>
+            →
+          </span>
+          <span className={`font-medium ${step === 2 ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+            2. {t('groupForm.selectLeague')}
+          </span>
+          <span className="text-gray-400" aria-hidden>
+            →
+          </span>
+          <span className={`font-medium ${step === 3 ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+            3. {t('groupForm.selectTeamsToTrack')}
+          </span>
+        </div>
+
+        <div data-tour="tour-create-group-active-step" className="min-h-[10rem]">
         {/* Step 1: League Name */}
-        <div className={`mb-6 ${step !== 1 && 'hidden'}`}>
+        {step === 1 && (
+        <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('groupForm.leagueName')}
@@ -174,9 +197,11 @@ const GroupForm = () => {
             {t('common.next')}
           </button>
         </div>
+        )}
 
         {/* Step 2: League Selection */}
-        <div className={`mb-6 ${step !== 2 && 'hidden'}`}>
+        {step === 2 && (
+        <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('groupForm.selectLeague')}
@@ -213,9 +238,11 @@ const GroupForm = () => {
             {t('groupForm.back')}
           </button>
         </div>
+        )}
 
         {/* Step 3: Team Selection */}
-        <div className={`mb-6 ${step !== 3 ? 'hidden' : ''}`}>
+        {step === 3 && (
+        <div className="mb-6">
           {process.env.NODE_ENV === 'development' && console.log('Step 3 rendering:', { step, league: formData.league })}
           
           <div className="flex justify-between items-center mb-2">
@@ -259,6 +286,8 @@ const GroupForm = () => {
               {t('groups.createLeague')}
             </button>
           </div>
+        </div>
+        )}
         </div>
       </div>
     </div>

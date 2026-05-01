@@ -15,8 +15,11 @@ const CreateGroupPage = () => {
 
   return (
     <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t('createGroup.title')}</h1>
+      <div
+        className="flex justify-between items-center mb-6"
+        data-tour="tour-create-group-page-header"
+      >
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('createGroup.title')}</h1>
         <div className="flex items-center gap-4">
           <Link
             to="/groups"

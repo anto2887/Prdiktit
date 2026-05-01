@@ -116,7 +116,7 @@ const PredictionsPage = () => {
   }
 
   return (
-    <div>
+    <div data-tour="tour-predictions-page">
       <AdSlot placement="predictions" />
       <PredictionList />
     </div>

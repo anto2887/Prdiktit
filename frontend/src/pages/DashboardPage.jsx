@@ -382,7 +382,7 @@ const DashboardPage = React.memo(() => {
       )}
 
       {/* Stats section */}
-      <section className="mb-8">
+      <section className="mb-8" data-tour="tour-dashboard-stats">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">{t('dashboard.yourStats')}</h2>
           <HelpTooltip content={t('dashboard.tooltipStats')}>
@@ -421,7 +421,7 @@ const DashboardPage = React.memo(() => {
       </section>
       
       {/* Recent predictions section */}
-      <section className="mb-8">
+      <section className="mb-8" data-tour="tour-dashboard-recent">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">{t('recentPredictions.title')}</h2>
           <HelpTooltip content={t('dashboard.tooltipRecentPredictions')}>
@@ -438,7 +438,7 @@ const DashboardPage = React.memo(() => {
       
       {/* League table section */}
       {userGroups && (userGroups.length > 0 ? (
-        <section className="mb-8">
+        <section className="mb-8" data-tour="tour-dashboard-groups">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">{t('groups.yourGroups')}</h2>
             <div className="flex gap-2">
@@ -492,7 +492,7 @@ const DashboardPage = React.memo(() => {
           </div>
         </section>
       ) : (
-        <section className="mb-8">
+        <section className="mb-8" data-tour="tour-dashboard-groups">
           <div className="bg-white rounded-lg shadow-md p-6">
             <div className="text-center py-12">
               <h3 className="text-lg font-medium text-gray-900 mb-2">{t('groups.emptyStateTitle')}</h3>

@@ -33,7 +33,10 @@ const GlobalLeaderboardPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div
+        className="flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+        data-tour="tour-global-pot-header"
+      >
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('global.title')}</h1>
           <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
@@ -63,7 +66,10 @@ const GlobalLeaderboardPage = () => {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div
+        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+        data-tour="tour-global-pot-table"
+      >
         {loading ? (
           <div className="p-4 text-sm text-gray-500 dark:text-gray-300">{t('global.loading')}</div>
         ) : rows.length === 0 ? (

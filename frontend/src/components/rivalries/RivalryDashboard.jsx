@@ -112,7 +112,7 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null })
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8" data-tour="tour-rivalry-header">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 flex items-center">
@@ -198,7 +198,7 @@ const RivalryDashboard = ({ groupId, currentWeek, season = null, group = null })
       )}
 
       {/* Navigation tabs */}
-      <div className="mb-6">
+      <div className="mb-6" data-tour="tour-rivalry-tabs">
         <nav className="flex space-x-8">
           {[
             { id: 'current', label: t('rivalries.currentRivalries'), count: activeRivalries.length },

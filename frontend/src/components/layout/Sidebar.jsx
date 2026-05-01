@@ -9,7 +9,10 @@ const Sidebar = () => {
   const { t } = useI18n();
 
   return (
-    <aside className="w-64 bg-white dark:bg-gray-800 shadow-lg hidden md:block">
+    <aside
+      className="w-64 bg-white dark:bg-gray-800 shadow-lg hidden md:block"
+      data-tour="tour-sidebar-root"
+    >
       <div className="h-full px-3 py-4 overflow-y-auto">
         <nav className="space-y-6">
           <div>
@@ -19,6 +22,7 @@ const Sidebar = () => {
             <ul className="space-y-2">
               <li>
                 <NavLink
+                  data-tour="tour-nav-dashboard"
                   to="/dashboard"
                   className={({ isActive }) =>
                     `flex items-center p-2 rounded-lg ${
@@ -33,6 +37,7 @@ const Sidebar = () => {
               </li>
               <li>
                 <NavLink
+                  data-tour="tour-nav-predictions"
                   to="/predictions"
                   className={({ isActive }) =>
                     `flex items-center p-2 rounded-lg ${
@@ -47,6 +52,7 @@ const Sidebar = () => {
               </li>
               <li>
                 <NavLink
+                  data-tour="tour-nav-wallet"
                   to="/wallet"
                   className={({ isActive }) =>
                     `flex items-center gap-2 p-2 rounded-lg ${
@@ -62,6 +68,7 @@ const Sidebar = () => {
               </li>
               <li>
                 <NavLink
+                  data-tour="tour-nav-powerups"
                   to="/powerups"
                   className={({ isActive }) =>
                     `flex items-center gap-2 p-2 rounded-lg ${
@@ -92,7 +99,7 @@ const Sidebar = () => {
             </ul>
           </div>
 
-          <div>
+          <div data-tour="tour-sidebar-groups">
             <h3 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
               {t('groups.yourGroups')}
             </h3>

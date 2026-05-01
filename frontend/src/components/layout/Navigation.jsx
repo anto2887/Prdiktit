@@ -1,18 +1,24 @@
 // src/components/layout/Navigation.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { HelpCircle } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, useNotifications } from '../../contexts/AppContext';
 import { useI18n } from '../../i18n';
+import { resolvePageTourKey, useTour } from '../../contexts/TourContext';
 
 const Navigation = () => {
   const { user, logout, isAuthenticated } = useAuth();
-  const { showSuccess } = useNotifications();
+  const { showSuccess, showInfo } = useNotifications();
   const { locale, setLocale, t } = useI18n();
   const navigate = useNavigate();
-  
+  const { pathname } = useLocation();
+  const { startTour, startTourAfterNavigation } = useTour();
+
   // Add state and ref for dropdown
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const helpRef = useRef(null);
 
   const handleLogout = async () => {
     try {
@@ -33,6 +39,9 @@ const Navigation = () => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
       }
+      if (helpRef.current && !helpRef.current.contains(event.target)) {
+        setIsHelpOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -40,6 +49,27 @@ const Navigation = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  const runDashboardTour = () => {
+    setIsHelpOpen(false);
+    if (pathname === '/dashboard') {
+      const ok = startTour('dashboard');
+      if (!ok) showInfo(t('help.noTourThisPage'));
+    } else {
+      startTourAfterNavigation('dashboard', '/dashboard');
+    }
+  };
+
+  const runThisPageTour = () => {
+    setIsHelpOpen(false);
+    const key = resolvePageTourKey(pathname);
+    if (!key) {
+      showInfo(t('help.noTourThisPage'));
+      return;
+    }
+    const ok = startTour(key);
+    if (!ok) showInfo(t('help.noTourThisPage'));
+  };
 
   // Add toggle function
   const toggleDropdown = () => {
@@ -65,11 +95,46 @@ const Navigation = () => {
 
           <div className="flex items-center">
             {isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-gray-700 dark:text-gray-200 hidden sm:inline">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <span className="text-gray-700 dark:text-gray-200 hidden sm:inline max-w-[10rem] truncate">
                   {user?.username}
                 </span>
-                <div className="relative ml-3" ref={dropdownRef}>
+                <div className="relative" ref={helpRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsHelpOpen((o) => !o)}
+                    className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    aria-expanded={isHelpOpen}
+                    aria-haspopup="true"
+                    aria-label={t('help.menuAria')}
+                  >
+                    <HelpCircle className="w-5 h-5" aria-hidden />
+                  </button>
+                  {isHelpOpen && (
+                    <div
+                      className="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-gray-700 ring-opacity-5 z-50"
+                      role="menu"
+                    >
+                      <button
+                        type="button"
+                        onClick={runDashboardTour}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        role="menuitem"
+                      >
+                        {t('help.menuDashboard')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={runThisPageTour}
+                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        role="menuitem"
+                      >
+                        {t('help.menuThisPage')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <div className="relative" ref={dropdownRef}>
                   <div>
                     <button
                       type="button"

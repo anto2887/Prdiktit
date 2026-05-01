@@ -108,7 +108,7 @@ const PowerUpsPage = () => {
       {loading ? (
         <div className="text-sm text-gray-500 dark:text-gray-300">{t('powerups.loadingCatalog')}</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-tour="tour-powerups-catalog">
           {catalog.map((item) => (
             <div
               key={item.powerup_type}
@@ -134,7 +134,11 @@ const PowerUpsPage = () => {
         </div>
       )}
 
-      <form onSubmit={onActivate} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+      <form
+        onSubmit={onActivate}
+        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 space-y-4"
+        data-tour="tour-powerups-activate"
+      >
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('powerups.activatePowerup')}</h2>
         <div className="text-sm text-gray-600 dark:text-gray-300">
           {t('powerups.sourceGroup')}: {sourceGroupId || t('powerups.noCurrentGroupSelected')}

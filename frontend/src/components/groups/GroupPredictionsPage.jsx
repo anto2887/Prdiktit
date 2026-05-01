@@ -186,7 +186,10 @@ const GroupPredictionsPage = () => {
       />
 
       {/* Controls row */}
-      <div className="px-4 pt-3 pb-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-14 z-30 md:static md:top-auto">
+      <div
+        className="px-4 pt-3 pb-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-14 z-30 md:static md:top-auto"
+        data-tour="tour-group-predictions-controls"
+      >
         <div className="flex items-center justify-between space-x-3 overflow-x-auto">
           {/* Week selector */}
           <div className="flex-1 max-w-32 min-w-[8rem]">
@@ -238,7 +241,7 @@ const GroupPredictionsPage = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4" data-tour="tour-group-predictions-main">
         {predictions.length === 0 ? (
           <EmptyPredictionsState selectedWeek={selectedWeek} weekMessage={weekMessage} />
         ) : (

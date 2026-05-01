@@ -219,7 +219,7 @@ const GroupDetailsPage = () => {
       {/* Header */}
       <div className="mb-8">
         <div className="flex justify-between items-start">
-          <div>
+          <div data-tour="tour-group-home-header">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
               {currentGroup.name}
             </h1>
@@ -237,7 +237,7 @@ const GroupDetailsPage = () => {
           </div>
           
           {/* Action Buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3" data-tour="tour-group-home-actions">
             <HelpTooltip content={t('groupDetails.tooltipPredictions')}>
               <button
                 onClick={() => navigate(`/groups/${groupId}/predictions`)}
@@ -286,7 +286,7 @@ const GroupDetailsPage = () => {
       <AdSlot placement="groupDetails" />
 
       {/* Navigation Tabs */}
-      <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+      <div className="border-b border-gray-200 dark:border-gray-700 mb-6" data-tour="tour-group-tabs">
         <div className="sm:flex sm:space-x-8">
           <nav className="-mb-px flex space-x-8">
             <button

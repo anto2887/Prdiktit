@@ -83,7 +83,10 @@ const WalletPage = () => {
         </p>
       </div>
 
-      <div className="bg-gradient-to-br from-amber-50/90 to-white dark:from-amber-950/30 dark:to-gray-800 rounded-xl border border-amber-200/80 dark:border-amber-800/50 p-6 shadow-sm">
+      <div
+        className="bg-gradient-to-br from-amber-50/90 to-white dark:from-amber-950/30 dark:to-gray-800 rounded-xl border border-amber-200/80 dark:border-amber-800/50 p-6 shadow-sm"
+        data-tour="tour-wallet-balance"
+      >
         <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
           <CoinIcon className="w-5 h-5" title={t('powerups.coins')} />
           {t('wallet.balance')}
@@ -105,7 +108,10 @@ const WalletPage = () => {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div
+        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6"
+        data-tour="tour-wallet-bundles"
+      >
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{t('wallet.coinBundles')}</h2>
         {loading ? (
           <div className="text-gray-500 dark:text-gray-300 text-sm">{t('wallet.loadingBundles')}</div>
