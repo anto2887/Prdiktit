@@ -299,16 +299,35 @@ export const groupsApi = {
     }
   },
 
-  getGroupMembers: async (groupId) => {
+  getGroupMembers: async (groupId, options = {}) => {
     try {
       // Always fetch fresh member data with cache-busting
       const timestamp = Date.now();
+      const params = { _t: timestamp };
+      if (options.search !== undefined && options.search !== null && String(options.search).trim() !== '') {
+        params.search = String(options.search).trim();
+      }
+      if (options.limit !== undefined && options.limit !== null) {
+        params.limit = Number(options.limit);
+      }
+      if (options.offset !== undefined && options.offset !== null) {
+        params.offset = Number(options.offset);
+      }
+      if (options.approved_only !== undefined) {
+        params.approved_only = Boolean(options.approved_only);
+      }
       process.env.NODE_ENV === 'development' && console.log(`API: Fetching members for group ${groupId} (fresh)`);
-      const response = await api.client.get(`/groups/${groupId}/members?_t=${timestamp}`);
-      process.env.NODE_ENV === 'development' && console.log(`API: Got ${response.data?.length || 0} members for group ${groupId}`);
+      const response = await api.client.get(`/groups/${groupId}/members`, { params });
+      const memberRows = Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response?.data?.data)
+          ? response.data.data
+          : [];
+      process.env.NODE_ENV === 'development' && console.log(`API: Got ${memberRows.length || 0} members for group ${groupId}`);
       return {
         status: 'success',
-        data: response.data || []
+        data: memberRows,
+        total: response?.data?.total ?? memberRows.length
       };
     } catch (error) {
       process.env.NODE_ENV === 'development' && console.error(`API: Error fetching group members for ${groupId}:`, error);

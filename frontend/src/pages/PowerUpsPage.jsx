@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { groupsApi, paymentsApi, powerupsApi } from '../api';
 import { CoinIcon, PowerupTypeIcon, powerupAccentBg } from '../components/icons/GameIcons';
@@ -25,7 +25,13 @@ const PowerUpsPage = () => {
   const [selectedSourceGroupId, setSelectedSourceGroupId] = useState('');
   const [effectiveUtcDate, setEffectiveUtcDate] = useState('');
   const [targetUserId, setTargetUserId] = useState('');
+  const [targetUserQuery, setTargetUserQuery] = useState('');
+  const [targetUserOptions, setTargetUserOptions] = useState([]);
+  const [targetUserLoading, setTargetUserLoading] = useState(false);
+  const [showTargetUserOptions, setShowTargetUserOptions] = useState(false);
+  const [activeTargetUserIndex, setActiveTargetUserIndex] = useState(-1);
   const [selectedMultiplierFixtureId, setSelectedMultiplierFixtureId] = useState('');
+  const targetUserComboboxRef = useRef(null);
 
   const sourceGroupId = selectedSourceGroupId || currentGroup?.id || '';
   const asArray = (payload) => {
@@ -94,8 +100,8 @@ const PowerUpsPage = () => {
   }, [predictedMatches]);
   const selectedTargetInSourceGroup = useMemo(() => {
     if (powerupType !== 'FREEZE' || !targetUserId) return true;
-    return members.some((member) => String(member.user_id) === String(targetUserId));
-  }, [members, powerupType, targetUserId]);
+    return targetUserOptions.some((member) => String(member.user_id) === String(targetUserId));
+  }, [targetUserOptions, powerupType, targetUserId]);
   const requiredInventoryUnits =
     powerupType === 'FREEZE' && targetUserId && !selectedTargetInSourceGroup ? 2 : 1;
   const formatDisplayDate = (rawDate) => {
@@ -114,7 +120,9 @@ const PowerUpsPage = () => {
   const refreshPowerupData = async (groupId) => {
     const [catalogRes, membersRes, inventoryRes, walletRes, predictionsRes] = await Promise.all([
       powerupsApi.getCatalog(),
-      groupId ? groupsApi.getGroupMembers(groupId) : Promise.resolve({ data: [] }),
+      groupId
+        ? groupsApi.getGroupMembers(groupId, { approved_only: true, limit: 25 })
+        : Promise.resolve({ data: [] }),
       powerupsApi.getInventory(),
       paymentsApi.getWallet(),
       fetchUserPredictions(groupId ? { group_id: Number(groupId) } : {}),
@@ -122,7 +130,9 @@ const PowerUpsPage = () => {
 
     const catalogRows = asArray(catalogRes?.data);
     setCatalog(catalogRows);
-    setMembers(asArray(membersRes?.data));
+    const approvedMembers = asArray(membersRes?.data).filter((member) => member?.user_id);
+    setMembers(approvedMembers);
+    setTargetUserOptions(approvedMembers);
     setWalletBalance(normalizeWallet(walletRes));
 
     const inventoryRows = asArray(inventoryRes?.data);
@@ -231,6 +241,64 @@ const PowerUpsPage = () => {
   }, [powerupType]);
 
   useEffect(() => {
+    setTargetUserId('');
+    setTargetUserQuery('');
+    setActiveTargetUserIndex(-1);
+    setShowTargetUserOptions(false);
+  }, [sourceGroupId]);
+
+  useEffect(() => {
+    if (powerupType !== 'FREEZE') {
+      setShowTargetUserOptions(false);
+      setTargetUserLoading(false);
+      return;
+    }
+    const query = targetUserQuery.trim();
+    if (!sourceGroupId) {
+      setTargetUserOptions([]);
+      return;
+    }
+    if (!query) {
+      setTargetUserOptions(members.slice(0, 25));
+      setTargetUserLoading(false);
+      return;
+    }
+
+    setTargetUserLoading(true);
+    const timeoutId = setTimeout(async () => {
+      try {
+        const response = await groupsApi.getGroupMembers(sourceGroupId, {
+          search: query,
+          approved_only: true,
+          limit: 25,
+        });
+        const rows = asArray(response?.data).filter((member) => member?.user_id);
+        setTargetUserOptions(rows);
+        setActiveTargetUserIndex(rows.length > 0 ? 0 : -1);
+      } catch (e) {
+        setError(e?.message || t('powerups.loadFailed'));
+        setTargetUserOptions([]);
+      } finally {
+        setTargetUserLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [targetUserQuery, sourceGroupId, powerupType, members, t]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!targetUserComboboxRef.current?.contains(event.target)) {
+        setShowTargetUserOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  useEffect(() => {
     const loadForGroup = async () => {
       if (!sourceGroupId) {
         setMembers([]);
@@ -287,6 +355,10 @@ const PowerUpsPage = () => {
       setError(t('powerups.selectTargetMatchFirst'));
       return;
     }
+    if (powerupType === 'FREEZE' && !targetUserId) {
+      setError(t('powerups.selectTargetUserRequired'));
+      return;
+    }
     if (powerupType === 'SHIELD' && (!effectiveUtcDate || !predictedMatchDates.includes(effectiveUtcDate))) {
       setError(t('powerups.selectMatchDateFirst'));
       return;
@@ -324,6 +396,64 @@ const PowerUpsPage = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const selectTargetUser = (member) => {
+    setTargetUserId(String(member.user_id));
+    setTargetUserQuery(member.username || '');
+    setShowTargetUserOptions(false);
+    setActiveTargetUserIndex(-1);
+  };
+
+  const onTargetUserKeyDown = (event) => {
+    if (!showTargetUserOptions) {
+      if (event.key === 'ArrowDown' || event.key === 'Enter') {
+        setShowTargetUserOptions(true);
+      }
+      return;
+    }
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveTargetUserIndex((prev) =>
+        Math.min(prev + 1, Math.max(targetUserOptions.length - 1, 0))
+      );
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveTargetUserIndex((prev) => Math.max(prev - 1, 0));
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      if (activeTargetUserIndex >= 0 && targetUserOptions[activeTargetUserIndex]) {
+        selectTargetUser(targetUserOptions[activeTargetUserIndex]);
+      }
+      return;
+    }
+    if (event.key === 'Escape') {
+      setShowTargetUserOptions(false);
+    }
+  };
+
+  const renderHighlightedUsername = (username, query) => {
+    const safeUsername = String(username || '');
+    const safeQuery = String(query || '').trim();
+    if (!safeQuery) return safeUsername;
+    const lowerUsername = safeUsername.toLowerCase();
+    const lowerQuery = safeQuery.toLowerCase();
+    const matchIndex = lowerUsername.indexOf(lowerQuery);
+    if (matchIndex === -1) return safeUsername;
+    const before = safeUsername.slice(0, matchIndex);
+    const match = safeUsername.slice(matchIndex, matchIndex + safeQuery.length);
+    const after = safeUsername.slice(matchIndex + safeQuery.length);
+    return (
+      <>
+        {before}
+        <span className="font-semibold text-blue-700 dark:text-blue-300">{match}</span>
+        {after}
+      </>
+    );
   };
 
   return (
@@ -498,22 +628,55 @@ const PowerUpsPage = () => {
           )}
 
           {powerupType === 'FREEZE' && (
-            <label className="text-sm md:col-span-2">
+            <div className="text-sm md:col-span-2 relative" ref={targetUserComboboxRef}>
               <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.targetUser')}</span>
-              <select
-                value={targetUserId}
-                onChange={(e) => setTargetUserId(e.target.value)}
+              <input
+                type="text"
+                value={targetUserQuery}
+                placeholder={t('powerups.searchTargetUser')}
+                onChange={(e) => {
+                  setTargetUserQuery(e.target.value);
+                  setTargetUserId('');
+                  setShowTargetUserOptions(true);
+                  setActiveTargetUserIndex(-1);
+                }}
+                onFocus={() => setShowTargetUserOptions(true)}
+                onKeyDown={onTargetUserKeyDown}
                 className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
-                required
-              >
-                <option value="">{t('powerups.selectTargetUser')}</option>
-                {members.map((member) => (
-                  <option key={member.user_id} value={member.user_id}>
-                    {member.username}
-                  </option>
-                ))}
-              </select>
-            </label>
+                aria-autocomplete="list"
+                aria-expanded={showTargetUserOptions}
+              />
+              {showTargetUserOptions && (
+                <div className="absolute z-20 mt-1 w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg max-h-64 overflow-y-auto">
+                  {targetUserLoading ? (
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                      {t('powerups.loadingTargetUsers')}
+                    </div>
+                  ) : targetUserOptions.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
+                      {targetUserQuery.trim()
+                        ? t('powerups.noTargetUsersFound')
+                        : t('powerups.startTypingToSearch')}
+                    </div>
+                  ) : (
+                    targetUserOptions.map((member, index) => (
+                      <button
+                        key={member.user_id}
+                        type="button"
+                        onClick={() => selectTargetUser(member)}
+                        className={`w-full text-left px-3 py-2 text-sm ${
+                          index === activeTargetUserIndex
+                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200'
+                            : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        {renderHighlightedUsername(member.username, targetUserQuery)}
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {powerupType === 'SHIELD' && (

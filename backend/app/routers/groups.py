@@ -510,6 +510,10 @@ async def update_group_endpoint(
 @router.get("/{group_id}/members", response_model=ListResponse)
 async def get_group_members_endpoint(
     group_id: int = Path(...),
+    search: Optional[str] = Query(None, description="Case-insensitive username search"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Max number of approved members to return"),
+    offset: int = Query(0, ge=0, description="Pagination offset for approved members"),
+    approved_only: bool = Query(False, description="When true, excludes pending members"),
     current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
@@ -535,7 +539,14 @@ async def get_group_members_endpoint(
         )
     
     # Get members from repository
-    members = await get_group_members(db, group_id)
+    members = await get_group_members(
+        db,
+        group_id,
+        search=search,
+        limit=limit,
+        offset=offset,
+        include_pending=not approved_only,
+    )
     
     return ListResponse(
         data=members,

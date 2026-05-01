@@ -1033,9 +1033,24 @@ async def regenerate_invite_code(db: Session, group_id: int) -> Optional[str]:
     db.commit()
     return new_code
 
-async def get_group_members(db: Session, group_id: int) -> List[Dict]:
-    """Get all members of a group including pending members"""
-    logger.info(f"get_group_members called for group_id: {group_id}")
+async def get_group_members(
+    db: Session,
+    group_id: int,
+    search: Optional[str] = None,
+    limit: Optional[int] = None,
+    offset: int = 0,
+    include_pending: bool = True,
+) -> List[Dict]:
+    """Get group members with optional case-insensitive username search."""
+    logger.info(
+        "get_group_members called for group_id=%s search=%s limit=%s offset=%s include_pending=%s",
+        group_id,
+        search,
+        limit,
+        offset,
+        include_pending,
+    )
+    normalized_search = (search or "").strip()
     
     # FIXED: Get approved members with proper query
     approved_query = db.query(
@@ -1050,6 +1065,13 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
     ).filter(
         group_members.c.group_id == group_id
     )
+    if normalized_search:
+        approved_query = approved_query.filter(User.username.ilike(f"%{normalized_search}%"))
+    approved_query = approved_query.order_by(User.username.asc())
+    if offset:
+        approved_query = approved_query.offset(max(0, offset))
+    if limit is not None:
+        approved_query = approved_query.limit(max(1, limit))
     
     members = []
     for row in approved_query:
@@ -1065,30 +1087,33 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
         logger.debug(f"Added approved member: {member_data['username']} to group {group_id}")
     
     # Get pending membership requests
-    pending_query = db.query(
-        PendingMembership.user_id,
-        PendingMembership.requested_at,
-        User.username
-    ).join(
-        User,
-        PendingMembership.user_id == User.id
-    ).filter(
-        PendingMembership.group_id == group_id,
-        PendingMembership.status == MembershipStatus.PENDING
-    )
-    
-    for row in pending_query:
-        pending_data = {
-            'user_id': row.user_id,
-            'username': row.username,
-            'role': MemberRole.MEMBER.value,
-            'status': MembershipStatus.PENDING.value,
-            'requested_at': row.requested_at,
-            'joined_at': None,
-            'last_active': None
-        }
-        members.append(pending_data)
-        logger.debug(f"Added pending member: {pending_data['username']} to group {group_id}")
+    if include_pending:
+        pending_query = db.query(
+            PendingMembership.user_id,
+            PendingMembership.requested_at,
+            User.username
+        ).join(
+            User,
+            PendingMembership.user_id == User.id
+        ).filter(
+            PendingMembership.group_id == group_id,
+            PendingMembership.status == MembershipStatus.PENDING
+        )
+        if normalized_search:
+            pending_query = pending_query.filter(User.username.ilike(f"%{normalized_search}%"))
+        pending_query = pending_query.order_by(User.username.asc())
+        for row in pending_query:
+            pending_data = {
+                'user_id': row.user_id,
+                'username': row.username,
+                'role': MemberRole.MEMBER.value,
+                'status': MembershipStatus.PENDING.value,
+                'requested_at': row.requested_at,
+                'joined_at': None,
+                'last_active': None
+            }
+            members.append(pending_data)
+            logger.debug(f"Added pending member: {pending_data['username']} to group {group_id}")
     
     logger.info(f"get_group_members returning {len(members)} members for group {group_id}")
     
