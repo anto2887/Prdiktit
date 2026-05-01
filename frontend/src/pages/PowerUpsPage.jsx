@@ -2,15 +2,17 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { groupsApi, paymentsApi, powerupsApi } from '../api';
 import { CoinIcon, PowerupTypeIcon, powerupAccentBg } from '../components/icons/GameIcons';
-import { useGroups } from '../contexts/AppContext';
+import { useGroups, usePredictions } from '../contexts/AppContext';
 import { useI18n } from '../i18n';
 
 const PowerUpsPage = () => {
-  const { t } = useI18n();
-  const { currentGroup } = useGroups();
+  const { t, locale } = useI18n();
+  const { currentGroup, userGroups, fetchUserGroups } = useGroups();
+  const { fetchUserPredictions } = usePredictions();
   const [catalog, setCatalog] = useState([]);
   const [inventory, setInventory] = useState({});
   const [members, setMembers] = useState([]);
+  const [predictedMatches, setPredictedMatches] = useState([]);
   const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -20,11 +22,12 @@ const PowerUpsPage = () => {
   const [result, setResult] = useState(null);
 
   const [powerupType, setPowerupType] = useState('SHIELD');
+  const [selectedSourceGroupId, setSelectedSourceGroupId] = useState('');
   const [effectiveUtcDate, setEffectiveUtcDate] = useState('');
   const [targetUserId, setTargetUserId] = useState('');
-  const [fixtureId, setFixtureId] = useState('');
+  const [selectedMultiplierFixtureId, setSelectedMultiplierFixtureId] = useState('');
 
-  const sourceGroupId = currentGroup?.id || '';
+  const sourceGroupId = selectedSourceGroupId || currentGroup?.id || '';
   const asArray = (payload) => {
     if (Array.isArray(payload)) return payload;
     if (Array.isArray(payload?.data)) return payload.data;
@@ -35,6 +38,27 @@ const PowerUpsPage = () => {
     response?.data?.balance_coins ??
     response?.data?.data?.balance_coins ??
     0;
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale || 'en', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: 'UTC',
+      }),
+    [locale]
+  );
+  const dateTimeFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(locale || 'en', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'UTC',
+      }),
+    [locale]
+  );
 
   const selectedPowerup = useMemo(
     () => catalog.find((item) => item.powerup_type === powerupType),
@@ -50,19 +74,50 @@ const PowerUpsPage = () => {
   const selectedInventoryCount = selectedPowerup
     ? inventory[selectedPowerup.powerup_type] || 0
     : 0;
+  const multiplierSelectedMatch = useMemo(
+    () =>
+      predictedMatches.find(
+        (match) => String(match.fixture_id) === String(selectedMultiplierFixtureId)
+      ) || null,
+    [predictedMatches, selectedMultiplierFixtureId]
+  );
+  const predictedMatchDates = useMemo(
+    () => [...new Set(predictedMatches.map((match) => match.match_date))].sort(),
+    [predictedMatches]
+  );
+  const matchesByDateCount = useMemo(() => {
+    const counts = {};
+    predictedMatches.forEach((match) => {
+      counts[match.match_date] = (counts[match.match_date] || 0) + 1;
+    });
+    return counts;
+  }, [predictedMatches]);
   const selectedTargetInSourceGroup = useMemo(() => {
     if (powerupType !== 'FREEZE' || !targetUserId) return true;
     return members.some((member) => String(member.user_id) === String(targetUserId));
   }, [members, powerupType, targetUserId]);
   const requiredInventoryUnits =
     powerupType === 'FREEZE' && targetUserId && !selectedTargetInSourceGroup ? 2 : 1;
+  const formatDisplayDate = (rawDate) => {
+    if (!rawDate) return '';
+    const parsed = new Date(`${rawDate}T00:00:00Z`);
+    if (Number.isNaN(parsed.getTime())) return rawDate;
+    return dateFormatter.format(parsed);
+  };
+  const formatDisplayDateTime = (rawDateTime) => {
+    if (!rawDateTime) return '';
+    const parsed = new Date(rawDateTime);
+    if (Number.isNaN(parsed.getTime())) return rawDateTime;
+    return dateTimeFormatter.format(parsed);
+  };
 
-  const refreshPowerupData = async () => {
-    const [catalogRes, membersRes, inventoryRes, walletRes] = await Promise.all([
+  const refreshPowerupData = async (groupId) => {
+    const [catalogRes, membersRes, inventoryRes, walletRes, predictionsRes] = await Promise.all([
       powerupsApi.getCatalog(),
-      sourceGroupId ? groupsApi.getGroupMembers(sourceGroupId) : Promise.resolve({ data: [] }),
+      groupId ? groupsApi.getGroupMembers(groupId) : Promise.resolve({ data: [] }),
       powerupsApi.getInventory(),
       paymentsApi.getWallet(),
+      fetchUserPredictions(groupId ? { group_id: Number(groupId) } : {}),
     ]);
 
     const catalogRows = asArray(catalogRes?.data);
@@ -77,6 +132,48 @@ const PowerUpsPage = () => {
       if (type) inventoryMap[type] = row?.quantity || 0;
     });
     setInventory(inventoryMap);
+
+    const rawPredictions = Array.isArray(predictionsRes) ? predictionsRes : asArray(predictionsRes?.data);
+    const now = Date.now();
+    const byFixture = new Map();
+    rawPredictions.forEach((prediction) => {
+      const fixture = prediction?.fixture || {};
+      const fixtureId = fixture?.fixture_id ?? prediction?.fixture_id ?? prediction?.match_id;
+      const rawDate =
+        fixture?.date ??
+        fixture?.kickoff_utc ??
+        fixture?.start_time_utc ??
+        prediction?.fixture_date ??
+        prediction?.match_date;
+      if (!fixtureId || !rawDate) return;
+
+      const kickoff = new Date(rawDate);
+      if (Number.isNaN(kickoff.getTime()) || kickoff.getTime() <= now) return;
+
+      const predictionGroupId =
+        prediction?.group_id ?? prediction?.group?.id ?? fixture?.group_id ?? null;
+      if (groupId && predictionGroupId && Number(predictionGroupId) !== Number(groupId)) return;
+
+      const existing = byFixture.get(String(fixtureId));
+      if (!existing || new Date(prediction?.created || 0).getTime() > new Date(existing._created || 0).getTime()) {
+        byFixture.set(String(fixtureId), {
+          fixture_id: fixtureId,
+          home_team: fixture?.home_team || prediction?.home_team || t('history.homeTeam'),
+          away_team: fixture?.away_team || prediction?.away_team || t('history.awayTeam'),
+          home_team_logo: fixture?.home_team_logo || null,
+          away_team_logo: fixture?.away_team_logo || null,
+          match_date: kickoff.toISOString().slice(0, 10),
+          match_date_time: kickoff.toISOString(),
+          prediction_home: prediction?.home_score ?? prediction?.score1,
+          prediction_away: prediction?.away_score ?? prediction?.score2,
+          _created: prediction?.created,
+        });
+      }
+    });
+    const matchTiles = Array.from(byFixture.values())
+      .sort((a, b) => new Date(a.match_date_time) - new Date(b.match_date_time))
+      .map(({ _created, ...rest }) => rest);
+    setPredictedMatches(matchTiles);
 
     // Seed purchase quantity controls for new rows.
     setPurchaseQuantity((prev) => {
@@ -95,7 +192,12 @@ const PowerUpsPage = () => {
       try {
         setLoading(true);
         setError('');
-        await refreshPowerupData();
+        await fetchUserGroups();
+        const defaultGroupId = currentGroup?.id || userGroups?.[0]?.id || '';
+        if (defaultGroupId) {
+          setSelectedSourceGroupId(String(defaultGroupId));
+        }
+        await refreshPowerupData(defaultGroupId);
       } catch (e) {
         setError(e?.message || t('powerups.loadFailed'));
       } finally {
@@ -103,13 +205,46 @@ const PowerUpsPage = () => {
       }
     };
     load();
-  }, [sourceGroupId, t]);
+  }, [fetchUserGroups, fetchUserPredictions, currentGroup?.id, userGroups, t]);
 
   useEffect(() => {
+    if (powerupType === 'MULTIPLIER') return;
+    if (powerupType === 'SHIELD') {
+      if (predictedMatchDates.length === 0) {
+        setEffectiveUtcDate('');
+        return;
+      }
+      if (!predictedMatchDates.includes(effectiveUtcDate)) {
+        setEffectiveUtcDate(predictedMatchDates[0]);
+      }
+      return;
+    }
     if (!effectiveUtcDate) {
       setEffectiveUtcDate(new Date().toISOString().slice(0, 10));
     }
-  }, [effectiveUtcDate]);
+  }, [effectiveUtcDate, predictedMatchDates, powerupType]);
+
+  useEffect(() => {
+    if (powerupType !== 'MULTIPLIER') {
+      setSelectedMultiplierFixtureId('');
+    }
+  }, [powerupType]);
+
+  useEffect(() => {
+    const loadForGroup = async () => {
+      if (!sourceGroupId) {
+        setMembers([]);
+        setPredictedMatches([]);
+        return;
+      }
+      try {
+        await refreshPowerupData(sourceGroupId);
+      } catch (e) {
+        setError(e?.message || t('powerups.loadFailed'));
+      }
+    };
+    loadForGroup();
+  }, [sourceGroupId, t]);
 
   const onPurchase = async (type, quickQuantity = null) => {
     try {
@@ -121,7 +256,7 @@ const PowerUpsPage = () => {
         powerup_type: type,
         quantity: Number(qty),
       });
-      await refreshPowerupData();
+      await refreshPowerupData(sourceGroupId);
       setResult({
         kind: 'purchase',
         powerup_type: type,
@@ -148,18 +283,29 @@ const PowerUpsPage = () => {
       );
       return;
     }
+    if (powerupType === 'MULTIPLIER' && !multiplierSelectedMatch) {
+      setError(t('powerups.selectTargetMatchFirst'));
+      return;
+    }
+    if (powerupType === 'SHIELD' && (!effectiveUtcDate || !predictedMatchDates.includes(effectiveUtcDate))) {
+      setError(t('powerups.selectMatchDateFirst'));
+      return;
+    }
 
     const payload = {
       powerup_type: powerupType,
       source_group_id: Number(sourceGroupId),
-      effective_utc_date: effectiveUtcDate,
+      effective_utc_date:
+        powerupType === 'MULTIPLIER'
+          ? multiplierSelectedMatch?.match_date
+          : effectiveUtcDate,
     };
 
     if (powerupType === 'FREEZE' && targetUserId) {
       payload.target_user_id = Number(targetUserId);
     }
-    if (powerupType === 'MULTIPLIER' && fixtureId) {
-      payload.fixture_id = Number(fixtureId);
+    if (powerupType === 'MULTIPLIER' && multiplierSelectedMatch) {
+      payload.fixture_id = Number(multiplierSelectedMatch.fixture_id);
     }
 
     try {
@@ -172,7 +318,7 @@ const PowerUpsPage = () => {
         kind: 'activate',
         ...(activationResult || {}),
       });
-      await refreshPowerupData();
+      await refreshPowerupData(sourceGroupId);
     } catch (e) {
       setError(e?.message || t('powerups.activationFailed'));
     } finally {
@@ -293,11 +439,29 @@ const PowerUpsPage = () => {
       >
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('powerups.activatePowerup')}</h2>
         <p className="text-sm text-gray-600 dark:text-gray-300">{t('powerups.activateHelp')}</p>
-        <div className="text-sm text-gray-600 dark:text-gray-300">
-          {t('powerups.sourceGroup')}: {sourceGroupId || t('powerups.noCurrentGroupSelected')}
-        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <label className="text-sm md:col-span-2">
+            <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.sourceGroup')}</span>
+            <select
+              value={sourceGroupId}
+              onChange={(e) => setSelectedSourceGroupId(e.target.value)}
+              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
+            >
+              <option value="">{t('powerups.selectSourceGroup')}</option>
+              {userGroups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            {userGroups.length === 0 && (
+              <span className="block mt-1 text-xs text-amber-700 dark:text-amber-300">
+                {t('powerups.noGroupsAvailable')}
+              </span>
+            )}
+          </label>
+
           <label className="text-sm">
             <span className="flex items-center gap-2 mb-1 text-gray-700 dark:text-gray-200">
               {selectedPowerup && (
@@ -320,16 +484,18 @@ const PowerUpsPage = () => {
             </select>
           </label>
 
-          <label className="text-sm">
-            <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.effectiveUtcDate')}</span>
-            <input
-              type="date"
-              value={effectiveUtcDate}
-              onChange={(e) => setEffectiveUtcDate(e.target.value)}
-              className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
-              required
-            />
-          </label>
+          {powerupType !== 'MULTIPLIER' && powerupType !== 'SHIELD' && (
+            <label className="text-sm">
+              <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.matchDate')}</span>
+              <input
+                type="date"
+                value={effectiveUtcDate}
+                onChange={(e) => setEffectiveUtcDate(e.target.value)}
+                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
+                required
+              />
+            </label>
+          )}
 
           {powerupType === 'FREEZE' && (
             <label className="text-sm md:col-span-2">
@@ -350,17 +516,93 @@ const PowerUpsPage = () => {
             </label>
           )}
 
+          {powerupType === 'SHIELD' && (
+            <div className="text-sm md:col-span-2">
+              <span className="block mb-2 text-gray-700 dark:text-gray-200">{t('powerups.matchDate')}</span>
+              {predictedMatchDates.length === 0 ? (
+                <div className="rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-200">
+                  {t('powerups.noPredictedMatchDates')}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {t('powerups.selectMatchDateHint')}
+                </div>
+              )}
+              {predictedMatchDates.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                  {predictedMatchDates.map((date) => (
+                    <button
+                      key={date}
+                      type="button"
+                      onClick={() => setEffectiveUtcDate(date)}
+                      className={`rounded-md border px-3 py-2 text-sm text-left transition-colors ${
+                        effectiveUtcDate === date
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-200'
+                          : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      <div className="font-medium">{formatDisplayDate(date)}</div>
+                      <div className="text-[11px] opacity-75">
+                        {matchesByDateCount[date] || 0} {t('powerups.matches')}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {powerupType === 'MULTIPLIER' && (
-            <label className="text-sm md:col-span-2">
-              <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.fixtureId')}</span>
-              <input
-                type="number"
-                value={fixtureId}
-                onChange={(e) => setFixtureId(e.target.value)}
-                className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2"
-                required
-              />
-            </label>
+            <div className="text-sm md:col-span-2">
+              <span className="block mb-2 text-gray-700 dark:text-gray-200">{t('powerups.targetMatch')}</span>
+              {predictedMatches.length === 0 ? (
+                <div className="rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 p-3 text-xs text-amber-800 dark:text-amber-200">
+                  {t('powerups.noUpcomingPredictedMatches')}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {t('powerups.selectTargetMatchHint')}
+                </div>
+              )}
+              {predictedMatches.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {predictedMatches.map((match) => {
+                    const selected = String(match.fixture_id) === String(selectedMultiplierFixtureId);
+                    return (
+                      <button
+                        key={match.fixture_id}
+                        type="button"
+                        onClick={() => setSelectedMultiplierFixtureId(String(match.fixture_id))}
+                        className={`rounded-lg border p-3 text-left transition-all ${
+                          selected
+                            ? 'border-blue-500 ring-2 ring-blue-200 dark:ring-blue-800 bg-blue-50 dark:bg-blue-900/30'
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-medium text-gray-900 dark:text-gray-100">
+                            {match.home_team} vs {match.away_team}
+                          </div>
+                          {selected && (
+                            <span className="inline-flex items-center rounded-full bg-blue-600 text-white text-[11px] px-2 py-0.5">
+                              {t('powerups.selected')}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                          {t('powerups.matchKickoff')}: {formatDisplayDateTime(match.match_date_time)} UTC
+                        </div>
+                        {match.prediction_home != null && match.prediction_away != null && (
+                          <div className="mt-1 text-xs text-gray-600 dark:text-gray-300">
+                            {t('powerups.yourPrediction')}: {match.prediction_home} - {match.prediction_away}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
         </div>
 
@@ -426,7 +668,13 @@ const PowerUpsPage = () => {
 
         <button
           type="submit"
-          disabled={submitting || !sourceGroupId || selectedInventoryCount < requiredInventoryUnits}
+          disabled={
+            submitting ||
+            !sourceGroupId ||
+            selectedInventoryCount < requiredInventoryUnits ||
+            (powerupType === 'MULTIPLIER' && !multiplierSelectedMatch) ||
+            (powerupType === 'SHIELD' && !effectiveUtcDate)
+          }
           className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
         >
           {submitting ? t('powerups.activating') : t('powerups.activate')}
