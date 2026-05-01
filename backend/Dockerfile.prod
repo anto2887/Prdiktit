@@ -1,10 +1,14 @@
-# backend/Dockerfile.prod - Production Dockerfile for Backend
+# backend/Dockerfile.prod — Production image for API + scheduler (PRDIKTIT_RUN_SCHEDULER=1).
+#
+# Railway may use either build context:
+#   • repo root (monorepo): includes ./backend/…
+#   • service root = backend: top-level ./requirements.txt, ./app/
+# The COPY + RUN block below supports both so the image always contains the real app under /app.
+
 FROM python:3.12-slim AS builder
 
-# Set working directory
-WORKDIR /app
+WORKDIR /tmp/build
 
-# Install system dependencies for building
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
@@ -14,55 +18,65 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies to user directory
-COPY requirements.txt .
+COPY . /src
+RUN set -eux; \
+    if [ -f /src/backend/requirements.txt ]; then \
+      cp /src/backend/requirements.txt /tmp/build/requirements.txt; \
+    elif [ -f /src/requirements.txt ]; then \
+      cp /src/requirements.txt /tmp/build/requirements.txt; \
+    else \
+      echo "requirements.txt not found (checked /src/backend and /src)"; \
+      find /src -maxdepth 3 -type f -name 'requirements.txt' || true; \
+      exit 1; \
+    fi
+
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir --user -r requirements.txt
 
-# Production stage
 FROM python:3.12-slim
 
-# Set environment variables for production
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app \
     ENVIRONMENT=production
 
-# Set working directory
 WORKDIR /app
 
-# Install runtime dependencies
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     libpq5 \
     curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user
 RUN useradd --create-home --shell /bin/bash app
 
-# Copy Python dependencies from builder stage to app user's home directory
 COPY --from=builder /root/.local /home/app/.local
 
-# Copy application code
-COPY . .
+COPY . /src
+RUN set -eux; \
+    if [ -f /src/backend/requirements.txt ] && [ -d /src/backend/app ]; then \
+      cp -a /src/backend/. /app/; \
+    elif [ -f /src/requirements.txt ] && [ -d /src/app ]; then \
+      cp -a /src/. /app/; \
+    else \
+      echo "Could not place backend code into /app"; \
+      find /src -maxdepth 4 -type d -name app 2>/dev/null || true; \
+      exit 1; \
+    fi; \
+    rm -rf /src
 
-# Change ownership of app directory and .local to app user
 RUN chown -R app:app /app && \
     chown -R app:app /home/app/.local
 
-# Switch to app user
 USER app
 
-# Update PATH to include app user's .local/bin
 ENV PATH="/home/app/.local/bin:$PATH"
 
-# Expose port
 EXPOSE 8000
 
-# Health check: API uses /docs; scheduler uses /health (see scripts/docker-health.sh)
-HEALTHCHECK --interval=30s --timeout=30s --start-period=40s --retries=3 \
-  CMD ["sh", "-c", "cd /app && sh scripts/docker-health.sh"]
+# Inline health (no scripts/). Scheduler: /health; API: /docs.
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
+  CMD ["sh", "-c", "if [ \"${PRDIKTIT_RUN_SCHEDULER:-0}\" = \"1\" ]; then curl -fsS \"http://127.0.0.1:${PORT:-8000}/health\" >/dev/null; else curl -fsS \"http://127.0.0.1:${PORT:-8000}/docs\" >/dev/null; fi"]
 
-# Always cd /app so Railway startCommand / WORKDIR quirks still find the app.
-CMD ["sh", "-c", "cd /app && exec sh scripts/railway-start.sh"]
+# Gunicorn on $PORT, or scheduler when PRDIKTIT_RUN_SCHEDULER=1 (matches railway.json with no start override).
+CMD ["sh", "-c", "set -e; cd /app; if [ \"${PRDIKTIT_RUN_SCHEDULER:-0}\" = \"1\" ]; then exec python -m app.scheduler_minimal; fi; exec gunicorn app.main:app -w \"${WEB_CONCURRENCY:-2}\" -k uvicorn.workers.UvicornWorker --bind \"0.0.0.0:${PORT:-8000}\" --access-logfile - --error-logfile -"]

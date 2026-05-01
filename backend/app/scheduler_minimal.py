@@ -547,31 +547,38 @@ async def main():
     try:
         logger.info("🚀 Starting Scheduler Service...")
         logger.info("📊 This service uses existing backend services for fixture processing")
-        
-        # Start the scheduler service
-        if not scheduler_service.start():
-            logger.error("❌ Failed to start scheduler service")
-            return
-        
-        # Start health check server
+
+        # Bind HTTP health first so Railway always has a listener on $PORT (avoids connection refused
+        # if scheduler logic fails to start, or if this service is misconfigured on the API hostname).
+        _raw_port = os.environ.get("PORT", "8001")
+        _clean = "".join(c for c in _raw_port if c.isdigit())
+        port = int(_clean) if _clean else 8001
+
         health_app = web.Application()
         health_app.router.add_get('/health', lambda r: web.json_response(get_health_status()))
         health_app.router.add_get('/status', lambda r: web.json_response(get_health_status()))
-        
+
         runner = web.AppRunner(health_app)
         await runner.setup()
-        
-        port = int(os.environ.get('PORT', 8001))
         site = web.TCPSite(runner, '0.0.0.0', port)
         await site.start()
-        
+
         logger.info(f"🏥 Health check server started on port {port}")
         logger.info(f"🔍 Health endpoint: http://0.0.0.0:{port}/health")
-        
+
+        if not scheduler_service.start():
+            logger.error(
+                "❌ Scheduler logic failed to start — keeping process alive with health endpoint only "
+                "(fix imports/env; if this is the public API service, unset PRDIKTIT_RUN_SCHEDULER)"
+            )
+            scheduler_status = "error"
+            while True:
+                await asyncio.sleep(3600)
+
         # Keep the service running with error handling
         logger.info("🔄 Scheduler service is now running...")
         logger.info("📡 Running scheduling cycles with UTC daily state machine...")
-        
+
         # Main loop with error handling and circuit breaker
         while scheduler_service.is_running:
             try:

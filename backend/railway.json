@@ -3,8 +3,5 @@
   "build": {
     "builder": "DOCKERFILE",
     "dockerfilePath": "backend/Dockerfile.prod"
-  },
-  "deploy": {
-    "startCommand": "sh -c \"cd /app && exec sh scripts/railway-start.sh\""
   }
 }
