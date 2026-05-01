@@ -41,7 +41,7 @@ function step(target, titleKey, contentKey, placement = 'bottom') {
 export function buildDashboardTourSteps() {
   return [
     step('body', 'tour.dashboard.welcomeTitle', 'tour.dashboard.welcomeBody', 'center'),
-    step('[data-tour="tour-sidebar-root"]', 'tour.dashboard.sidebarTitle', 'tour.dashboard.sidebarBody', 'right'),
+    step('[data-tour="tour-sidebar-root"]', 'tour.dashboard.sidebarTitle', 'tour.dashboard.sidebarBody', 'right-start'),
     step('[data-tour="tour-nav-dashboard"]', 'tour.dashboard.navDashboardTitle', 'tour.dashboard.navDashboardBody', 'right'),
     step('[data-tour="tour-nav-predictions"]', 'tour.dashboard.navPredictionsTitle', 'tour.dashboard.navPredictionsBody', 'right'),
     step('[data-tour="tour-nav-wallet"]', 'tour.dashboard.navWalletTitle', 'tour.dashboard.navWalletBody', 'right'),
