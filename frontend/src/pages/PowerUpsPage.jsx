@@ -580,8 +580,34 @@ const PowerUpsPage = () => {
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="font-medium text-gray-900 dark:text-gray-100">
-                            {match.home_team} vs {match.away_team}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                              <div className="w-6 h-6 md:w-8 md:h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] md:text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                {match.home_team_logo ? (
+                                  <img
+                                    src={match.home_team_logo}
+                                    alt={match.home_team}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{(match.home_team || '?').slice(0, 1).toUpperCase()}</span>
+                                )}
+                              </div>
+                              <span className="font-medium truncate">{match.home_team}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">vs</span>
+                              <span className="font-medium truncate">{match.away_team}</span>
+                              <div className="w-6 h-6 md:w-8 md:h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] md:text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                {match.away_team_logo ? (
+                                  <img
+                                    src={match.away_team_logo}
+                                    alt={match.away_team}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{(match.away_team || '?').slice(0, 1).toUpperCase()}</span>
+                                )}
+                              </div>
+                            </div>
                           </div>
                           {selected && (
                             <span className="inline-flex items-center rounded-full bg-blue-600 text-white text-[11px] px-2 py-0.5">
