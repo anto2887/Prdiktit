@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { groupsApi, powerupsApi } from '../api';
+import { Link } from 'react-router-dom';
+import { groupsApi, paymentsApi, powerupsApi } from '../api';
 import { CoinIcon, PowerupTypeIcon, powerupAccentBg } from '../components/icons/GameIcons';
 import { useGroups } from '../contexts/AppContext';
 import { useI18n } from '../i18n';
@@ -8,9 +9,13 @@ const PowerUpsPage = () => {
   const { t } = useI18n();
   const { currentGroup } = useGroups();
   const [catalog, setCatalog] = useState([]);
+  const [inventory, setInventory] = useState({});
   const [members, setMembers] = useState([]);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [purchaseQuantity, setPurchaseQuantity] = useState({});
+  const [buyingType, setBuyingType] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState(null);
 
@@ -26,6 +31,11 @@ const PowerUpsPage = () => {
     return [];
   };
 
+  const normalizeWallet = (response) =>
+    response?.data?.balance_coins ??
+    response?.data?.data?.balance_coins ??
+    0;
+
   const selectedPowerup = useMemo(
     () => catalog.find((item) => item.powerup_type === powerupType),
     [catalog, powerupType]
@@ -37,17 +47,49 @@ const PowerUpsPage = () => {
     return fallbackName || type;
   };
 
+  const selectedInventoryCount = selectedPowerup
+    ? inventory[selectedPowerup.powerup_type] || 0
+    : 0;
+
+  const refreshPowerupData = async () => {
+    const [catalogRes, membersRes, inventoryRes, walletRes] = await Promise.all([
+      powerupsApi.getCatalog(),
+      sourceGroupId ? groupsApi.getGroupMembers(sourceGroupId) : Promise.resolve({ data: [] }),
+      powerupsApi.getInventory(),
+      paymentsApi.getWallet(),
+    ]);
+
+    const catalogRows = asArray(catalogRes?.data);
+    setCatalog(catalogRows);
+    setMembers(asArray(membersRes?.data));
+    setWalletBalance(normalizeWallet(walletRes));
+
+    const inventoryRows = asArray(inventoryRes?.data);
+    const inventoryMap = {};
+    inventoryRows.forEach((row) => {
+      const type = row?.powerup_type;
+      if (type) inventoryMap[type] = row?.quantity || 0;
+    });
+    setInventory(inventoryMap);
+
+    // Seed purchase quantity controls for new rows.
+    setPurchaseQuantity((prev) => {
+      const next = { ...prev };
+      catalogRows.forEach((row) => {
+        if (!next[row.powerup_type]) {
+          next[row.powerup_type] = 1;
+        }
+      });
+      return next;
+    });
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
         setError('');
-        const [catalogRes, membersRes] = await Promise.all([
-          powerupsApi.getCatalog(),
-          sourceGroupId ? groupsApi.getGroupMembers(sourceGroupId) : Promise.resolve({ data: [] }),
-        ]);
-        setCatalog(asArray(catalogRes?.data));
-        setMembers(asArray(membersRes?.data));
+        await refreshPowerupData();
       } catch (e) {
         setError(e?.message || t('powerups.loadFailed'));
       } finally {
@@ -55,7 +97,7 @@ const PowerUpsPage = () => {
       }
     };
     load();
-  }, [sourceGroupId]);
+  }, [sourceGroupId, t]);
 
   useEffect(() => {
     if (!effectiveUtcDate) {
@@ -63,10 +105,37 @@ const PowerUpsPage = () => {
     }
   }, [effectiveUtcDate]);
 
+  const onPurchase = async (type, quickQuantity = null) => {
+    try {
+      const qty = quickQuantity || purchaseQuantity[type] || 1;
+      setBuyingType(type);
+      setError('');
+      setResult(null);
+      await powerupsApi.purchase({
+        powerup_type: type,
+        quantity: Number(qty),
+      });
+      await refreshPowerupData();
+      setResult({
+        kind: 'purchase',
+        powerup_type: type,
+        quantity: Number(qty),
+      });
+    } catch (e) {
+      setError(e?.message || t('powerups.purchaseFailed'));
+    } finally {
+      setBuyingType('');
+    }
+  };
+
   const onActivate = async (event) => {
     event.preventDefault();
     if (!sourceGroupId) {
       setError(t('powerups.selectGroupFirst'));
+      return;
+    }
+    if (selectedInventoryCount <= 0) {
+      setError(t('powerups.noInventoryToActivate'));
       return;
     }
 
@@ -88,7 +157,12 @@ const PowerUpsPage = () => {
       setError('');
       setResult(null);
       const response = await powerupsApi.activate(payload);
-      setResult(response?.data || response?.data?.data || response);
+      const activationResult = response?.data?.data || response?.data || response;
+      setResult({
+        kind: 'activate',
+        ...(activationResult || {}),
+      });
+      await refreshPowerupData();
     } catch (e) {
       setError(e?.message || t('powerups.activationFailed'));
     } finally {
@@ -101,14 +175,56 @@ const PowerUpsPage = () => {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('powerups.title')}</h1>
         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-          {t('powerups.subtitle')}
+          {t('powerups.subtitleV2')}
         </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('powerups.walletBalance')}</div>
+          <div className="mt-2 flex items-center gap-2 text-2xl font-semibold text-amber-600 dark:text-amber-400">
+            <CoinIcon className="w-6 h-6" />
+            {walletBalance}
+          </div>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{t('powerups.walletHint')}</p>
+        </div>
+        <div
+          className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 lg:col-span-2"
+          data-tour="tour-powerups-inventory"
+        >
+          <div className="text-sm text-gray-500 dark:text-gray-400">{t('powerups.inventoryOverview')}</div>
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {['SHIELD', 'FREEZE', 'MULTIPLIER'].map((type) => (
+              <div key={type} className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
+                <div className="flex items-center gap-2">
+                  <PowerupTypeIcon type={type} className="w-5 h-5" />
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    {getPowerupLabel(type, type)}
+                  </span>
+                </div>
+                <div className="mt-2 text-lg font-semibold text-blue-600 dark:text-blue-400">
+                  {inventory[type] || 0}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{t('powerups.owned')}</div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {loading ? (
         <div className="text-sm text-gray-500 dark:text-gray-300">{t('powerups.loadingCatalog')}</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-tour="tour-powerups-catalog">
+        <div className="space-y-3" data-tour="tour-powerups-buy">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('powerups.buyPowerups')}</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            {t('powerups.buyHelp')}{' '}
+            <Link to="/wallet" className="text-blue-600 dark:text-blue-400 hover:underline">
+              {t('wallet.title')}
+            </Link>
+            .
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4" data-tour="tour-powerups-catalog">
           {catalog.map((item) => (
             <div
               key={item.powerup_type}
@@ -129,8 +245,34 @@ const PowerUpsPage = () => {
                   <span className="font-semibold tabular-nums">{item.base_cost_coins}</span> {t('powerups.coins')}
                 </span>
               </div>
+              <div className="mt-2 text-sm text-gray-700 dark:text-gray-200">
+                {t('powerups.owned')}: <span className="font-semibold">{inventory[item.powerup_type] || 0}</span>
+              </div>
+              <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  value={purchaseQuantity[item.powerup_type] || 1}
+                  onChange={(e) =>
+                    setPurchaseQuantity((prev) => ({
+                      ...prev,
+                      [item.powerup_type]: Math.max(1, Number(e.target.value || 1)),
+                    }))
+                  }
+                  className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-2 py-1 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => onPurchase(item.powerup_type)}
+                  disabled={buyingType === item.powerup_type}
+                  className="rounded-md bg-blue-600 text-white text-sm px-3 py-1.5 hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {buyingType === item.powerup_type ? t('powerups.buying') : t('powerups.buyNow')}
+                </button>
+              </div>
             </div>
           ))}
+        </div>
         </div>
       )}
 
@@ -140,6 +282,7 @@ const PowerUpsPage = () => {
         data-tour="tour-powerups-activate"
       >
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{t('powerups.activatePowerup')}</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-300">{t('powerups.activateHelp')}</p>
         <div className="text-sm text-gray-600 dark:text-gray-300">
           {t('powerups.sourceGroup')}: {sourceGroupId || t('powerups.noCurrentGroupSelected')}
         </div>
@@ -212,12 +355,18 @@ const PowerUpsPage = () => {
         </div>
 
         {selectedPowerup && (
-          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600 dark:text-gray-300">
             <CoinIcon className="w-5 h-5 flex-shrink-0" />
             <span>
               {t('powerups.baseCost')}:{' '}
               <span className="font-medium tabular-nums">
                 {selectedPowerup.base_cost_coins} {t('powerups.coins')}
+              </span>
+            </span>
+            <span>
+              {t('powerups.owned')}:{' '}
+              <span className={`font-medium ${selectedInventoryCount > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {selectedInventoryCount}
               </span>
             </span>
           </div>
@@ -229,19 +378,29 @@ const PowerUpsPage = () => {
           </div>
         )}
 
-        {result && (
+        {result?.kind === 'purchase' && (
+          <div className="rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 p-3 text-sm text-green-700 dark:text-green-300">
+            {t('powerups.purchaseComplete')}: {result.quantity}x {getPowerupLabel(result.powerup_type)}.
+          </div>
+        )}
+
+        {result?.kind === 'activate' && (
           <div className="flex items-start gap-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 p-3 text-sm text-green-700 dark:text-green-300">
             <CoinIcon className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
             <span>
-              {t('powerups.activationCompleteCharged')}: {result.charged_cost_coins ?? result?.data?.charged_cost_coins}{' '}
-              {t('powerups.coins')}.
+              {t('powerups.activationComplete')}{' '}
+              {result.inventory_after != null && (
+                <>
+                  {t('powerups.remaining')}: {result.inventory_after}.
+                </>
+              )}
             </span>
           </div>
         )}
 
         <button
           type="submit"
-          disabled={submitting || !sourceGroupId}
+          disabled={submitting || !sourceGroupId || selectedInventoryCount <= 0}
           className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
         >
           {submitting ? t('powerups.activating') : t('powerups.activate')}

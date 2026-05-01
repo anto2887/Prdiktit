@@ -9,6 +9,7 @@ from ..db.models import (
     PowerUpCatalog,
     PowerUpActivation,
     PowerUpDailyEffect,
+    UserPowerUpInventory,
     PowerUpType,
     PowerUpStatus,
     CoinTransactionType,
@@ -49,6 +50,108 @@ class PowerUpService:
         PowerUpService._ensure_catalog_seeded(db)
         rows = db.query(PowerUpCatalog).all()
         return rows
+
+    @staticmethod
+    def _get_or_create_inventory_row(
+        db: Session,
+        *,
+        user_id: int,
+        powerup_type: PowerUpType,
+    ) -> UserPowerUpInventory:
+        row = db.query(UserPowerUpInventory).filter(
+            UserPowerUpInventory.user_id == user_id,
+            UserPowerUpInventory.powerup_type == powerup_type,
+        ).first()
+        if row:
+            return row
+
+        row = UserPowerUpInventory(
+            user_id=user_id,
+            powerup_type=powerup_type,
+            quantity=0,
+        )
+        db.add(row)
+        db.flush()
+        return row
+
+    @staticmethod
+    def list_inventory(db: Session, *, user_id: int):
+        PowerUpService._ensure_catalog_seeded(db)
+        catalog_rows = db.query(PowerUpCatalog).all()
+        raw_inventory = db.query(UserPowerUpInventory).filter(
+            UserPowerUpInventory.user_id == user_id
+        ).all()
+        inventory_map = {
+            row.powerup_type: int(row.quantity or 0)
+            for row in raw_inventory
+        }
+
+        result = []
+        for catalog in catalog_rows:
+            result.append(
+                {
+                    "powerup_type": catalog.powerup_type.value,
+                    "quantity": inventory_map.get(catalog.powerup_type, 0),
+                    "base_cost_coins": int(catalog.base_cost_coins),
+                    "is_enabled": bool(catalog.is_enabled),
+                }
+            )
+        return result
+
+    @staticmethod
+    def purchase_powerup(
+        db: Session,
+        *,
+        user_id: int,
+        powerup_type: PowerUpType,
+        quantity: int = 1,
+    ) -> Dict[str, Any]:
+        if quantity <= 0:
+            raise ValueError("quantity must be greater than zero")
+
+        PowerUpService._ensure_catalog_seeded(db)
+        catalog_entry = db.query(PowerUpCatalog).filter(
+            PowerUpCatalog.powerup_type == powerup_type,
+            PowerUpCatalog.is_enabled.is_(True),
+        ).first()
+        if not catalog_entry:
+            raise ValueError(f"Power-up type {powerup_type.value} is not available")
+
+        base_cost = int(catalog_entry.base_cost_coins)
+        total_cost = base_cost * quantity
+        purchase_ref = f"powerup_purchase:{user_id}:{powerup_type.value}:{datetime.now(timezone.utc).isoformat()}"
+
+        debit_result = CoinService.debit_coins(
+            db,
+            user_id=user_id,
+            amount_coins=total_cost,
+            transaction_type=CoinTransactionType.DEBIT_POWERUP,
+            external_ref=purchase_ref,
+            details={
+                "powerup_type": powerup_type.value,
+                "quantity": quantity,
+                "base_cost_coins": base_cost,
+                "charged_cost_coins": total_cost,
+                "kind": "inventory_purchase",
+            },
+        )
+
+        inventory = PowerUpService._get_or_create_inventory_row(
+            db,
+            user_id=user_id,
+            powerup_type=powerup_type,
+        )
+        inventory.quantity = int(inventory.quantity or 0) + quantity
+        db.commit()
+
+        return {
+            "powerup_type": powerup_type.value,
+            "purchased_quantity": quantity,
+            "inventory_after": inventory.quantity,
+            "base_cost_coins": base_cost,
+            "charged_cost_coins": total_cost,
+            "balance_after": debit_result["balance_after"],
+        }
 
     @staticmethod
     def _is_user_in_group(db: Session, user_id: int, group_id: int) -> bool:
@@ -139,6 +242,15 @@ class PowerUpService:
         if not catalog_entry:
             raise ValueError(f"Power-up type {powerup_type.value} is not available")
 
+        inventory = PowerUpService._get_or_create_inventory_row(
+            db,
+            user_id=purchaser_user_id,
+            powerup_type=powerup_type,
+        )
+        if int(inventory.quantity or 0) <= 0:
+            raise ValueError("No inventory available for selected power-up type")
+        inventory.quantity = int(inventory.quantity) - 1
+
         PowerUpService._validate_type_specific_rules(
             db,
             powerup_type=powerup_type,
@@ -149,27 +261,9 @@ class PowerUpService:
         )
 
         target_in_source_group = PowerUpService._is_user_in_group(db, target_user_id, source_group_id)
-        cost_multiplier = 1 if target_in_source_group else 2
+        cost_multiplier = 1
         base_cost = int(catalog_entry.base_cost_coins)
-        charged_cost = base_cost * cost_multiplier
-
-        activation_ref = f"powerup:{purchaser_user_id}:{powerup_type.value}:{datetime.now(timezone.utc).isoformat()}"
-        debit_result = CoinService.debit_coins(
-            db,
-            user_id=purchaser_user_id,
-            amount_coins=charged_cost,
-            transaction_type=CoinTransactionType.DEBIT_POWERUP,
-            external_ref=activation_ref,
-            details={
-                "powerup_type": powerup_type.value,
-                "target_user_id": target_user_id,
-                "source_group_id": source_group_id,
-                "effective_utc_date": effective_utc_date.isoformat(),
-                "cost_multiplier": cost_multiplier,
-                "base_cost_coins": base_cost,
-                "charged_cost_coins": charged_cost,
-            },
-        )
+        charged_cost = base_cost
 
         activation = PowerUpActivation(
             purchaser_user_id=purchaser_user_id,
@@ -182,8 +276,11 @@ class PowerUpService:
             cost_multiplier=cost_multiplier,
             base_cost_coins=base_cost,
             charged_cost_coins=charged_cost,
-            ledger_entry_id=debit_result["ledger_entry_id"],
-            details={"target_in_source_group": target_in_source_group},
+            ledger_entry_id=None,
+            details={
+                "target_in_source_group": target_in_source_group,
+                "inventory_based": True,
+            },
         )
         db.add(activation)
         db.flush()
@@ -222,7 +319,7 @@ class PowerUpService:
             "cost_multiplier": cost_multiplier,
             "base_cost_coins": base_cost,
             "charged_cost_coins": charged_cost,
-            "balance_after": debit_result["balance_after"],
+            "inventory_after": inventory.quantity,
             "effect_applied": effect_applied,
             "duplicate_effect": duplicate_effect,
         }

@@ -24,6 +24,11 @@ class ActivatePowerUpRequest(BaseModel):
     fixture_id: Optional[int] = None
 
 
+class PurchasePowerUpRequest(BaseModel):
+    powerup_type: PowerUpType
+    quantity: int = Field(default=1, ge=1)
+
+
 @router.get("/catalog")
 async def get_powerup_catalog(
     db: Session = Depends(get_db),
@@ -43,6 +48,38 @@ async def get_powerup_catalog(
             for row in rows
         ],
     }
+
+
+@router.get("/inventory")
+async def get_powerup_inventory(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user_from_session),
+):
+    rows = PowerUpService.list_inventory(db, user_id=current_user.id)
+    return {"success": True, "data": rows}
+
+
+@router.post("/purchase")
+async def purchase_powerup(
+    payload: PurchasePowerUpRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user_from_session),
+):
+    try:
+        result = PowerUpService.purchase_powerup(
+            db,
+            user_id=current_user.id,
+            powerup_type=payload.powerup_type,
+            quantity=payload.quantity,
+        )
+        return {"success": True, "data": result}
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("Power-up purchase failed: %s", exc)
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Power-up purchase failed") from exc
 
 
 @router.post("/activate")
@@ -68,6 +105,7 @@ async def activate_powerup(
         )
         return {"success": True, "data": result}
     except ValueError as exc:
+        db.rollback()
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.error("Power-up activation failed: %s", exc)

@@ -52,6 +52,12 @@ export function buildDashboardTourSteps() {
     step('[data-tour="tour-dashboard-upcoming"]', 'tour.dashboard.upcomingTitle', 'tour.dashboard.upcomingBody', 'top'),
     step('[data-tour="tour-dashboard-recent"]', 'tour.dashboard.recentTitle', 'tour.dashboard.recentBody', 'top'),
     step('[data-tour="tour-dashboard-groups"]', 'tour.dashboard.leaguesTitle', 'tour.dashboard.leaguesBody', 'top'),
+    step('[data-tour="tour-mobile-nav-root"]', 'tour.dashboard.mobileNavTitle', 'tour.dashboard.mobileNavBody', 'top'),
+    step('[data-tour="tour-mobile-nav-home"]', 'tour.dashboard.mobileHomeTitle', 'tour.dashboard.mobileHomeBody', 'top'),
+    step('[data-tour="tour-mobile-nav-groups"]', 'tour.dashboard.mobileGroupsTitle', 'tour.dashboard.mobileGroupsBody', 'top'),
+    step('[data-tour="tour-mobile-nav-predict"]', 'tour.dashboard.mobilePredictTitle', 'tour.dashboard.mobilePredictBody', 'top'),
+    step('[data-tour="tour-mobile-nav-wallet"]', 'tour.dashboard.mobileWalletTitle', 'tour.dashboard.mobileWalletBody', 'top'),
+    step('[data-tour="tour-mobile-nav-profile"]', 'tour.dashboard.mobileProfileTitle', 'tour.dashboard.mobileProfileBody', 'top'),
   ];
 }
 
@@ -63,10 +69,11 @@ export function buildWalletTourSteps() {
   ];
 }
 
-export function buildPowerupsTourSteps(t) {
+export function buildPowerupsTourSteps() {
   return [
     step('body', 'tour.powerups.introTitle', 'tour.powerups.introBody', 'center'),
-    step('[data-tour="tour-powerups-catalog"]', 'tour.powerups.catalogTitle', 'tour.powerups.catalogBody', 'bottom'),
+    step('[data-tour="tour-powerups-inventory"]', 'tour.powerups.inventoryTitle', 'tour.powerups.inventoryBody', 'bottom'),
+    step('[data-tour="tour-powerups-buy"]', 'tour.powerups.buyTitle', 'tour.powerups.buyBody', 'top'),
     step('[data-tour="tour-powerups-activate"]', 'tour.powerups.activateTitle', 'tour.powerups.activateBody', 'top'),
   ];
 }
@@ -95,7 +102,7 @@ export function buildGroupHomeTourSteps() {
   ];
 }
 
-export function buildGroupPredictionsTourSteps(t) {
+export function buildGroupPredictionsTourSteps() {
   return [
     step('body', 'tour.groupPredictions.introTitle', 'tour.groupPredictions.introBody', 'center'),
     step('[data-tour="tour-group-predictions-controls"]', 'tour.groupPredictions.controlsTitle', 'tour.groupPredictions.controlsBody', 'bottom'),

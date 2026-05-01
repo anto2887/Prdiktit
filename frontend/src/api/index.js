@@ -788,6 +788,8 @@ export const paymentsApi = {
 
 export const powerupsApi = {
   getCatalog: async () => api.client.get('/powerups/catalog'),
+  getInventory: async () => api.client.get('/powerups/inventory'),
+  purchase: async (payload) => api.client.post('/powerups/purchase', payload),
   activate: async (payload) => api.client.post('/powerups/activate', payload),
 };
 

@@ -95,6 +95,11 @@ class User(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    powerup_inventory = relationship(
+        "UserPowerUpInventory",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
     
     # OAuth validation
     __table_args__ = (
@@ -384,6 +389,24 @@ class PowerUpCatalog(Base):
 
     __table_args__ = (
         CheckConstraint("base_cost_coins > 0", name="check_powerup_base_cost_positive"),
+    )
+
+
+class UserPowerUpInventory(Base):
+    __tablename__ = "user_powerup_inventory"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    powerup_type = Column(Enum(PowerUpType), nullable=False, index=True)
+    quantity = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    user = relationship("User", back_populates="powerup_inventory")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "powerup_type", name="_user_powerup_inventory_uc"),
+        CheckConstraint("quantity >= 0", name="check_powerup_inventory_non_negative"),
     )
 
 

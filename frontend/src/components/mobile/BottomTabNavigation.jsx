@@ -1,19 +1,11 @@
 // frontend/src/components/mobile/BottomTabNavigation.jsx
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useGroups } from '../../contexts/AppContext';
 import { useI18n } from '../../i18n';
 
 const BottomTabNavigation = () => {
   const location = useLocation();
-  const { userGroups, currentGroup } = useGroups();
   const { t } = useI18n();
-
-  const analyticsPath = useMemo(() => {
-    if (currentGroup?.id != null) return `/groups/${currentGroup.id}/analytics`;
-    if (userGroups?.length === 1) return `/groups/${userGroups[0].id}/analytics`;
-    return '/analytics';
-  }, [currentGroup?.id, userGroups]);
 
   const tabs = [
     {
@@ -38,11 +30,11 @@ const BottomTabNavigation = () => {
       activeIcon: ClipboardIconSolid
     },
     {
-      id: 'analytics',
-      label: t('tabs.analytics'),
-      path: '/analytics',
-      icon: ChartIcon,
-      activeIcon: ChartIconSolid
+      id: 'wallet',
+      label: t('tabs.wallet'),
+      path: '/wallet',
+      icon: WalletIcon,
+      activeIcon: WalletIconSolid
     },
     {
       id: 'profile',
@@ -60,25 +52,20 @@ const BottomTabNavigation = () => {
   if (shouldHide) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden bottom-tab-nav">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden bottom-tab-nav" data-tour="tour-mobile-nav-root">
       <div className="grid grid-cols-5 h-16">
         {tabs.map((tab) => {
-          const target = tab.id === 'analytics' ? analyticsPath : tab.path;
-          const isAnalyticsRoute =
-            location.pathname === '/analytics' ||
-            /\/groups\/[^/]+\/analytics\/?$/.test(location.pathname);
-
           return (
             <NavLink
               key={tab.id}
-              to={target}
+              to={tab.path}
+              data-tour={`tour-mobile-nav-${tab.id}`}
               className={({ isActive }) => {
                 const isHomeActive =
                   tab.id === 'home' &&
                   (location.pathname === '/' ||
                     location.pathname.startsWith('/dashboard'));
-                const analyticsActive = tab.id === 'analytics' && isAnalyticsRoute;
-                const active = isActive || isHomeActive || analyticsActive;
+                const active = isActive || isHomeActive;
 
                 return `flex flex-col items-center justify-center space-y-1 transition-colors ${
                   active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
@@ -90,8 +77,7 @@ const BottomTabNavigation = () => {
                   tab.id === 'home' &&
                   (location.pathname === '/' ||
                     location.pathname.startsWith('/dashboard'));
-                const analyticsActive = tab.id === 'analytics' && isAnalyticsRoute;
-                const active = isActive || isHomeActive || analyticsActive;
+                const active = isActive || isHomeActive;
 
                 return (
                   <>
@@ -148,15 +134,15 @@ const ClipboardIconSolid = () => (
   </svg>
 );
 
-const ChartIcon = () => (
+const WalletIcon = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m0-6h3m0 0v4m0-4a2 2 0 012 2v0a2 2 0 01-2 2h-3m-7 1h.01" />
   </svg>
 );
 
-const ChartIconSolid = () => (
+const WalletIconSolid = () => (
   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+    <path d="M3 6a2 2 0 012-2h10a2 2 0 012 2v1h-2V6H5v8h10v-1h2v1a2 2 0 01-2 2H5a2 2 0 01-2-2V6zm11 3a1 1 0 011-1h4v4h-4a1 1 0 01-1-1V9z" />
   </svg>
 );
 

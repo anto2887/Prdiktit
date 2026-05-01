@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { paymentsApi } from '../api';
 import { CoinIcon } from '../components/icons/GameIcons';
 import { useI18n } from '../i18n';
@@ -80,6 +81,13 @@ const WalletPage = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('wallet.title')}</h1>
         <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
           {t('wallet.subtitle')}
+        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">
+          {t('wallet.powerupCtaPrefix')}{' '}
+          <Link to="/powerups" className="text-blue-600 dark:text-blue-400 hover:underline">
+            {t('nav.powerups')}
+          </Link>
+          .
         </p>
       </div>
 
