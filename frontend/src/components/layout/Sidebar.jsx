@@ -1,4 +1,5 @@
 import React from 'react';
+import { Wallet, Zap } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useGroups } from '../../contexts/AppContext';
 import { useI18n } from '../../i18n';
@@ -48,13 +49,14 @@ const Sidebar = () => {
                 <NavLink
                   to="/wallet"
                   className={({ isActive }) =>
-                    `flex items-center p-2 rounded-lg ${
+                    `flex items-center gap-2 p-2 rounded-lg ${
                       isActive
                         ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
                         : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`
                   }
                 >
+                  <Wallet className="w-4 h-4 shrink-0 opacity-90" aria-hidden />
                   {t('nav.wallet')}
                 </NavLink>
               </li>
@@ -62,13 +64,14 @@ const Sidebar = () => {
                 <NavLink
                   to="/powerups"
                   className={({ isActive }) =>
-                    `flex items-center p-2 rounded-lg ${
+                    `flex items-center gap-2 p-2 rounded-lg ${
                       isActive
                         ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
                         : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`
                   }
                 >
+                  <Zap className="w-4 h-4 shrink-0 opacity-90" aria-hidden />
                   {t('nav.powerups')}
                 </NavLink>
               </li>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { groupsApi, powerupsApi } from '../api';
+import { CoinIcon, PowerupTypeIcon, powerupAccentBg } from '../components/icons/GameIcons';
 import { useGroups } from '../contexts/AppContext';
 import { useI18n } from '../i18n';
 
@@ -109,10 +110,25 @@ const PowerUpsPage = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {catalog.map((item) => (
-            <div key={item.powerup_type} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-              <div className="text-sm text-gray-500 dark:text-gray-300">{item.powerup_type}</div>
-              <div className="text-lg font-semibold text-gray-900 dark:text-white">{getPowerupLabel(item.powerup_type, item.display_name)}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300 mt-1">{item.base_cost_coins} {t('powerups.coins')}</div>
+            <div
+              key={item.powerup_type}
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-shadow"
+            >
+              <div
+                className={`inline-flex items-center justify-center rounded-2xl p-4 mb-4 ring-1 ${powerupAccentBg(item.powerup_type)}`}
+              >
+                <PowerupTypeIcon type={item.powerup_type} className="w-14 h-14" title={getPowerupLabel(item.powerup_type, item.display_name)} />
+              </div>
+              <div className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{item.powerup_type}</div>
+              <div className="text-lg font-semibold text-gray-900 dark:text-white mt-0.5">
+                {getPowerupLabel(item.powerup_type, item.display_name)}
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 mt-3">
+                <CoinIcon className="w-5 h-5" title={t('powerups.coins')} />
+                <span>
+                  <span className="font-semibold tabular-nums">{item.base_cost_coins}</span> {t('powerups.coins')}
+                </span>
+              </div>
             </div>
           ))}
         </div>
@@ -126,7 +142,14 @@ const PowerUpsPage = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="text-sm">
-            <span className="block mb-1 text-gray-700 dark:text-gray-200">{t('powerups.powerup')}</span>
+            <span className="flex items-center gap-2 mb-1 text-gray-700 dark:text-gray-200">
+              {selectedPowerup && (
+                <span className="inline-flex rounded-lg p-1 ring-1 ring-gray-200 dark:ring-gray-600 bg-gray-50 dark:bg-gray-900/80">
+                  <PowerupTypeIcon type={selectedPowerup.powerup_type} className="w-6 h-6" />
+                </span>
+              )}
+              {t('powerups.powerup')}
+            </span>
             <select
               value={powerupType}
               onChange={(e) => setPowerupType(e.target.value)}
@@ -185,8 +208,14 @@ const PowerUpsPage = () => {
         </div>
 
         {selectedPowerup && (
-          <div className="text-sm text-gray-600 dark:text-gray-300">
-            {t('powerups.baseCost')}: <span className="font-medium">{selectedPowerup.base_cost_coins} {t('powerups.coins')}</span>
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+            <CoinIcon className="w-5 h-5 flex-shrink-0" />
+            <span>
+              {t('powerups.baseCost')}:{' '}
+              <span className="font-medium tabular-nums">
+                {selectedPowerup.base_cost_coins} {t('powerups.coins')}
+              </span>
+            </span>
           </div>
         )}
 
@@ -197,8 +226,12 @@ const PowerUpsPage = () => {
         )}
 
         {result && (
-          <div className="rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 p-3 text-sm text-green-700 dark:text-green-300">
-            {t('powerups.activationCompleteCharged')}: {result.charged_cost_coins ?? result?.data?.charged_cost_coins} {t('powerups.coins')}.
+          <div className="flex items-start gap-2 rounded-md bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 p-3 text-sm text-green-700 dark:text-green-300">
+            <CoinIcon className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+            <span>
+              {t('powerups.activationCompleteCharged')}: {result.charged_cost_coins ?? result?.data?.charged_cost_coins}{' '}
+              {t('powerups.coins')}.
+            </span>
           </div>
         )}
 

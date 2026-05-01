@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { paymentsApi } from '../api';
+import { CoinIcon } from '../components/icons/GameIcons';
 import { useI18n } from '../i18n';
 
 const WalletPage = () => {
@@ -82,10 +83,19 @@ const WalletPage = () => {
         </p>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="text-sm text-gray-500 dark:text-gray-300">{t('wallet.balance')}</div>
-        <div className="text-3xl font-semibold text-blue-600 dark:text-blue-400 mt-2">
-          {balance} coins
+      <div className="bg-gradient-to-br from-amber-50/90 to-white dark:from-amber-950/30 dark:to-gray-800 rounded-xl border border-amber-200/80 dark:border-amber-800/50 p-6 shadow-sm">
+        <div className="flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-300">
+          <CoinIcon className="w-5 h-5" title={t('powerups.coins')} />
+          {t('wallet.balance')}
+        </div>
+        <div className="flex items-baseline gap-3 mt-3">
+          <div className="rounded-2xl bg-white/80 dark:bg-gray-900/60 p-3 ring-1 ring-amber-200/60 dark:ring-amber-700/50 shadow-inner">
+            <CoinIcon className="w-10 h-10" title={t('powerups.coins')} />
+          </div>
+          <div>
+            <div className="text-3xl font-bold tabular-nums text-amber-700 dark:text-amber-300">{balance}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{t('powerups.coins')}</div>
+          </div>
         </div>
       </div>
 
@@ -108,19 +118,28 @@ const WalletPage = () => {
             {bundles.map((bundle) => (
               <div
                 key={`${bundle.bundle_id}-${bundle.tier || 'default'}`}
-                className="border border-gray-200 dark:border-gray-600 rounded-lg p-4"
+                className="border border-gray-200 dark:border-gray-600 rounded-xl p-5 bg-white dark:bg-gray-800/50 hover:shadow-md transition-shadow"
               >
-                <div className="text-base font-medium text-gray-900 dark:text-white">
-                  {bundle.coins} coins
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-50 dark:bg-amber-950/50 ring-1 ring-amber-200/70 dark:ring-amber-800/50">
+                    <CoinIcon className="w-9 h-9" title={t('powerups.coins')} />
+                  </div>
+                  <div>
+                    <div className="text-xl font-semibold tabular-nums text-gray-900 dark:text-white">
+                      {bundle.coins}
+                    </div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{t('powerups.coins')}</div>
+                  </div>
                 </div>
-                <div className="text-xs text-gray-500 dark:text-gray-300 mt-1">
-                  Tier: {bundle.tier || 'default'} | Currency: {(bundle.currency || 'usd').toUpperCase()}
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  Tier: {bundle.tier || 'default'} · {(bundle.currency || 'usd').toUpperCase()}
                 </div>
                 <button
                   onClick={() => onBuyBundle(bundle)}
                   disabled={buyingBundleId === bundle.bundle_id}
-                  className="mt-4 w-full px-3 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
+                  className="mt-4 w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
                 >
+                  <CoinIcon className="w-4 h-4 opacity-90" />
                   {buyingBundleId === bundle.bundle_id ? t('wallet.startingCheckout') : t('wallet.buy')}
                 </button>
               </div>
