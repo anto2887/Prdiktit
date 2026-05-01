@@ -5,6 +5,6 @@
     "dockerfilePath": "backend/Dockerfile.prod"
   },
   "deploy": {
-    "startCommand": "sh scripts/railway-start.sh"
+    "startCommand": "sh -c \"cd /app && exec sh scripts/railway-start.sh\""
   }
 }

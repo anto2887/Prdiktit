@@ -178,6 +178,3 @@ class ProductionSettings(Settings):
     class Config:
         case_sensitive = True
         env_file = ".env"
-
-# Use production settings
-settings = ProductionSettings()
