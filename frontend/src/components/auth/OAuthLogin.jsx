@@ -18,12 +18,7 @@ const OAuthLogin = ({ onSuccess, onError, disabled = false, disabledReason = '' 
       console.log('🔐 OAuth Flow: Constructed API URL:', apiUrl);
       console.log('🔐 OAuth Flow: Making fetch request...');
       
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(apiUrl, { method: 'GET' });
 
       console.log('🔐 OAuth Flow: Response received');
       console.log('🔐 OAuth Flow: Response status:', response.status);

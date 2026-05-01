@@ -25,12 +25,10 @@ const OAuthCallback = ({ onSuccess, onError }) => {
       }
 
       // Exchange the code for user data - use backend URL from environment variable
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/oauth/google/callback?code=${code}&state=${state || ''}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetch(
+        `${process.env.REACT_APP_API_URL}/oauth/google/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || '')}`,
+        { method: 'GET' },
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
