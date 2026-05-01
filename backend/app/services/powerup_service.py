@@ -216,6 +216,35 @@ class PowerUpService:
                 raise ValueError("Only one shield can be active per user per day")
 
     @staticmethod
+    def _find_existing_effect(
+        db: Session,
+        *,
+        target_user_id: int,
+        source_group_id: int,
+        effective_utc_date: date,
+        powerup_type: PowerUpType,
+        fixture_id: Optional[int],
+    ) -> Optional[PowerUpDailyEffect]:
+        return db.query(PowerUpDailyEffect).filter(
+            PowerUpDailyEffect.user_id == target_user_id,
+            PowerUpDailyEffect.source_group_id == source_group_id,
+            PowerUpDailyEffect.effective_utc_date == effective_utc_date,
+            PowerUpDailyEffect.powerup_type == powerup_type,
+            PowerUpDailyEffect.fixture_id == (fixture_id if powerup_type == PowerUpType.MULTIPLIER else None),
+        ).first()
+
+    @staticmethod
+    def _required_inventory_units(
+        *,
+        powerup_type: PowerUpType,
+        target_in_source_group: bool,
+    ) -> int:
+        # Policy: freeze targeted outside source group costs 2x inventory.
+        if powerup_type == PowerUpType.FREEZE and not target_in_source_group:
+            return 2
+        return 1
+
+    @staticmethod
     def activate_powerup(
         db: Session,
         *,
@@ -242,15 +271,6 @@ class PowerUpService:
         if not catalog_entry:
             raise ValueError(f"Power-up type {powerup_type.value} is not available")
 
-        inventory = PowerUpService._get_or_create_inventory_row(
-            db,
-            user_id=purchaser_user_id,
-            powerup_type=powerup_type,
-        )
-        if int(inventory.quantity or 0) <= 0:
-            raise ValueError("No inventory available for selected power-up type")
-        inventory.quantity = int(inventory.quantity) - 1
-
         PowerUpService._validate_type_specific_rules(
             db,
             powerup_type=powerup_type,
@@ -261,9 +281,35 @@ class PowerUpService:
         )
 
         target_in_source_group = PowerUpService._is_user_in_group(db, target_user_id, source_group_id)
-        cost_multiplier = 1
+        existing_effect = PowerUpService._find_existing_effect(
+            db,
+            target_user_id=target_user_id,
+            source_group_id=source_group_id,
+            effective_utc_date=effective_utc_date,
+            powerup_type=powerup_type,
+            fixture_id=fixture_id,
+        )
+        duplicate_effect = existing_effect is not None
+
+        required_units = PowerUpService._required_inventory_units(
+            powerup_type=powerup_type,
+            target_in_source_group=target_in_source_group,
+        )
+        inventory = PowerUpService._get_or_create_inventory_row(
+            db,
+            user_id=purchaser_user_id,
+            powerup_type=powerup_type,
+        )
+        if int(inventory.quantity or 0) < required_units:
+            raise ValueError(
+                f"Insufficient inventory: {required_units} {powerup_type.value} required for this activation"
+            )
+        # Option A: inventory is still consumed even if effect is duplicate.
+        inventory.quantity = int(inventory.quantity) - required_units
+
+        cost_multiplier = required_units
         base_cost = int(catalog_entry.base_cost_coins)
-        charged_cost = base_cost
+        charged_cost = base_cost * required_units
 
         activation = PowerUpActivation(
             purchaser_user_id=purchaser_user_id,
@@ -285,15 +331,6 @@ class PowerUpService:
         db.add(activation)
         db.flush()
 
-        existing_effect = db.query(PowerUpDailyEffect).filter(
-            PowerUpDailyEffect.user_id == target_user_id,
-            PowerUpDailyEffect.source_group_id == source_group_id,
-            PowerUpDailyEffect.effective_utc_date == effective_utc_date,
-            PowerUpDailyEffect.powerup_type == powerup_type,
-            PowerUpDailyEffect.fixture_id == (fixture_id if powerup_type == PowerUpType.MULTIPLIER else None),
-        ).first()
-
-        duplicate_effect = existing_effect is not None
         effect_applied = not duplicate_effect
         if effect_applied:
             db.add(
@@ -319,6 +356,7 @@ class PowerUpService:
             "cost_multiplier": cost_multiplier,
             "base_cost_coins": base_cost,
             "charged_cost_coins": charged_cost,
+            "inventory_consumed": required_units,
             "inventory_after": inventory.quantity,
             "effect_applied": effect_applied,
             "duplicate_effect": duplicate_effect,

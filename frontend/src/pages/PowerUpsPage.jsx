@@ -50,6 +50,12 @@ const PowerUpsPage = () => {
   const selectedInventoryCount = selectedPowerup
     ? inventory[selectedPowerup.powerup_type] || 0
     : 0;
+  const selectedTargetInSourceGroup = useMemo(() => {
+    if (powerupType !== 'FREEZE' || !targetUserId) return true;
+    return members.some((member) => String(member.user_id) === String(targetUserId));
+  }, [members, powerupType, targetUserId]);
+  const requiredInventoryUnits =
+    powerupType === 'FREEZE' && targetUserId && !selectedTargetInSourceGroup ? 2 : 1;
 
   const refreshPowerupData = async () => {
     const [catalogRes, membersRes, inventoryRes, walletRes] = await Promise.all([
@@ -134,8 +140,12 @@ const PowerUpsPage = () => {
       setError(t('powerups.selectGroupFirst'));
       return;
     }
-    if (selectedInventoryCount <= 0) {
-      setError(t('powerups.noInventoryToActivate'));
+    if (selectedInventoryCount < requiredInventoryUnits) {
+      setError(
+        requiredInventoryUnits > 1
+          ? t('powerups.noInventoryForOutOfGroupFreeze')
+          : t('powerups.noInventoryToActivate')
+      );
       return;
     }
 
@@ -369,6 +379,17 @@ const PowerUpsPage = () => {
                 {selectedInventoryCount}
               </span>
             </span>
+            <span>
+              {t('powerups.inventoryRequired')}:{' '}
+              <span className={`font-medium ${selectedInventoryCount >= requiredInventoryUnits ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {requiredInventoryUnits}
+              </span>
+            </span>
+            {powerupType === 'FREEZE' && targetUserId && !selectedTargetInSourceGroup && (
+              <span className="text-amber-700 dark:text-amber-300">
+                {t('powerups.outOfGroupFreezeCostsTwo')}
+              </span>
+            )}
           </div>
         )}
 
@@ -389,6 +410,11 @@ const PowerUpsPage = () => {
             <CoinIcon className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
             <span>
               {t('powerups.activationComplete')}{' '}
+              {result.inventory_consumed != null && (
+                <>
+                  {t('powerups.inventoryConsumed')}: {result.inventory_consumed}.{' '}
+                </>
+              )}
               {result.inventory_after != null && (
                 <>
                   {t('powerups.remaining')}: {result.inventory_after}.
@@ -400,7 +426,7 @@ const PowerUpsPage = () => {
 
         <button
           type="submit"
-          disabled={submitting || !sourceGroupId || selectedInventoryCount <= 0}
+          disabled={submitting || !sourceGroupId || selectedInventoryCount < requiredInventoryUnits}
           className="px-4 py-2 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:opacity-60"
         >
           {submitting ? t('powerups.activating') : t('powerups.activate')}
