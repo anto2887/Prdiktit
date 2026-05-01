@@ -11,7 +11,6 @@ import SeasonSelector from '../components/common/SeasonSelector';
 import SeasonManager from '../utils/seasonManager';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
-import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
 import GroupActivationProgress from '../components/common/GroupActivationProgress';
 import ContextAwareNavigation from '../components/common/ContextAwareNavigation';
 import MobileCard from '../components/mobile/MobileCard';
@@ -74,10 +73,6 @@ const GroupDetailsPage = () => {
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState(null);
   const [seasonLoading, setSeasonLoading] = useState(false);
-  
-  // Guide state
-  const [showGuide, setShowGuide] = useState(false);
-  const [guideStep, setGuideStep] = useState(0);
   
   // Local loading state to prevent error flash
   const [localLoading, setLocalLoading] = useState(true);
@@ -229,51 +224,41 @@ const GroupDetailsPage = () => {
               </span>
               <span>{groupMembers.length} {t('groups.members')}</span>
               {currentGroup.invite_code && (
-                <HelpTooltip content={t('groupDetails.shareInviteHelp')}>
-                  <span>{t('groupDetails.code')}: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs cursor-help text-gray-900 dark:text-gray-100">{currentGroup.invite_code}</code></span>
-                </HelpTooltip>
+                <span title={t('groupDetails.shareInviteHelp')}>
+                  {t('groupDetails.code')}: <code className="bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-xs cursor-help text-gray-900 dark:text-gray-100">{currentGroup.invite_code}</code>
+                </span>
               )}
             </div>
           </div>
           
           {/* Action Buttons */}
           <div className="flex items-center gap-3" data-tour="tour-group-home-actions">
-            <HelpTooltip content={t('groupDetails.tooltipPredictions')}>
-              <button
-                onClick={() => navigate(`/groups/${groupId}/predictions`)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
-              >
-                📊 {t('nav.predictions')}
-              </button>
-            </HelpTooltip>
-            <HelpTooltip content={t('groupDetails.tooltipRivalries')}>
-              <button
-                onClick={() => navigate(`/groups/${groupId}/rivalries`)}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800"
-              >
-                🥊 {t('groupDetails.rivalries')}
-              </button>
-            </HelpTooltip>
+            <button
+              type="button"
+              title={t('groupDetails.tooltipPredictions')}
+              onClick={() => navigate(`/groups/${groupId}/predictions`)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
+            >
+              📊 {t('nav.predictions')}
+            </button>
+            <button
+              type="button"
+              title={t('groupDetails.tooltipRivalries')}
+              onClick={() => navigate(`/groups/${groupId}/rivalries`)}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 dark:bg-red-500 hover:bg-red-700 dark:hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-gray-800"
+            >
+              🥊 {t('groupDetails.rivalries')}
+            </button>
             {profile?.id === currentGroup.admin_id && (
-              <HelpTooltip content={t('groupDetails.tooltipManage')}>
-                <button
-                  onClick={() => navigate(`/groups/${groupId}/manage`)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
-                >
-                  ⚙️ {t('groupDetails.manage')}
-                </button>
-              </HelpTooltip>
-            )}
-            <HelpTooltip content={t('groupDetails.tooltipGuide')}>
               <button
-                onClick={() => setShowGuide(true)}
-                className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                type="button"
+                title={t('groupDetails.tooltipManage')}
+                onClick={() => navigate(`/groups/${groupId}/manage`)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                ⚙️ {t('groupDetails.manage')}
               </button>
-            </HelpTooltip>
+            )}
           </div>
         </div>
       </div>
@@ -535,47 +520,6 @@ const GroupDetailsPage = () => {
           </div>
         )}
       </div>
-      
-      {/* Guide/Help System */}
-      <OnboardingGuide
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        onComplete={() => setShowGuide(false)}
-        step={guideStep}
-        totalSteps={5}
-        steps={[
-          {
-            title: t('groupDetails.guideTitle1'),
-            content: t('groupDetails.guideContent1'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('groupDetails.guideTitle2'),
-            content: t('groupDetails.guideContent2'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('groupDetails.guideTitle3'),
-            content: t('groupDetails.guideContent3'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('groupDetails.guideTitle4'),
-            content: t('groupDetails.guideContent4'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('groupDetails.guideTitle5'),
-            content: t('groupDetails.guideContent5'),
-            action: t('common.gotIt'),
-            highlight: null
-          }
-        ]}
-      />
     </div>
   );
 };

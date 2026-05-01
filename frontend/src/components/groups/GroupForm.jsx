@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import TeamSelector from './TeamSelector';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { HelpTooltip } from '../onboarding/OnboardingGuide';
 import SeasonManager from '../../utils/seasonManager';
 import { useI18n } from '../../i18n';
 
@@ -177,9 +176,13 @@ const GroupForm = () => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('groupForm.leagueName')}
             </label>
-            <HelpTooltip content={t('groupForm.leagueNameHelp')}>
-              <span className="text-gray-400 dark:text-gray-500">ℹ️</span>
-            </HelpTooltip>
+            <span
+              className="text-gray-400 dark:text-gray-500 cursor-help"
+              title={t('groupForm.leagueNameHelp')}
+              aria-label={t('groupForm.leagueNameHelp')}
+            >
+              ℹ️
+            </span>
           </div>
           <input
             type="text"
@@ -206,9 +209,13 @@ const GroupForm = () => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('groupForm.selectLeague')}
             </label>
-            <HelpTooltip content={t('groupForm.selectLeagueHelp')}>
-              <span className="text-gray-400 dark:text-gray-500">ℹ️</span>
-            </HelpTooltip>
+            <span
+              className="text-gray-400 dark:text-gray-500 cursor-help"
+              title={t('groupForm.selectLeagueHelp')}
+              aria-label={t('groupForm.selectLeagueHelp')}
+            >
+              ℹ️
+            </span>
           </div>
           <div className="grid grid-cols-2 gap-4">
             {leaguesLoading ? (
@@ -249,9 +256,13 @@ const GroupForm = () => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('groupForm.selectTeamsToTrack')}
             </label>
-            <HelpTooltip content={t('groupForm.selectTeamsHelp')}>
-              <span className="text-gray-400 dark:text-gray-500">ℹ️</span>
-            </HelpTooltip>
+            <span
+              className="text-gray-400 dark:text-gray-500 cursor-help"
+              title={t('groupForm.selectTeamsHelp')}
+              aria-label={t('groupForm.selectTeamsHelp')}
+            >
+              ℹ️
+            </span>
           </div>
           
           {formData.league ? (

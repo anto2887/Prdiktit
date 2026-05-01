@@ -18,7 +18,6 @@ import LiveMatches from '../components/dashboard/LiveMatches';
 import LeagueTable from '../components/dashboard/LeagueTable';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
-import OnboardingGuide, { HelpTooltip } from '../components/onboarding/OnboardingGuide';
 import { useI18n } from '../i18n';
 
 const DashboardPage = React.memo(() => {
@@ -43,10 +42,6 @@ const DashboardPage = React.memo(() => {
     fixtures: false
   });
   
-  // Guide state
-  const [showGuide, setShowGuide] = useState(false);
-  const [guideStep, setGuideStep] = useState(0);
-
   // FIXED: Memoize combined loading and error states to prevent unnecessary re-renders
   const isLoading = useMemo(() => 
     userLoading || predictionsLoading || matchesLoading || groupsLoading,
@@ -296,16 +291,6 @@ const DashboardPage = React.memo(() => {
     <div className="container mx-auto px-4 py-8 pb-20 md:pb-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
         <h1 className="text-2xl font-bold">{t('nav.dashboard')}</h1>
-        <HelpTooltip content={t('dashboard.tooltipGuide')}>
-          <button
-            onClick={() => setShowGuide(true)}
-            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          </button>
-        </HelpTooltip>
       </div>
       
       {/* Group Activation Progress - Show for all user groups */}
@@ -385,9 +370,6 @@ const DashboardPage = React.memo(() => {
       <section className="mb-8" data-tour="tour-dashboard-stats">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">{t('dashboard.yourStats')}</h2>
-          <HelpTooltip content={t('dashboard.tooltipStats')}>
-            <span className="text-gray-400">ℹ️</span>
-          </HelpTooltip>
         </div>
         <DashboardStats stats={stats} />
       </section>
@@ -401,7 +383,7 @@ const DashboardPage = React.memo(() => {
       )}
       
       {/* Upcoming matches section */}
-      <section className="mb-8">
+      <section className="mb-8" data-tour="tour-dashboard-upcoming">
         {/* Mobile: collapsible */}
         <details className="md:hidden bg-white rounded-lg border border-gray-200">
           <summary className="flex items-center justify-between px-4 py-3 cursor-pointer">
@@ -424,9 +406,6 @@ const DashboardPage = React.memo(() => {
       <section className="mb-8" data-tour="tour-dashboard-recent">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">{t('recentPredictions.title')}</h2>
-          <HelpTooltip content={t('dashboard.tooltipRecentPredictions')}>
-            <span className="text-gray-400">ℹ️</span>
-          </HelpTooltip>
         </div>
         <RecentPredictions predictions={userPredictions} />
         {process.env.NODE_ENV === 'development' && (
@@ -442,22 +421,18 @@ const DashboardPage = React.memo(() => {
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">{t('groups.yourGroups')}</h2>
             <div className="flex gap-2">
-              <HelpTooltip content={t('groups.tooltipJoinLeague')}>
-                <Link
-                  to="/groups/join"
-                  className="px-4 py-2 border border-blue-600 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50"
-                >
-                  {t('groups.joinLeague')}
-                </Link>
-              </HelpTooltip>
-              <HelpTooltip content={t('groups.tooltipCreateLeague')}>
-                <Link
-                  to="/groups/create"
-                  className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  {t('groups.createLeague')}
-                </Link>
-              </HelpTooltip>
+              <Link
+                to="/groups/join"
+                className="px-4 py-2 border border-blue-600 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50"
+              >
+                {t('groups.joinLeague')}
+              </Link>
+              <Link
+                to="/groups/create"
+                className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              >
+                {t('groups.createLeague')}
+              </Link>
             </div>
           </div>
           
@@ -517,47 +492,6 @@ const DashboardPage = React.memo(() => {
           </div>
         </section>
       ))}
-      
-      {/* Guide/Help System */}
-      <OnboardingGuide
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        onComplete={() => setShowGuide(false)}
-        step={guideStep}
-        totalSteps={5}
-        steps={[
-          {
-            title: t('dashboard.guideWelcomeTitle'),
-            content: t('dashboard.guideWelcomeContent'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('dashboard.guideStatsTitle'),
-            content: t('dashboard.guideStatsContent'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('dashboard.guideRecentTitle'),
-            content: t('dashboard.guideRecentContent'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('dashboard.guideLeaguesTitle'),
-            content: t('dashboard.guideLeaguesContent'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('dashboard.guideNavigationTitle'),
-            content: t('dashboard.guideNavigationContent'),
-            action: t('common.gotIt'),
-            highlight: null
-          }
-        ]}
-      />
     </div>
   );
 });

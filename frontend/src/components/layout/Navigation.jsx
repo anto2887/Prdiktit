@@ -1,6 +1,5 @@
 // src/components/layout/Navigation.jsx
 import React, { useState, useRef, useEffect } from 'react';
-import { HelpCircle } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, useNotifications } from '../../contexts/AppContext';
 import { useI18n } from '../../i18n';
@@ -103,12 +102,12 @@ const Navigation = () => {
                   <button
                     type="button"
                     onClick={() => setIsHelpOpen((o) => !o)}
-                    className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="px-3 py-1.5 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     aria-expanded={isHelpOpen}
                     aria-haspopup="true"
                     aria-label={t('help.menuAria')}
                   >
-                    <HelpCircle className="w-5 h-5" aria-hidden />
+                    {t('help.help')}
                   </button>
                   {isHelpOpen && (
                     <div

@@ -1,18 +1,16 @@
 // frontend/src/components/groups/GroupPredictionsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useNotifications } from '../../contexts/AppContext';
 import MobilePageHeader from '../mobile/MobilePageHeader';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
 import { useI18n } from '../../i18n';
 
 const GroupPredictionsPage = () => {
   const { t } = useI18n();
   const { groupId } = useParams();
-  const navigate = useNavigate();
-  const { showError, showSuccess } = useNotifications();
+  const { showError } = useNotifications();
   
   // State management
   const [loading, setLoading] = useState(true);
@@ -24,10 +22,6 @@ const GroupPredictionsPage = () => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [weekMessage, setWeekMessage] = useState(null);
   
-  // Guide state
-  const [showGuide, setShowGuide] = useState(false);
-  const [guideStep, setGuideStep] = useState(0);
-
   useEffect(() => {
     if (groupId) {
       loadGroupData();
@@ -167,23 +161,7 @@ const GroupPredictionsPage = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Mobile Header */}
-      <MobilePageHeader
-        title={group.name}
-        backPath={`/groups/${groupId}`}
-        actions={[
-          <HelpTooltip key="help" content={t('groupPredictions.guideHelp')}>
-            <button
-              onClick={() => setShowGuide(true)}
-              className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              aria-label={t('groupPredictions.openPredictionsHelp')}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </button>
-          </HelpTooltip>
-        ]}
-      />
+      <MobilePageHeader title={group.name} backPath={`/groups/${groupId}`} />
 
       {/* Controls row */}
       <div
@@ -193,49 +171,53 @@ const GroupPredictionsPage = () => {
         <div className="flex items-center justify-between space-x-3 overflow-x-auto">
           {/* Week selector */}
           <div className="flex-1 max-w-32 min-w-[8rem]">
-            <HelpTooltip content={t('groupPredictions.selectWeekHelp')}>
-              <select
-                id="week-selector"
-                value={selectedWeek || currentWeek}
-                onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-                className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {getWeekOptions().map(week => (
-                  <option key={week} value={week}>
-                    {t('rivalries.week')} {week}
-                    {week === currentWeek && ` (${t('groupPredictions.current')})`}
-                  </option>
-                ))}
-              </select>
-            </HelpTooltip>
+            <select
+              id="week-selector"
+              value={selectedWeek || currentWeek}
+              onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
+              title={t('groupPredictions.selectWeekHelp')}
+              aria-label={t('groupPredictions.selectWeekHelp')}
+              className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {getWeekOptions().map(week => (
+                <option key={week} value={week}>
+                  {t('rivalries.week')} {week}
+                  {week === currentWeek && ` (${t('groupPredictions.current')})`}
+                </option>
+              ))}
+            </select>
           </div>
           
           {/* View toggle */}
-          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shrink-0" id="view-toggle">
-            <HelpTooltip content={t('groupPredictions.viewModeHelp')}>
-              <div className="flex">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'grid'
-                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {t('groupPredictions.grid')}
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {t('groupPredictions.list')}
-                </button>
-              </div>
-            </HelpTooltip>
+          <div
+            className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shrink-0"
+            id="view-toggle"
+            title={t('groupPredictions.viewModeHelp')}
+          >
+            <div className="flex">
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
+                  viewMode === 'grid'
+                    ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                {t('groupPredictions.grid')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                {t('groupPredictions.list')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -254,41 +236,6 @@ const GroupPredictionsPage = () => {
           </div>
         )}
       </div>
-      
-      {/* Guide/Help System */}
-      <OnboardingGuide
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        onComplete={() => setShowGuide(false)}
-        step={guideStep}
-        totalSteps={4}
-        steps={[
-          {
-            title: t('groupPredictions.guideWelcomeTitle'),
-            content: t('groupPredictions.guideWelcomeContent'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('groupPredictions.guideWeekTitle'),
-            content: t('groupPredictions.guideWeekContent'),
-            action: t('common.next'),
-            highlight: "week-selector"
-          },
-          {
-            title: t('groupPredictions.guideViewTitle'),
-            content: t('groupPredictions.guideViewContent'),
-            action: t('common.next'),
-            highlight: "view-toggle"
-          },
-          {
-            title: t('groupPredictions.guideResultsTitle'),
-            content: t('groupPredictions.guideResultsContent'),
-            action: t('common.gotIt'),
-            highlight: "predictions-display"
-          }
-        ]}
-      />
     </div>
   );
 };
@@ -505,19 +452,21 @@ const PredictionRow = ({ prediction, actualResult, isMatchStarted }) => {
       </div>
       
       <div className="flex items-center space-x-2">
-        <HelpTooltip content={accuracyTooltip || t('groupPredictions.notProcessed')}>
-          <span className={`inline-flex items-center px-2 py-1 rounded-md text-sm font-medium ${accuracyClass || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
-            {accuracyIcon && <span className="mr-1">{accuracyIcon}</span>}
-            {predictedScore}
-          </span>
-        </HelpTooltip>
-        
+        <span
+          title={accuracyTooltip || t('groupPredictions.notProcessed')}
+          className={`inline-flex items-center px-2 py-1 rounded-md text-sm font-medium ${accuracyClass || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}
+        >
+          {accuracyIcon && <span className="mr-1">{accuracyIcon}</span>}
+          {predictedScore}
+        </span>
+
         {isPredictionProcessed && (
-          <HelpTooltip content={`${points} ${points !== 1 ? t('mobile.points') : t('mobile.point')} ${t('groupPredictions.earnedForPrediction')}`}>
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              {points}pt{points !== 1 ? 's' : ''}
-            </span>
-          </HelpTooltip>
+          <span
+            title={`${points} ${points !== 1 ? t('mobile.points') : t('mobile.point')} ${t('groupPredictions.earnedForPrediction')}`}
+            className="text-sm font-medium text-gray-600 dark:text-gray-400"
+          >
+            {points}pt{points !== 1 ? 's' : ''}
+          </span>
         )}
       </div>
     </div>

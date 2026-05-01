@@ -11,7 +11,6 @@ import DashboardStats from './DashboardStats';
 import RecentPredictions from './RecentPredictions';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
 import AdSlot from '../ads/AdSlot';
 import { useI18n } from '../../i18n';
 
@@ -26,10 +25,6 @@ const Dashboard = () => {
   const [groupLeaderboards, setGroupLeaderboards] = useState({});
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   
-  // Guide state
-  const [showGuide, setShowGuide] = useState(false);
-  const [guideStep, setGuideStep] = useState(0);
-
   // Only show loading spinner for critical user data, not predictions
   const isLoading = userLoading;
   const error = userError;
@@ -122,16 +117,6 @@ const Dashboard = () => {
             {t('dashboard.welcomeBack')}, {profile?.username}!
           </h1>
           <div className="flex items-center space-x-3">
-              <HelpTooltip content={t('dashboard.tooltipGuide')}>
-              <button
-                onClick={() => setShowGuide(true)}
-                className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            </HelpTooltip>
               <Link
               to="/predictions/new"
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
@@ -150,11 +135,6 @@ const Dashboard = () => {
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('dashboard.yourStats')}</h2>
-              <HelpTooltip content={t('dashboard.tooltipStats')}>
-                <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </HelpTooltip>
             </div>
           </div>
           <div className="p-6">
@@ -167,11 +147,6 @@ const Dashboard = () => {
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('dashboard.recentPredictions')}</h2>
-              <HelpTooltip content={t('dashboard.tooltipRecentPredictions')}>
-                <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </HelpTooltip>
             </div>
           </div>
           <div className="p-6">
@@ -186,22 +161,18 @@ const Dashboard = () => {
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('groups.myLeagues')}</h2>
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-              <HelpTooltip content={t('groups.tooltipJoinLeague')}>
-                <Link
-                  to="/groups/join"
-                  className="inline-flex items-center justify-center px-4 py-2 border border-blue-600 dark:border-blue-500 rounded-md shadow-sm text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
-                >
-                  {t('groups.joinLeague')}
-                </Link>
-              </HelpTooltip>
-              <HelpTooltip content={t('groups.tooltipCreateLeague')}>
-                <Link
-                  to="/groups/create"
-                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
-                >
-                  {t('groups.createLeague')}
-                </Link>
-              </HelpTooltip>
+              <Link
+                to="/groups/join"
+                className="inline-flex items-center justify-center px-4 py-2 border border-blue-600 dark:border-blue-500 rounded-md shadow-sm text-sm font-medium text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
+              >
+                {t('groups.joinLeague')}
+              </Link>
+              <Link
+                to="/groups/create"
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
+              >
+                {t('groups.createLeague')}
+              </Link>
             </div>
           </div>
 
@@ -294,47 +265,6 @@ const Dashboard = () => {
           )}
         </div>
       </section>
-      
-      {/* Guide/Help System */}
-      <OnboardingGuide
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        onComplete={() => setShowGuide(false)}
-        step={guideStep}
-        totalSteps={5}
-        steps={[
-          {
-            title: t('dashboard.guideWelcomeTitle'),
-            content: t('dashboard.guideWelcomeContent'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('dashboard.guideStatsTitle'),
-            content: t('dashboard.guideStatsContent'),
-            action: t('common.next'),
-            highlight: "stats-section"
-          },
-          {
-            title: t('dashboard.guideRecentTitle'),
-            content: t('dashboard.guideRecentContent'),
-            action: t('common.next'),
-            highlight: "recent-predictions"
-          },
-          {
-            title: t('dashboard.guideLeaguesTitle'),
-            content: t('dashboard.guideLeaguesContent'),
-            action: t('common.next'),
-            highlight: "leagues-section"
-          },
-          {
-            title: t('dashboard.guideStartTitle'),
-            content: t('dashboard.guideStartContent'),
-            action: t('common.gotIt'),
-            highlight: null
-          }
-        ]}
-      />
     </div>
   );
 };

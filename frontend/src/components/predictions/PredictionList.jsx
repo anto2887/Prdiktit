@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { useMatches, usePredictions } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -6,17 +6,12 @@ import ErrorMessage from '../common/ErrorMessage';
 import MatchAvailabilityCheck from './MatchAvailabilityCheck';
 import TimezoneIndicator from '../common/TimezoneIndicator';
 import { formatKickoffTime, formatDeadlineTime, isDateInPast } from '../../utils/dateUtils';
-import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
 import { useI18n } from '../../i18n';
 
 const PredictionList = () => {
   const { t } = useI18n();
   const { fixtures, loading: matchesLoading, error: matchesError } = useMatches();
   const { userPredictions, loading: predictionsLoading } = usePredictions();
-  
-  // Guide state
-  const [showGuide, setShowGuide] = useState(false);
-  const [guideStep, setGuideStep] = useState(0);
   
   // REMOVED: Broken useEffect that was causing dependency issues
   // Data fetching is now handled by parent PredictionsPage
@@ -62,25 +57,15 @@ const PredictionList = () => {
         <div className="flex justify-between items-center">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('predictions.upcomingMatches')}</h2>
           <div className="flex items-center gap-4">
-            <HelpTooltip content={t('predictions.tooltipTimezone')}>
+            <span title={t('predictions.tooltipTimezone')} className="inline-flex">
               <TimezoneIndicator showDetails={true} />
-            </HelpTooltip>
+            </span>
             <Link
               to="/predictions/history"
               className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
             >
               {t('predictions.viewHistory')} →
             </Link>
-            <HelpTooltip content={t('predictions.tooltipGuide')}>
-              <button
-                onClick={() => setShowGuide(true)}
-                className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            </HelpTooltip>
           </div>
         </div>
 
@@ -236,41 +221,6 @@ const PredictionList = () => {
           </div>
         )}
       </div>
-      
-      {/* Guide/Help System */}
-      <OnboardingGuide
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        onComplete={() => setShowGuide(false)}
-        step={guideStep}
-        totalSteps={4}
-        steps={[
-          {
-            title: t('predictions.guideTitle1'),
-            content: t('predictions.guideContent1'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('predictions.guideTitle2'),
-            content: t('predictions.guideContent2'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('predictions.guideTitle3'),
-            content: t('predictions.guideContent3'),
-            action: t('common.next'),
-            highlight: null
-          },
-          {
-            title: t('predictions.guideTitle4'),
-            content: t('predictions.guideContent4'),
-            action: t('common.gotIt'),
-            highlight: null
-          }
-        ]}
-      />
     </MatchAvailabilityCheck>
   );
 };

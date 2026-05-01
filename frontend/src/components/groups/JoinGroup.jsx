@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { HelpTooltip } from '../onboarding/OnboardingGuide';
 import { useI18n } from '../../i18n';
 
 const JoinGroup = () => {
@@ -65,9 +64,13 @@ const JoinGroup = () => {
                             >
                                 {t('joinGroup.enterInviteCode')}
                             </label>
-                            <HelpTooltip content={t('joinGroup.inviteHelp')}>
-                                <span className="text-gray-400">ℹ️</span>
-                            </HelpTooltip>
+                            <span
+                                className="text-gray-400 cursor-help"
+                                title={t('joinGroup.inviteHelp')}
+                                aria-label={t('joinGroup.inviteHelp')}
+                            >
+                                ℹ️
+                            </span>
                         </div>
                         <input
                             id="inviteCode"
