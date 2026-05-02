@@ -74,7 +74,10 @@ export function buildPowerupsTourSteps() {
     step('body', 'tour.powerups.introTitle', 'tour.powerups.introBody', 'center'),
     step('[data-tour="tour-powerups-inventory"]', 'tour.powerups.inventoryTitle', 'tour.powerups.inventoryBody', 'bottom'),
     step('[data-tour="tour-powerups-buy"]', 'tour.powerups.buyTitle', 'tour.powerups.buyBody', 'top'),
+    step('[data-tour="tour-powerups-catalog"]', 'tour.powerups.catalogTitle', 'tour.powerups.catalogBody', 'top'),
     step('[data-tour="tour-powerups-activate"]', 'tour.powerups.activateTitle', 'tour.powerups.activateBody', 'top'),
+    step('[data-tour="tour-powerups-activate"]', 'tour.powerups.howToUseTitle', 'tour.powerups.howToUseBody', 'top'),
+    step('[data-tour="tour-powerups-activate"]', 'tour.powerups.rulesTitle', 'tour.powerups.rulesBody', 'top'),
   ];
 }
 
