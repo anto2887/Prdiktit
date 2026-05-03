@@ -824,11 +824,57 @@ async def get_team_by_external_id(db: Session, external_id: int) -> Optional[Tea
     """Get team by external ID (from football API)"""
     return db.query(Team).filter(Team.team_id == external_id).first()
 
+
+async def _get_champions_league_tracked_teams(db: Session) -> List[Team]:
+    """
+    Teams for UCL group creation: include rows tagged league_id=2 plus any Team whose
+    name appears on Champions League fixtures.
+
+    Imports skip creating a second row when team_id already exists (e.g. Barcelona
+    stored under La Liga first), so league_id=2 alone misses most participants.
+    """
+    ucl_league_id = 2
+    by_tag = db.query(Team).filter(Team.league_id == ucl_league_id).all()
+    merged: Dict[int, Team] = {t.id: t for t in by_tag}
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=600)
+    ucl_fixture_filter = or_(
+        Fixture.competition_id == ucl_league_id,
+        Fixture.league == "UEFA Champions League",
+        Fixture.league == "Champions League",
+    )
+    fixtures = (
+        db.query(Fixture)
+        .filter(ucl_fixture_filter, Fixture.date >= cutoff)
+        .all()
+    )
+    names_lower = set()
+    for fx in fixtures:
+        if fx.home_team:
+            names_lower.add(fx.home_team.strip().lower())
+        if fx.away_team:
+            names_lower.add(fx.away_team.strip().lower())
+    names_lower.discard("")
+
+    if names_lower:
+        from_fixture = (
+            db.query(Team)
+            .filter(func.lower(Team.team_name).in_(names_lower))
+            .all()
+        )
+        for t in from_fixture:
+            merged[t.id] = t
+
+    return sorted(merged.values(), key=lambda t: (t.team_name or "").lower())
+
+
 async def get_teams_by_league(db: Session, league: str) -> List[Team]:
     """Get teams for a specific league name or league ID"""
     try:
         # Try to convert to an integer (in case we have a league ID)
         league_id = int(league)
+        if league_id == 2:
+            return await _get_champions_league_tracked_teams(db)
         return db.query(Team).filter(Team.league_id == league_id).all()
     except (ValueError, TypeError):
         # If not a number, it's probably a league name
@@ -843,6 +889,8 @@ async def get_teams_by_league(db: Session, league: str) -> List[Team]:
         if league in league_mapping:
             league_config = league_mapping[league]
             league_id = league_config['id']
+            if league == "UEFA Champions League":
+                return await _get_champions_league_tracked_teams(db)
             return db.query(Team).filter(Team.league_id == league_id).all()
         else:
             return db.query(Team).filter(Team.country == league).all()
