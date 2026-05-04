@@ -48,6 +48,7 @@ class SchedulerService:
         self.last_stale_reconcile_check = None
         self.last_rivalry_assignment_check = None
         self.last_rivalry_outcome_check = None
+        self.last_worldcup_canonical_refresh = None
         self.final_statuses = [
             MatchStatus.FINISHED,
             MatchStatus.FINISHED_AET,
@@ -196,6 +197,11 @@ class SchedulerService:
                     self.last_rivalry_outcome_check = current_time
                 except Exception as e:
                     logger.error(f"❌ Rivalry outcome sweep error (non-fatal): {e}")
+
+            try:
+                await self._maybe_refresh_worldcup_canonical(current_time)
+            except Exception as e:
+                logger.error(f"❌ World Cup canonical refresh error (non-fatal): {e}")
 
             return True
 
@@ -536,6 +542,30 @@ class SchedulerService:
             )
         finally:
             db.close()
+
+    async def _maybe_refresh_worldcup_canonical(self, current_time: datetime):
+        """Refresh World Cup global canonical rows and evaluate auto-lock on an interval (not UI-triggered)."""
+        interval_sec = int(os.environ.get("WORLD_CUP_CANONICAL_REFRESH_SECONDS", "900"))
+        if interval_sec <= 0:
+            return
+        if self.last_worldcup_canonical_refresh is not None:
+            elapsed = (current_time - self.last_worldcup_canonical_refresh).total_seconds()
+            if elapsed < interval_sec:
+                return
+
+        def _refresh_sync():
+            from app.services.worldcup_global_service import WorldCupGlobalService
+
+            db = SessionLocal()
+            try:
+                svc = WorldCupGlobalService(db)
+                return svc.refresh_canonical_entries()
+            finally:
+                db.close()
+
+        result = await asyncio.to_thread(_refresh_sync)
+        self.last_worldcup_canonical_refresh = current_time
+        logger.info("World Cup canonical refresh (scheduled): %s", result)
 
 # Global scheduler instance
 scheduler_service = SchedulerService()

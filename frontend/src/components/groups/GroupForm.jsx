@@ -31,13 +31,16 @@ const GroupForm = () => {
           { id: 'Premier League', name: 'Premier League' },
           { id: 'La Liga', name: 'La Liga' },
           { id: 'UEFA Champions League', name: 'Champions League' },
+          { id: 'World Cup', name: 'World Cup (national teams)' },
           { id: 'MLS', name: 'MLS' },
           { id: 'FIFA Club World Cup', name: 'FIFA Club World Cup' }
         ];
 
         const leaguesWithSeasons = leagueConfigs.map(league => {
           let season;
-          if (league.id === 'MLS' || league.id === 'FIFA Club World Cup') {
+          if (league.id === 'World Cup') {
+            season = '2026';
+          } else if (league.id === 'MLS' || league.id === 'FIFA Club World Cup') {
             // Calendar year leagues - use current year
             season = new Date().getFullYear().toString();
           } else {
@@ -59,6 +62,7 @@ const GroupForm = () => {
           { id: 'Premier League', name: 'Premier League', season: '2025-2026' },
           { id: 'La Liga', name: 'La Liga', season: '2025-2026' },
           { id: 'UEFA Champions League', name: 'Champions League', season: '2025-2026' },
+          { id: 'World Cup', name: 'World Cup (national teams)', season: '2026' },
           { id: 'MLS', name: 'MLS', season: '2025' },
           { id: 'FIFA Club World Cup', name: 'FIFA Club World Cup', season: '2025' }
         ]);
@@ -204,7 +208,7 @@ const GroupForm = () => {
 
         {/* Step 2: League Selection */}
         {step === 2 && (
-        <div className="mb-6">
+        <div className="mb-6" data-tour="tour-create-group-league-grid">
           <div className="flex justify-between items-center mb-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               {t('groupForm.selectLeague')}
@@ -249,7 +253,7 @@ const GroupForm = () => {
 
         {/* Step 3: Team Selection */}
         {step === 3 && (
-        <div className="mb-6">
+        <div className="mb-6" data-tour="tour-create-group-teams">
           {process.env.NODE_ENV === 'development' && console.log('Step 3 rendering:', { step, league: formData.league })}
           
           <div className="flex justify-between items-center mb-2">

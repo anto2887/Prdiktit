@@ -33,6 +33,7 @@ from .models import (
 
 import logging
 from ..services.powerup_scoring_service import apply_powerup_modifiers
+from ..services.worldcup_global_service import WORLD_CUP_LEAGUE
 
 logger = logging.getLogger(__name__)
 
@@ -882,8 +883,10 @@ async def get_teams_by_league(db: Session, league: str) -> List[Team]:
             "Premier League": {"id": 39, "season": 2024},
             "La Liga": {"id": 140, "season": 2024},
             "UEFA Champions League": {"id": 2, "season": 2024},
+            # FIFA World Cup (national teams) — API-Football v3: league=1, season=2026
+            "World Cup": {"id": 1, "season": 2026},
             "MLS": {"id": 253, "season": 2025},
-            "FIFA Club World Cup": {"id": 15, "season": 2025}
+            "FIFA Club World Cup": {"id": 15, "season": 2025},
         }
         
         if league in league_mapping:
@@ -991,6 +994,33 @@ async def get_group_by_invite_code(db: Session, invite_code: str) -> Optional[Gr
     """Get group by invite code"""
     return db.query(Group).filter(Group.invite_code == invite_code).first()
 
+
+async def _require_full_world_cup_tracked_teams(
+    db: Session,
+    *,
+    league: str,
+    tracked_teams: Optional[List[int]],
+) -> None:
+    """
+    World Cup mode: every national team available for the tournament must be tracked.
+    """
+    if league != WORLD_CUP_LEAGUE:
+        return
+    expected = await get_teams_by_league(db, WORLD_CUP_LEAGUE)
+    expected_ids = {int(t.id) for t in expected}
+    tracked_set = {int(x) for x in (tracked_teams or [])}
+    if not expected_ids:
+        raise ValueError(
+            "World Cup national teams are not loaded yet. Import teams for "
+            "API league 1 (World Cup) season 2026, then try again."
+        )
+    if tracked_set != expected_ids:
+        raise ValueError(
+            f"World Cup groups must track all {len(expected_ids)} national teams "
+            f"({len(tracked_set)} selected)."
+        )
+
+
 async def create_group(db: Session, admin_id: int, **group_data) -> Group:
     """Create a new group"""
     try:
@@ -1001,6 +1031,10 @@ async def create_group(db: Session, admin_id: int, **group_data) -> Group:
         
         # Calculate activation weeks for new groups with proper season handling
         league = group_data.get('league', 'Premier League')
+
+        await _require_full_world_cup_tracked_teams(
+            db, league=league, tracked_teams=tracked_teams
+        )
         
         # Get season info for this league
         season_info = get_season_info_for_league(league)
@@ -1302,6 +1336,9 @@ async def update_group(db: Session, group_id: int, **group_data) -> Optional[Gro
         setattr(group, key, value)
     
     if tracked_teams is not None:
+        await _require_full_world_cup_tracked_teams(
+            db, league=group.league, tracked_teams=tracked_teams
+        )
         db.query(TeamTracker).filter(TeamTracker.group_id == group_id).delete()
         
         for team_id in tracked_teams:

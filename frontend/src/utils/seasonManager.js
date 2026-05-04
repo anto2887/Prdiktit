@@ -46,6 +46,13 @@ export const LeagueType = {
       displayFormat: '{year}',
       dbFormat: '{year}',
       apiSeason: '{year}'
+    },
+    'World Cup': {
+      type: LeagueType.TOURNAMENT,
+      apiId: 1,
+      displayFormat: '{year}',
+      dbFormat: '{year}',
+      apiSeason: '{year}'
     }
   };
   

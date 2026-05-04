@@ -1,17 +1,18 @@
 // TeamSelector.jsx - Fixed version
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { useI18n } from '../../i18n';
 
 // Optimized team card component with improved image handling
-const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadStates, handleImageLoad }) => (
+const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadStates, handleImageLoad, selectionLocked = false }) => (
   <div
-    className={`relative flex items-center p-3 border rounded-lg cursor-pointer transition-colors group
+    className={`relative flex items-center p-3 border rounded-lg transition-colors group
+      ${selectionLocked ? 'cursor-default opacity-90' : 'cursor-pointer'}
       ${isSelected 
         ? 'border-blue-500 bg-blue-50' 
-        : 'border-gray-200 hover:border-blue-300'}`}
-    onClick={() => onToggle(team.id)}
+        : selectionLocked ? 'border-gray-200' : 'border-gray-200 hover:border-blue-300'}`}
+    onClick={() => !selectionLocked && onToggle(team.id)}
     style={{ 
       animationDelay: `${index * 50}ms` 
     }}
@@ -20,7 +21,8 @@ const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadState
     <input
       type="checkbox"
       checked={isSelected}
-      onChange={() => onToggle(team.id)}
+      disabled={selectionLocked}
+      onChange={() => !selectionLocked && onToggle(team.id)}
       className="mr-3 flex-shrink-0"
     />
     <div className="w-8 h-8 mr-2 flex-shrink-0 flex items-center justify-center">
@@ -61,9 +63,24 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [imageLoadStates, setImageLoadStates] = useState({});
+  const worldCupAutoKeyRef = useRef('');
   
   const { fetchTeamsForLeague } = useGroups();
   const { showError } = useNotifications();
+
+  const worldCupSelectionLocked = selectedLeague === 'World Cup';
+
+  useEffect(() => {
+    worldCupAutoKeyRef.current = '';
+  }, [selectedLeague]);
+
+  useEffect(() => {
+    if (!worldCupSelectionLocked || loading || teams.length === 0) return;
+    const key = `${teams.length}-${teams.map((t) => t.id).sort().join(',')}`;
+    if (worldCupAutoKeyRef.current === key) return;
+    worldCupAutoKeyRef.current = key;
+    onTeamsSelected(teams.map((t) => t.id));
+  }, [worldCupSelectionLocked, loading, teams, onTeamsSelected]);
 
   useEffect(() => {
     process.env.NODE_ENV === 'development' && console.log('TeamSelector useEffect triggered:', { selectedLeague, teams: teams.length });
@@ -140,11 +157,12 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
   };
 
   const handleTeamToggle = useCallback((teamId) => {
+    if (worldCupSelectionLocked) return;
     const updatedSelection = selectedTeams.includes(teamId)
       ? selectedTeams.filter(id => id !== teamId)
       : [...selectedTeams, teamId];
     onTeamsSelected(updatedSelection);
-  }, [selectedTeams, onTeamsSelected]);
+  }, [selectedTeams, onTeamsSelected, worldCupSelectionLocked]);
 
   const handleSelectAll = () => {
     const allTeamIds = teams.map(team => team.id);
@@ -184,6 +202,11 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
 
   return (
     <div className="space-y-4">
+      {worldCupSelectionLocked && (
+        <p className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+          {t('groupForm.worldCupAllTeamsHint')}
+        </p>
+      )}
       {/* Search and Controls */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex-1 max-w-md">
@@ -196,6 +219,7 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
           />
         </div>
         
+        {!worldCupSelectionLocked && (
         <div className="flex gap-2">
           <button
             onClick={handleSelectAll}
@@ -212,6 +236,7 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
             </button>
           )}
         </div>
+        )}
       </div>
 
       {/* Teams Grid */}

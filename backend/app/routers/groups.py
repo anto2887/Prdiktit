@@ -313,6 +313,12 @@ async def create_group_endpoint(
                 "name": new_group.name
             }
         )
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
     except Exception as e:
         # Log the error
         import logging
@@ -492,8 +498,15 @@ async def update_group_endpoint(
             detail="Only group admin can update group details"
         )
     
-    # Update the group using repository function
-    updated_group = await update_group(db, group_id, **group_data.dict(exclude_unset=True))
+    try:
+        # Update the group using repository function
+        updated_group = await update_group(db, group_id, **group_data.dict(exclude_unset=True))
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
     
     # Clear cache
     await cache.delete(f"group:{group_id}")

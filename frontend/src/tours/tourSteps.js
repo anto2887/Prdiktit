@@ -126,7 +126,10 @@ export function buildCreateGroupTourSteps() {
     step('body', 'tour.createGroup.introTitle', 'tour.createGroup.introBody', 'center'),
     step('[data-tour="tour-create-group-page-header"]', 'tour.createGroup.pageHeaderTitle', 'tour.createGroup.pageHeaderBody', 'bottom'),
     step('[data-tour="tour-create-group-progress"]', 'tour.createGroup.progressTitle', 'tour.createGroup.progressBody', 'bottom'),
+    step('body', 'tour.createGroup.worldCupTitle', 'tour.createGroup.worldCupBody', 'center'),
     step('[data-tour="tour-create-group-active-step"]', 'tour.createGroup.activeStepTitle', 'tour.createGroup.activeStepBody', 'top'),
+    step('[data-tour="tour-create-group-league-grid"]', 'tour.createGroup.leagueGridWorldCupTitle', 'tour.createGroup.leagueGridWorldCupBody', 'bottom'),
+    step('[data-tour="tour-create-group-teams"]', 'tour.createGroup.teamsWorldCupTitle', 'tour.createGroup.teamsWorldCupBody', 'top'),
   ];
 }
 

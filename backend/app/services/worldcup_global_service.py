@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
@@ -23,6 +24,18 @@ WORLD_CUP_COMPETITION_CODE = "world_cup_2026"
 WORLD_CUP_LEAGUE = "World Cup"
 DEFAULT_WORLD_CUP_SEASON = "2026"
 DEFAULT_CANONICAL_LOCK_AT_UTC = datetime(2026, 6, 23, 23, 59, 59, tzinfo=timezone.utc)
+
+_WC_GROUP_ROUND_MD_RE = re.compile(r"^group\s+[A-Za-z]\s*-\s*(\d+)\s*$", re.IGNORECASE)
+
+
+def _wc_group_stage_matchday_from_round(round_str: Optional[str]) -> Optional[int]:
+    """Parse group-stage matchday from API-style labels such as 'Group A - 2'."""
+    if not round_str:
+        return None
+    m = _WC_GROUP_ROUND_MD_RE.match(round_str.strip())
+    if not m:
+        return None
+    return int(m.group(1))
 
 
 class WorldCupGlobalService:
@@ -67,6 +80,30 @@ class WorldCupGlobalService:
         self.db.refresh(window)
         return window
 
+    def _world_cup_group_matchday_all_terminal(self, season: str, matchday: int) -> bool:
+        """True when every World Cup group-stage fixture for that matchday is in a final result status."""
+        terminal = {
+            MatchStatus.FINISHED,
+            MatchStatus.FINISHED_AET,
+            MatchStatus.FINISHED_PEN,
+        }
+        rows = (
+            self.db.query(Fixture)
+            .filter(
+                Fixture.league == WORLD_CUP_LEAGUE,
+                Fixture.season == str(season),
+            )
+            .all()
+        )
+        md_rows = [
+            fx
+            for fx in rows
+            if _wc_group_stage_matchday_from_round(fx.round) == matchday
+        ]
+        if not md_rows:
+            return False
+        return all(fx.status in terminal for fx in md_rows)
+
     def maybe_auto_lock(
         self,
         season: str = DEFAULT_WORLD_CUP_SEASON,
@@ -84,6 +121,18 @@ class WorldCupGlobalService:
             self.db.commit()
             self.db.refresh(window)
             logger.info("World Cup canonical window auto-locked for season=%s", season)
+
+        if not window.is_canonical_locked and self._world_cup_group_matchday_all_terminal(
+            season, 2
+        ):
+            window.is_canonical_locked = True
+            window.canonical_locked_at_utc = now_utc
+            self.db.commit()
+            self.db.refresh(window)
+            logger.info(
+                "World Cup canonical window auto-locked for season=%s (group stage MD2 complete)",
+                season,
+            )
 
         return window
 
