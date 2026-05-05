@@ -17,59 +17,73 @@ async def import_teams_on_startup(app: FastAPI) -> None:
     
     db = SessionLocal()
     try:
-        # Check if we already have teams in the database
-        team_count = db.query(Team).count()
-        
-        if team_count == 0:
-            logger.info("No teams found in database. Importing from API...")
-            
-            # Import teams using your existing script logic
-            leagues = {
-                "Premier League": {"id": 39, "season": 2025},
-                "La Liga": {"id": 140, "season": 2025},
-                "UEFA Champions League": {"id": 2, "season": 2025},
-                "World Cup": {"id": 1, "season": 2026},
-                "MLS": {"id": 253, "season": 2025},
-                "FIFA Club World Cup": {"id": 15, "season": 2025}
+        # Import per API league_id when that competition has no tagged rows yet.
+        # (Previously: only ran when the entire teams table was empty, so World Cup
+        # never imported after any other league was loaded.)
+        leagues = {
+            "Premier League": {"id": 39, "season": 2025},
+            "La Liga": {"id": 140, "season": 2025},
+            "UEFA Champions League": {"id": 2, "season": 2025},
+            "World Cup": {"id": 1, "season": 2026},
+            "MLS": {"id": 253, "season": 2025},
+            "FIFA Club World Cup": {"id": 15, "season": 2025},
+        }
+
+        for league_name, league_config in leagues.items():
+            api_league_id = league_config["id"]
+            already = db.query(Team).filter(Team.league_id == api_league_id).count()
+            if already > 0:
+                logger.info(
+                    "Skipping team import for %s: already have %s team(s) with league_id=%s",
+                    league_name,
+                    already,
+                    api_league_id,
+                )
+                continue
+
+            logger.info(
+                "Importing teams for %s (API league_id=%s, season=%s)",
+                league_name,
+                api_league_id,
+                league_config["season"],
+            )
+            params = {
+                "league": api_league_id,
+                "season": league_config["season"],
             }
 
-            for league_name, league_config in leagues.items():
-                logger.info(f"Importing teams for {league_name} (ID: {league_config['id']})")
-                params = {
-                    'league': league_config['id'],
-                    'season': league_config['season']  # Use configured season
-                }
-                
-                # Make the API request
-                teams_data = await football_api_service.make_api_request('teams', params)
-                
-                if teams_data:
-                    logger.info(f"Found {len(teams_data)} teams for {league_name}")
-                    count = 0
-                    for team_data in teams_data:
-                        # Check if team already exists
-                        existing_team = db.query(Team).filter(Team.team_id == team_data['team']['id']).first()
-                        if existing_team:
-                            logger.info(f"Team {team_data['team']['name']} already exists, skipping")
-                            continue
-                            
-                        # Create new team
-                        team = Team(
-                            team_id=team_data['team']['id'],
-                            team_name=team_data['team']['name'],
-                            team_logo=team_data['team']['logo'],
-                            country=team_data['team']['country'],
-                            league_id=league_config['id']
+            teams_data = await football_api_service.make_api_request("teams", params)
+
+            if teams_data:
+                logger.info("Found %s teams for %s", len(teams_data), league_name)
+                count = 0
+                for team_data in teams_data:
+                    existing_team = (
+                        db.query(Team)
+                        .filter(Team.team_id == team_data["team"]["id"])
+                        .first()
+                    )
+                    if existing_team:
+                        logger.info(
+                            "Team %s already exists, skipping",
+                            team_data["team"]["name"],
                         )
-                        db.add(team)
-                        count += 1
-                    
-                    db.commit()
-                    logger.info(f"Added {count} teams for {league_name}")
-                else:
-                    logger.warning(f"No teams found for {league_name}")
-        else:
-            logger.info(f"Found {team_count} teams in database, skipping import")
+                        continue
+
+                    team = Team(
+                        team_id=team_data["team"]["id"],
+                        team_name=team_data["team"]["name"],
+                        team_logo=team_data["team"]["logo"],
+                        country=team_data["team"]["country"],
+                        league_id=api_league_id,
+                    )
+                    db.add(team)
+                    count += 1
+
+                db.commit()
+                logger.info("Added %s teams for %s", count, league_name)
+            else:
+                logger.warning("No teams returned from API for %s", league_name)
     except Exception as e:
         logger.error(f"Error importing teams: {e}")
         db.rollback()
