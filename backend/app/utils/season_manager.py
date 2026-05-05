@@ -41,6 +41,16 @@ class SeasonManager:
             "db_format": "{start_year}-{end_year}",
             "api_season": "{start_year}",
         },
+        # FIFA World Cup (men's) — API-Football v3: league id 1, season 2026 for WC 2026
+        "World Cup": {
+            "type": LeagueType.TOURNAMENT,
+            "api_id": 1,
+            "display_format": "{year}",
+            "db_format": "{year}",
+            "api_season": "{year}",
+            # Calendar TOURNAMENT would use datetime.utcnow().year; WC 2026 uses API season 2026 in 2025–2026.
+            "pinned_db_season": "2026",
+        },
         "MLS": {
             "type": LeagueType.MLS,
             "api_id": 253,
@@ -64,6 +74,10 @@ class SeasonManager:
         if not config:
             # Default to calendar year for unknown leagues
             return str(datetime.now(timezone.utc).year)
+
+        pinned = config.get("pinned_db_season")
+        if pinned:
+            return pinned
         
         now = datetime.now(timezone.utc)
         
