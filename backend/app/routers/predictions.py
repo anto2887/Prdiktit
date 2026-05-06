@@ -1242,18 +1242,62 @@ async def migrate_group_id_field(
             except Exception as e:
                 logger.warning(f"⚠️ Could not make group_id non-nullable: {e}")
                 db.rollback()
+
+        # Step 8: Swap uniqueness to group-scoped predictions.
+        # Old behavior: one prediction per (user_id, fixture_id) globally.
+        # New behavior: one prediction per (user_id, fixture_id, group_id).
+        constraint_swap_status = "skipped"
+        if remaining_null == 0:
+            try:
+                # Ensure there are no duplicates for the new target key.
+                duplicate_rows = db.execute(text("""
+                    SELECT user_id, fixture_id, group_id, COUNT(*) AS c
+                    FROM user_predictions
+                    GROUP BY user_id, fixture_id, group_id
+                    HAVING COUNT(*) > 1
+                    LIMIT 1
+                """)).fetchone()
+
+                if duplicate_rows:
+                    raise ValueError(
+                        "Cannot apply group-scoped unique constraint: duplicate rows exist for "
+                        f"(user_id={duplicate_rows.user_id}, fixture_id={duplicate_rows.fixture_id}, "
+                        f"group_id={duplicate_rows.group_id})"
+                    )
+
+                db.execute(text("""
+                    ALTER TABLE user_predictions
+                    DROP CONSTRAINT IF EXISTS _user_fixture_uc
+                """))
+                db.execute(text("""
+                    ALTER TABLE user_predictions
+                    ADD CONSTRAINT _user_fixture_group_uc UNIQUE (user_id, fixture_id, group_id)
+                """))
+                db.commit()
+                constraint_swap_status = "completed"
+                logger.info("✅ Swapped unique constraint to _user_fixture_group_uc")
+            except Exception as e:
+                logger.error(f"❌ Failed to swap unique constraint: {e}")
+                db.rollback()
+                constraint_swap_status = f"failed: {str(e)}"
+        else:
+            logger.warning(
+                "⚠️ Skipping unique-constraint swap because %s predictions still have NULL group_id",
+                remaining_null
+            )
         
         # Migration summary
         migration_result = {
             "migration_id": f"migrate_group_id_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
-            "steps_completed": 7,
+            "steps_completed": 8,
             "records_processed": total_predictions,
             "records_updated": updated_count,
             "records_failed": failed_count,
             "remaining_null": remaining_null,
             "errors": errors[:10],  # Limit error list
             "migration_status": "completed" if remaining_null == 0 else "partial",
-            "group_id_non_nullable": remaining_null == 0
+            "group_id_non_nullable": remaining_null == 0,
+            "constraint_swap_status": constraint_swap_status,
         }
         
         logger.info(f"🎉 Migration completed: {migration_result}")
@@ -1323,6 +1367,7 @@ async def rollback_group_id_migration(
         
         # Step 4: Restore original unique constraint
         try:
+            db.execute(text("ALTER TABLE user_predictions DROP CONSTRAINT IF EXISTS _user_fixture_group_uc"))
             db.execute(text("ALTER TABLE user_predictions ADD CONSTRAINT IF NOT EXISTS _user_fixture_uc UNIQUE (user_id, fixture_id)"))
             db.commit()
             logger.info("✅ Restored original unique constraint")
