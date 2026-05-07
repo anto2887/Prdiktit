@@ -21,16 +21,16 @@
     "author": "",
     "license": "MIT",
     "dependencies": {
-        "axios": "^1.5.0",
+        "axios": "^1.16.0",
         "date-fns": "^2.30.0",
-        "lodash": "^4.17.21",
+        "lodash": "^4.18.1",
         "lucide-react": "^0.263.1",
         "react": "^18.2.0",
         "react-dom": "^18.2.0",
         "react-hook-form": "^7.45.4",
         "react-icons": "^5.5.0",
         "react-joyride": "^2.9.3",
-        "react-router-dom": "^6.15.0",
+        "react-router-dom": "^6.30.3",
         "recharts": "^2.7.3"
     },
     "devDependencies": {
@@ -39,7 +39,7 @@
         "@babel/plugin-transform-runtime": "^7.22.10",
         "@babel/preset-env": "^7.22.10",
         "@babel/preset-react": "^7.22.5",
-        "@babel/runtime": "^7.22.10",
+        "@babel/runtime": "^7.29.2",
         "@testing-library/jest-dom": "^6.0.0",
         "@testing-library/react": "^14.0.0",
         "@testing-library/user-event": "^14.4.3",
