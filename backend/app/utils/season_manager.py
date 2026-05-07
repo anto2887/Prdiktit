@@ -2,7 +2,7 @@
 """
 Comprehensive season management utility that handles different league formats
 """
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Dict, List, Optional, Tuple
 from enum import Enum
 
@@ -41,6 +41,16 @@ class SeasonManager:
             "db_format": "{start_year}-{end_year}",
             "api_season": "{start_year}",
         },
+        # FIFA World Cup (men's) — API-Football v3: league id 1, season 2026 for WC 2026
+        "World Cup": {
+            "type": LeagueType.TOURNAMENT,
+            "api_id": 1,
+            "display_format": "{year}",
+            "db_format": "{year}",
+            "api_season": "{year}",
+            # Calendar TOURNAMENT would use datetime.utcnow().year; WC 2026 uses API season 2026 in 2025–2026.
+            "pinned_db_season": "2026",
+        },
         "MLS": {
             "type": LeagueType.MLS,
             "api_id": 253,
@@ -63,9 +73,13 @@ class SeasonManager:
         config = cls.LEAGUE_CONFIGS.get(league_name)
         if not config:
             # Default to calendar year for unknown leagues
-            return str(datetime.now().year)
+            return str(datetime.now(timezone.utc).year)
+
+        pinned = config.get("pinned_db_season")
+        if pinned:
+            return pinned
         
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         
         if config["type"] == LeagueType.EUROPEAN:
             # European season runs Aug-May
@@ -153,7 +167,7 @@ class SeasonManager:
         config = cls.LEAGUE_CONFIGS.get(league_name)
         if not config:
             # Default to calendar years
-            current_year = datetime.now().year
+            current_year = datetime.now(timezone.utc).year
             return [
                 {
                     "value": str(year),
@@ -164,7 +178,7 @@ class SeasonManager:
             ]
         
         seasons = []
-        current_year = datetime.now().year
+        current_year = datetime.now(timezone.utc).year
         
         if config["type"] == LeagueType.EUROPEAN:
             # Generate European seasons

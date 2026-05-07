@@ -186,7 +186,7 @@ module.exports = (env, argv) => {
       },
       proxy: {
         '/api': {
-          target: process.env.API_PROXY || 'http://backend:8000',
+          target: process.env.API_PROXY || 'https://backend-production-4894.up.railway.app',
           changeOrigin: true,
         },
       },

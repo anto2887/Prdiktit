@@ -3,9 +3,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { HelpTooltip } from '../onboarding/OnboardingGuide';
+import { useI18n } from '../../i18n';
 
 const JoinGroup = () => {
+    const { t } = useI18n();
     const [inviteCode, setInviteCode] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -15,7 +16,7 @@ const JoinGroup = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!inviteCode.trim()) {
-            showError('Please enter an invite code');
+            showError(t('joinGroup.enterInviteCodeError'));
             return;
         }
 
@@ -23,11 +24,11 @@ const JoinGroup = () => {
         try {
             const response = await joinGroup(inviteCode.trim());
             if (response) {
-                showSuccess('Successfully joined league');
+                showSuccess(t('joinGroup.joinSuccess'));
                 navigate('/dashboard');
             }
         } catch (error) {
-            showError(error.message || 'Failed to join league');
+            showError(error.message || t('joinGroup.joinFailed'));
         } finally {
             setLoading(false);
         }
@@ -51,7 +52,7 @@ const JoinGroup = () => {
         <div className="max-w-2xl mx-auto p-6">
             <div className="bg-white rounded-lg shadow-lg p-8">
                 <h1 className="text-2xl font-bold text-gray-900 mb-6">
-                    Join League
+                    {t('groups.joinLeague')}
                 </h1>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -61,24 +62,28 @@ const JoinGroup = () => {
                                 htmlFor="inviteCode" 
                                 className="block text-sm font-medium text-gray-700"
                             >
-                                Enter Invite Code
+                                {t('joinGroup.enterInviteCode')}
                             </label>
-                            <HelpTooltip content="Enter the 8-character invite code provided by the league admin. The code is case-insensitive">
-                                <span className="text-gray-400">ℹ️</span>
-                            </HelpTooltip>
+                            <span
+                                className="text-gray-400 cursor-help"
+                                title={t('joinGroup.inviteHelp')}
+                                aria-label={t('joinGroup.inviteHelp')}
+                            >
+                                ℹ️
+                            </span>
                         </div>
                         <input
                             id="inviteCode"
                             type="text"
                             value={inviteCode}
                             onChange={handleInviteCodeChange}
-                            placeholder="Enter 8-character code"
+                            placeholder={t('joinGroup.enter8CharCode')}
                             className="w-full p-3 border rounded-md text-center tracking-wider uppercase"
                             maxLength={8}
                             required
                         />
                         <p className="mt-2 text-sm text-gray-500">
-                            Enter the 8-character code provided by the league admin
+                            {t('joinGroup.enter8CharCodeBody')}
                         </p>
                     </div>
 
@@ -89,7 +94,7 @@ const JoinGroup = () => {
                                  hover:bg-blue-700 disabled:bg-gray-400 
                                  disabled:cursor-not-allowed"
                     >
-                        Join League
+                        {t('groups.joinLeague')}
                     </button>
 
                     <button
@@ -97,7 +102,7 @@ const JoinGroup = () => {
                         onClick={() => navigate('/dashboard')}
                         className="w-full text-blue-600 hover:text-blue-800"
                     >
-                        Back to Dashboard
+                        {t('joinGroup.backToDashboard')}
                     </button>
                 </form>
             </div>

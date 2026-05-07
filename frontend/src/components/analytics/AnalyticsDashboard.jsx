@@ -1,11 +1,29 @@
 // frontend/src/components/analytics/AnalyticsDashboard.jsx
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import SeasonManager from '../../utils/seasonManager';
+import PredictionHeatmap from './PredictionHeatmap';
+import { useAuth } from '../../contexts/AppContext';
 import { useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 
-const AnalyticsDashboard = ({ season = '2024-2025', currentWeek = 1 }) => {
+const AnalyticsDashboard = ({ season = null, currentWeek = 1 }) => {
+  const [currentSeason, setCurrentSeason] = useState(season);
+
+  // Get current season dynamically if not provided
+  useEffect(() => {
+    if (!currentSeason) {
+      try {
+        const season = SeasonManager.getCurrentSeason('Premier League');
+        setCurrentSeason(season);
+      } catch (error) {
+        console.error('Error getting current season:', error);
+        // Fallback to hardcoded season
+        setCurrentSeason('2025-2026');
+      }
+    }
+  }, [currentSeason]);
+
   const { user } = useAuth();
   const { showError } = useNotifications();
   
@@ -28,21 +46,11 @@ const AnalyticsDashboard = ({ season = '2024-2025', currentWeek = 1 }) => {
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/v1/analytics/user/${user.id}/analytics?season=${season}&week=${currentWeek}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to load analytics');
-      }
-
-      const data = await response.json();
-      setAnalytics(data.data);
+      // Use the proper API client with session authentication
+      const { analyticsApi } = await import('../../api');
+      const response = await analyticsApi.getUserAnalytics(user.id, season, currentWeek);
+      
+      setAnalytics(response.data.data);
 
     } catch (err) {
       console.error('Error loading analytics:', err);
@@ -147,7 +155,7 @@ const AnalyticsActivationMessage = ({ currentWeek, activationWeek }) => (
     </div>
     
     <div className="text-left bg-gray-50 rounded-lg p-6">
-      <h3 className="font-semibold text-gray-900 mb-3">What you'll get:</h3>
+              <h3 className="font-semibold text-gray-900 mb-3">What you&apos;ll get:</h3>
       <ul className="space-y-2 text-sm text-gray-600">
         <li className="flex items-center space-x-2">
           <span className="text-green-500">✓</span>

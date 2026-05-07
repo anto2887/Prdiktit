@@ -1,47 +1,126 @@
 // src/pages/PredictionsPage.jsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePredictions, useMatches, useGroups } from '../contexts/AppContext';
 
 // Components
 import PredictionList from '../components/predictions/PredictionList';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import ErrorMessage from '../components/common/ErrorMessage';
+import AdSlot from '../components/ads/AdSlot';
+import { useI18n } from '../i18n';
 
 const PredictionsPage = () => {
+  const { t } = useI18n();
   const { fetchUserPredictions, loading: predictionsLoading, error: predictionsError } = usePredictions();
   const { fetchFixtures, loading: matchesLoading, error: matchesError } = useMatches();
   const { fetchUserGroups, loading: groupsLoading, error: groupsError } = useGroups();
 
-  // Combined loading and error states
-  const isLoading = predictionsLoading || matchesLoading || groupsLoading;
+  // Local loading state that we fully control
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [dataFetchStatus, setDataFetchStatus] = useState({
+    groups: false,
+    fixtures: false,
+    predictions: false
+  });
+
+  // Combined error state
   const errors = [predictionsError, matchesError, groupsError].filter(Boolean);
 
+  // FIXED: Proper sequential data fetching with safe dependencies
   useEffect(() => {
-    // Fetch initial data
-    fetchUserPredictions();
-    fetchUserGroups();
-    
-    // Get upcoming matches for next 7 days
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
-    
-    fetchFixtures({
-      from: today.toISOString(),
-      to: nextWeek.toISOString(),
-      status: 'NOT_STARTED'
-    });
-  }, [fetchUserPredictions, fetchUserGroups, fetchFixtures]);
+    const fetchAllData = async () => {
+      try {
+        process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Starting data fetch sequence');
+        
+        // STEP 1: Fetch user groups first (needed for fixture filtering)
+        if (!dataFetchStatus.groups) {
+          try {
+            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Fetching user groups...');
+            await fetchUserGroups();
+            setDataFetchStatus(prev => ({ ...prev, groups: true }));
+            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: User groups fetched successfully');
+          } catch (error) {
+            process.env.NODE_ENV === 'development' && console.error("PredictionsPage: Failed to fetch groups:", error);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
 
-  if (isLoading) {
-    return <LoadingSpinner />;
+        // STEP 2: Fetch upcoming fixtures with proper parameters (like dashboard does)
+        if (!dataFetchStatus.fixtures) {
+          try {
+            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Fetching upcoming fixtures...');
+            
+            // FIXED: Use dynamic date parameters like working dashboard
+            const today = new Date();
+            const nextMonth = new Date(today);
+            nextMonth.setDate(today.getDate() + 30); // Get next 30 days of matches
+            
+            await fetchFixtures({
+              from: today.toISOString().split('T')[0],
+              to: nextMonth.toISOString().split('T')[0],
+              status: 'NOT_STARTED'
+            });
+            
+            setDataFetchStatus(prev => ({ ...prev, fixtures: true }));
+            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Upcoming fixtures fetched successfully');
+          } catch (error) {
+            process.env.NODE_ENV === 'development' && console.error("PredictionsPage: Failed to fetch fixtures:", error);
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        // STEP 3: Fetch user predictions
+        if (!dataFetchStatus.predictions) {
+          try {
+            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Fetching user predictions...');
+            await fetchUserPredictions();
+            setDataFetchStatus(prev => ({ ...prev, predictions: true }));
+            process.env.NODE_ENV === 'development' && console.log('PredictionsPage: User predictions fetched successfully');
+          } catch (error) {
+            process.env.NODE_ENV === 'development' && console.error("PredictionsPage: Failed to fetch predictions:", error);
+          }
+        }
+
+      } catch (error) {
+        process.env.NODE_ENV === 'development' && console.error('PredictionsPage: Error in data fetch sequence:', error);
+      } finally {
+        // CRITICAL: Always exit loading state regardless of success/failure
+        setIsInitialLoading(false);
+        process.env.NODE_ENV === 'development' && console.log('PredictionsPage: Initial loading completed');
+      }
+    };
+
+    fetchAllData();
+  }, []); // ✅ Empty dependency array - only run once on mount
+
+  // Show initial loading spinner while fetching all required data
+  if (isInitialLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <LoadingSpinner />
+        <span className="ml-3 text-gray-500">{t('predictions.loading')}</span>
+      </div>
+    );
   }
 
+  // Show errors if any occurred during data fetching
   if (errors.length > 0) {
-    return <ErrorMessage message={errors[0]} />;
+    return (
+      <ErrorMessage 
+        message={errors[0]} 
+        title={t('predictions.errorTitle')}
+      />
+    );
   }
 
-  return <PredictionList />;
+  return (
+    <div data-tour="tour-predictions-page">
+      <AdSlot placement="predictions" />
+      <PredictionList />
+    </div>
+  );
 };
 
 export default PredictionsPage;

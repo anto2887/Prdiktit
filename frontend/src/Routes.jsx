@@ -2,6 +2,8 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './contexts';
+import LoadingSpinner from './components/common/LoadingSpinner';
+import PostAuthRedirect from './components/auth/PostAuthRedirect';
 
 // Layout
 import MainLayout from './components/layout/MainLayout';
@@ -11,13 +13,20 @@ import {
   HomePage,
   LoginPage,
   RegisterPage,
+  OAuthCallbackPage,
   DashboardPage,
   ProfilePage,
   SettingsPage,
+  WalletPage,
+  PowerUpsPage,
+  GlobalLeaderboardPage,
+  TermsPage,
+  PrivacyPage,
   PredictionsPage,
   PredictionFormPage,
   PredictionHistoryPage,
   AnalyticsPage,
+  GroupAnalyticsPage,
   GroupsPage,
   CreateGroupPage,
   JoinGroupPage,
@@ -32,17 +41,32 @@ import {
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   return (
     <Routes>
       {/* Public routes */}
       <Route path="/login" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />
+        authLoading ? (
+          <LoadingSpinner fullScreen />
+        ) : isAuthenticated ? (
+          <PostAuthRedirect />
+        ) : (
+          <LoginPage />
+        )
       } />
       <Route path="/register" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <RegisterPage />
+        authLoading ? (
+          <LoadingSpinner fullScreen />
+        ) : isAuthenticated ? (
+          <PostAuthRedirect />
+        ) : (
+          <RegisterPage />
+        )
       } />
+      <Route path="/auth/oauth/google/callback" element={<OAuthCallbackPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       
       {/* Protected routes with MainLayout */}
       <Route element={<ProtectedRoute><MainLayout /></ProtectedRoute>}>
@@ -50,6 +74,9 @@ const AppRoutes = () => {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/wallet" element={<WalletPage />} />
+        <Route path="/powerups" element={<PowerUpsPage />} />
+        <Route path="/worldcup/leaderboard" element={<GlobalLeaderboardPage />} />
         
         {/* Prediction routes */}
         <Route path="/predictions" element={<PredictionsPage />} />
@@ -67,12 +94,19 @@ const AppRoutes = () => {
         <Route path="/groups/:groupId" element={<GroupDetailsPage />} />
         <Route path="/groups/:groupId/predictions" element={<GroupPredictionsPage />} />
         <Route path="/groups/:groupId/rivalries" element={<RivalryPage />} />
+        <Route path="/groups/:groupId/analytics" element={<GroupAnalyticsPage />} />
         <Route path="/groups/:groupId/manage" element={<GroupManagementPage />} />
       </Route>
       
       {/* Home route with redirect */}
       <Route path="/" element={
-        isAuthenticated ? <Navigate to="/dashboard" replace /> : <HomePage />
+        authLoading ? (
+          <LoadingSpinner fullScreen />
+        ) : isAuthenticated ? (
+          <Navigate to="/dashboard" replace />
+        ) : (
+          <HomePage />
+        )
       } />
       
       {/* 404 route */}

@@ -131,3 +131,27 @@ export const formatScore = (score) => {
   
     return roleMap[role] || role;
   };
+
+/**
+ * Format a prediction object for display
+ * @param {object} prediction - Prediction object with score1, score2, or prediction field
+ * @returns {string} Formatted prediction string
+ */
+export const formatPrediction = (prediction) => {
+  if (!prediction) return 'No prediction';
+  
+  // Handle different prediction formats
+  if (prediction.score1 !== undefined && prediction.score2 !== undefined) {
+    return `${prediction.score1} - ${prediction.score2}`;
+  }
+  
+  if (prediction.prediction) {
+    return prediction.prediction;
+  }
+  
+  if (typeof prediction === 'string') {
+    return prediction;
+  }
+  
+  return 'Invalid prediction';
+};

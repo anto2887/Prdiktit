@@ -21,7 +21,29 @@ except ImportError as e:
     logging.error(f"MatchProcessor not available: {e}")
     MATCH_PROCESSOR_AVAILABLE = False
 
+try:
+    from .notification_scheduler import notification_scheduler
+    NOTIFICATION_SCHEDULER_AVAILABLE = True
+except ImportError as e:
+    logging.error(f"NotificationScheduler not available: {e}")
+    NOTIFICATION_SCHEDULER_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
+
+
+def _run_notification_queue_once() -> None:
+    """
+    Synchronous wrapper for the async notification queue processor.
+    Safe to use from the thread-based schedule runner in this module.
+    """
+    if not NOTIFICATION_SCHEDULER_AVAILABLE or not notification_scheduler.redis:
+        return
+
+    try:
+        asyncio.run(notification_scheduler.process_notification_queue())
+    except Exception as e:
+        logger.error(f"Error running notification queue (background_tasks): {e}")
+
 
 class BackgroundTaskRunner:
     """Simple background task runner for match and prediction processing"""
@@ -65,8 +87,21 @@ class BackgroundTaskRunner:
             logger.warning("Background tasks already running")
             return
         
-        # Schedule tasks
+        # Schedule core match processing
         schedule.every(5).minutes.do(self.run_processing_cycle)
+
+        # Notification queue processor — every 5 min alongside match processing.
+        # Use the sync wrapper that internally runs the async processor.
+        if NOTIFICATION_SCHEDULER_AVAILABLE and notification_scheduler.redis:
+            schedule.every(5).minutes.do(_run_notification_queue_once)
+            schedule.every(5).minutes.do(
+                notification_scheduler.check_and_queue_match_results
+            )
+
+            # Reminder window checker — every 15 min is sufficient
+            schedule.every(15).minutes.do(
+                notification_scheduler.check_and_queue_reminders
+            )
         
         self.is_running = True
         

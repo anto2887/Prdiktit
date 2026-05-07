@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 from pydantic import BaseModel, Field, EmailStr
 from enum import Enum
+from typing import Optional
 
 # === ENUMS (Define here to avoid circular imports) ===
 # IMPORTANT: DO NOT import from models - define all enums here
@@ -62,6 +63,13 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+
+class UserUpdate(BaseModel):
+    """Schema for updating user profile - all fields optional"""
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    settings: Optional[Dict[str, Any]] = None
 
 class User(UserBase):
     id: int
@@ -124,6 +132,7 @@ class PredictionCreate(BaseModel):
     match_id: int
     home_score: int
     away_score: int
+    group_id: Optional[int] = None  # Optional: if not provided, backend will use user's first group
 
 class PredictionUpdate(BaseModel):
     home_score: int
@@ -139,6 +148,42 @@ class Prediction(BaseModel):
     points: Optional[int] = None
     prediction_status: PredictionStatus = PredictionStatus.EDITABLE
     created: datetime
+    
+    class Config:
+        from_attributes = True
+
+# === USER PREDICTION WITH FIXTURE SCHEMAS ===
+class FixtureSummary(BaseModel):
+    fixture_id: int
+    home_team: str
+    away_team: str
+    home_team_logo: Optional[str] = None
+    away_team_logo: Optional[str] = None
+    date: Optional[datetime] = None
+    league: str
+    status: MatchStatus
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+    season: str
+    round: Optional[str] = None
+    venue: Optional[str] = None
+    venue_city: Optional[str] = None
+
+class UserPredictionWithFixture(BaseModel):
+    id: int
+    match_id: int
+    user_id: int
+    home_score: int
+    away_score: int
+    score1: int  # Legacy field for frontend compatibility
+    score2: int  # Legacy field for frontend compatibility
+    points: Optional[int] = None
+    prediction_status: str
+    created: Optional[datetime] = None
+    submission_time: Optional[datetime] = None
+    season: str
+    week: Optional[int] = None
+    fixture: FixtureSummary
     
     class Config:
         from_attributes = True
@@ -193,3 +238,53 @@ class TeamInfo(BaseModel):
 class JoinGroupRequest(BaseModel):
     """Schema for joining a group with invite code"""
     invite_code: str = Field(..., min_length=8, max_length=8, description="8-character group invite code")
+
+# === OAUTH SCHEMAS ===
+class OAuthCallbackRequest(BaseModel):
+    """Schema for OAuth callback data"""
+    code: str
+    state: Optional[str] = None
+
+class UsernameSelectionRequest(BaseModel):
+    """Schema for username selection during OAuth registration"""
+    username: str = Field(..., min_length=3, max_length=30, description="Username for the new account")
+    email: str = Field(..., description="Email from OAuth provider")
+    oauth_id: str = Field(..., description="OAuth provider's unique user ID")
+    oauth_provider: str = Field(default="google", description="OAuth provider name")
+    accepted_terms: bool = Field(..., description="Whether user accepted Terms of Service")
+    accepted_privacy: bool = Field(..., description="Whether user accepted Privacy Policy")
+    is_over_18: bool = Field(..., description="Whether user confirms they are 18+")
+
+class OAuthUserData(BaseModel):
+    """Schema for OAuth user data"""
+    sub: str = Field(..., description="OAuth provider's unique user ID")
+    email: str = Field(..., description="User's email address")
+    name: Optional[str] = Field(None, description="User's display name")
+    picture: Optional[str] = Field(None, description="User's profile picture URL")
+
+class UsernameAvailabilityResponse(BaseModel):
+    """Schema for username availability check response"""
+    available: bool
+    reason: str
+
+
+class NotificationPreferences(BaseModel):
+    email_enabled: bool = True
+    prediction_reminders: bool = True
+    match_result_updates: bool = True
+    group_activity: bool = True
+    reminder_24h: bool = True
+    reminder_1h: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    # All fields optional to support partial updates
+    email_enabled: Optional[bool] = None
+    prediction_reminders: Optional[bool] = None
+    match_result_updates: Optional[bool] = None
+    group_activity: Optional[bool] = None
+    reminder_24h: Optional[bool] = None
+    reminder_1h: Optional[bool] = None

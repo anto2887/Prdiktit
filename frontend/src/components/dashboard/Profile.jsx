@@ -1,140 +1,104 @@
-import React, { useState } from 'react';
-import { useUser, useNotifications } from '../../contexts/AppContext';
+import React from 'react';
+import { useUser } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import { useI18n } from '../../i18n';
 
 const Profile = () => {
-  const { profile, stats, updateProfile, loading, error } = useUser();
-  const { showSuccess, showError } = useNotifications();
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    username: profile?.username || '',
-  });
+  const { profile, stats, loading, error } = useUser();
+  const { t } = useI18n();
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const success = await updateProfile(formData);
-      if (success) {
-        showSuccess('Profile updated successfully');
-        setIsEditing(false);
-      }
-    } catch (err) {
-      showError(err.message || 'Failed to update profile');
-    }
-  };
+  const initial = profile?.username?.charAt(0).toUpperCase() || 'U';
 
   return (
     <div className="max-w-3xl mx-auto py-6">
-      <div className="bg-white shadow rounded-lg">
+      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
         {/* Profile Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-gray-900">Profile</h2>
-            {!isEditing && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                Edit Profile
-              </button>
-            )}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex flex-col items-center md:flex-row md:items-center md:space-x-4 text-center md:text-left">
+              <div className="h-14 w-14 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-xl font-semibold text-blue-600 dark:text-blue-300">
+                {initial}
+              </div>
+              <div className="mt-2 md:mt-0">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                  {profile?.username}
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {t('profile.memberSince')}{' '}
+                  {profile?.created_at
+                    ? new Date(profile.created_at).toLocaleDateString()
+                    : '—'}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Profile Content */}
         <div className="px-6 py-4">
-          {isEditing ? (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label 
-                  htmlFor="username" 
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Username
-                </label>
-                <input
-                  type="text"
-                  id="username"
-                  value={formData.username}
-                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex space-x-4">
-                <button
-                  type="submit"
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                >
-                  Save Changes
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsEditing(false);
-                    setFormData({ username: profile?.username || '' });
-                  }}
-                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-6">
-              {/* Profile Info */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">Account Information</h3>
-                <dl className="mt-2 divide-y divide-gray-200">
-                  <div className="py-3 flex justify-between">
-                    <dt className="text-sm font-medium text-gray-500">Username</dt>
-                    <dd className="text-sm text-gray-900">{profile?.username}</dd>
-                  </div>
-                  <div className="py-3 flex justify-between">
-                    <dt className="text-sm font-medium text-gray-500">Member Since</dt>
-                    <dd className="text-sm text-gray-900">
-                      {new Date(profile?.created_at).toLocaleDateString()}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
-
-              {/* Stats Overview */}
-              <div>
-                <h3 className="text-lg font-medium text-gray-900">Prediction Statistics</h3>
-                <dl className="mt-2 grid grid-cols-1 gap-5 sm:grid-cols-3">
-                  <div className="px-4 py-5 bg-gray-50 shadow rounded-lg overflow-hidden sm:p-6">
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Total Points
-                    </dt>
-                    <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                      {stats?.total_points || 0}
-                    </dd>
-                  </div>
-                  <div className="px-4 py-5 bg-gray-50 shadow rounded-lg overflow-hidden sm:p-6">
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Perfect Predictions
-                    </dt>
-                    <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                      {stats?.perfect_predictions || 0}
-                    </dd>
-                  </div>
-                  <div className="px-4 py-5 bg-gray-50 shadow rounded-lg overflow-hidden sm:p-6">
-                    <dt className="text-sm font-medium text-gray-500 truncate">
-                      Average Points
-                    </dt>
-                    <dd className="mt-1 text-3xl font-semibold text-gray-900">
-                      {stats?.average_points?.toFixed(1) || '0.0'}
-                    </dd>
-                  </div>
-                </dl>
-              </div>
+          <div className="space-y-6">
+            {/* Account Info */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('profile.accountInfo')}</h3>
+              <dl className="mt-2 divide-y divide-gray-200 dark:divide-gray-700">
+                <div className="py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.username')}</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100 mt-1 sm:mt-0">{profile?.username}</dd>
+                </div>
+                <div className="py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.memberSinceLabel')}</dt>
+                  <dd className="text-sm text-gray-900 dark:text-gray-100 mt-1 sm:mt-0">
+                    {profile?.created_at
+                      ? new Date(profile.created_at).toLocaleDateString()
+                      : '—'}
+                  </dd>
+                </div>
+              </dl>
             </div>
-          )}
+
+            {/* Stats Overview */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">{t('profile.predictionStats')}</h3>
+              <dl className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="px-4 py-5 bg-gray-50 dark:bg-gray-700 shadow rounded-lg overflow-hidden">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    {t('profile.totalPoints')}
+                  </dt>
+                  <dd className="mt-1 text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                    {stats?.total_points || 0}
+                  </dd>
+                </div>
+                <div className="px-4 py-5 bg-gray-50 dark:bg-gray-700 shadow rounded-lg overflow-hidden">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    {t('profile.perfectPredictions')}
+                  </dt>
+                  <dd className="mt-1 text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                    {stats?.perfect_predictions || 0}
+                  </dd>
+                </div>
+                <div className="px-4 py-5 bg-gray-50 dark:bg-gray-700 shadow rounded-lg overflow-hidden">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    {t('profile.totalPredictions')}
+                  </dt>
+                  <dd className="mt-1 text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                    {stats?.total_predictions || 0}
+                  </dd>
+                </div>
+                <div className="px-4 py-5 bg-gray-50 dark:bg-gray-700 shadow rounded-lg overflow-hidden">
+                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                    {t('profile.averagePoints')}
+                  </dt>
+                  <dd className="mt-1 text-2xl md:text-3xl font-semibold text-gray-900 dark:text-gray-100">
+                    {stats?.average_points?.toFixed(1) || '0.0'}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
         </div>
       </div>
     </div>

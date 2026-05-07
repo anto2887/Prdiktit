@@ -10,13 +10,13 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
 
-from ..core.security import get_current_active_user
-from ..db.database import get_db
+from ..core.dependencies import get_current_active_user_from_session
+from ..db.session_manager import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..services.analytics_service import AnalyticsService
 from ..services.rivalry_service import RivalryService
 from ..services.bonus_service import BonusPointsService
-from ..db.repository import check_group_membership, get_group_by_id
+from ..db.repository import check_group_membership, get_group_by_id, calculate_canonical_matchweek
 from ..schemas import User, ListResponse, DataResponse
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ async def get_user_analytics(
     user_id: int = Path(...),
     season: str = Query(...),
     week: int = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -55,12 +55,51 @@ async def get_user_analytics(
             detail="Failed to retrieve user analytics"
         )
 
+
+@router.get("/group/{group_id}", response_model=DataResponse)
+async def get_group_analytics_summary(
+    group_id: int = Path(...),
+    season: str = Query(...),
+    week: int = Query(..., ge=1, le=40),
+    current_user: User = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache),
+):
+    """
+    Group rollup: standings-friendly stats, member usernames, prediction outcome mix, weekly trends.
+    Cached 1h; snapshot stored in group_analytics. Requires group membership.
+    """
+    try:
+        is_member = await check_group_membership(db, group_id, current_user.id)
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a member of this group",
+            )
+
+        analytics_service = AnalyticsService(db, cache)
+        data = await analytics_service.get_or_build_group_analytics(group_id, season, week)
+
+        return DataResponse(
+            message="Group analytics retrieved successfully",
+            data=data,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting group analytics: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve group analytics",
+        )
+
+
 @router.get("/group/{group_id}/heatmap", response_model=DataResponse)
 async def get_group_heatmap(
     group_id: int = Path(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -96,7 +135,7 @@ async def get_group_heatmap(
 @router.get("/group/{group_id}/rivalries", response_model=DataResponse)
 async def get_group_rivalries(
     group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -133,8 +172,9 @@ async def assign_group_rivalries(
     group_id: int = Path(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
-    db: Session = Depends(get_db)
+    current_user: User = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db),
+    cache: RedisCache = Depends(get_cache),
 ):
     """
     Assign rivalries for a group (admin only)
@@ -153,17 +193,44 @@ async def assign_group_rivalries(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only group admin can assign rivalries"
             )
+
+        canonical_week = calculate_canonical_matchweek(
+            db=db,
+            league=group.league,
+            season=season,
+            now_utc=datetime.now(timezone.utc)
+        )
+        scheduled_week = group.next_rivalry_week or canonical_week
+        if week not in {canonical_week, scheduled_week}:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Invalid rivalry assignment week={week}. "
+                    f"Allowed weeks: canonical_week={canonical_week}, scheduled_week={scheduled_week}."
+                )
+            )
         
         rivalry_service = RivalryService(db)
-        rivalries = await rivalry_service.assign_rivalries(group_id, week, season, group.league)
-        
+        assignment_result = await rivalry_service.assign_rivalries_with_result(
+            group_id,
+            week,
+            season,
+            group.league
+        )
+
+        if assignment_result.get("assigned"):
+            from ..services.group_cache_invalidation import invalidate_group_scoped_caches
+            await invalidate_group_scoped_caches(cache, db, group_id)
+
         return DataResponse(
             message="Rivalries assigned successfully",
             data={
                 'group_id': group_id,
                 'week': week,
                 'season': season,
-                'rivalries': rivalries
+                'assigned': assignment_result.get('assigned', False),
+                'skip_reason': assignment_result.get('skip_reason'),
+                'rivalries': assignment_result.get('rivalries', [])
             }
         )
         
@@ -181,7 +248,7 @@ async def calculate_weekly_bonuses(
     week: int = Query(...),
     season: str = Query(...),
     league: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -210,7 +277,7 @@ async def calculate_weekly_bonuses(
 async def get_user_bonus_history(
     user_id: int = Path(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -249,7 +316,7 @@ async def get_user_bonus_history(
 async def get_group_bonus_summary(
     group_id: int = Path(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -286,7 +353,7 @@ async def check_rivalry_outcomes(
     group_id: int = Query(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -329,7 +396,7 @@ async def check_rivalry_outcomes(
 async def invalidate_user_analytics_cache(
     user_id: int = Path(...),
     season: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):

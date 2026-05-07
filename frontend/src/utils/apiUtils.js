@@ -180,7 +180,7 @@ export const handleAPIError = (error, context = {}) => {
     
     localStorage.setItem('api_errors', JSON.stringify(existingLogs));
   } catch (e) {
-    console.warn('Failed to store API error log:', e);
+    process.env.NODE_ENV === 'development' && console.warn('Failed to store API error log:', e);
   }
   
   return enhancedResponse;
@@ -216,7 +216,7 @@ export const withRetry = async (fn, options = {}) => {
         maxDelay
       );
       
-      console.log(`Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+      process.env.NODE_ENV === 'development' && console.log(`Retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }

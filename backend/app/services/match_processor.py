@@ -5,10 +5,9 @@ All database operations now go through a single session with comprehensive loggi
 """
 
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional
-from ..db.models import Fixture, MatchStatus
-from .unified_transaction_manager import unified_transaction_manager, TransactionResult
+from typing import Dict, Any, List
+from ..db.models import Fixture
+from .unified_transaction_manager import unified_transaction_manager
 
 # Configure loggers
 logger = logging.getLogger(__name__)
@@ -27,35 +26,19 @@ class MatchProcessor:
     
     def process_all_matches(self) -> Dict[str, Any]:
         """
-        Main processing method - handles all match updates and prediction processing
-        in a single unified transaction
+        Main processing method - processes predictions based on current database state
+        
+        Note: Fixture updates are handled by the scheduler via update_recent_matches().
+        This method only processes predictions based on current database state.
         """
         try:
-            logger.info("🔄 Starting comprehensive match processing cycle")
-            audit_logger.info("PROCESSING_CYCLE_START: Comprehensive match processing")
+            logger.info("🔄 Starting prediction processing cycle")
+            audit_logger.info("PROCESSING_CYCLE_START: Processing predictions from database")
             
-            # Get fixture updates that need to be applied
-            fixture_updates = self._prepare_fixture_updates()
-            
-            if not fixture_updates:
-                logger.info("✅ No fixture updates needed")
-                audit_logger.info("PROCESSING_CYCLE_COMPLETE: No updates needed")
-                return {
-                    "status": "success",
-                    "fixtures_updated": 0,
-                    "predictions_locked": 0,
-                    "predictions_processed": 0,
-                    "message": "No updates needed"
-                }
-            
-            # Process all updates in a single transaction
-            if fixture_updates:
-                result = unified_transaction_manager.update_match_statuses_and_process_predictions(
-                    fixture_updates
-                )
-            else:
-                # No fixture updates available, just process predictions
-                result = unified_transaction_manager.process_all_predictions_without_updates()
+            # Fixture updates are handled by the scheduler before this method is called
+            # Just process predictions based on current database state
+            # Pass empty list - method handles predictions even without fixture updates
+            result = unified_transaction_manager.update_match_statuses_and_process_predictions([])
             
             # Log final results
             if result.success:
@@ -94,20 +77,59 @@ class MatchProcessor:
                 "message": f"Critical processing error: {str(e)}"
             }
     
-    def _prepare_fixture_updates(self) -> List[Dict[str, Any]]:
+    async def process_all_matches_async(self) -> Dict[str, Any]:
         """
-        Prepare fixture updates - this would typically come from API data
-        For now, returns empty list - this should be populated with actual API data
-        """
-        # TODO: This should be populated with real fixture data from the football API
-        # For now, returning empty list
-        # 
-        # In a real implementation, this would:
-        # 1. Fetch recent matches from the football API
-        # 2. Compare with database state
-        # 3. Return list of updates needed
+        Async version of the main processing method for use in async contexts
         
-        return []
+        Note: Fixture updates are handled by the scheduler via update_recent_matches().
+        This method only processes predictions based on current database state.
+        """
+        try:
+            logger.info("🔄 Starting prediction processing cycle (async)")
+            audit_logger.info("PROCESSING_CYCLE_ASYNC_START: Processing predictions from database")
+            
+            # Fixture updates are handled by the scheduler before this method is called
+            # Just process predictions based on current database state
+            # Pass empty list - method handles predictions even without fixture updates
+            result = unified_transaction_manager.update_match_statuses_and_process_predictions([])
+            
+            # Log final results
+            if result.success:
+                logger.info(f"✅ Processing complete (async): {result.fixtures_updated} fixtures updated, "
+                           f"{result.predictions_locked} predictions locked, "
+                           f"{result.predictions_processed} predictions processed")
+                audit_logger.info(f"PROCESSING_CYCLE_ASYNC_SUCCESS: {result.to_dict()}")
+                
+                return {
+                    "status": "success",
+                    "fixtures_updated": result.fixtures_updated,
+                    "predictions_locked": result.predictions_locked,
+                    "predictions_processed": result.predictions_processed,
+                    "verification_passed": result.verification_passed,
+                    "operations_count": len(result.operations_log),
+                    "message": "Processing completed successfully"
+                }
+            else:
+                logger.error(f"❌ Processing failed (async): {result.error_message}")
+                audit_logger.error(f"PROCESSING_CYCLE_ASYNC_FAILED: {result.to_dict()}")
+                
+                return {
+                    "status": "error",
+                    "error_message": result.error_message,
+                    "rollback_reason": result.rollback_reason,
+                    "operations_count": len(result.operations_log),
+                    "message": f"Processing failed: {result.error_message}"
+                }
+                
+        except Exception as e:
+            logger.error(f"❌ Critical error in process_all_matches_async: {e}")
+            audit_logger.error(f"PROCESSING_CYCLE_ASYNC_CRITICAL_ERROR: {str(e)}")
+            return {
+                "status": "critical_error", 
+                "error_message": str(e),
+                "message": f"Critical processing error: {str(e)}"
+            }
+    
     
     def emergency_process_match(self, fixture_id: int) -> Dict[str, Any]:
         """

@@ -1,53 +1,49 @@
 import React, { useState, useEffect } from 'react';
+import SeasonManager from '../../utils/seasonManager';
 import { useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
 
 const LeagueTable = ({ 
   group, 
-  selectedSeason = '2024-2025',
-  selectedWeek = null,
-  setSelectedSeason = () => {},
-  setSelectedWeek = () => {},
-  fetchGroupMembers // Pass this as a prop instead of using context
+  members, 
+  selectedSeason = null,
+  onSeasonChange,
+  showError,
+  className = "" 
 }) => {
-  const [members, setMembers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const { showError } = useNotifications();
+  const [availableSeasons, setAvailableSeasons] = useState([]);
+  const [localSelectedSeason, setLocalSelectedSeason] = useState(selectedSeason);
+  const { showError: showAppError } = useNotifications();
 
+  // Get available seasons for the group's league
   useEffect(() => {
-    if (group && group.id && fetchGroupMembers) {
-      loadMemberData();
-    }
-  }, [group, selectedSeason, selectedWeek]);
-
-  const loadMemberData = async () => {
-    if (!group || !group.id || !fetchGroupMembers) return;
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      console.log(`Loading members for group: ${group.id}`);
-      const members = await fetchGroupMembers(group.id);
+    if (group && group.league) {
+      const seasons = SeasonManager.getAvailableSeasons(group.league, 5);
+      setAvailableSeasons(seasons);
       
-      if (Array.isArray(members)) {
-        setMembers(members);
-      } else {
-        setMembers([]);
+      // Set default season if none selected
+      if (!localSelectedSeason && seasons.length > 0) {
+        setLocalSelectedSeason(seasons[0].value);
       }
-    } catch (err) {
-      console.error('Error loading group members', err);
-      setError('Failed to load league members. Please try refreshing the page.');
-      if (showError) showError('Failed to load league members');
-    } finally {
-      setLoading(false);
+    }
+  }, [group, localSelectedSeason]);
+
+  // Update local state when prop changes
+  useEffect(() => {
+    if (selectedSeason !== localSelectedSeason) {
+      setLocalSelectedSeason(selectedSeason);
+    }
+  }, [selectedSeason]);
+
+  const handleSeasonChange = (event) => {
+    const newSeason = event.target.value;
+    setLocalSelectedSeason(newSeason);
+    if (onSeasonChange) {
+      onSeasonChange(newSeason);
     }
   };
 
-  if (loading) return <LoadingSpinner />;
-  if (error) return <ErrorMessage message={error} />;
   if (!group) return <ErrorMessage message="League not found" />;
 
   return (
@@ -55,67 +51,57 @@ const LeagueTable = ({
       <div className="mb-6 flex flex-wrap gap-4">
         <div className="w-full sm:w-auto">
           <select
-            value={selectedSeason}
-            onChange={(e) => setSelectedSeason(e.target.value)}
-            className="w-full p-2 border rounded"
+            value={localSelectedSeason}
+            onChange={handleSeasonChange}
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded"
           >
-            <option value="2024-2025">2024-2025</option>
-            <option value="2023-2024">2023-2024</option>
-          </select>
-        </div>
-        
-        <div className="w-full sm:w-auto">
-          <select
-            value={selectedWeek || ''}
-            onChange={(e) => setSelectedWeek(e.target.value ? parseInt(e.target.value) : null)}
-            className="w-full p-2 border rounded"
-          >
-            <option value="">All Weeks</option>
-            {Array.from({ length: 38 }, (_, i) => i + 1).map(week => (
-              <option key={week} value={week}>Week {week}</option>
+            {availableSeasons.map((season) => (
+              <option key={season.value} value={season.value}>
+                {season.label}
+              </option>
             ))}
           </select>
         </div>
       </div>
 
       <div className="overflow-x-auto">
-        <table className="min-w-full bg-white">
-          <thead className="bg-gray-100">
+        <table className="min-w-full bg-white dark:bg-gray-800">
+          <thead className="bg-gray-100 dark:bg-gray-700">
             <tr>
-              <th className="py-3 px-4 text-left">Rank</th>
-              <th className="py-3 px-4 text-left">User</th>
-              <th className="py-3 px-4 text-center">Points</th>
-              <th className="py-3 px-4 text-center">Predictions</th>
-              <th className="py-3 px-4 text-center">Perfect</th>
-              <th className="py-3 px-4 text-center">Avg. Points</th>
+              <th className="py-3 px-4 text-left text-gray-900 dark:text-gray-100">Rank</th>
+              <th className="py-3 px-4 text-left text-gray-900 dark:text-gray-100">User</th>
+              <th className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">Points</th>
+              <th className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">Predictions</th>
+              <th className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">Perfect</th>
+              <th className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">Avg. Points</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
             {members && members.length > 0 ? (
               members.map((member, index) => (
-                <tr key={member.user_id} className={index === 0 ? 'bg-yellow-50' : ''}>
-                  <td className="py-3 px-4">
+                <tr key={member.user_id} className={index === 0 ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}>
+                  <td className="py-3 px-4 text-gray-900 dark:text-gray-100">
                     {index + 1}
-                    {index === 0 && <span className="ml-2 text-yellow-500">👑</span>}
+                    {index === 0 && <span className="ml-2 text-yellow-500 dark:text-yellow-400">👑</span>}
                   </td>
-                  <td className="py-3 px-4 font-medium">{member.username}</td>
-                  <td className="py-3 px-4 text-center font-bold">
+                  <td className="py-3 px-4 font-medium text-gray-900 dark:text-gray-100">{member.username}</td>
+                  <td className="py-3 px-4 text-center font-bold text-gray-900 dark:text-gray-100">
                     {member.stats?.total_points || 0}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">
                     {member.stats?.total_predictions || 0}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">
                     {member.stats?.perfect_predictions || 0}
                   </td>
-                  <td className="py-3 px-4 text-center">
+                  <td className="py-3 px-4 text-center text-gray-900 dark:text-gray-100">
                     {(member.stats?.average_points || 0).toFixed(1)}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="6" className="py-6 text-center text-gray-500">
+                <td colSpan="6" className="py-6 text-center text-gray-500 dark:text-gray-400">
                   No data available for this league yet
                 </td>
               </tr>

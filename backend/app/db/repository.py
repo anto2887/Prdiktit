@@ -6,21 +6,178 @@ and improve maintainability.
 """
 
 import uuid
+import re
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, case, literal, union, select
 
 from .models import (
-    User, Group, Fixture, UserPrediction, Team, TeamTracker, 
-    PendingMembership, UserResults, GroupAuditLog,
-    MatchStatus, PredictionStatus, GroupPrivacyType, 
-    MemberRole, MembershipStatus, group_members
+    User,
+    Group,
+    Fixture,
+    UserPrediction,
+    Team,
+    TeamTracker,
+    PendingMembership,
+    UserResults,
+    GroupAuditLog,
+    MatchStatus,
+    PredictionStatus,
+    GroupPrivacyType,
+    MemberRole,
+    MembershipStatus,
+    UserNotificationPreferences,
+    group_members,
 )
 
 import logging
+from ..services.powerup_scoring_service import apply_powerup_modifiers
+from ..services.worldcup_global_service import WORLD_CUP_LEAGUE
 
 logger = logging.getLogger(__name__)
+
+# Helper functions for season handling
+def get_season_info_for_league(league):
+    """Get season information for a specific league"""
+    if league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
+        return {
+            'total_weeks': 38,
+            'season_start_month': 8,  # August
+            'rivalry_frequency': 4,
+            'activation_delay': 5
+        }
+    elif league in ['Champions League', 'Europa League']:
+        return {
+            'total_weeks': 15,
+            'season_start_month': 9,  # September
+            'rivalry_frequency': 3,
+            'activation_delay': 3
+        }
+    elif league == 'MLS':
+        return {
+            'total_weeks': 34,
+            'season_start_month': 3,  # March
+            'rivalry_frequency': 4,
+            'activation_delay': 5
+        }
+    else:
+        return {
+            'total_weeks': 30,
+            'season_start_month': 8,
+            'rivalry_frequency': 4,
+            'activation_delay': 5
+        }
+
+def calculate_actual_week_in_season(created_datetime, season_info):
+    """Calculate actual week in season based on creation date"""
+    from datetime import datetime, timezone
+    
+    # Assume season starts on the 1st of the season_start_month
+    current_year = created_datetime.year
+    # FIXED: Make datetime timezone-aware
+    season_start = datetime(current_year, season_info['season_start_month'], 1, tzinfo=timezone.utc)
+    
+    # If created before season start, use previous year
+    if created_datetime < season_start:
+        # FIXED: Make datetime timezone-aware
+        season_start = datetime(current_year - 1, season_info['season_start_month'], 1, tzinfo=timezone.utc)
+    
+    # Calculate weeks since season start
+    days_diff = (created_datetime - season_start).days
+    week_in_season = (days_diff // 7) + 1
+    
+    # Ensure week is within season bounds
+    week_in_season = max(1, min(week_in_season, season_info['total_weeks']))
+    
+    return week_in_season
+
+def calculate_activation_week_with_boundaries(created_week, league):
+    """Calculate activation week with season boundary handling"""
+    season_info = get_season_info_for_league(league)
+    activation_week = created_week + season_info['activation_delay']
+    
+    # If activation would be after season ends, activate at season end
+    if activation_week > season_info['total_weeks']:
+        return season_info['total_weeks']
+    
+    return activation_week
+
+def calculate_next_rivalry_week_with_season_handling(activation_week, league):
+    """Calculate next rivalry week with proper season handling"""
+    season_info = get_season_info_for_league(league)
+    
+    # First rivalry week should be at or after activation
+    next_rivalry_week = max(activation_week, activation_week + 1)
+    
+    # Ensure it's within season bounds
+    if next_rivalry_week > season_info['total_weeks']:
+        next_rivalry_week = season_info['total_weeks']
+    
+    return next_rivalry_week
+
+def extract_week_number_from_round(round_value: Optional[str]) -> Optional[int]:
+    """Extract numeric matchweek from fixture round text."""
+    if not round_value:
+        return None
+    match = re.search(r"\d+", str(round_value))
+    if not match:
+        return None
+    try:
+        return int(match.group())
+    except ValueError:
+        return None
+
+def calculate_canonical_matchweek(
+    db: Session,
+    league: str,
+    season: str,
+    now_utc: Optional[datetime] = None
+) -> int:
+    """
+    Resolve current matchweek from fixture data first, with calendar fallback.
+
+    Strategy:
+    - Use fixtures for the same league + season.
+    - Prefer highest parsed round/week where fixture kickoff has passed.
+    - If no kickoff has passed yet, use (first known fixture week - 1) clamped to >= 1.
+    - If fixtures/rounds are missing, fall back to season-date heuristic.
+    """
+    now_utc = now_utc or datetime.now(timezone.utc)
+    season_info = get_season_info_for_league(league)
+
+    fixtures = db.query(Fixture).filter(
+        Fixture.league == league,
+        Fixture.season == season
+    ).all()
+
+    if not fixtures:
+        return calculate_actual_week_in_season(now_utc, season_info)
+
+    played_weeks = []
+    known_weeks = []
+    for fixture in fixtures:
+        week_num = extract_week_number_from_round(getattr(fixture, "round", None))
+        if week_num is None:
+            continue
+        known_weeks.append(week_num)
+        fixture_date = fixture.date
+        if fixture_date:
+            if fixture_date.tzinfo is None:
+                fixture_date = fixture_date.replace(tzinfo=timezone.utc)
+            else:
+                fixture_date = fixture_date.astimezone(timezone.utc)
+            if fixture_date <= now_utc:
+                played_weeks.append(week_num)
+
+    if played_weeks:
+        return max(1, min(max(played_weeks), season_info["total_weeks"]))
+
+    if known_weeks:
+        pre_start_week = min(known_weeks) - 1
+        return max(1, min(pre_start_week, season_info["total_weeks"]))
+
+    return calculate_actual_week_in_season(now_utc, season_info)
 
 # =============================================================================
 # USER REPOSITORY FUNCTIONS
@@ -34,7 +191,7 @@ async def get_user_by_username(db: Session, username: str) -> Optional[User]:
     """Get user by username"""
     return db.query(User).filter(User.username == username).first()
 
-async def get_user_by_email(db: Session, email: str) -> Optional[User]:
+async def get_user_by_email(db: str) -> Optional[User]:
     """Get user by email"""
     return db.query(User).filter(User.email == email).first()
 
@@ -44,6 +201,16 @@ async def create_user(db: Session, **user_data) -> User:
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
+
+    # Auto-create default notification preferences for the new user
+    try:
+        prefs = UserNotificationPreferences(user_id=db_user.id)
+        db.add(prefs)
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to create default notification preferences for user {db_user.id}: {e}")
+        db.rollback()
+
     return db_user
 
 async def update_user(db: Session, user_id: int, **user_data) -> Optional[User]:
@@ -424,13 +591,17 @@ async def get_prediction_by_id(db: Session, prediction_id: int) -> Optional[User
 async def get_user_prediction(
     db: Session, 
     user_id: int, 
-    fixture_id: int
+    fixture_id: int,
+    group_id: Optional[int] = None
 ) -> Optional[UserPrediction]:
-    """Get user's prediction for a fixture"""
-    return db.query(UserPrediction).filter(
+    """Get user's prediction for a fixture, optionally scoped to a group."""
+    query = db.query(UserPrediction).filter(
         UserPrediction.user_id == user_id,
         UserPrediction.fixture_id == fixture_id
-    ).first()
+    )
+    if group_id is not None:
+        query = query.filter(UserPrediction.group_id == group_id)
+    return query.first()
 
 async def get_user_predictions(
     db: Session, 
@@ -464,17 +635,97 @@ async def get_user_predictions(
         
     return query.order_by(UserPrediction.created.desc()).all()
 
+async def get_user_predictions_with_fixtures(
+    db: Session, 
+    user_id: int,
+    fixture_id: Optional[int] = None,
+    status: Optional[Union[PredictionStatus, str]] = None,
+    season: Optional[str] = None,
+    week: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Get user predictions with fixture data in a single query"""
+    from sqlalchemy.orm import joinedload
+    
+    # Build query with JOIN to get fixture data
+    query = db.query(UserPrediction, Fixture).join(
+        Fixture, UserPrediction.fixture_id == Fixture.fixture_id
+    ).filter(UserPrediction.user_id == user_id)
+    
+    if fixture_id:
+        query = query.filter(UserPrediction.fixture_id == fixture_id)
+    
+    if status:
+        if isinstance(status, str):
+            try:
+                status = PredictionStatus(status)
+            except (ValueError, KeyError):
+                pass
+                
+        if isinstance(status, PredictionStatus):
+            query = query.filter(UserPrediction.prediction_status == status)
+    
+    if season:
+        query = query.filter(UserPrediction.season == season)
+    
+    if week:
+        query = query.filter(UserPrediction.week == week)
+    
+    # Execute query and get results
+    results = query.order_by(UserPrediction.created.desc()).all()
+    
+    # Convert to serializable format
+    predictions = []
+    for pred, fixture in results:
+        prediction_data = {
+            "id": pred.id,
+            "match_id": pred.fixture_id,
+            "user_id": pred.user_id,
+            "home_score": pred.score1,
+            "away_score": pred.score2,
+            "score1": pred.score1,  # Legacy field for frontend compatibility
+            "score2": pred.score2,  # Legacy field for frontend compatibility
+            "points": pred.points,
+            "prediction_status": pred.prediction_status.value if hasattr(pred.prediction_status, 'value') else str(pred.prediction_status),
+            "created": pred.created,
+            "submission_time": pred.submission_time,
+            "season": pred.season,
+            "week": pred.week,
+            "fixture": {
+                "fixture_id": fixture.fixture_id,
+                "home_team": fixture.home_team,
+                "away_team": fixture.away_team,
+                "home_team_logo": fixture.home_team_logo,
+                "away_team_logo": fixture.away_team_logo,
+                "date": fixture.date,
+                "league": fixture.league,
+                "status": fixture.status,
+                "home_score": fixture.home_score,
+                "away_score": fixture.away_score,
+                "season": fixture.season,
+                "round": fixture.round,
+                "venue": fixture.venue,
+                "venue_city": fixture.venue_city
+            }
+        }
+        predictions.append(prediction_data)
+    
+    return predictions
+
 async def create_prediction(db: Session, user_id: int, fixture_id: int, 
-                          score1: int, score2: int, season: str, week: int, **kwargs) -> UserPrediction:
+                          score1: int, score2: int, season: str, week: int, group_id: Optional[int] = None, **kwargs) -> UserPrediction:
     """
     Create a new prediction.
     
     TIMEZONE HANDLING:
     - All timestamps stored as UTC in database
+    
+    GROUP HANDLING:
+    - group_id is now required for proper group association
     """
     prediction = UserPrediction(
         user_id=user_id,
         fixture_id=fixture_id,
+        group_id=group_id,  # Added: group_id field
         score1=score1,
         score2=score2,
         season=season,
@@ -574,11 +825,108 @@ async def get_team_by_external_id(db: Session, external_id: int) -> Optional[Tea
     """Get team by external ID (from football API)"""
     return db.query(Team).filter(Team.team_id == external_id).first()
 
+
+async def _get_champions_league_tracked_teams(db: Session) -> List[Team]:
+    """
+    Teams for UCL group creation: include rows tagged league_id=2 plus any Team whose
+    name appears on Champions League fixtures.
+
+    Imports skip creating a second row when team_id already exists (e.g. Barcelona
+    stored under La Liga first), so league_id=2 alone misses most participants.
+    """
+    ucl_league_id = 2
+    by_tag = db.query(Team).filter(Team.league_id == ucl_league_id).all()
+    merged: Dict[int, Team] = {t.id: t for t in by_tag}
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=600)
+    ucl_fixture_filter = or_(
+        Fixture.competition_id == ucl_league_id,
+        Fixture.league == "UEFA Champions League",
+        Fixture.league == "Champions League",
+    )
+    fixtures = (
+        db.query(Fixture)
+        .filter(ucl_fixture_filter, Fixture.date >= cutoff)
+        .all()
+    )
+    names_lower = set()
+    for fx in fixtures:
+        if fx.home_team:
+            names_lower.add(fx.home_team.strip().lower())
+        if fx.away_team:
+            names_lower.add(fx.away_team.strip().lower())
+    names_lower.discard("")
+
+    if names_lower:
+        from_fixture = (
+            db.query(Team)
+            .filter(func.lower(Team.team_name).in_(names_lower))
+            .all()
+        )
+        for t in from_fixture:
+            merged[t.id] = t
+
+    return sorted(merged.values(), key=lambda t: (t.team_name or "").lower())
+
+
+WORLD_CUP_API_LEAGUE_ID = 1
+WORLD_CUP_TRACKING_SEASON = "2026"
+
+
+async def _get_world_cup_tracked_teams(db: Session) -> List[Team]:
+    """
+    World Cup selectable teams: rows with league_id=1 (API-Football World Cup) plus any
+    Team whose name appears on World Cup fixtures for the configured season.
+
+    Same rationale as UCL: existing rows may have been created under another league_id
+    when team_id already existed during a prior import.
+    """
+    wc_lid = WORLD_CUP_API_LEAGUE_ID
+    by_tag = db.query(Team).filter(Team.league_id == wc_lid).all()
+    merged: Dict[int, Team] = {t.id: t for t in by_tag}
+
+    wc_fixture_filter = or_(
+        Fixture.competition_id == wc_lid,
+        Fixture.league_id == wc_lid,
+        Fixture.league == WORLD_CUP_LEAGUE,
+    )
+    fixtures = (
+        db.query(Fixture)
+        .filter(
+            wc_fixture_filter,
+            Fixture.season == WORLD_CUP_TRACKING_SEASON,
+        )
+        .all()
+    )
+    names_lower: set = set()
+    for fx in fixtures:
+        if fx.home_team:
+            names_lower.add(fx.home_team.strip().lower())
+        if fx.away_team:
+            names_lower.add(fx.away_team.strip().lower())
+    names_lower.discard("")
+
+    if names_lower:
+        from_fixture = (
+            db.query(Team)
+            .filter(func.lower(Team.team_name).in_(names_lower))
+            .all()
+        )
+        for t in from_fixture:
+            merged[t.id] = t
+
+    return sorted(merged.values(), key=lambda t: (t.team_name or "").lower())
+
+
 async def get_teams_by_league(db: Session, league: str) -> List[Team]:
     """Get teams for a specific league name or league ID"""
     try:
         # Try to convert to an integer (in case we have a league ID)
         league_id = int(league)
+        if league_id == 2:
+            return await _get_champions_league_tracked_teams(db)
+        if league_id == 1:
+            return await _get_world_cup_tracked_teams(db)
         return db.query(Team).filter(Team.league_id == league_id).all()
     except (ValueError, TypeError):
         # If not a number, it's probably a league name
@@ -586,13 +934,19 @@ async def get_teams_by_league(db: Session, league: str) -> List[Team]:
             "Premier League": {"id": 39, "season": 2024},
             "La Liga": {"id": 140, "season": 2024},
             "UEFA Champions League": {"id": 2, "season": 2024},
+            # FIFA World Cup (national teams) — API-Football v3: league=1, season=2026
+            "World Cup": {"id": 1, "season": 2026},
             "MLS": {"id": 253, "season": 2025},
-            "FIFA Club World Cup": {"id": 15, "season": 2025}
+            "FIFA Club World Cup": {"id": 15, "season": 2025},
         }
         
         if league in league_mapping:
             league_config = league_mapping[league]
             league_id = league_config['id']
+            if league == "UEFA Champions League":
+                return await _get_champions_league_tracked_teams(db)
+            if league == "World Cup":
+                return await _get_world_cup_tracked_teams(db)
             return db.query(Team).filter(Team.league_id == league_id).all()
         else:
             return db.query(Team).filter(Team.country == league).all()
@@ -693,6 +1047,33 @@ async def get_group_by_invite_code(db: Session, invite_code: str) -> Optional[Gr
     """Get group by invite code"""
     return db.query(Group).filter(Group.invite_code == invite_code).first()
 
+
+async def _require_full_world_cup_tracked_teams(
+    db: Session,
+    *,
+    league: str,
+    tracked_teams: Optional[List[int]],
+) -> None:
+    """
+    World Cup mode: every national team available for the tournament must be tracked.
+    """
+    if league != WORLD_CUP_LEAGUE:
+        return
+    expected = await get_teams_by_league(db, WORLD_CUP_LEAGUE)
+    expected_ids = {int(t.id) for t in expected}
+    tracked_set = {int(x) for x in (tracked_teams or [])}
+    if not expected_ids:
+        raise ValueError(
+            "World Cup national teams are not loaded yet. Import teams for "
+            "API league 1 (World Cup) season 2026, then try again."
+        )
+    if tracked_set != expected_ids:
+        raise ValueError(
+            f"World Cup groups must track all {len(expected_ids)} national teams "
+            f"({len(tracked_set)} selected)."
+        )
+
+
 async def create_group(db: Session, admin_id: int, **group_data) -> Group:
     """Create a new group"""
     try:
@@ -701,9 +1082,33 @@ async def create_group(db: Session, admin_id: int, **group_data) -> Group:
         if 'invite_code' not in group_data:
             group_data['invite_code'] = str(uuid.uuid4())[:8].upper()
         
+        # Calculate activation weeks for new groups with proper season handling
+        league = group_data.get('league', 'Premier League')
+
+        await _require_full_world_cup_tracked_teams(
+            db, league=league, tracked_teams=tracked_teams
+        )
+        
+        # Get season info for this league
+        season_info = get_season_info_for_league(league)
+        
+        # Calculate actual week in season based on current date
+        current_date = datetime.now(timezone.utc)
+        created_week = calculate_actual_week_in_season(current_date, season_info)
+        
+        # Calculate activation week with season boundary handling
+        activation_week = calculate_activation_week_with_boundaries(created_week, league)
+        
+        # Calculate next rivalry week with proper season handling
+        next_rivalry_week = calculate_next_rivalry_week_with_season_handling(activation_week, league)
+        
         group = Group(
             admin_id=admin_id,
             created=datetime.now(timezone.utc),
+            created_week=created_week,
+            current_week=created_week,
+            activation_week=activation_week,
+            next_rivalry_week=next_rivalry_week,
             **group_data
         )
         
@@ -763,9 +1168,24 @@ async def regenerate_invite_code(db: Session, group_id: int) -> Optional[str]:
     db.commit()
     return new_code
 
-async def get_group_members(db: Session, group_id: int) -> List[Dict]:
-    """Get all members of a group including pending members"""
-    logger.info(f"get_group_members called for group_id: {group_id}")
+async def get_group_members(
+    db: Session,
+    group_id: int,
+    search: Optional[str] = None,
+    limit: Optional[int] = None,
+    offset: int = 0,
+    include_pending: bool = True,
+) -> List[Dict]:
+    """Get group members with optional case-insensitive username search."""
+    logger.info(
+        "get_group_members called for group_id=%s search=%s limit=%s offset=%s include_pending=%s",
+        group_id,
+        search,
+        limit,
+        offset,
+        include_pending,
+    )
+    normalized_search = (search or "").strip()
     
     # FIXED: Get approved members with proper query
     approved_query = db.query(
@@ -780,6 +1200,13 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
     ).filter(
         group_members.c.group_id == group_id
     )
+    if normalized_search:
+        approved_query = approved_query.filter(User.username.ilike(f"%{normalized_search}%"))
+    approved_query = approved_query.order_by(User.username.asc())
+    if offset:
+        approved_query = approved_query.offset(max(0, offset))
+    if limit is not None:
+        approved_query = approved_query.limit(max(1, limit))
     
     members = []
     for row in approved_query:
@@ -795,30 +1222,33 @@ async def get_group_members(db: Session, group_id: int) -> List[Dict]:
         logger.debug(f"Added approved member: {member_data['username']} to group {group_id}")
     
     # Get pending membership requests
-    pending_query = db.query(
-        PendingMembership.user_id,
-        PendingMembership.requested_at,
-        User.username
-    ).join(
-        User,
-        PendingMembership.user_id == User.id
-    ).filter(
-        PendingMembership.group_id == group_id,
-        PendingMembership.status == MembershipStatus.PENDING
-    )
-    
-    for row in pending_query:
-        pending_data = {
-            'user_id': row.user_id,
-            'username': row.username,
-            'role': MemberRole.MEMBER.value,
-            'status': MembershipStatus.PENDING.value,
-            'requested_at': row.requested_at,
-            'joined_at': None,
-            'last_active': None
-        }
-        members.append(pending_data)
-        logger.debug(f"Added pending member: {pending_data['username']} to group {group_id}")
+    if include_pending:
+        pending_query = db.query(
+            PendingMembership.user_id,
+            PendingMembership.requested_at,
+            User.username
+        ).join(
+            User,
+            PendingMembership.user_id == User.id
+        ).filter(
+            PendingMembership.group_id == group_id,
+            PendingMembership.status == MembershipStatus.PENDING
+        )
+        if normalized_search:
+            pending_query = pending_query.filter(User.username.ilike(f"%{normalized_search}%"))
+        pending_query = pending_query.order_by(User.username.asc())
+        for row in pending_query:
+            pending_data = {
+                'user_id': row.user_id,
+                'username': row.username,
+                'role': MemberRole.MEMBER.value,
+                'status': MembershipStatus.PENDING.value,
+                'requested_at': row.requested_at,
+                'joined_at': None,
+                'last_active': None
+            }
+            members.append(pending_data)
+            logger.debug(f"Added pending member: {pending_data['username']} to group {group_id}")
     
     logger.info(f"get_group_members returning {len(members)} members for group {group_id}")
     
@@ -869,26 +1299,48 @@ async def process_match_predictions(db: Session, fixture_id: int) -> int:
     if not fixture:
         return 0
         
+    # Only process if match is FINISHED
     if fixture.status not in [MatchStatus.FINISHED, MatchStatus.FINISHED_AET, MatchStatus.FINISHED_PEN]:
         return 0
+    
+    # Ensure scores are available
+    if fixture.home_score is None or fixture.away_score is None:
+        logger.warning(f"Cannot process predictions for fixture {fixture_id} - scores not available")
+        return 0
         
+    # Get ALL predictions (reprocess even if previously processed to ensure accuracy)
     predictions = db.query(UserPrediction).filter(
-        UserPrediction.fixture_id == fixture_id,
-        UserPrediction.prediction_status == PredictionStatus.LOCKED
+        UserPrediction.fixture_id == fixture_id
     ).all()
     
     count = 0
     for prediction in predictions:
-        points = calculate_points(
+        old_points = prediction.points
+        
+        # Calculate points based on FINAL scores
+        base_points = calculate_points(
             prediction.score1,
             prediction.score2,
             fixture.home_score,
             fixture.away_score
         )
+        points, _mod = apply_powerup_modifiers(
+            db,
+            user_id=prediction.user_id,
+            group_id=prediction.group_id,
+            fixture_id=prediction.fixture_id,
+            fixture_date=fixture.date,
+            base_points=base_points,
+        )
         
+        # Update prediction (reprocess to ensure accuracy)
         prediction.points = points
         prediction.prediction_status = PredictionStatus.PROCESSED
         prediction.processed_at = datetime.now(timezone.utc)
+        
+        # Log if points changed for previously processed predictions
+        if old_points is not None and old_points != points:
+            logger.info(f"🔄 Reprocessed prediction {prediction.id}: Points changed from {old_points} to {points}")
         
         user_result = db.query(UserResults).filter(
             UserResults.user_id == prediction.user_id,
@@ -937,6 +1389,9 @@ async def update_group(db: Session, group_id: int, **group_data) -> Optional[Gro
         setattr(group, key, value)
     
     if tracked_teams is not None:
+        await _require_full_world_cup_tracked_teams(
+            db, league=group.league, tracked_teams=tracked_teams
+        )
         db.query(TeamTracker).filter(TeamTracker.group_id == group_id).delete()
         
         for team_id in tracked_teams:
@@ -952,3 +1407,198 @@ async def update_group(db: Session, group_id: int, **group_data) -> Optional[Gro
     db.commit()
     db.refresh(group)
     return group
+
+# =============================================================================
+# OAuth REPOSITORY FUNCTIONS
+# =============================================================================
+
+async def get_user_by_oauth_id(db: Session, oauth_id: str, oauth_provider: str) -> Optional[User]:
+    """Get user by OAuth ID and provider"""
+    return db.query(User).filter(
+        User.oauth_id == oauth_id,
+        User.oauth_provider == oauth_provider
+    ).first()
+
+async def create_oauth_user(
+    db: Session, 
+    username: str, 
+    email: str, 
+    oauth_provider: str, 
+    oauth_id: str,
+    settings: Optional[Dict[str, Any]] = None
+) -> User:
+    """Create a new OAuth user"""
+    try:
+        # Check if username is available
+        if not await is_username_available(db, username):
+            raise ValueError(f"Username '{username}' is already taken")
+        
+        # Create new OAuth user
+        user = User(
+            username=username,
+            email=email,
+            oauth_provider=oauth_provider,
+            oauth_id=oauth_id,
+            is_oauth_user=True,
+            is_active=True,
+            created_at=datetime.now(timezone.utc),
+            settings=settings
+        )
+        
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        # Auto-create default notification preferences for OAuth users
+        try:
+            prefs = UserNotificationPreferences(user_id=user.id)
+            db.add(prefs)
+            db.commit()
+        except Exception as e:
+            logger.error(f"Failed to create default notification preferences for OAuth user {user.id}: {e}")
+            db.rollback()
+
+        logger.info(f"✅ Created OAuth user: {username} ({email}) via {oauth_provider}")
+        return user
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to create OAuth user {username}: {str(e)}")
+        raise
+
+async def is_username_available(db: Session, username: str) -> bool:
+    """Check if a username is available"""
+    existing_user = db.query(User).filter(User.username == username).first()
+    return existing_user is None
+
+async def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    """Get user by email (for OAuth linking)"""
+    return db.query(User).filter(User.email == email).first()
+
+async def link_oauth_to_existing_user(
+    db: Session, 
+    user_id: int, 
+    oauth_provider: str, 
+    oauth_id: str
+) -> Optional[User]:
+    """Link OAuth credentials to an existing user account"""
+    try:
+        user = await get_user_by_id(db, user_id)
+        if not user:
+            return None
+        
+        user.oauth_provider = oauth_provider
+        user.oauth_id = oauth_id
+        user.is_oauth_user = True
+        
+        db.commit()
+        db.refresh(user)
+        
+        logger.info(f"✅ Linked OAuth {oauth_provider} to existing user: {user.username}")
+        return user
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to link OAuth to user {user_id}: {str(e)}")
+        raise
+
+async def update_oauth_user_info(
+    db: Session, 
+    user_id: int, 
+    **oauth_data
+) -> Optional[User]:
+    """Update OAuth user information"""
+    try:
+        user = await get_user_by_id(db, user_id)
+        if not user or not user.is_oauth_user:
+            return None
+        
+        for key, value in oauth_data.items():
+            if hasattr(user, key):
+                setattr(user, key, value)
+        
+        user.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(user)
+        
+        return user
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to update OAuth user {user_id}: {str(e)}")
+        raise
+
+# =============================================================================
+# SESSION REPOSITORY FUNCTIONS
+# =============================================================================
+
+async def get_user_sessions(db: Session, user_id: int) -> List[Dict]:
+    """Get all active sessions for a user"""
+    try:
+        from .models import UserSession
+        
+        sessions = db.query(UserSession).filter(
+            UserSession.user_id == user_id,
+            UserSession.is_active == True,
+            UserSession.expires_at > datetime.now(timezone.utc)
+        ).all()
+        
+        return [
+            {
+                "session_id": session.session_id,
+                "created_at": session.created_at,
+                "expires_at": session.expires_at,
+                "last_used": session.last_used,
+                "user_agent": session.user_agent,
+                "ip_address": session.ip_address
+            }
+            for session in sessions
+        ]
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to get sessions for user {user_id}: {str(e)}")
+        return []
+
+async def invalidate_user_sessions(db: Session, user_id: int) -> int:
+    """Invalidate all sessions for a user (logout from all devices)"""
+    try:
+        from .models import UserSession
+        
+        result = db.query(UserSession).filter(
+            UserSession.user_id == user_id,
+            UserSession.is_active == True
+        ).update({
+            "is_active": False,
+            "updated_at": datetime.now(timezone.utc)
+        })
+        
+        db.commit()
+        logger.info(f"✅ Invalidated {result} sessions for user {user_id}")
+        return result
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to invalidate sessions for user {user_id}: {str(e)}")
+        return 0
+
+async def cleanup_expired_sessions(db: Session) -> int:
+    """Remove expired sessions from database"""
+    try:
+        from .models import UserSession
+        
+        expired_sessions = db.query(UserSession).filter(
+            UserSession.expires_at <= datetime.now(timezone.utc)
+        ).all()
+        
+        count = len(expired_sessions)
+        for session in expired_sessions:
+            db.delete(session)
+        
+        db.commit()
+        logger.info(f"🧹 Cleaned up {count} expired sessions")
+        return count
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"❌ Failed to cleanup expired sessions: {str(e)}")
+        return 0

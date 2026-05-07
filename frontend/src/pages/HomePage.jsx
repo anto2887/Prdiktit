@@ -17,7 +17,7 @@ const HomePage = () => {
               </h1>
               <p className="text-xl text-white mb-10">
                 Make predictions for your favorite football matches. Compete with friends, 
-                join leagues, and see who's the best predictor!
+                join leagues, and see who&apos;s the best predictor!
               </p>
               <div className="mt-10 sm:flex sm:justify-start">
                 <div className="rounded-md shadow">

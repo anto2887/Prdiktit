@@ -52,8 +52,3 @@ logs
 README.md
 LICENSE
 
-# Docker
-Dockerfile
-Dockerfile.*
-docker-compose.yml
-docker-compose.*.yml

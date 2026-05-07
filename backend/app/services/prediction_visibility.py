@@ -92,6 +92,7 @@ class PredictionVisibilityService:
                 # Add filters
                 filtered_query = query_with_joins.filter(
                     UserPrediction.user_id.in_(member_ids),
+                    UserPrediction.group_id == group_id,
                     UserPrediction.week == week,
                     UserPrediction.season == normalized_season,  # Use normalized season
                     UserPrediction.prediction_status.in_([

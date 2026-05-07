@@ -4,19 +4,24 @@ Updated main application with enhanced logging and unified transaction managemen
 """
 import logging
 import os
+import asyncio
 from datetime import datetime, timezone
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from .core.config import settings
-from .db.session import create_tables
+from .db.session import create_tables_with_verification
 from .services.init_services import init_services, shutdown_services
 from .middleware.rate_limiter import RateLimitMiddleware
 
-# Import enhanced scheduler and startup sync service
-from .services.enhanced_smart_scheduler import enhanced_smart_scheduler
+# Import startup sync service and unified transaction manager
 from .services.startup_sync_service import startup_sync_service
 from .services.unified_transaction_manager import unified_transaction_manager
+
+# Import models for admin endpoints
+from .db.models import Group
+from .db.session_manager import get_db
 
 # Configure comprehensive logging with transaction support
 def setup_logging():
@@ -28,7 +33,7 @@ def setup_logging():
     
     # Configure root logger
     root_logger = logging.getLogger()
-    root_logger.setLevel(logging.INFO)
+    root_logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     
     # Clear any existing handlers
     root_logger.handlers.clear()
@@ -45,13 +50,13 @@ def setup_logging():
     # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(simple_formatter)
-    console_handler.setLevel(logging.INFO)
+    console_handler.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     root_logger.addHandler(console_handler)
     
     # Main application log file
     app_handler = logging.FileHandler(os.path.join(log_dir, 'app.log'))
     app_handler.setFormatter(detailed_formatter)
-    app_handler.setLevel(logging.INFO)
+    app_handler.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
     root_logger.addHandler(app_handler)
     
     # Set up specialized loggers with dedicated files
@@ -137,6 +142,12 @@ app = FastAPI(
 )
 
 # Configure CORS
+logger = logging.getLogger(__name__)
+logger.info(f"🔍 Configuring CORS middleware")
+logger.info(f"🔍 CORS_ORIGINS from settings: {settings.CORS_ORIGINS}")
+logger.info(f"🔍 CORS_ORIGINS type: {type(settings.CORS_ORIGINS)}")
+logger.info(f"🔍 CORS_ORIGINS length: {len(settings.CORS_ORIGINS) if isinstance(settings.CORS_ORIGINS, list) else 'NOT_A_LIST'}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -147,6 +158,44 @@ app.add_middleware(
 
 # Add rate limiting middleware
 app.add_middleware(RateLimitMiddleware)
+
+async def ensure_database_ready(max_retries=3, retry_delay=2):
+    """
+    Ensure database tables are created and ready with retry mechanism
+    """
+    startup_logger = logging.getLogger('startup_sync')
+    
+    for attempt in range(max_retries):
+        try:
+            startup_logger.info(f"🔄 Database setup attempt {attempt + 1}/{max_retries}")
+            
+            # Create and verify tables
+            success = create_tables_with_verification()
+            
+            if success:
+                startup_logger.info("✅ Database tables created and verified successfully")
+                return True
+            else:
+                startup_logger.warning(f"⚠️ Table creation/verification failed on attempt {attempt + 1}")
+                if attempt < max_retries - 1:
+                    startup_logger.info(f"⏳ Waiting {retry_delay} seconds before retry...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    startup_logger.error("❌ All database setup attempts failed")
+                    return False
+                    
+        except Exception as e:
+            startup_logger.error(f"❌ Database setup error on attempt {attempt + 1}: {e}")
+            if attempt < max_retries - 1:
+                startup_logger.info(f"⏳ Waiting {retry_delay} seconds before retry...")
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+            else:
+                startup_logger.error("❌ All database setup attempts failed")
+                return False
+    
+    return False
 
 # Application startup
 @app.on_event("startup")
@@ -159,21 +208,29 @@ async def startup_event():
         startup_logger.info("🚀 APPLICATION_STARTUP_BEGIN")
         startup_logger.info("📊 Using Unified Transaction Management System")
         
-        # Step 1: Create database tables
-        startup_logger.info("📋 Step 1: Creating database tables...")
+        # Step 1: Ensure database is ready with retry mechanism
+        startup_logger.info("📋 Step 1: Ensuring database tables are ready...")
         if settings.CREATE_TABLES_ON_STARTUP:
-            create_tables()
-            startup_logger.info("✅ Database tables created/verified")
+            database_ready = await ensure_database_ready()
+            if not database_ready:
+                startup_logger.error("❌ CRITICAL: Database setup failed - application cannot start")
+                raise Exception("Database setup failed after all retry attempts")
+            startup_logger.info("✅ Database tables created/verified with retry mechanism")
         else:
             startup_logger.info("⏭️ Table creation skipped (CREATE_TABLES_ON_STARTUP=False)")
         
-        # Step 2: Initialize services
-        startup_logger.info("🔧 Step 2: Initializing services...")
-        await init_services(app)  # ✅ Add app argument
+        # Step 2: Add delay to ensure PostgreSQL has fully committed changes
+        startup_logger.info("⏳ Step 2: Waiting for database changes to fully commit...")
+        await asyncio.sleep(3)  # 3-second delay to ensure PostgreSQL commits
+        startup_logger.info("✅ Database commit delay completed")
+        
+        # Step 3: Initialize services (only after database is confirmed ready)
+        startup_logger.info("🔧 Step 3: Initializing services...")
+        await init_services(app)
         startup_logger.info("✅ Services initialized")
         
-        # Step 3: Run comprehensive startup sync with unified transactions
-        startup_logger.info("🔄 Step 3: Running comprehensive startup synchronization...")
+        # Step 4: Run comprehensive startup sync with unified transactions
+        startup_logger.info("🔄 Step 4: Running comprehensive startup synchronization...")
         try:
             sync_result = await startup_sync_service.run_comprehensive_startup_sync()
             
@@ -191,16 +248,12 @@ async def startup_event():
             startup_logger.error(f"❌ Critical error in startup sync: {sync_error}")
             transaction_logger.error(f"STARTUP_SYNC_CRITICAL_ERROR: {str(sync_error)}")
         
-        # Step 4: Start enhanced scheduler
-        startup_logger.info("⏰ Step 4: Starting Enhanced Smart Scheduler...")
-        try:
-            enhanced_smart_scheduler.start()
-            startup_logger.info("✅ Enhanced Smart Scheduler started successfully")
-        except Exception as scheduler_error:
-            startup_logger.error(f"❌ Error starting scheduler: {scheduler_error}")
+        # Step 5: Scheduler moved to separate service
+        startup_logger.info("⏰ Step 5: Scheduler runs in separate service (scheduler)")
+        startup_logger.info("📊 This service handles HTTP requests only")
         
-        # Step 5: Final startup verification
-        startup_logger.info("🔍 Step 5: Running startup verification...")
+        # Step 6: Final startup verification
+        startup_logger.info("🔍 Step 6: Running startup verification...")
         try:
             # Test the unified transaction manager
             test_result = unified_transaction_manager.update_match_statuses_and_process_predictions([])
@@ -221,6 +274,8 @@ async def startup_event():
         startup_logger.info("   ✅ Single Session Per Processing Cycle")
         startup_logger.info("   ✅ Enhanced Smart Scheduler")
         startup_logger.info("   ✅ Startup Synchronization")
+        startup_logger.info("   ✅ Database Retry Mechanism")
+        startup_logger.info("   ✅ PostgreSQL Commit Delay")
         
         # Log current time for reference
         current_time = datetime.now(timezone.utc)
@@ -240,17 +295,13 @@ async def shutdown_event():
     try:
         startup_logger.info("🛑 APPLICATION_SHUTDOWN_BEGIN")
         
-        # Stop the enhanced scheduler
-        startup_logger.info("⏰ Stopping Enhanced Smart Scheduler...")
-        try:
-            enhanced_smart_scheduler.stop()
-            startup_logger.info("✅ Enhanced Smart Scheduler stopped")
-        except Exception as scheduler_error:
-            startup_logger.error(f"❌ Error stopping scheduler: {scheduler_error}")
+        # Scheduler runs in separate service
+        startup_logger.info("⏰ Scheduler runs in separate service (scheduler)")
+        startup_logger.info("📊 No scheduler to stop in this service")
         
         # Shutdown services
         startup_logger.info("🔧 Shutting down services...")
-        await shutdown_services(app)  # ✅ Add app argument
+        await shutdown_services(app)
         startup_logger.info("✅ Services shutdown complete")
         
         startup_logger.info("🛑 APPLICATION_SHUTDOWN_COMPLETE")
@@ -260,16 +311,79 @@ async def shutdown_event():
         startup_logger.error(f"❌ Error during shutdown: {str(e)}")
         transaction_logger.error(f"SHUTDOWN_ERROR: {str(e)}")
 
-# Include routers
-from .routers import auth, predictions, matches, groups, users
+# Include routers with dependency injection
+from .routers import auth, predictions, matches, groups, users, admin, notifications
 from .routers.analytics import router as analytics_router
+from .routers import oauth
+from .routers import payments
+from .routers import powerups
+from .routers import worldcup
 
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"])
-app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["predictions"])
-app.include_router(matches.router, prefix="/api/v1/matches", tags=["matches"])
-app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
-app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"])
+# Override dependencies to use our dependency injection container
+from .core.dependencies import get_database_session
+
+# Get logger for router inclusion logging
+logger = logging.getLogger(__name__)
+
+logger.info("🔐 Main App: Including routers...")
+
+logger.info("🔐 Main App: Including auth router...")
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["authentication"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including predictions router...")
+app.include_router(predictions.router, prefix="/api/v1/predictions", tags=["predictions"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including matches router...")
+app.include_router(matches.router, prefix="/api/v1/matches", tags=["matches"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including groups router...")
+app.include_router(groups.router, prefix="/api/v1/groups", tags=["groups"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including users router...")
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including analytics router...")
+app.include_router(analytics_router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including OAuth router...")
+app.include_router(oauth.router, prefix="/api/v1/oauth", tags=["oauth"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including admin router...")
+app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"], dependencies=[Depends(get_database_session)])
+
+logger.info("🔐 Main App: Including notifications router...")
+app.include_router(
+    notifications.router,
+    prefix=f"{settings.API_V1_STR}/notifications",
+    tags=["notifications"],
+    dependencies=[Depends(get_database_session)],
+)
+
+logger.info("🔐 Main App: Including payments router...")
+app.include_router(
+    payments.router,
+    prefix=f"{settings.API_V1_STR}/payments",
+    tags=["payments"],
+    dependencies=[Depends(get_database_session)],
+)
+
+logger.info("🔐 Main App: Including powerups router...")
+app.include_router(
+    powerups.router,
+    prefix=f"{settings.API_V1_STR}/powerups",
+    tags=["powerups"],
+    dependencies=[Depends(get_database_session)],
+)
+
+logger.info("🔐 Main App: Including worldcup router...")
+app.include_router(
+    worldcup.router,
+    prefix=f"{settings.API_V1_STR}/worldcup",
+    tags=["worldcup"],
+    dependencies=[Depends(get_database_session)],
+)
+
+logger.info("🔐 Main App: All routers included successfully")
 
 # Health check endpoint with enhanced information
 @app.get("/health")
@@ -277,8 +391,8 @@ async def health_check():
     """Enhanced health check with transaction manager status"""
     current_time = datetime.now(timezone.utc)
     
-    # Get scheduler status
-    scheduler_status = enhanced_smart_scheduler.get_status()
+    # Scheduler runs in separate service
+    scheduler_status = "runs_in_separate_service"
     
     return {
         "status": "healthy",
@@ -289,9 +403,9 @@ async def health_check():
             "comprehensive_logging": True,
             "database_verification": True,
             "single_session_processing": True,
-            "enhanced_scheduler": scheduler_status["is_running"]
+            "enhanced_scheduler": "runs_in_separate_service"
         },
-        "scheduler": scheduler_status,
+        "scheduler": "runs_in_separate_service",
         "database": "postgresql",
         "timezone": "UTC"
     }
@@ -301,8 +415,11 @@ async def health_check():
 async def manual_process_matches():
     """Manual endpoint to trigger match processing for testing"""
     try:
+        from .services.enhanced_smart_scheduler import EnhancedSmartScheduler
+        
         # Use the enhanced scheduler's processing method
-        result = await enhanced_smart_scheduler.run_enhanced_processing_with_status_updates()
+        scheduler = EnhancedSmartScheduler()
+        result = await scheduler.run_enhanced_processing_with_status_updates()
         return {"success": True, "result": result}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -323,20 +440,824 @@ async def emergency_sync_match(fixture_id: int):
     except Exception as e:
         return {"success": False, "fixture_id": fixture_id, "error": str(e)}
 
-# Transaction log viewer endpoint
-@app.get("/api/v1/admin/transaction-logs")
-async def get_transaction_logs(lines: int = 100):
-    """Get recent transaction logs for debugging"""
+# API status endpoint
+@app.get("/api/v1/admin/api-status")
+async def get_api_status():
+    """Get current API subscription and health status"""
     try:
-        log_file = os.path.join(os.path.dirname(__file__), '../logs/transaction_audit.log')
-        if os.path.exists(log_file):
-            with open(log_file, 'r') as f:
-                all_lines = f.readlines()
-                recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
-                return {"success": True, "logs": recent_lines}
-        else:
-            return {"success": False, "error": "Transaction log file not found"}
+        from .services.match_status_updater import match_status_updater
+        status = match_status_updater.get_api_status()
+        return {
+            "success": True,
+            "data": status
+        }
     except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+# Helper functions for season handling
+def get_season_info_for_league(league):
+    """Get season information for a specific league"""
+    if league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
+        return {
+            'total_weeks': 38,
+            'season_start_month': 8,  # August
+            'rivalry_frequency': 4,
+            'activation_delay': 5
+        }
+    elif league in ['Champions League', 'Europa League']:
+        return {
+            'total_weeks': 15,
+            'season_start_month': 9,  # September
+            'rivalry_frequency': 3,
+            'activation_delay': 3
+        }
+    elif league == 'MLS':
+        return {
+            'total_weeks': 34,
+            'season_start_month': 3,  # March
+            'rivalry_frequency': 4,
+            'activation_delay': 5
+        }
+    else:
+        return {
+            'total_weeks': 30,
+            'season_start_month': 8,
+            'rivalry_frequency': 4,
+            'activation_delay': 5
+        }
+
+def calculate_actual_week_in_season(created_datetime, season_info):
+    """Calculate actual week in season based on creation date"""
+    from datetime import datetime, timezone
+    
+    # Assume season starts on the 1st of the season_start_month
+    current_year = created_datetime.year
+    # FIXED: Make datetime timezone-aware
+    season_start = datetime(current_year, season_info['season_start_month'], 1, tzinfo=timezone.utc)
+    
+    # If created before season start, use previous year
+    if created_datetime < season_start:
+        # FIXED: Make datetime timezone-aware
+        season_start = datetime(current_year - 1, season_info['season_start_month'], 1, tzinfo=timezone.utc)
+    
+    # Calculate weeks since season start
+    days_diff = (created_datetime - season_start).days
+    week_in_season = (days_diff // 7) + 1
+    
+    # Ensure week is within season bounds
+    week_in_season = max(1, min(week_in_season, season_info['total_weeks']))
+    
+    return week_in_season
+
+def calculate_activation_week_with_boundaries(created_week, league):
+    """Calculate activation week with season boundary handling"""
+    season_info = get_season_info_for_league(league)
+    activation_week = created_week + season_info['activation_delay']
+    
+    # If activation would be after season ends, activate at season end
+    if activation_week > season_info['total_weeks']:
+        return season_info['total_weeks']
+    
+    return activation_week
+
+def calculate_next_rivalry_week_with_season_handling(activation_week, league):
+    """Calculate next rivalry week with proper season handling"""
+    season_info = get_season_info_for_league(league)
+    
+    # First rivalry week should be at or after activation
+    next_rivalry_week = max(activation_week, activation_week + 1)
+    
+    # Ensure it's within season bounds
+    if next_rivalry_week > season_info['total_weeks']:
+        next_rivalry_week = season_info['total_weeks']
+    
+    return next_rivalry_week
+
+# Migration endpoint for group activation system
+@app.post("/api/v1/admin/migrate-group-activation-system")
+async def migrate_group_activation_system():
+    """Migration endpoint to add group-relative activation system fields"""
+    try:
+        from .db.database import SessionLocal
+        from sqlalchemy import text
+        import logging
+        
+        # Set up logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info("🚀 Starting Group Activation System Migration...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Step 1: Check if migration is already done
+            logger.info("📊 Checking current table structure...")
+            
+            columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name IN ('created_week', 'activation_week', 'next_rivalry_week')
+            """)).fetchall()
+            
+            existing_columns = [col[0] for col in columns_check]
+            logger.info(f"📋 Existing columns found: {existing_columns}")
+            
+            if len(existing_columns) == 3:
+                logger.info("✅ Migration already completed - all columns exist")
+                return {
+                    "success": True, 
+                    "message": "Migration already completed",
+                    "existing_columns": existing_columns
+                }
+            
+            # Step 2: Add new columns
+            logger.info("🔧 Adding new columns to groups table...")
+            
+            columns_to_add = [
+                ('created_week', 'INTEGER'),
+                ('activation_week', 'INTEGER'), 
+                ('next_rivalry_week', 'INTEGER')
+            ]
+            
+            for col_name, col_type in columns_to_add:
+                if col_name not in existing_columns:
+                    try:
+                        logger.info(f"➕ Adding column: {col_name} {col_type}")
+                        db.execute(text(f"ALTER TABLE groups ADD COLUMN {col_name} {col_type}"))
+                        db.commit()
+                        logger.info(f"✅ Successfully added column: {col_name}")
+                    except Exception as col_error:
+                        db.rollback()
+                        logger.error(f"❌ Failed to add column {col_name}: {col_error}")
+                        return {"success": False, "error": f"Failed to add column {col_name}: {str(col_error)}"}
+                else:
+                    logger.info(f"⏭️ Column {col_name} already exists, skipping")
+            
+            # Step 3: Populate existing groups with activation data
+            logger.info("🔄 Starting data population for existing groups...")
+            
+            # Get all existing groups
+            groups_result = db.execute(text("SELECT id, created, league FROM groups")).fetchall()
+            total_groups = len(groups_result)
+            logger.info(f"📊 Found {total_groups} groups to process")
+            
+            updated_count = 0
+            failed_count = 0
+            errors = []
+            
+            for group_id, created_date, league in groups_result:
+                try:
+                    logger.info(f"🔄 Processing group {group_id} (league: {league})")
+                    
+                    # Calculate created_week based on created date and season boundaries
+                    if created_date:
+                        from datetime import datetime
+                        created_datetime = created_date if isinstance(created_date, datetime) else datetime.fromisoformat(str(created_date))
+                        
+                        # Get season info for this league
+                        season_info = get_season_info_for_league(league)
+                        
+                        # Calculate actual week in season based on creation date
+                        created_week = calculate_actual_week_in_season(created_datetime, season_info)
+                        
+                        logger.info(f"📅 Group {group_id} created on {created_datetime.strftime('%Y-%m-%d')} - calculated as week {created_week} in {league} season")
+                    else:
+                        created_week = 1  # Default fallback
+                        logger.warning(f"⚠️ Group {group_id} has no created date, using default week 1")
+                    
+                    # Calculate activation_week with season boundary handling
+                    activation_week = calculate_activation_week_with_boundaries(created_week, league)
+                    
+                    # Calculate next_rivalry_week with proper season handling
+                    next_rivalry_week = calculate_next_rivalry_week_with_season_handling(activation_week, league)
+                    
+                    logger.info(f"📅 Group {group_id}: created_week={created_week}, activation_week={activation_week}, next_rivalry_week={next_rivalry_week}")
+                    
+                    # Update the group
+                    update_result = db.execute(text("""
+                        UPDATE groups 
+                        SET created_week = :created_week, 
+                            activation_week = :activation_week, 
+                            next_rivalry_week = :next_rivalry_week
+                        WHERE id = :group_id
+                    """), {
+                        'created_week': created_week,
+                        'activation_week': activation_week,
+                        'next_rivalry_week': next_rivalry_week,
+                        'group_id': group_id
+                    })
+                    
+                    if update_result.rowcount > 0:
+                        updated_count += 1
+                        logger.info(f"✅ Successfully updated group {group_id}")
+                    else:
+                        failed_count += 1
+                        logger.warning(f"⚠️ No rows updated for group {group_id}")
+                        
+                except Exception as group_error:
+                    failed_count += 1
+                    error_msg = f"Failed to process group {group_id}: {str(group_error)}"
+                    errors.append(error_msg)
+                    logger.error(f"❌ {error_msg}")
+                    continue
+            
+            # Step 4: Create indexes for performance
+            logger.info("🔍 Creating performance indexes...")
+            
+            try:
+                db.execute(text("CREATE INDEX IF NOT EXISTS idx_groups_activation_week ON groups(activation_week)"))
+                db.execute(text("CREATE INDEX IF NOT EXISTS idx_groups_next_rivalry_week ON groups(next_rivalry_week)"))
+                db.commit()
+                logger.info("✅ Performance indexes created successfully")
+            except Exception as index_error:
+                db.rollback()
+                logger.warning(f"⚠️ Failed to create indexes: {index_error}")
+            
+            # Step 5: Final verification
+            logger.info("🔍 Final verification...")
+            
+            verification_result = db.execute(text("""
+                SELECT COUNT(*) as total_groups,
+                       COUNT(created_week) as with_created_week,
+                       COUNT(activation_week) as with_activation_week,
+                       COUNT(next_rivalry_week) as with_next_rivalry_week
+                FROM groups
+            """)).fetchone()
+            
+            logger.info(f"📊 Verification results: {verification_result}")
+            
+            if verification_result.with_created_week == total_groups and \
+               verification_result.with_activation_week == total_groups and \
+               verification_result.with_next_rivalry_week == total_groups:
+                logger.info("🎉 Migration completed successfully!")
+                
+                return {
+                    "success": True,
+                    "message": "Group Activation System migration completed successfully",
+                    "summary": {
+                        "total_groups": total_groups,
+                        "successfully_updated": updated_count,
+                        "failed_updates": failed_count,
+                        "errors": errors[:10] if errors else [],  # Limit error list
+                        "verification": {
+                            "total_groups": verification_result.total_groups,
+                            "with_created_week": verification_result.with_created_week,
+                            "with_activation_week": verification_result.with_activation_week,
+                            "with_next_rivalry_week": verification_result.with_next_rivalry_week
+                        }
+                    }
+                }
+            else:
+                logger.error("❌ Migration verification failed - not all groups have required fields")
+                return {
+                    "success": False,
+                    "error": "Migration verification failed",
+                    "verification": verification_result
+                }
+                
+        except Exception as db_error:
+            logger.error(f"❌ Database error during migration: {db_error}")
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"💥 Migration failed with error: {e}")
+        return {"success": False, "error": str(e)}
+
+# Rollback endpoint for group activation system migration
+@app.post("/api/v1/admin/rollback-group-activation-system")
+async def rollback_group_activation_system():
+    """Rollback endpoint to remove group activation system fields if needed"""
+    try:
+        from .db.database import SessionLocal
+        from sqlalchemy import text
+        import logging
+        
+        # Set up logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info("🔄 Starting Group Activation System Rollback...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Step 1: Check current state
+            logger.info("📊 Checking current table structure...")
+            
+            columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name IN ('created_week', 'activation_week', 'next_rivalry_week')
+            """)).fetchall()
+            
+            existing_columns = [col[0] for col in columns_check]
+            logger.info(f"📋 Columns to remove: {existing_columns}")
+            
+            if not existing_columns:
+                logger.info("✅ No columns to rollback - migration not applied")
+                return {
+                    "success": True, 
+                    "message": "No rollback needed - migration not applied",
+                    "existing_columns": []
+                }
+            
+            # Step 2: Remove indexes first
+            logger.info("🔍 Removing performance indexes...")
+            
+            try:
+                db.execute(text("DROP INDEX IF EXISTS idx_groups_activation_week"))
+                db.execute(text("DROP INDEX IF EXISTS idx_groups_next_rivalry_week"))
+                db.commit()
+                logger.info("✅ Performance indexes removed successfully")
+            except Exception as index_error:
+                db.rollback()
+                logger.warning(f"⚠️ Failed to remove indexes: {index_error}")
+            
+            # Step 3: Remove columns
+            logger.info("🔧 Removing columns from groups table...")
+            
+            for col_name in existing_columns:
+                try:
+                    logger.info(f"➖ Removing column: {col_name}")
+                    db.execute(text(f"ALTER TABLE groups DROP COLUMN {col_name}"))
+                    db.commit()
+                    logger.info(f"✅ Successfully removed column: {col_name}")
+                except Exception as col_error:
+                    db.rollback()
+                    logger.error(f"❌ Failed to remove column {col_name}: {col_error}")
+                    return {"success": False, "error": f"Failed to remove column {col_name}: {str(col_error)}"}
+            
+            # Step 4: Final verification
+            logger.info("🔍 Final verification...")
+            
+            verification_result = db.execute(text("""
+                SELECT COUNT(*) as total_groups
+                FROM groups
+            """)).fetchone()
+            
+            logger.info(f"📊 Verification results: {verification_result}")
+            logger.info("🎉 Rollback completed successfully!")
+            
+            return {
+                "success": True,
+                "message": "Group Activation System rollback completed successfully",
+                "removed_columns": existing_columns,
+                "verification": {
+                    "total_groups": verification_result.total_groups
+                }
+            }
+                
+        except Exception as db_error:
+            logger.error(f"❌ Database error during rollback: {db_error}")
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"💥 Rollback failed with error: {e}")
+        return {"success": False, "error": str(e)}
+
+# Test endpoint for group activation system migration
+@app.get("/api/v1/admin/test-group-activation-migration")
+async def test_group_activation_migration():
+    """Test endpoint to check group activation system migration status"""
+    try:
+        from .db.database import SessionLocal
+        from sqlalchemy import text
+        
+        db = SessionLocal()
+        
+        try:
+            # Check if new columns exist
+            columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name IN ('created_week', 'activation_week', 'next_rivalry_week')
+            """)).fetchall()
+            
+            existing_columns = [col[0] for col in columns_check]
+            
+            # Check sample data
+            sample_groups = db.execute(text("""
+                SELECT id, name, league, created_week, activation_week, next_rivalry_week
+                FROM groups 
+                LIMIT 3
+            """)).fetchall()
+            
+            return {
+                "success": True,
+                "message": "Group activation system migration status check",
+                "existing_columns": existing_columns,
+                "migration_complete": len(existing_columns) == 3,
+                "sample_groups": [
+                    {
+                        "id": group[0],
+                        "name": group[1],
+                        "league": group[2],
+                        "created_week": group[3],
+                        "activation_week": group[4],
+                        "next_rivalry_week": group[5]
+                    }
+                    for group in sample_groups
+                ]
+            }
+            
+        except Exception as db_error:
+            return {"success": False, "error": f"Database error: {str(db_error)}"}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+# Test endpoints removed - no longer needed after Phase 2 completion
+# These were used for testing the group activation system during development
+# All functionality is now integrated into the main services
+
+# Migration endpoint for populating group activation data
+@app.post("/api/v1/admin/populate-group-activation-data")
+async def populate_group_activation_data():
+    """
+    Populate stored activation fields on all groups using the same logic as GET /api/v1/groups:
+    canonical matchweek (fixture-driven), activation/rivalry boundaries, and next_rivalry
+    reconciliation. Safe to align DB columns with what the API computes.
+    """
+    import logging
+    from .routers.groups import calculate_group_activation_data
+
+    logger = logging.getLogger(__name__)
+
+    db = None
+    try:
+        db = next(get_db())
+
+        groups = db.query(Group).all()
+
+        if not groups:
+            return {"status": "success", "message": "No groups found to update", "data": []}
+
+        updated_groups = []
+
+        for group in groups:
+            try:
+                logger.info(f"Processing group {group.id} ({group.name}) - created: {group.created}")
+
+                # Seed created_week from creation timestamp when missing (matches create_group / migration)
+                if group.created is not None and group.created_week is None:
+                    created_datetime = group.created
+                    if created_datetime.tzinfo is None:
+                        created_datetime = created_datetime.replace(tzinfo=timezone.utc)
+                    season_info = get_season_info_for_league(group.league)
+                    group.created_week = calculate_actual_week_in_season(
+                        created_datetime, season_info
+                    )
+
+                activation_data = await calculate_group_activation_data(group, db)
+
+                group.created_week = activation_data["created_week"]
+                group.activation_week = activation_data["activation_week"]
+                group.next_rivalry_week = activation_data["next_rivalry_week"]
+                group.current_week = activation_data["current_week"]
+
+                updated_groups.append({
+                    "id": group.id,
+                    "name": group.name,
+                    "league": group.league,
+                    "created_week": activation_data["created_week"],
+                    "activation_week": activation_data["activation_week"],
+                    "next_rivalry_week": activation_data["next_rivalry_week"],
+                    "current_week": activation_data["current_week"],
+                    "weeks_until_activation": activation_data["weeks_until_activation"],
+                    "weeks_until_next_rivalry": activation_data["weeks_until_next_rivalry"],
+                    "activation_progress": activation_data["activation_progress"],
+                    "is_activated": activation_data["is_activated"],
+                    "is_rivalry_week": activation_data["is_rivalry_week"],
+                })
+
+            except Exception as e:
+                logger.error(f"Error processing group {group.id}: {e}")
+                continue
+
+        db.commit()
+
+        logger.info(f"Successfully updated {len(updated_groups)} groups with real activation data")
+
+        return {
+            "status": "success",
+            "message": f"Updated {len(updated_groups)} groups with real activation data",
+            "data": updated_groups
+        }
+
+    except Exception as e:
+        logger.error(f"Error in populate_group_activation_data: {e}")
+        return {"status": "error", "message": str(e), "data": []}
+    finally:
+        if db:
+            db.close()
+
+# Comeback Challenge Migration Endpoint
+@app.post("/api/v1/admin/migrate-comeback-challenge-system")
+async def migrate_comeback_challenge_system():
+    """Migration endpoint to add Comeback Challenge system fields"""
+    try:
+        from .db.database import SessionLocal
+        from sqlalchemy import text
+        import logging
+        
+        # Set up logging
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info("🚀 Starting Comeback Challenge System Migration...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Step 1: Check if migration is already done
+            logger.info("📊 Checking current table structure...")
+            
+            # Check rivalry_pairs table for new fields
+            rivalry_columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'rivalry_pairs' AND column_name IN ('comeback_challenge_benchmark', 'comeback_challenge_status')
+            """)).fetchall()
+            
+            existing_rivalry_columns = [col[0] for col in rivalry_columns_check]
+            logger.info(f"📋 Existing rivalry_pairs columns found: {existing_rivalry_columns}")
+            
+            # Check groups table for comeback challenge field
+            groups_columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name = 'comeback_challenge_activated'
+            """)).fetchall()
+            
+            existing_groups_columns = [col[0] for col in groups_columns_check]
+            logger.info(f"📋 Existing groups columns found: {existing_groups_columns}")
+            
+            all_columns_exist = (
+                len(existing_rivalry_columns) == 2 and 
+                len(existing_groups_columns) == 1
+            )
+            
+            if all_columns_exist:
+                logger.info("✅ Migration already completed - all columns exist")
+                return {
+                    "success": True, 
+                    "message": "Migration already completed",
+                    "existing_rivalry_columns": existing_rivalry_columns,
+                    "existing_groups_columns": existing_groups_columns
+                }
+            
+            # Step 2: Add new columns to rivalry_pairs table
+            logger.info("🔧 Adding new columns to rivalry_pairs table...")
+            
+            rivalry_columns_to_add = [
+                ('comeback_challenge_benchmark', 'DECIMAL(10,2)'),
+                ('comeback_challenge_status', 'VARCHAR(20)')
+            ]
+            
+            for col_name, col_type in rivalry_columns_to_add:
+                if col_name not in existing_rivalry_columns:
+                    try:
+                        logger.info(f"➕ Adding column: {col_name} {col_type}")
+                        db.execute(text(f"ALTER TABLE rivalry_pairs ADD COLUMN {col_name} {col_type}"))
+                        db.commit()
+                        logger.info(f"✅ Successfully added column: {col_name}")
+                    except Exception as col_error:
+                        db.rollback()
+                        logger.error(f"❌ Failed to add column {col_name}: {col_error}")
+                        return {"success": False, "error": f"Failed to add column {col_name}: {str(col_error)}"}
+                else:
+                    logger.info(f"⏭️ Column {col_name} already exists, skipping")
+            
+            # Step 3: Add new column to groups table
+            logger.info("🔧 Adding new column to groups table...")
+            
+            if 'comeback_challenge_activated' not in existing_groups_columns:
+                try:
+                    logger.info("➕ Adding column: comeback_challenge_activated BOOLEAN")
+                    db.execute(text("ALTER TABLE groups ADD COLUMN comeback_challenge_activated BOOLEAN DEFAULT FALSE"))
+                    db.commit()
+                    logger.info("✅ Successfully added column: comeback_challenge_activated")
+                except Exception as col_error:
+                    db.rollback()
+                    logger.error(f"❌ Failed to add column comeback_challenge_activated: {col_error}")
+                    return {"success": False, "error": f"Failed to add column comeback_challenge_activated: {str(col_error)}"}
+            else:
+                logger.info("⏭️ Column comeback_challenge_activated already exists, skipping")
+            
+            # Step 4: Set default values for existing data
+            logger.info("🔄 Setting default values for existing data...")
+            
+            try:
+                # Set default comeback_challenge_status for existing rivalry pairs
+                db.execute(text("""
+                    UPDATE rivalry_pairs 
+                    SET comeback_challenge_status = 'active' 
+                    WHERE comeback_challenge_status IS NULL
+                """))
+                
+                # Set default comeback_challenge_activated for existing groups
+                db.execute(text("""
+                    UPDATE groups 
+                    SET comeback_challenge_activated = FALSE 
+                    WHERE comeback_challenge_activated IS NULL
+                """))
+                
+                db.commit()
+                logger.info("✅ Successfully set default values")
+            except Exception as default_error:
+                db.rollback()
+                logger.error(f"❌ Failed to set default values: {default_error}")
+                return {"success": False, "error": f"Failed to set default values: {str(default_error)}"}
+            
+            logger.info("🎉 Comeback Challenge System Migration completed successfully!")
+            
+            return {
+                "success": True,
+                "message": "Comeback Challenge System Migration completed successfully",
+                "new_rivalry_columns": [col for col, _ in rivalry_columns_to_add if col not in existing_rivalry_columns],
+                "new_groups_columns": ['comeback_challenge_activated'] if 'comeback_challenge_activated' not in existing_groups_columns else []
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error during migration: {e}")
+            db.rollback()
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Critical error in migration endpoint: {e}")
+        return {"success": False, "error": str(e)}
+
+# Testing endpoint for Comeback Challenge
+@app.post("/api/v1/admin/test-comeback-challenge")
+async def test_comeback_challenge():
+    """Test endpoint for Comeback Challenge functionality"""
+    try:
+        from .db.database import SessionLocal
+        import logging
+        
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info("🧪 Testing Comeback Challenge functionality...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Test 1: Check if new columns exist
+            logger.info("📊 Test 1: Checking new columns...")
+            
+            columns_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'rivalry_pairs' AND column_name IN ('comeback_challenge_benchmark', 'comeback_challenge_status')
+            """)).fetchall()
+            
+            if len(columns_check) == 2:
+                logger.info("✅ Test 1 PASSED: New columns exist")
+            else:
+                logger.error("❌ Test 1 FAILED: New columns missing")
+                return {"success": False, "test": "columns_check", "error": "New columns not found"}
+            
+            # Test 2: Check if groups table has comeback_challenge_activated
+            logger.info("📊 Test 2: Checking groups table...")
+            
+            groups_check = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'groups' AND column_name = 'comeback_challenge_activated'
+            """)).fetchall()
+            
+            if len(groups_check) == 1:
+                logger.info("✅ Test 2 PASSED: Groups table updated")
+            else:
+                logger.error("❌ Test 2 FAILED: Groups table not updated")
+                return {"success": False, "test": "groups_check", "error": "Groups table not updated"}
+            
+            # Test 3: Check sample data
+            logger.info("📊 Test 3: Checking sample data...")
+            
+            sample_rivalries = db.execute(text("""
+                SELECT id, comeback_challenge_status 
+                FROM rivalry_pairs 
+                LIMIT 5
+            """)).fetchall()
+            
+            if sample_rivalries:
+                logger.info(f"✅ Test 3 PASSED: Found {len(sample_rivalries)} sample rivalries")
+                for rivalry in sample_rivalries:
+                    logger.info(f"   Rivalry {rivalry[0]}: status = {rivalry[1]}")
+            else:
+                logger.warning("⚠️ Test 3 WARNING: No rivalries found")
+            
+            logger.info("🎉 All Comeback Challenge tests passed!")
+            
+            return {
+                "success": True,
+                "message": "All Comeback Challenge tests passed",
+                "tests_passed": 3,
+                "sample_data": len(sample_rivalries)
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error during testing: {e}")
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Critical error in testing endpoint: {e}")
+        return {"success": False, "error": str(e)}
+
+# Comeback Challenge Status Endpoint
+@app.get("/api/v1/admin/comeback-challenge-status/{group_id}")
+async def get_comeback_challenge_status(group_id: int):
+    """Get Comeback Challenge status for a specific group"""
+    try:
+        from .db.database import SessionLocal
+        import logging
+        
+        logging.basicConfig(level=logging.INFO)
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"📊 Getting Comeback Challenge status for group {group_id}...")
+        
+        db = SessionLocal()
+        
+        try:
+            # Get group information
+            group_result = db.execute(text("""
+                SELECT id, name, league, comeback_challenge_activated
+                FROM groups 
+                WHERE id = :group_id
+            """), {"group_id": group_id}).fetchone()
+            
+            if not group_result:
+                return {"success": False, "error": "Group not found"}
+            
+            group_id, group_name, league, comeback_challenge_activated = group_result
+            
+            # Get rivalry pairs for this group
+            rivalries_result = db.execute(text("""
+                SELECT id, user1_id, user2_id, is_champion_challenge, comeback_challenge_benchmark, comeback_challenge_status
+                FROM rivalry_pairs 
+                WHERE group_id = :group_id AND is_active = true
+            """), {"group_id": group_id}).fetchall()
+            
+            # Get user information for rivalries
+            rivalries_with_users = []
+            for rivalry in rivalries_result:
+                rivalry_id, user1_id, user2_id, is_champion_challenge, benchmark, status = rivalry
+                
+                # Get usernames
+                user1_result = db.execute(text("SELECT username FROM users WHERE id = :user_id"), {"user_id": user1_id}).fetchone()
+                user2_result = db.execute(text("SELECT username FROM users WHERE id = :user_id"), {"user_id": user2_id}).fetchone()
+                
+                user1_name = user1_result[0] if user1_result else "Unknown"
+                user2_name = user2_result[0] if user2_result else "Unknown"
+                
+                rivalries_with_users.append({
+                    "rivalry_id": rivalry_id,
+                    "user1": {"id": user1_id, "username": user1_name},
+                    "user2": {"id": user2_id, "username": user2_name},
+                    "is_champion_challenge": is_champion_challenge,
+                    "comeback_challenge_benchmark": float(benchmark) if benchmark else None,
+                    "comeback_challenge_status": status
+                })
+            
+            logger.info(f"✅ Retrieved status for group {group_id}: {len(rivalries_with_users)} active rivalries")
+            
+            return {
+                "success": True,
+                "group": {
+                    "id": group_id,
+                    "name": group_name,
+                    "league": league,
+                    "comeback_challenge_activated": comeback_challenge_activated
+                },
+                "rivalries": rivalries_with_users,
+                "total_rivalries": len(rivalries_with_users)
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Error getting status: {e}")
+            return {"success": False, "error": str(e)}
+        finally:
+            db.close()
+            
+    except Exception as e:
+        logger.error(f"❌ Critical error in status endpoint: {e}")
         return {"success": False, "error": str(e)}
 
 if __name__ == "__main__":

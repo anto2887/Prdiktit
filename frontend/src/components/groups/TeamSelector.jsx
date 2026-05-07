@@ -1,16 +1,18 @@
 // TeamSelector.jsx - Fixed version
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { useI18n } from '../../i18n';
 
-// Optimized team card component
-const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadStates, handleImageLoad }) => (
+// Optimized team card component with improved image handling
+const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadStates, handleImageLoad, selectionLocked = false }) => (
   <div
-    className={`relative flex items-center p-3 border rounded-lg cursor-pointer transition-colors group
+    className={`relative flex items-center p-3 border rounded-lg transition-colors group
+      ${selectionLocked ? 'cursor-default opacity-90' : 'cursor-pointer'}
       ${isSelected 
         ? 'border-blue-500 bg-blue-50' 
-        : 'border-gray-200 hover:border-blue-300'}`}
-    onClick={() => onToggle(team.id)}
+        : selectionLocked ? 'border-gray-200' : 'border-gray-200 hover:border-blue-300'}`}
+    onClick={() => !selectionLocked && onToggle(team.id)}
     style={{ 
       animationDelay: `${index * 50}ms` 
     }}
@@ -19,29 +21,27 @@ const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadState
     <input
       type="checkbox"
       checked={isSelected}
-      onChange={() => onToggle(team.id)}
+      disabled={selectionLocked}
+      onChange={() => !selectionLocked && onToggle(team.id)}
       className="mr-3 flex-shrink-0"
     />
     <div className="w-8 h-8 mr-2 flex-shrink-0 flex items-center justify-center">
       {imageLoadStates[team.id] === 'loading' && (
         <div className="w-6 h-6 bg-gray-200 rounded animate-pulse"></div>
       )}
-      <img
-        src={team.logo || '/placeholder-team-logo.svg'}
-        alt={`${team.name} logo`}
-        className={`w-8 h-8 object-contain transition-opacity duration-200 ${
-          imageLoadStates[team.id] === 'loaded' ? 'opacity-100' : 'opacity-0'
-        }`}
-        onLoad={() => handleImageLoad(team.id, true)}
-        onError={(e) => { 
-          e.target.src = '/placeholder-team-logo.svg';
-          handleImageLoad(team.id, false);
-        }}
-        loading="lazy"
-        style={{ 
-          transitionDelay: `${index * 25}ms`
-        }}
-      />
+      {imageLoadStates[team.id] === 'error' && (
+        <div className="w-6 h-6 bg-gray-200 rounded flex items-center justify-center">
+          <span className="text-gray-500 text-xs">⚽</span>
+        </div>
+      )}
+      {imageLoadStates[team.id] === 'loaded' && (
+        <img
+          src={team.logo}
+          alt={`${team.name} logo`}
+          className="w-6 h-6 object-contain"
+          loading="lazy"
+        />
+      )}
     </div>
     <span className="font-medium text-gray-700 text-sm truncate">{team.name}</span>
     
@@ -53,26 +53,49 @@ const TeamCard = React.memo(({ team, isSelected, onToggle, index, imageLoadState
   </div>
 ));
 
+// Add display name for the memoized component
+TeamCard.displayName = 'TeamCard';
+
 const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) => {
+  const { t } = useI18n();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [imageLoadStates, setImageLoadStates] = useState({});
+  const worldCupAutoKeyRef = useRef('');
   
   const { fetchTeamsForLeague } = useGroups();
   const { showError } = useNotifications();
 
+  const worldCupSelectionLocked = selectedLeague === 'World Cup';
+
   useEffect(() => {
+    worldCupAutoKeyRef.current = '';
+  }, [selectedLeague]);
+
+  useEffect(() => {
+    if (!worldCupSelectionLocked || loading || teams.length === 0) return;
+    const key = `${teams.length}-${teams.map((t) => t.id).sort().join(',')}`;
+    if (worldCupAutoKeyRef.current === key) return;
+    worldCupAutoKeyRef.current = key;
+    onTeamsSelected(teams.map((t) => t.id));
+  }, [worldCupSelectionLocked, loading, teams, onTeamsSelected]);
+
+  useEffect(() => {
+    process.env.NODE_ENV === 'development' && console.log('TeamSelector useEffect triggered:', { selectedLeague, teams: teams.length });
+    
     if (selectedLeague) {
+      process.env.NODE_ENV === 'development' && console.log('Loading teams for league:', selectedLeague);
       loadTeams();
     } else {
+      process.env.NODE_ENV === 'development' && console.log('No league selected, clearing teams');
       setTeams([]);
       setImageLoadStates({});
     }
   }, [selectedLeague]);
 
-  // Staggered image loading to prevent browser freeze
+  // Improved image loading with proper error handling
   const handleImageLoad = useCallback((teamId, success = true) => {
     setImageLoadStates(prev => ({
       ...prev,
@@ -92,43 +115,54 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
     setError(null);
     
     try {
-      console.log(`Loading teams for league: ${selectedLeague}`);
+      process.env.NODE_ENV === 'development' && console.log(`Loading teams for league: ${selectedLeague}`);
       
       const response = await fetchTeamsForLeague(selectedLeague);
       
-      if (response && response.status === 'success') {
-        if (Array.isArray(response.data)) {
-          console.log(`Successfully loaded ${response.data.length} teams`);
-          setTeams(response.data);
-          // Initialize image load states
-          const initialLoadStates = response.data.reduce((acc, team) => ({
-            ...acc,
-            [team.id]: 'loading'
-          }), {});
-          setImageLoadStates(initialLoadStates);
-        } else {
-          console.error("Invalid teams data format:", response.data);
-          setTeams([]);
-          setError("No teams available. Please try again later.");
-        }
+      if (response && response.status === 'success' && Array.isArray(response.data)) {
+        process.env.NODE_ENV === 'development' && console.log(`Successfully loaded ${response.data.length} teams`);
+        setTeams(response.data);
+        
+        // Initialize image load states for all teams
+        const initialLoadStates = response.data.reduce((acc, team) => ({
+          ...acc,
+          [team.id]: 'loading'
+        }), {});
+        setImageLoadStates(initialLoadStates);
+        
+        // Preload images with proper error handling
+        response.data.forEach(team => {
+          if (team.logo) {
+            const img = new Image();
+            img.onload = () => handleImageLoad(team.id, true);
+            img.onerror = () => handleImageLoad(team.id, false);
+            img.src = team.logo;
+          } else {
+            // No logo available, mark as error
+            handleImageLoad(team.id, false);
+          }
+        });
       } else {
-        throw new Error(response?.message || "Failed to load teams");
+        process.env.NODE_ENV === 'development' && console.error("Invalid teams data format:", response.data);
+        setTeams([]);
+        setError(t('teamSelector.noTeamsAvailableShort'));
       }
     } catch (err) {
-      console.error('Error loading teams:', err);
-      setError('Failed to load teams. Please try refreshing the page.');
-      showError('Failed to load teams. Please try refreshing the page.');
+      process.env.NODE_ENV === 'development' && console.error('Error loading teams:', err);
+      setError(t('teamSelector.loadFailed'));
+      showError(t('teamSelector.loadFailed'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleTeamToggle = useCallback((teamId) => {
+    if (worldCupSelectionLocked) return;
     const updatedSelection = selectedTeams.includes(teamId)
       ? selectedTeams.filter(id => id !== teamId)
       : [...selectedTeams, teamId];
     onTeamsSelected(updatedSelection);
-  }, [selectedTeams, onTeamsSelected]);
+  }, [selectedTeams, onTeamsSelected, worldCupSelectionLocked]);
 
   const handleSelectAll = () => {
     const allTeamIds = teams.map(team => team.id);
@@ -152,7 +186,7 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
           onClick={loadTeams}
           className="ml-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
         >
-          Try Again
+          {t('common.tryAgain')}
         </button>
       </div>
     );
@@ -161,41 +195,48 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
   if (!Array.isArray(teams) || teams.length === 0) {
     return (
       <div className="text-gray-500 py-4">
-        No teams available for this league. Please try selecting a different league.
+        {t('teamSelector.noTeamsForLeague')}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
+      {worldCupSelectionLocked && (
+        <p className="text-sm text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md px-3 py-2">
+          {t('groupForm.worldCupAllTeamsHint')}
+        </p>
+      )}
       {/* Search and Controls */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex-1 max-w-md">
           <input
             type="text"
-            placeholder="Search teams..."
+            placeholder={t('teamSelector.searchTeams')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
         
+        {!worldCupSelectionLocked && (
         <div className="flex gap-2">
           <button
             onClick={handleSelectAll}
             className="px-3 py-2 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
           >
-            {teams.every(team => selectedTeams.includes(team.id)) ? 'Deselect All' : 'Select All'}
+            {teams.every(team => selectedTeams.includes(team.id)) ? t('teamSelector.deselectAll') : t('teamSelector.selectAll')}
           </button>
           {selectedTeams.length > 0 && (
             <button
               onClick={handleClearSelection}
               className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
             >
-              Clear ({selectedTeams.length})
+              {t('teamSelector.clear')} ({selectedTeams.length})
             </button>
           )}
         </div>
+        )}
       </div>
 
       {/* Teams Grid */}
@@ -217,8 +258,8 @@ const TeamSelector = ({ selectedLeague, onTeamsSelected, selectedTeams = [] }) =
       {selectedTeams.length > 0 && (
         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
           <p className="text-sm text-blue-700">
-            {selectedTeams.length} team{selectedTeams.length !== 1 ? 's' : ''} selected
-            {searchTerm && ` (filtered from ${teams.length} total teams)`}
+            {selectedTeams.length} {selectedTeams.length !== 1 ? t('teamSelector.teams') : t('teamSelector.team')} {t('teamSelector.selected')}
+            {searchTerm && ` (${t('teamSelector.filteredFrom')} ${teams.length} ${t('teamSelector.totalTeams')})`}
           </p>
         </div>
       )}

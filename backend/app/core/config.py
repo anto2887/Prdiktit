@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     # 60 minutes * 24 hours * 7 days = 7 days
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
     
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    # CORS - Use environment variable or empty list as default
+    CORS_ORIGINS: List[str] = []
     
     @validator("CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
@@ -59,20 +59,88 @@ class Settings(BaseSettings):
             logger.warning("FOOTBALL_API_KEY is not set! API requests will fail.")
         return v
     
-    # Add this line:
-    API_RATE_LIMIT: int = 600  # Default to 60 requests per minute
+    # OAuth2 settings
+    GOOGLE_CLIENT_ID: Optional[str] = os.getenv("GOOGLE_CLIENT_ID")
+    GOOGLE_CLIENT_SECRET: Optional[str] = os.getenv("GOOGLE_CLIENT_SECRET")
+    OAUTH_REDIRECT_URI: Optional[str] = os.getenv("OAUTH_REDIRECT_URI")
     
-    # CORS settings
+    @validator("GOOGLE_CLIENT_ID")
+    def validate_google_client_id(cls, v):
+        if not v:
+            logger.warning("GOOGLE_CLIENT_ID is not set! OAuth2 will not work.")
+        return v
+    
+    @validator("GOOGLE_CLIENT_SECRET")
+    def validate_google_client_secret(cls, v):
+        if not v:
+            logger.warning("GOOGLE_CLIENT_SECRET is not set! OAuth2 will not work.")
+        return v
+    
+    @validator("OAUTH_REDIRECT_URI")
+    def validate_oauth_redirect_uri(cls, v):
+        if not v:
+            logger.warning("OAUTH_REDIRECT_URI is not set! OAuth2 will not work.")
+        return v
+    
+    # Rate limiting - Updated to 120 requests per minute
+    API_RATE_LIMIT: int = int(os.getenv("API_RATE_LIMIT", "120"))
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "120"))
+
+    # Email / notifications (safe defaults for local/dev)
+    EMAIL_PROVIDER: str = "sendgrid"
+    SENDGRID_API_KEY: str = ""
+    SENDGRID_FROM_EMAIL: str = "noreply@prdiktit.com"
+    SENDGRID_FROM_NAME: str = "PrediktIt"
+
+    # Optional Mailgun support
+    MAILGUN_DOMAIN: str = os.getenv("MAILGUN_DOMAIN", "")
+    MAILGUN_API_KEY: str = os.getenv("MAILGUN_API_KEY", "")
+
+    # Notification links use the frontend URL when available
+    NOTIFICATION_BASE_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+
+    # Payments (Stripe)
+    STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "")
+    STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    STRIPE_SUCCESS_URL: str = os.getenv("STRIPE_SUCCESS_URL", "https://prdiktit.com/wallet?status=success")
+    STRIPE_CANCEL_URL: str = os.getenv("STRIPE_CANCEL_URL", "https://prdiktit.com/wallet?status=cancelled")
+    STRIPE_COIN_BUNDLES_JSON: str = os.getenv("STRIPE_COIN_BUNDLES_JSON", "[]")
+    
+    # CORS settings - Production defaults (more restrictive)
     CORS_ALLOW_CREDENTIALS: bool = True
     CORS_ALLOW_METHODS: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
-    CORS_ALLOW_HEADERS: List[str] = ["*"]  # Permissive for development
+    CORS_ALLOW_HEADERS: List[str] = ["Authorization", "Content-Type", "X-Requested-With"]
     CORS_EXPOSE_HEADERS: List[str] = ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"]
     
-    # Rate limiting
-    RATE_LIMIT_PER_MINUTE: int = 600  # Requests per minute
+    # Logging - Production defaults (no debug)
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    
+    # Environment indicator
+    ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     
     class Config:
         case_sensitive = True
         env_file = ".env"
 
-settings = Settings()
+# Environment-based configuration loading
+def get_settings():
+    """Get settings based on environment"""
+    # FORCE PRODUCTION CONFIGURATION - Always use production settings
+    logger.info("🔧 FORCING PRODUCTION CONFIGURATION")
+    
+    try:
+        from .config_prod import ProductionSettings
+        logger.info("🔧 Loading production configuration")
+        settings = ProductionSettings()
+        logger.info(f"🔧 Production CORS_ORIGINS = {settings.CORS_ORIGINS}")
+        return settings
+    except Exception as e:
+        logger.error(f"🔧 Error loading production config: {e}")
+        logger.info("🔧 Falling back to development configuration")
+        settings = Settings()
+        logger.info(f"🔧 Development CORS_ORIGINS = {settings.CORS_ORIGINS}")
+        return settings
+
+# Initialize settings based on environment
+settings = get_settings()

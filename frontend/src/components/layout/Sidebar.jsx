@@ -1,53 +1,107 @@
 import React from 'react';
+import { Wallet, Zap } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { useGroups } from '../../contexts/AppContext';
+import { useI18n } from '../../i18n';
 
 const Sidebar = () => {
   const { userGroups } = useGroups();
+  const { t } = useI18n();
 
   return (
-    <aside className="w-64 bg-white shadow-lg">
+    <aside
+      className="w-64 bg-white dark:bg-gray-800 shadow-lg hidden md:block"
+      data-tour="tour-sidebar-root"
+    >
       <div className="h-full px-3 py-4 overflow-y-auto">
         <nav className="space-y-6">
           <div>
-            <h3 className="mb-2 text-sm font-medium text-gray-500">
-              Navigation
+            <h3 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+              {t('nav.navigation')}
             </h3>
             <ul className="space-y-2">
               <li>
                 <NavLink
+                  data-tour="tour-nav-dashboard"
                   to="/dashboard"
                   className={({ isActive }) =>
                     `flex items-center p-2 rounded-lg ${
                       isActive
-                        ? 'bg-blue-100 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`
                   }
                 >
-                  Dashboard
+                  {t('nav.dashboard')}
                 </NavLink>
               </li>
               <li>
                 <NavLink
+                  data-tour="tour-nav-predictions"
                   to="/predictions"
                   className={({ isActive }) =>
                     `flex items-center p-2 rounded-lg ${
                       isActive
-                        ? 'bg-blue-100 text-blue-600'
-                        : 'text-gray-700 hover:bg-gray-100'
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`
                   }
                 >
-                  Predictions
+                  {t('nav.predictions')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  data-tour="tour-nav-wallet"
+                  to="/wallet"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 p-2 rounded-lg ${
+                      isActive
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`
+                  }
+                >
+                  <Wallet className="w-4 h-4 shrink-0 opacity-90" aria-hidden />
+                  {t('nav.wallet')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  data-tour="tour-nav-powerups"
+                  to="/powerups"
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 p-2 rounded-lg ${
+                      isActive
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`
+                  }
+                >
+                  <Zap className="w-4 h-4 shrink-0 opacity-90" aria-hidden />
+                  {t('nav.powerups')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  to="/worldcup/leaderboard"
+                  className={({ isActive }) =>
+                    `flex items-center p-2 rounded-lg ${
+                      isActive
+                        ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`
+                  }
+                >
+                  {t('nav.globalPot')}
                 </NavLink>
               </li>
             </ul>
           </div>
 
-          <div>
-            <h3 className="mb-2 text-sm font-medium text-gray-500">
-              Your Groups
+          <div data-tour="tour-sidebar-groups">
+            <h3 className="mb-2 text-sm font-medium text-gray-500 dark:text-gray-400">
+              {t('groups.yourGroups')}
             </h3>
             <ul className="space-y-2">
               {userGroups.map(group => (
@@ -57,8 +111,8 @@ const Sidebar = () => {
                     className={({ isActive }) =>
                       `flex items-center p-2 rounded-lg ${
                         isActive
-                          ? 'bg-blue-100 text-blue-600'
-                          : 'text-gray-700 hover:bg-gray-100'
+                          ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
                       }`
                     }
                   >
@@ -69,9 +123,17 @@ const Sidebar = () => {
               <li>
                 <NavLink
                   to="/groups/create"
-                  className="flex items-center p-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  className="flex items-center p-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 >
-                  + Create Group
+                  + {t('groups.createGroup')}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  to="/groups/join"
+                  className="flex items-center p-2 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                >
+                  🔗 {t('groups.joinGroup')}
                 </NavLink>
               </li>
             </ul>

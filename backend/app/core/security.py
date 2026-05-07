@@ -1,6 +1,6 @@
 # app/core/security.py
 from datetime import datetime, timedelta
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Dict
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -10,7 +10,7 @@ from pydantic import BaseModel, ValidationError
 from sqlalchemy.orm import Session
 
 from .config import settings
-from ..db.database import get_db
+# Remove circular import - get_db will be passed as parameter
 from ..schemas import Token, User
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -26,8 +26,14 @@ oauth2_scheme_optional = OAuth2PasswordBearer(
 class TokenPayload(BaseModel):
     exp: int
     sub: str
+    # Extra claims (e.g. {"pref": "prediction_reminders"}) are allowed and ignored here
 
-def create_access_token(subject: Union[str, Any], expires_delta: Optional[timedelta] = None) -> str:
+
+def create_access_token(
+    subject: Union[str, Any],
+    expires_delta: Optional[timedelta] = None,
+    extra_claims: Optional[Dict[str, Any]] = None,
+) -> str:
     """
     Create JWT access token
     """
@@ -35,9 +41,19 @@ def create_access_token(subject: Union[str, Any], expires_delta: Optional[timede
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    
-    to_encode = {"exp": expire, "sub": str(subject)}
-    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    to_encode: Dict[str, Any] = {"exp": expire, "sub": str(subject)}
+    if extra_claims:
+        # Merge without allowing extra_claims to override core fields
+        for key, value in extra_claims.items():
+            if key not in {"exp", "sub"}:
+                to_encode[key] = value
+
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM,
+    )
     return encoded_jwt
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -54,7 +70,7 @@ def get_password_hash(password: str) -> str:
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    db: Session = None
 ) -> User:
     """
     Get current user from JWT token
@@ -97,7 +113,7 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
 
 async def get_current_active_user_optional(
     token: Optional[str] = Depends(oauth2_scheme_optional),
-    db: Session = Depends(get_db)
+    db: Session = None
 ) -> Optional[User]:
     """
     Get current user from JWT token, return None if not authenticated

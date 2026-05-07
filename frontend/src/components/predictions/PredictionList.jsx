@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { useMatches, usePredictions } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -6,47 +6,22 @@ import ErrorMessage from '../common/ErrorMessage';
 import MatchAvailabilityCheck from './MatchAvailabilityCheck';
 import TimezoneIndicator from '../common/TimezoneIndicator';
 import { formatKickoffTime, formatDeadlineTime, isDateInPast } from '../../utils/dateUtils';
-import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
+import { useI18n } from '../../i18n';
 
 const PredictionList = () => {
-  const { fixtures, fetchFixtures, loading: matchesLoading, error: matchesError } = useMatches();
-  const { userPredictions, fetchUserPredictions, loading: predictionsLoading } = usePredictions();
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const { t } = useI18n();
+  const { fixtures, loading: matchesLoading, error: matchesError } = useMatches();
+  const { userPredictions, loading: predictionsLoading } = usePredictions();
   
-  // Guide state
-  const [showGuide, setShowGuide] = useState(false);
-  const [guideStep, setGuideStep] = useState(0);
-  
-  useEffect(() => {
-    const loadData = async () => {
-      setIsInitialLoading(true);
-      try {
-        // Get upcoming matches
-        const today = new Date();
-        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-        
-        await Promise.all([
-          fetchFixtures({
-            from: today.toISOString().split('T')[0],
-            to: nextWeek.toISOString().split('T')[0],
-            status: 'NOT_STARTED'
-          }),
-          fetchUserPredictions()
-        ]);
-      } catch (err) {
-        console.error('Error loading data:', err);
-      } finally {
-        setIsInitialLoading(false);
-      }
-    };
+  // REMOVED: Broken useEffect that was causing dependency issues
+  // Data fetching is now handled by parent PredictionsPage
 
-    loadData();
-  }, [fetchFixtures, fetchUserPredictions]);
-
-  if (isInitialLoading) {
+  // Show loading if context is still loading (for real-time updates)
+  if (matchesLoading || predictionsLoading) {
     return (
       <div className="flex justify-center items-center min-h-64">
         <LoadingSpinner />
+        <span className="ml-3 text-gray-500 dark:text-gray-400">{t('predictions.updatingMatchData')}</span>
       </div>
     );
   }
@@ -58,7 +33,7 @@ const PredictionList = () => {
 
   // Filter upcoming matches that haven't started
   const upcomingMatches = fixtures.filter(match => {
-    const matchDate = new Date(match.date);
+    const matchDate = new Date(match.date + 'Z'); // Force UTC interpretation
     const now = new Date();
     return matchDate > now && match.status === 'NOT_STARTED';
   });
@@ -80,35 +55,37 @@ const PredictionList = () => {
     <MatchAvailabilityCheck>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-gray-900">Upcoming Matches</h2>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('predictions.upcomingMatches')}</h2>
           <div className="flex items-center gap-4">
-            <HelpTooltip content="View your timezone settings and match times">
+            <span title={t('predictions.tooltipTimezone')} className="inline-flex">
               <TimezoneIndicator showDetails={true} />
-            </HelpTooltip>
-            <HelpTooltip content="View your prediction history and results">
-              <Link
-                to="/predictions/history"
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                View History →
-              </Link>
-            </HelpTooltip>
-            <HelpTooltip content="Start the guided tour to learn about making predictions">
-              <button
-                onClick={() => setShowGuide(true)}
-                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            </HelpTooltip>
+            </span>
+            <Link
+              to="/predictions/history"
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm font-medium"
+            >
+              {t('predictions.viewHistory')} →
+            </Link>
+          </div>
+        </div>
+
+        {/* Date Range Display */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+          <div className="flex items-center justify-center">
+            <span className="text-sm text-blue-800 dark:text-blue-200">
+              📅 {t('predictions.showingMatchesFrom')} <strong>{(() => {
+                const today = new Date();
+                const nextWeek = new Date(today);
+                nextWeek.setDate(today.getDate() + 7);
+                return `${today.toLocaleDateString()} to ${nextWeek.toLocaleDateString()}`;
+              })()}</strong>
+            </span>
           </div>
         </div>
 
         {upcomingMatches.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-lg">
-            <p className="text-gray-500 mb-4">No upcoming matches available for prediction</p>
+          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-lg">
+            <p className="text-gray-500 dark:text-gray-400 mb-4">{t('predictions.noUpcomingMatches')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -120,15 +97,15 @@ const PredictionList = () => {
               return (
                 <div 
                   key={match.fixture_id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden border-l-4 border-blue-500 hover:shadow-lg transition-shadow"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden border-l-4 border-blue-500 dark:border-blue-400 hover:shadow-lg transition-shadow"
                 >
                   <div className="p-6">
                     {/* Match Info Header with timezone-aware time */}
                     <div className="flex justify-between items-center mb-4">
-                      <span className="text-gray-500 text-sm">
+                      <span className="text-gray-500 dark:text-gray-400 text-sm">
                         {formatKickoffTime(match.date)}
                       </span>
-                      <span className="text-xs font-medium px-2 py-1 bg-gray-100 rounded-full">
+                      <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-full">
                         {match.league}
                       </span>
                     </div>
@@ -136,29 +113,45 @@ const PredictionList = () => {
                     {/* Teams */}
                     <div className="flex justify-between items-center mb-6">
                       <div className="flex flex-col items-center w-5/12">
-                        <img 
-                          src={match.home_team_logo || '/placeholder-logo.svg'} 
-                          alt={`${match.home_team} logo`}
-                          className="w-12 h-12 object-contain mb-2"
-                          onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
-                        />
-                        <span className="text-center font-medium text-sm text-gray-900">
+                        {match.home_team_logo ? (
+                          <img 
+                            src={match.home_team_logo} 
+                            alt={`${match.home_team} logo`}
+                            className="w-12 h-12 object-contain mb-2"
+                            onError={(e) => { 
+                              e.target.style.display = 'none';
+                              e.target.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center mb-2" style={{ display: match.home_team_logo ? 'none' : 'flex' }}>
+                          <span className="text-gray-500 dark:text-gray-400 text-lg">⚽</span>
+                        </div>
+                        <span className="text-center font-medium text-sm text-gray-900 dark:text-gray-100">
                           {match.home_team}
                         </span>
                       </div>
                       
                       <div className="w-2/12 text-center">
-                        <span className="text-gray-500 font-bold">VS</span>
+                        <span className="text-gray-500 dark:text-gray-400 font-bold">VS</span>
                       </div>
                       
                       <div className="flex flex-col items-center w-5/12">
-                        <img 
-                          src={match.away_team_logo || '/placeholder-logo.svg'} 
-                          alt={`${match.away_team} logo`}
-                          className="w-12 h-12 object-contain mb-2"
-                          onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
-                        />
-                        <span className="text-center font-medium text-sm text-gray-900">
+                        {match.away_team_logo ? (
+                          <img 
+                            src={match.away_team_logo} 
+                            alt={`${match.away_team} logo`}
+                            className="w-12 h-12 object-contain mb-2"
+                            onError={(e) => { 
+                              e.target.style.display = 'none';
+                              e.target.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center mb-2" style={{ display: match.away_team_logo ? 'none' : 'flex' }}>
+                          <span className="text-gray-500 dark:text-gray-400 text-lg">⚽</span>
+                        </div>
+                        <span className="text-center font-medium text-sm text-gray-900 dark:text-gray-100">
                           {match.away_team}
                         </span>
                       </div>
@@ -166,19 +159,19 @@ const PredictionList = () => {
                     
                     {/* Current Prediction Display */}
                     {hasPrediction && (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mb-4">
                         <div className="flex items-center justify-center space-x-4">
                           <div className="text-center">
-                            <p className="text-xs text-gray-600 mb-1">Your Prediction</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('predictions.yourPrediction')}</p>
                             <div className="flex items-center space-x-2">
-                              <span className="font-bold text-lg">{prediction.score1}</span>
-                              <span className="text-gray-500">-</span>
-                              <span className="font-bold text-lg">{prediction.score2}</span>
+                              <span className="font-bold text-lg text-gray-900 dark:text-gray-100">{prediction.score1}</span>
+                              <span className="text-gray-500 dark:text-gray-400">-</span>
+                              <span className="font-bold text-lg text-gray-900 dark:text-gray-100">{prediction.score2}</span>
                             </div>
                           </div>
                         </div>
-                        <p className="text-xs text-green-600 text-center mt-2">
-                          ✓ Prediction submitted
+                        <p className="text-xs text-green-600 dark:text-green-400 text-center mt-2">
+                          ✓ {t('predictions.submitted')}
                         </p>
                       </div>
                     )}
@@ -186,34 +179,34 @@ const PredictionList = () => {
                     {/* Action Button */}
                     <div className="space-y-2">
                       {deadlinePassed ? (
-                        <div className="w-full py-2 text-center rounded-md bg-gray-100 text-gray-500 text-sm">
-                          Prediction Deadline Passed
+                        <div className="w-full py-2 text-center rounded-md bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-sm">
+                          {t('predictions.deadlinePassed')}
                         </div>
                       ) : (
                         <Link 
                           to={`/predictions/new?match=${match.fixture_id}`}
                           className={`block w-full py-2 text-center rounded-md text-white font-medium transition-colors
                             ${hasPrediction 
-                              ? 'bg-green-600 hover:bg-green-700' 
-                              : 'bg-blue-600 hover:bg-blue-700'
+                              ? 'bg-green-600 dark:bg-green-500 hover:bg-green-700 dark:hover:bg-green-600' 
+                              : 'bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600'
                             }`}
                         >
-                          {hasPrediction ? 'Edit Prediction' : 'Make Prediction'}
+                          {hasPrediction ? t('predictions.editPrediction') : t('predictions.makePrediction')}
                         </Link>
                       )}
                       
                       {/* Deadline Info with timezone awareness */}
-                      <p className="text-xs text-gray-500 text-center">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                         {(() => {
                           const deadline = match.prediction_deadline || match.date;
                           const { text, urgency } = formatDeadlineTime(deadline);
                           
                           return (
                             <span className={`
-                              ${urgency === 'critical' ? 'text-red-600 font-semibold' : ''}
-                              ${urgency === 'high' ? 'text-orange-600 font-medium' : ''}
-                              ${urgency === 'medium' ? 'text-yellow-600' : ''}
-                              ${urgency === 'expired' ? 'text-red-500' : ''}
+                              ${urgency === 'critical' ? 'text-red-600 dark:text-red-400 font-semibold' : ''}
+                              ${urgency === 'high' ? 'text-orange-600 dark:text-orange-400 font-medium' : ''}
+                              ${urgency === 'medium' ? 'text-yellow-600 dark:text-yellow-400' : ''}
+                              ${urgency === 'expired' ? 'text-red-500 dark:text-red-400' : ''}
                             `}>
                               {urgency === 'expired' ? '🚫' : '⏰'} {text}
                             </span>
@@ -228,41 +221,6 @@ const PredictionList = () => {
           </div>
         )}
       </div>
-      
-      {/* Guide/Help System */}
-      <OnboardingGuide
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        onComplete={() => setShowGuide(false)}
-        step={guideStep}
-        totalSteps={4}
-        steps={[
-          {
-            title: "Making Predictions",
-            content: "This page shows upcoming matches you can predict. Click on any match to make your prediction for the final score.",
-            action: "Next",
-            highlight: null
-          },
-          {
-            title: "Prediction Deadlines",
-            content: "Each match has a deadline for predictions. Make sure to submit before the deadline passes!",
-            action: "Next",
-            highlight: null
-          },
-          {
-            title: "Your Predictions",
-            content: "Matches you've already predicted will show your score prediction. You can edit predictions until the deadline.",
-            action: "Next",
-            highlight: null
-          },
-          {
-            title: "Scoring System",
-            content: "Perfect predictions (exact score) earn 3 points. Correct results (right winner/draw) earn 1 point. Good luck!",
-            action: "Got it!",
-            highlight: null
-          }
-        ]}
-      />
     </MatchAvailabilityCheck>
   );
 };

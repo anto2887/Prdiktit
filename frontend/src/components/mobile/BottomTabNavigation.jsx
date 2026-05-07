@@ -1,42 +1,44 @@
 // frontend/src/components/mobile/BottomTabNavigation.jsx
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+import { useI18n } from '../../i18n';
 
 const BottomTabNavigation = () => {
   const location = useLocation();
+  const { t } = useI18n();
 
   const tabs = [
     {
       id: 'home',
-      label: 'Home',
+      label: t('tabs.home'),
       path: '/',
       icon: HomeIcon,
       activeIcon: HomeIconSolid
     },
     {
       id: 'groups',
-      label: 'Groups',
+      label: t('tabs.groups'),
       path: '/groups',
       icon: UsersIcon,
       activeIcon: UsersIconSolid
     },
     {
       id: 'predict',
-      label: 'Predict',
+      label: t('tabs.predict'),
       path: '/predictions',
       icon: ClipboardIcon,
       activeIcon: ClipboardIconSolid
     },
     {
-      id: 'analytics',
-      label: 'Analytics',
-      path: '/analytics',
-      icon: ChartIcon,
-      activeIcon: ChartIconSolid
+      id: 'wallet',
+      label: t('tabs.wallet'),
+      path: '/wallet',
+      icon: WalletIcon,
+      activeIcon: WalletIconSolid
     },
     {
       id: 'profile',
-      label: 'Profile',
+      label: t('tabs.profile'),
       path: '/profile',
       icon: UserIcon,
       activeIcon: UserIconSolid
@@ -50,30 +52,45 @@ const BottomTabNavigation = () => {
   if (shouldHide) return null;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 md:hidden bottom-tab-nav" data-tour="tour-mobile-nav-root">
       <div className="grid grid-cols-5 h-16">
-        {tabs.map((tab) => (
-          <NavLink
-            key={tab.id}
-            to={tab.path}
-            className={({ isActive }) =>
-              `flex flex-col items-center justify-center space-y-1 transition-colors ${
-                isActive
-                  ? 'text-blue-600'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <div className="w-6 h-6">
-                  {isActive ? <tab.activeIcon /> : <tab.icon />}
-                </div>
-                <span className="text-xs font-medium">{tab.label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
+        {tabs.map((tab) => {
+          return (
+            <NavLink
+              key={tab.id}
+              to={tab.path}
+              data-tour={`tour-mobile-nav-${tab.id}`}
+              className={({ isActive }) => {
+                const isHomeActive =
+                  tab.id === 'home' &&
+                  (location.pathname === '/' ||
+                    location.pathname.startsWith('/dashboard'));
+                const active = isActive || isHomeActive;
+
+                return `flex flex-col items-center justify-center space-y-1 transition-colors ${
+                  active ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+                }`;
+              }}
+            >
+              {({ isActive }) => {
+                const isHomeActive =
+                  tab.id === 'home' &&
+                  (location.pathname === '/' ||
+                    location.pathname.startsWith('/dashboard'));
+                const active = isActive || isHomeActive;
+
+                return (
+                  <>
+                    <div className="w-6 h-6">
+                      {active ? <tab.activeIcon /> : <tab.icon />}
+                    </div>
+                    <span className="text-xs font-medium">{tab.label}</span>
+                  </>
+                );
+              }}
+            </NavLink>
+          );
+        })}
       </div>
     </nav>
   );
@@ -117,15 +134,15 @@ const ClipboardIconSolid = () => (
   </svg>
 );
 
-const ChartIcon = () => (
+const WalletIcon = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m0-6h3m0 0v4m0-4a2 2 0 012 2v0a2 2 0 01-2 2h-3m-7 1h.01" />
   </svg>
 );
 
-const ChartIconSolid = () => (
+const WalletIconSolid = () => (
   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-    <path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z" />
+    <path d="M3 6a2 2 0 012-2h10a2 2 0 012 2v1h-2V6H5v8h10v-1h2v1a2 2 0 01-2 2H5a2 2 0 01-2-2V6zm11 3a1 1 0 011-1h4v4h-4a1 1 0 01-1-1V9z" />
   </svg>
 );
 
@@ -152,6 +169,7 @@ export const MobilePredictionCard = ({
   onUpdatePrediction, 
   isLocked = false 
 }) => {
+  const { t } = useI18n();
   const [homeScore, setHomeScore] = useState(prediction?.home_score || '');
   const [awayScore, setAwayScore] = useState(prediction?.away_score || '');
   const [isEditing, setIsEditing] = useState(false);
@@ -179,14 +197,14 @@ export const MobilePredictionCard = ({
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Match header */}
-      <div className="p-4 bg-gray-50 border-b border-gray-100">
+      <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-100 dark:border-gray-600">
         <div className="flex items-center justify-between mb-2">
-          <div className="text-xs text-gray-500 font-medium">
+          <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
             {fixture?.league}
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             {deadline && new Date(deadline).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -206,15 +224,15 @@ export const MobilePredictionCard = ({
                 className="w-6 h-6 object-contain"
               />
             )}
-            <span className="font-medium text-sm truncate">
+            <span className="font-medium text-sm truncate text-gray-900 dark:text-gray-100">
               {fixture?.home_team}
             </span>
           </div>
           
-          <span className="text-gray-400 text-sm mx-3">vs</span>
+          <span className="text-gray-400 dark:text-gray-500 text-sm mx-3">{t('matches.vs')}</span>
           
           <div className="flex items-center space-x-2 flex-1 justify-end">
-            <span className="font-medium text-sm truncate">
+            <span className="font-medium text-sm truncate text-gray-900 dark:text-gray-100">
               {fixture?.away_team}
             </span>
             {fixture?.away_team_logo && (
@@ -235,6 +253,7 @@ export const MobilePredictionCard = ({
             prediction={prediction}
             fixture={fixture}
             hasResult={hasResult}
+            t={t}
           />
         ) : isEditing ? (
           <PredictionEditor
@@ -244,12 +263,14 @@ export const MobilePredictionCard = ({
             onAwayScoreChange={setAwayScore}
             onSave={handleSave}
             onCancel={handleCancel}
+            t={t}
           />
         ) : (
           <PredictionView
             prediction={prediction}
             onEdit={() => setIsEditing(true)}
             timeUntilDeadline={timeUntilDeadline}
+            t={t}
           />
         )}
       </div>
@@ -258,24 +279,24 @@ export const MobilePredictionCard = ({
 };
 
 // Prediction display for completed matches
-const PredictionDisplay = ({ prediction, fixture, hasResult }) => {
+const PredictionDisplay = ({ prediction, fixture, hasResult, t }) => {
   const points = prediction?.points || 0;
-  const predictedScore = prediction ? `${prediction.home_score}-${prediction.away_score}` : 'No prediction';
-  const actualScore = hasResult ? `${fixture.home_score}-${fixture.away_score}` : 'In progress';
+  const predictedScore = prediction ? `${prediction.home_score}-${prediction.away_score}` : t('mobile.noPrediction');
+  const actualScore = hasResult ? `${fixture.home_score}-${fixture.away_score}` : t('mobile.inProgress');
 
   let accuracyClass = 'bg-gray-100 text-gray-800';
-  let accuracyText = 'Pending';
+  let accuracyText = t('recentPredictions.statusPending');
   
   if (hasResult && prediction) {
     if (points === 3) {
       accuracyClass = 'bg-green-100 text-green-800';
-      accuracyText = '🎯 Perfect!';
+      accuracyText = `🎯 ${t('recentPredictions.statusPerfect')}!`;
     } else if (points === 1) {
       accuracyClass = 'bg-yellow-100 text-yellow-800';
-      accuracyText = '✓ Correct result';
+      accuracyText = `✓ ${t('stats.correctResults')}`;
     } else {
       accuracyClass = 'bg-red-100 text-red-800';
-      accuracyText = '✗ Wrong';
+      accuracyText = `✗ ${t('mobile.wrong')}`;
     }
   }
 
@@ -283,14 +304,14 @@ const PredictionDisplay = ({ prediction, fixture, hasResult }) => {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm text-gray-600">Your prediction</div>
-          <div className="text-lg font-bold text-gray-900">{predictedScore}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">{t('mobile.yourPrediction')}</div>
+          <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{predictedScore}</div>
         </div>
         
         {hasResult && (
           <div className="text-right">
-            <div className="text-sm text-gray-600">Actual result</div>
-            <div className="text-lg font-bold text-gray-900">{actualScore}</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">{t('mobile.actualResult')}</div>
+            <div className="text-lg font-bold text-gray-900 dark:text-gray-100">{actualScore}</div>
           </div>
         )}
       </div>
@@ -301,8 +322,8 @@ const PredictionDisplay = ({ prediction, fixture, hasResult }) => {
         </span>
         
         {hasResult && (
-          <span className="text-sm font-medium text-gray-900">
-            {points} point{points !== 1 ? 's' : ''}
+          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {points} {points !== 1 ? t('mobile.points') : t('mobile.point')}
           </span>
         )}
       </div>
@@ -317,12 +338,13 @@ const PredictionEditor = ({
   onHomeScoreChange, 
   onAwayScoreChange, 
   onSave, 
-  onCancel 
+  onCancel,
+  t
 }) => {
   return (
     <div className="space-y-4">
-      <div className="text-sm font-medium text-gray-900 text-center">
-        Enter your prediction
+      <div className="text-sm font-medium text-gray-900 dark:text-gray-100 text-center">
+        {t('mobile.enterPrediction')}
       </div>
       
       <div className="flex items-center justify-center space-x-4">
@@ -332,11 +354,11 @@ const PredictionEditor = ({
           onChange={(e) => onHomeScoreChange(e.target.value)}
           min="0"
           max="20"
-          className="w-16 h-12 text-center text-lg font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-16 h-12 text-center text-lg font-bold border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="0"
         />
         
-        <span className="text-lg font-medium text-gray-500">-</span>
+        <span className="text-lg font-medium text-gray-500 dark:text-gray-400">-</span>
         
         <input
           type="number"
@@ -344,7 +366,7 @@ const PredictionEditor = ({
           onChange={(e) => onAwayScoreChange(e.target.value)}
           min="0"
           max="20"
-          className="w-16 h-12 text-center text-lg font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-16 h-12 text-center text-lg font-bold border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="0"
         />
       </div>
@@ -352,16 +374,16 @@ const PredictionEditor = ({
       <div className="flex space-x-3">
         <button
           onClick={onCancel}
-          className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+          className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-gray-800"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
         <button
           onClick={onSave}
           disabled={homeScore === '' || awayScore === ''}
-          className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Save
+          {t('common.save')}
         </button>
       </div>
     </div>
@@ -369,7 +391,7 @@ const PredictionEditor = ({
 };
 
 // Prediction view for existing predictions
-const PredictionView = ({ prediction, onEdit, timeUntilDeadline }) => {
+const PredictionView = ({ prediction, onEdit, timeUntilDeadline, t }) => {
   const predictedScore = prediction ? `${prediction.home_score}-${prediction.away_score}` : null;
   const canEdit = timeUntilDeadline > 0;
 
@@ -377,27 +399,27 @@ const PredictionView = ({ prediction, onEdit, timeUntilDeadline }) => {
     <div className="space-y-3">
       {predictedScore ? (
         <div className="text-center">
-          <div className="text-sm text-gray-600 mb-1">Your prediction</div>
-          <div className="text-2xl font-bold text-gray-900">{predictedScore}</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400 mb-1">{t('mobile.yourPrediction')}</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{predictedScore}</div>
         </div>
       ) : (
         <div className="text-center py-4">
-          <div className="text-gray-500 mb-2">No prediction yet</div>
+          <div className="text-gray-500 dark:text-gray-400 mb-2">{t('stats.noPredictionsYet')}</div>
         </div>
       )}
       
       {canEdit && (
         <button
           onClick={onEdit}
-          className="w-full px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="w-full px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800"
         >
-          {predictedScore ? 'Edit Prediction' : 'Make Prediction'}
+          {predictedScore ? t('predictions.editPrediction') : t('predictions.makePrediction')}
         </button>
       )}
       
       {timeUntilDeadline <= 0 && !prediction && (
-        <div className="text-center text-sm text-red-600">
-          Prediction deadline has passed
+        <div className="text-center text-sm text-red-600 dark:text-red-400">
+          {t('predictions.deadlinePassed')}
         </div>
       )}
     </div>
@@ -408,6 +430,7 @@ const PredictionView = ({ prediction, onEdit, timeUntilDeadline }) => {
 
 // frontend/src/components/mobile/RivalryStatus.jsx
 export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
+  const { t } = useI18n();
   if (!rivalries || rivalries.length === 0) {
     return null;
   }
@@ -416,14 +439,14 @@ export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
   const isRivalryWeek = activeRivalries.some(r => r.rivalry_week === currentWeek);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center">
           <span className="mr-2">🥊</span>
-          Rivalries
+          {t('groupDetails.rivalries')}
           {isRivalryWeek && (
-            <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-              Active Week!
+            <span className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
+              {t('mobile.activeWeek')}
             </span>
           )}
         </h3>
@@ -431,16 +454,16 @@ export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
         {activeRivalries.length > 0 && (
           <button
             onClick={onViewDetails}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
           >
-            View All
+            {t('recentPredictions.viewAll')}
           </button>
         )}
       </div>
 
       {activeRivalries.length === 0 ? (
-        <p className="text-sm text-gray-500">
-          No active rivalries. Check back during rivalry weeks!
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {t('mobile.noActiveRivalries')}
         </p>
       ) : (
         <div className="space-y-3">
@@ -450,8 +473,8 @@ export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
           
           {activeRivalries.length > 2 && (
             <div className="text-center pt-2">
-              <span className="text-sm text-gray-500">
-                +{activeRivalries.length - 2} more rivalries
+              <span className="text-sm text-gray-500 dark:text-gray-400">
+                +{activeRivalries.length - 2} {t('mobile.moreRivalries')}
               </span>
             </div>
           )}
@@ -462,31 +485,32 @@ export const RivalryStatus = ({ rivalries, currentWeek, onViewDetails }) => {
 };
 
 const RivalryCard = ({ rivalry, isRivalryWeek }) => {
+  const { t } = useI18n();
   return (
     <div className={`p-3 rounded-lg border ${
-      isRivalryWeek ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+      isRivalryWeek ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
     }`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <span className="font-medium text-sm text-gray-900">
+          <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
             {rivalry.user1_name}
           </span>
-          <span className="text-xs text-gray-500">vs</span>
-          <span className="font-medium text-sm text-gray-900">
+          <span className="text-xs text-gray-500 dark:text-gray-400">{t('matches.vs')}</span>
+          <span className="font-medium text-sm text-gray-900 dark:text-gray-100">
             {rivalry.user2_name}
           </span>
         </div>
         
         {rivalry.is_champion_challenge && (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-            👑 Champion Challenge
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
+            👑 {t('groupActivation.comebackChallenge')}
           </span>
         )}
       </div>
       
       {rivalry.record && (
-        <div className="mt-2 text-xs text-gray-600">
-          Record: {rivalry.record.wins}-{rivalry.record.losses}
+        <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+          {t('mobile.record')}: {rivalry.record.wins}-{rivalry.record.losses}
           {rivalry.record.ties > 0 && `-${rivalry.record.ties}`}
         </div>
       )}

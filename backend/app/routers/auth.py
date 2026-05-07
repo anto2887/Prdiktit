@@ -1,4 +1,5 @@
 # app/routers/auth.py
+import logging
 from datetime import timedelta
 from typing import Any, Optional
 
@@ -6,16 +7,22 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+# Set up logger for this module
+logger = logging.getLogger(__name__)
+
 from ..core.config import settings
 from ..core.security import (
-    create_access_token, 
-    get_password_hash, 
-    verify_password,
-    get_current_active_user,
-    get_current_active_user_optional
+    create_access_token,
+    get_password_hash,
+    verify_password
 )
-from ..db.database import get_db
+from ..core.dependencies import (
+    get_current_active_user_from_session,
+    get_current_active_user_optional_dependency,
+)
+from ..db.session_manager import get_db
 from ..db.repository import get_user_by_username, create_user
+from ..services.content_filter import content_filter
 from ..schemas import (
     LoginRequest, LoginResponse, Token, UserCreate, User, BaseResponse
 )
@@ -122,9 +129,24 @@ async def register_user(
     """
     Register a new user
     """
+    # Add debug logging
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"🔍 REGISTER DEBUG: Registration request received for username: {new_user.username}")
+    logger.info(f"🔍 REGISTER DEBUG: Request data: {new_user.dict()}")
+    
+    # Check for profanity first
+    if content_filter.contains_profanity(new_user.username):
+        logger.warning(f"🔍 REGISTER DEBUG: Username {new_user.username} contains inappropriate content")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username contains inappropriate content"
+        )
+    
     user = await get_user_by_username(db, username=new_user.username)
     
     if user:
+        logger.warning(f"🔍 REGISTER DEBUG: Username {new_user.username} already exists")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Username already exists"
@@ -136,7 +158,9 @@ async def register_user(
     user_data.pop("password")
     user_data["hashed_password"] = hashed_password
     
+    logger.info(f"🔍 REGISTER DEBUG: Creating user with data: {user_data}")
     await create_user(db, **user_data)
+    logger.info(f"🔍 REGISTER DEBUG: User {new_user.username} created successfully")
     
     return {
         "status": "success",
@@ -146,7 +170,9 @@ async def register_user(
 
 @router.get("/status")
 async def auth_status(
-    current_user: Optional[User] = Depends(get_current_active_user_optional)
+    # Use session-based authentication for status checks so that
+    # the X-Session-ID header created on login survives page reloads.
+    current_user: User = Depends(get_current_active_user_from_session),
 ):
     """
     Get current user authentication status
@@ -190,7 +216,7 @@ async def auth_status(
 
 @router.post("/logout")
 async def logout(
-    current_user: Optional[User] = Depends(get_current_active_user_optional)
+    current_user: Optional[User] = Depends(get_current_active_user_optional_dependency())
 ):
     """
     Logout user (client-side token invalidation)

@@ -17,6 +17,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.railway.example
 *.env
 *.ini
 
@@ -64,6 +65,13 @@ terraform.rc
 
 # Other
 repomix-output.txt
+
+# Project documentation files
+changelog
+projectguide
+backend/WORLDCUP_SCHEMA_MIGRATION_README.md
+launch_plan_world_cup_2026.md
+backend/*_MIGRATION_README.md
 
 # Frontend
 frontend/node_modules/

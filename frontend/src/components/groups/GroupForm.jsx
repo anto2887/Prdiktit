@@ -4,9 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { useGroups, useNotifications } from '../../contexts/AppContext';
 import TeamSelector from './TeamSelector';
 import LoadingSpinner from '../common/LoadingSpinner';
-import { HelpTooltip } from '../onboarding/OnboardingGuide';
+import SeasonManager from '../../utils/seasonManager';
+import { useI18n } from '../../i18n';
 
 const GroupForm = () => {
+  const { t } = useI18n();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     name: '',
@@ -14,25 +16,84 @@ const GroupForm = () => {
     tracked_teams: []
   });
   const [loading, setLoading] = useState(false);
+  const [leagues, setLeagues] = useState([]);
+  const [leaguesLoading, setLeaguesLoading] = useState(true);
   const navigate = useNavigate();
   const { createGroup } = useGroups();
   const { showSuccess, showError } = useNotifications();
 
-  const leagues = [
-    { id: 'Premier League', name: 'Premier League', season: '2024-25' },
-    { id: 'La Liga', name: 'La Liga', season: '2024-25' },
-    { id: 'UEFA Champions League', name: 'Champions League', season: '2024-25' },
-    { id: 'MLS', name: 'MLS', season: '2025' },
-    { id: 'FIFA Club World Cup', name: 'FIFA Club World Cup', season: '2025' }
-  ];
+  // Initialize leagues with dynamic seasons to avoid circular dependencies
+  useEffect(() => {
+    const initializeLeagues = () => {
+      setLeaguesLoading(true);
+      try {
+        const leagueConfigs = [
+          { id: 'Premier League', name: 'Premier League' },
+          { id: 'La Liga', name: 'La Liga' },
+          { id: 'UEFA Champions League', name: 'Champions League' },
+          { id: 'World Cup', name: 'World Cup (national teams)' },
+          { id: 'MLS', name: 'MLS' },
+          { id: 'FIFA Club World Cup', name: 'FIFA Club World Cup' }
+        ];
+
+        const leaguesWithSeasons = leagueConfigs.map(league => {
+          let season;
+          if (league.id === 'World Cup') {
+            season = '2026';
+          } else if (league.id === 'MLS' || league.id === 'FIFA Club World Cup') {
+            // Calendar year leagues - use current year
+            season = new Date().getFullYear().toString();
+          } else {
+            // European leagues - use SeasonManager for current season
+            season = SeasonManager.getCurrentSeason(league.id);
+          }
+
+          return {
+            ...league,
+            season: season
+          };
+        });
+
+        setLeagues(leaguesWithSeasons);
+      } catch (error) {
+        console.error('Error initializing leagues:', error);
+        // Fallback to hardcoded seasons if SeasonManager fails
+        setLeagues([
+          { id: 'Premier League', name: 'Premier League', season: '2025-2026' },
+          { id: 'La Liga', name: 'La Liga', season: '2025-2026' },
+          { id: 'UEFA Champions League', name: 'Champions League', season: '2025-2026' },
+          { id: 'World Cup', name: 'World Cup (national teams)', season: '2026' },
+          { id: 'MLS', name: 'MLS', season: '2025' },
+          { id: 'FIFA Club World Cup', name: 'FIFA Club World Cup', season: '2025' }
+        ]);
+      } finally {
+        setLeaguesLoading(false);
+      }
+    };
+
+    // Only initialize once to avoid infinite loops
+    initializeLeagues();
+  }, []); // Empty dependency array ensures this runs only once
 
   const handleLeagueSelect = (leagueId) => {
-    setFormData(prev => ({
-      ...prev,
-      league: leagueId,
-      tracked_teams: [] // Reset teams when league changes
-    }));
-    setStep(2);
+    process.env.NODE_ENV === 'development' && console.log('League selected:', leagueId);
+    
+    // Set the league first, then advance to next step
+    setFormData(prev => {
+      const newFormData = {
+        ...prev,
+        league: leagueId,
+        tracked_teams: [] // Reset teams when league changes
+      };
+      process.env.NODE_ENV === 'development' && console.log('Updated form data:', newFormData);
+      return newFormData;
+    });
+    
+    // Use setTimeout to ensure state update completes before step change
+    setTimeout(() => {
+      process.env.NODE_ENV === 'development' && console.log('Advancing to step 3');
+      setStep(3);
+    }, 0);
   };
 
   const handleTeamsSelected = (teams) => {
@@ -45,18 +106,19 @@ const GroupForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.league || formData.tracked_teams.length === 0) {
-      showError('Please fill in all required fields');
+      showError(t('groupForm.fillRequired'));
+      
       return;
     }
 
     setLoading(true);
     try {
-      console.log('Creating group with data:', formData);
+      process.env.NODE_ENV === 'development' && console.log('Creating group with data:', formData);
       const response = await createGroup(formData);
-      console.log('Create group response:', response);
+      process.env.NODE_ENV === 'development' && console.log('Create group response:', response);
       
       if (response && response.status === 'success') {
-        showSuccess('League created successfully');
+        showSuccess(t('groupForm.createdSuccess'));
         
         // Navigate to the group details page with invite code
         if (response.data && response.data.group_id) {
@@ -72,11 +134,11 @@ const GroupForm = () => {
           navigate('/groups');
         }
       } else {
-        throw new Error(response?.message || 'Failed to create league');
+        throw new Error(response?.message || t('groupForm.createFailed'));
       }
     } catch (error) {
-      showError(error.message || 'Failed to create league');
-      console.error('Error creating league:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error creating league:', error);
+      showError(error.message || t('groupForm.createFailed'));
     } finally {
       setLoading(false);
     }
@@ -86,87 +148,161 @@ const GroupForm = () => {
 
   return (
     <div className="max-w-3xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Create League</h1>
-        
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">{t('groups.createLeague')}</h1>
+
+        <div
+          data-tour="tour-create-group-progress"
+          className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-gray-600 dark:text-gray-300"
+        >
+          <span className={`font-medium ${step === 1 ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+            1. {t('groupForm.leagueName')}
+          </span>
+          <span className="text-gray-400" aria-hidden>
+            →
+          </span>
+          <span className={`font-medium ${step === 2 ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+            2. {t('groupForm.selectLeague')}
+          </span>
+          <span className="text-gray-400" aria-hidden>
+            →
+          </span>
+          <span className={`font-medium ${step === 3 ? 'text-blue-600 dark:text-blue-400' : ''}`}>
+            3. {t('groupForm.selectTeamsToTrack')}
+          </span>
+        </div>
+
+        <div data-tour="tour-create-group-active-step" className="min-h-[10rem]">
         {/* Step 1: League Name */}
-        <div className={`mb-6 ${step !== 1 && 'hidden'}`}>
+        {step === 1 && (
+        <div className="mb-6">
           <div className="flex justify-between items-center mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              League Name
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('groupForm.leagueName')}
             </label>
-            <HelpTooltip content="Choose a unique name for your league that will be visible to all members">
-              <span className="text-gray-400">ℹ️</span>
-            </HelpTooltip>
+            <span
+              className="text-gray-400 dark:text-gray-500 cursor-help"
+              title={t('groupForm.leagueNameHelp')}
+              aria-label={t('groupForm.leagueNameHelp')}
+            >
+              ℹ️
+            </span>
           </div>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter league name"
+            className="w-full p-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded focus:ring-blue-500 focus:border-blue-500"
+            placeholder={t('groupForm.enterLeagueName')}
             required
           />
           <button
             onClick={() => formData.name && setStep(2)}
-            className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700"
+            className="mt-4 w-full bg-blue-600 dark:bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-700 dark:hover:bg-blue-600"
             disabled={!formData.name}
           >
-            Next
+            {t('common.next')}
           </button>
         </div>
+        )}
 
         {/* Step 2: League Selection */}
-        <div className={`mb-6 ${step !== 2 && 'hidden'}`}>
+        {step === 2 && (
+        <div className="mb-6" data-tour="tour-create-group-league-grid">
           <div className="flex justify-between items-center mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Select League
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('groupForm.selectLeague')}
             </label>
-            <HelpTooltip content="Choose which football league your group will follow. This determines the matches available for predictions">
-              <span className="text-gray-400">ℹ️</span>
-            </HelpTooltip>
+            <span
+              className="text-gray-400 dark:text-gray-500 cursor-help"
+              title={t('groupForm.selectLeagueHelp')}
+              aria-label={t('groupForm.selectLeagueHelp')}
+            >
+              ℹ️
+            </span>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            {leagues.map(league => (
-              <button
-                key={league.id}
-                onClick={() => handleLeagueSelect(league.id)}
-                className={`p-4 border rounded-lg transition-colors flex flex-col items-center justify-center
-                  ${formData.league === league.id 
-                    ? 'border-blue-500 bg-blue-50' 
-                    : 'border-gray-200 hover:border-blue-300'}`}
-              >
-                <span className="font-medium">{league.name}</span>
-                <span className="text-sm text-gray-600 mt-1">Season {league.season}</span>
-              </button>
-            ))}
+            {leaguesLoading ? (
+              <LoadingSpinner />
+            ) : (
+              leagues.map(league => (
+                <button
+                  key={league.id}
+                  onClick={() => handleLeagueSelect(league.id)}
+                  className={`p-4 border rounded-lg transition-colors flex flex-col items-center justify-center
+                    ${formData.league === league.id 
+                      ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20' 
+                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 bg-white dark:bg-gray-700'}`}
+                >
+                  <span className="font-medium text-gray-900 dark:text-gray-100">{league.name}</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400 mt-1">{t('global.season')} {league.season}</span>
+                </button>
+              ))
+            )}
           </div>
+          
+          {/* Back button */}
+          <button
+            onClick={() => setStep(1)}
+            className="mt-4 w-full bg-gray-500 dark:bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-600 dark:hover:bg-gray-700"
+          >
+            {t('groupForm.back')}
+          </button>
         </div>
+        )}
 
         {/* Step 3: Team Selection */}
-        <div className={`mb-6 ${step !== 2 || !formData.league ? 'hidden' : ''}`}>
-          <div className="flex justify-between items-center mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Select Teams to Track
-            </label>
-            <HelpTooltip content="Choose which teams to track in your league. You can select multiple teams to follow their matches">
-              <span className="text-gray-400">ℹ️</span>
-            </HelpTooltip>
-          </div>
-          <TeamSelector
-            selectedLeague={formData.league}
-            onTeamsSelected={handleTeamsSelected}
-            selectedTeams={formData.tracked_teams}
-          />
+        {step === 3 && (
+        <div className="mb-6" data-tour="tour-create-group-teams">
+          {process.env.NODE_ENV === 'development' && console.log('Step 3 rendering:', { step, league: formData.league })}
           
-          <button
-            onClick={handleSubmit}
-            disabled={!formData.name || !formData.league || formData.tracked_teams.length === 0}
-            className="mt-6 w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 
-                     disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            Create League
-          </button>
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              {t('groupForm.selectTeamsToTrack')}
+            </label>
+            <span
+              className="text-gray-400 dark:text-gray-500 cursor-help"
+              title={t('groupForm.selectTeamsHelp')}
+              aria-label={t('groupForm.selectTeamsHelp')}
+            >
+              ℹ️
+            </span>
+          </div>
+          
+          {formData.league ? (
+            <div>
+              {process.env.NODE_ENV === 'development' && console.log('Rendering TeamSelector with league:', formData.league)}
+              <TeamSelector
+                selectedLeague={formData.league}
+                onTeamsSelected={handleTeamsSelected}
+                selectedTeams={formData.tracked_teams}
+              />
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              {process.env.NODE_ENV === 'development' && console.log('No league selected, showing fallback message')}
+              {t('groupForm.selectLeagueFirst')}
+            </div>
+          )}
+          
+          <div className="flex gap-4 mt-6">
+            <button
+              onClick={() => setStep(2)}
+              className="flex-1 bg-gray-500 dark:bg-gray-600 text-white py-2 px-4 rounded hover:bg-gray-600 dark:hover:bg-gray-700"
+            >
+              {t('groupForm.back')}
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!formData.name || !formData.league || formData.tracked_teams.length === 0}
+              className="flex-1 bg-blue-600 dark:bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-700 dark:hover:bg-blue-600 
+                       disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed"
+            >
+              {t('groups.createLeague')}
+            </button>
+          </div>
+        </div>
+        )}
         </div>
       </div>
     </div>

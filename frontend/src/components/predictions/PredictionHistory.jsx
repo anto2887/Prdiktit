@@ -3,19 +3,45 @@ import React, { useState, useEffect } from 'react';
 import { usePredictions, useUser } from '../../contexts/AppContext';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
+import SeasonManager from '../../utils/seasonManager';
+import { useI18n } from '../../i18n';
 
 const PredictionHistory = () => {
+  const { t } = useI18n();
   const { userPredictions, fetchUserPredictions, loading, error } = usePredictions();
   const { profile } = useUser();
+  const [availableSeasons, setAvailableSeasons] = useState([]);
+  const [selectedSeason, setSelectedSeason] = useState('');
   const [filters, setFilters] = useState({
     season: '',
-    week: '',
-    status: ''
+    status: '',
+    week: ''
   });
+
+  // Get available seasons for the user's primary group or default to Premier League
+  useEffect(() => {
+    const getSeasons = () => {
+      try {
+        // Default to Premier League if no group context available
+        const seasons = SeasonManager.getAvailableSeasons('Premier League', 5);
+        setAvailableSeasons(seasons);
+      } catch (error) {
+        console.error('Error getting available seasons:', error);
+        // Fallback to hardcoded seasons
+        setAvailableSeasons([
+          { value: '2025-2026', label: '2025-26' },
+          { value: '2024-2025', label: '2024-25' },
+          { value: '2023-2024', label: '2023-24' }
+        ]);
+      }
+    };
+
+    getSeasons();
+  }, []);
 
   useEffect(() => {
     fetchUserPredictions();
-  }, [fetchUserPredictions]);
+  }, []);
 
   // Filter predictions
   const filteredPredictions = userPredictions.filter(prediction => {
@@ -46,21 +72,21 @@ const PredictionHistory = () => {
   // Helper function to get status badge
   const getStatusBadge = (status) => {
     const badges = {
-      'EDITABLE': 'bg-gray-100 text-gray-800',
-      'SUBMITTED': 'bg-blue-100 text-blue-800',
-      'LOCKED': 'bg-yellow-100 text-yellow-800',
-      'PROCESSED': 'bg-green-100 text-green-800'
+      'EDITABLE': 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200',
+      'SUBMITTED': 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200',
+      'LOCKED': 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200',
+      'PROCESSED': 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
     };
     
-    return badges[status] || 'bg-gray-100 text-gray-800';
+    return badges[status] || 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200';
   };
 
   // Helper function to get points badge
   const getPointsBadge = (points) => {
-    if (points === 3) return 'bg-green-100 text-green-800 font-bold';
-    if (points === 1) return 'bg-yellow-100 text-yellow-800 font-bold';
-    if (points === 0) return 'bg-red-100 text-red-800 font-bold';
-    return 'bg-gray-100 text-gray-800';
+    if (points === 3) return 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 font-bold';
+    if (points === 1) return 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 font-bold';
+    if (points === 0) return 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 font-bold';
+    return 'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200';
   };
 
   if (loading) return <LoadingSpinner />;
@@ -70,76 +96,79 @@ const PredictionHistory = () => {
     <div className="max-w-6xl mx-auto p-6">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Prediction History</h1>
-        <p className="text-gray-600">View all your predictions and their results</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">{t('history.title')}</h1>
+        <p className="text-gray-600 dark:text-gray-400">{t('history.subtitle')}</p>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-sm font-medium text-gray-500">Total Points</div>
-          <div className="text-2xl font-bold text-blue-600">{totalPoints}</div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.totalPoints')}</div>
+          <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{totalPoints}</div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-sm font-medium text-gray-500">Total Predictions</div>
-          <div className="text-2xl font-bold text-gray-900">{totalPredictions}</div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.totalPredictions')}</div>
+          <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{totalPredictions}</div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-sm font-medium text-gray-500">Perfect Scores</div>
-          <div className="text-2xl font-bold text-green-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('stats.perfectScores')}</div>
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">
             {filteredPredictions.filter(p => p.points === 3).length}
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="text-sm font-medium text-gray-500">Average Points</div>
-          <div className="text-2xl font-bold text-purple-600">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('profile.averagePoints')}</div>
+          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
             {totalPredictions > 0 ? (totalPoints / totalPredictions).toFixed(1) : '0.0'}
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow mb-6">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Filters</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">{t('history.filters')}</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Season</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('global.season')}</label>
               <select
-                value={filters.season}
-                onChange={(e) => setFilters({...filters, season: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
+                value={selectedSeason}
+                onChange={(e) => setSelectedSeason(e.target.value)}
+                className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded px-3 py-2"
               >
-                <option value="">All Seasons</option>
-                <option value="2024-2025">2024-2025</option>
-                <option value="2023-2024">2023-2024</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Week</label>
-              <select
-                value={filters.week}
-                onChange={(e) => setFilters({...filters, week: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
-              >
-                <option value="">All Weeks</option>
-                {Array.from({ length: 38 }, (_, i) => i + 1).map(week => (
-                  <option key={week} value={week}>Week {week}</option>
+                <option value="">{t('history.allSeasons')}</option>
+                {availableSeasons.map((season) => (
+                  <option key={season.value} value={season.value}>
+                    {season.label}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('rivalries.week')}</label>
+              <select
+                value={filters.week}
+                onChange={(e) => setFilters({...filters, week: e.target.value})}
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md px-3 py-2"
+              >
+                <option value="">{t('history.allWeeks')}</option>
+                {Array.from({ length: 38 }, (_, i) => i + 1).map(week => (
+                  <option key={week} value={week}>{t('rivalries.week')} {week}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t('groupDetails.status')}</label>
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({...filters, status: e.target.value})}
-                className="w-full border border-gray-300 rounded-md px-3 py-2"
+                className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md px-3 py-2"
               >
-                <option value="">All Statuses</option>
-                <option value="EDITABLE">Editable</option>
-                <option value="SUBMITTED">Submitted</option>
-                <option value="LOCKED">Locked</option>
-                <option value="PROCESSED">Processed</option>
+                <option value="">{t('history.allStatuses')}</option>
+                <option value="EDITABLE">{t('recentPredictions.statusEditable')}</option>
+                <option value="SUBMITTED">{t('recentPredictions.statusSubmitted')}</option>
+                <option value="LOCKED">{t('recentPredictions.statusLocked')}</option>
+                <option value="PROCESSED">{t('history.statusProcessed')}</option>
               </select>
             </div>
           </div>
@@ -147,35 +176,35 @@ const PredictionHistory = () => {
       </div>
 
       {/* Predictions Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Match
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('history.match')}
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Your Prediction
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('mobile.yourPrediction')}
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actual Result
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('mobile.actualResult')}
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Points
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('groupDetails.points')}
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('groupDetails.status')}
                 </th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  {t('history.date')}
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredPredictions.length > 0 ? (
                 filteredPredictions.map((prediction) => (
-                  <tr key={prediction.id} className="hover:bg-gray-50">
+                  <tr key={prediction.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-3">
                         <div className="flex items-center space-x-2">
@@ -186,14 +215,14 @@ const PredictionHistory = () => {
                               className="w-6 h-6 object-contain"
                             />
                           )}
-                          <span className="text-sm font-medium">
-                            {prediction.fixture?.home_team || 'Home Team'}
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {prediction.fixture?.home_team || t('history.homeTeam')}
                           </span>
                         </div>
-                        <span className="text-gray-500">vs</span>
+                        <span className="text-gray-500 dark:text-gray-400">{t('matches.vs')}</span>
                         <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium">
-                            {prediction.fixture?.away_team || 'Away Team'}
+                          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {prediction.fixture?.away_team || t('history.awayTeam')}
                           </span>
                           {prediction.fixture?.away_team_logo && (
                             <img 
@@ -204,31 +233,31 @@ const PredictionHistory = () => {
                           )}
                         </div>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        {prediction.fixture?.league || 'Unknown League'}
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {prediction.fixture?.league || t('history.unknownLeague')}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                         {prediction.score1} - {prediction.score2}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       {prediction.fixture?.home_score !== null && prediction.fixture?.away_score !== null ? (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                           {prediction.fixture.home_score} - {prediction.fixture.away_score}
                         </span>
                       ) : (
-                        <span className="text-gray-400 text-sm">Not played</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-sm">{t('history.notPlayed')}</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       {prediction.points !== null ? (
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${getPointsBadge(prediction.points)}`}>
-                          {prediction.points} pts
+                          {prediction.points} {t('profile.pts')}
                         </span>
                       ) : (
-                        <span className="text-gray-400 text-sm">-</span>
+                        <span className="text-gray-400 dark:text-gray-500 text-sm">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -236,18 +265,18 @@ const PredictionHistory = () => {
                         {prediction.prediction_status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td className="px-6 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
                       {prediction.fixture?.date ? 
                         new Date(prediction.fixture.date).toLocaleDateString() : 
-                        'TBD'
+                        t('history.tbd')
                       }
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                    No predictions found with the current filters.
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                    {t('history.noneForFilters')}
                   </td>
                 </tr>
               )}

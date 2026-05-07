@@ -4,10 +4,11 @@ import { format, parseISO, formatDistance, formatDistanceToNow, isValid, addDays
  * TIMEZONE HANDLING DOCUMENTATION:
  * 
  * BACKEND STORAGE: All dates stored as UTC in database
- * API RESPONSES: Dates returned as naive UTC strings (no Z suffix)
+ * API RESPONSES: Dates returned as UTC strings (no Z suffix) - FIXED: Now properly treated as UTC
  * FRONTEND DISPLAY: Convert UTC to user's local timezone
  * 
- * CRITICAL: Backend sends "2025-07-26T00:30:00" (naive) but it's actually UTC
+ * FIXED: Backend sends "2025-08-16T23:30:00" (UTC time) and frontend now correctly converts to local time
+ * Example: 23:30 UTC → 5:30 PM MDT (UTC-6)
  */
 
 /**
@@ -19,47 +20,54 @@ import { format, parseISO, formatDistance, formatDistanceToNow, isValid, addDays
 export const parseUTCToLocal = (date) => {
   if (!date) return null;
   
-  // If it's already a Date object, return it
-  if (date instanceof Date) return date;
-  
   try {
-    // CRITICAL FIX: Handle naive datetime strings from backend
-    if (typeof date === 'string') {
-      // Check if it's a naive datetime string (no timezone info)
-      const isNaiveString = date.match(/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}$/) && !date.endsWith('Z');
+    // Handle naive date strings (without timezone info)
+    if (typeof date === 'string' && !date.includes('T') && !date.includes('Z')) {
+      // Convert naive date string to UTC
+      const utcString = `${date}T00:00:00.000Z`;
+      process.env.NODE_ENV === 'development' && console.log(`🔧 Converting naive string "${date}" to UTC "${utcString}"`);
       
-      if (isNaiveString) {
-        // Backend sends naive strings but they're actually UTC
-        // Convert to proper UTC string by adding 'Z'
-        const utcString = date + 'Z';
-        console.log(`🔧 Converting naive string "${date}" to UTC "${utcString}"`);
-        const parsedDate = parseISO(utcString);
-        
-        if (isValid(parsedDate)) {
-          console.log(`✅ Successfully parsed UTC: ${parsedDate.toString()}`);
+      const parsedDate = new Date(utcString);
+      process.env.NODE_ENV === 'development' && console.log(`✅ Successfully parsed UTC: ${parsedDate.toString()}`);
+      return parsedDate;
+    }
+    
+    // Handle ISO strings - distinguish between UTC and timezone-aware
+    if (typeof date === 'string' && date.includes('T')) {
+      if (date.includes('Z')) {
+        // Has timezone info - parse normally
+        const parsedDate = new Date(date);
+        if (!isNaN(parsedDate.getTime())) {
           return parsedDate;
         }
       } else {
-        // String already has timezone info, parse normally
-        const parsedDate = parseISO(date);
-        if (isValid(parsedDate)) {
-          return parsedDate;
+        // No timezone info - treat as UTC and convert to local
+        // Backend sends "2025-08-16T23:30:00" which is UTC time
+        const utcDate = new Date(date + 'Z');  // Add Z to make it UTC
+        if (!isNaN(utcDate.getTime())) {
+          process.env.NODE_ENV === 'development' && console.log(`🔧 Treating "${date}" as UTC, converted to: ${utcDate.toString()}`);
+          return utcDate;  // JavaScript will convert to local timezone
         }
       }
     }
     
-    // Fallback: try direct Date constructor
-    const fallbackDate = new Date(date);
-    if (isValid(fallbackDate)) {
-      console.log(`⚠️ Used fallback parsing for: ${date}`);
-      return fallbackDate;
+    // Handle Date objects
+    if (date instanceof Date) {
+      return date;
     }
     
-    console.log(`❌ Failed to parse date: ${date}`);
+    // Fallback: try to parse as is
+    const parsedDate = new Date(date);
+    if (!isNaN(parsedDate.getTime())) {
+      process.env.NODE_ENV === 'development' && console.log(`⚠️ Used fallback parsing for: ${date}`);
+      return parsedDate;
+    }
+    
+    process.env.NODE_ENV === 'development' && console.log(`❌ Failed to parse date: ${date}`);
     return null;
     
   } catch (error) {
-    console.error('❌ parseUTCToLocal error:', error);
+    process.env.NODE_ENV === 'development' && console.error('❌ parseUTCToLocal error:', error);
     return null;
   }
 };

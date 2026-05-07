@@ -1,7 +1,7 @@
 // src/pages/PredictionFormPage.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { usePredictions, useMatches, useNotifications } from '../contexts/AppContext';
+import { usePredictions, useMatches, useNotifications, useGroups } from '../contexts/AppContext';
 
 // Components
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -32,6 +32,7 @@ const PredictionFormPage = () => {
   } = useMatches();
   
   const { showSuccess, showError } = useNotifications();
+  const { userGroups, currentGroup } = useGroups();
   
   const [prediction, setPrediction] = useState(null);
   const [match, setMatch] = useState(null);
@@ -39,6 +40,7 @@ const PredictionFormPage = () => {
   const [homeScore, setHomeScore] = useState('');
   const [awayScore, setAwayScore] = useState('');
   const [existingPrediction, setExistingPrediction] = useState(null);
+  const [selectedGroupId, setSelectedGroupId] = useState('');
   
   useEffect(() => {
     const loadData = async () => {
@@ -67,7 +69,7 @@ const PredictionFormPage = () => {
           await fetchUserPredictions();
         }
       } catch (err) {
-        console.error('Error loading data:', err);
+        process.env.NODE_ENV === 'development' && console.error('Error loading data:', err);
         showError('Failed to load match details');
       } finally {
         setIsInitialLoading(false);
@@ -89,6 +91,23 @@ const PredictionFormPage = () => {
     }
   }, [userPredictions, match, id]);
 
+  useEffect(() => {
+    if (existingPrediction?.group_id) {
+      setSelectedGroupId(String(existingPrediction.group_id));
+      return;
+    }
+    if (currentGroup?.id) {
+      setSelectedGroupId(String(currentGroup.id));
+      return;
+    }
+    if (selectedGroupId) return;
+    if (!currentMatchLeague) return;
+    const eligible = userGroups.filter(g => g.league === currentMatchLeague);
+    if (eligible.length === 1) {
+      setSelectedGroupId(String(eligible[0].id));
+    }
+  }, [existingPrediction, currentGroup, userGroups]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Also update match state when selectedMatch changes
   useEffect(() => {
     if (selectedMatch && !match) {
@@ -99,109 +118,72 @@ const PredictionFormPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    console.log('Form submission - Raw values:', { homeScore, awayScore });
-    
-    // Check if scores are provided (including 0)
-    if (homeScore === '' || awayScore === '') {
-      showError('Please enter scores for both teams');
+    if (!match) {
+      showError('No match selected');
       return;
     }
-
-    // Validate scores are numbers
-    const homeScoreNum = parseInt(homeScore);
-    const awayScoreNum = parseInt(awayScore);
     
-    console.log('Parsed numbers:', { homeScoreNum, awayScoreNum });
-    
-    if (isNaN(homeScoreNum) || isNaN(awayScoreNum)) {
-      showError('Scores must be valid numbers');
-      return;
-    }
-
-    if (homeScoreNum < 0 || awayScoreNum < 0 || homeScoreNum > 20 || awayScoreNum > 20) {
-      showError('Scores must be between 0 and 20');
-      return;
-    }
-
-    const predictionData = {
-      match_id: match?.fixture_id || parseInt(matchId),
-      home_score: homeScoreNum,
-      away_score: awayScoreNum
-    };
-
-    console.log('Final prediction data being sent:', predictionData);
-
     try {
+      const eligibleGroups = userGroups.filter(g => g.league === currentMatchLeague);
+      if (eligibleGroups.length > 1 && !selectedGroupId) {
+        showError('Please select a group for this prediction');
+        return;
+      }
+
+      const predictionData = {
+        fixture_id: match.fixture_id,
+        score1: parseInt(homeScore),
+        score2: parseInt(awayScore),
+        group_id: selectedGroupId ? parseInt(selectedGroupId, 10) : undefined
+      };
+      
       if (id || existingPrediction) {
         // Update existing prediction
-        const predictionId = id || existingPrediction.id;
-        console.log('Updating prediction with ID:', predictionId);
-        await updatePrediction(predictionId, {
-          home_score: homeScoreNum,
-          away_score: awayScoreNum
-        });
-        showSuccess('Prediction updated successfully');
+        const updatedPrediction = await updatePrediction(id || existingPrediction.id, predictionData);
+        if (updatedPrediction) {
+          showSuccess('Prediction updated successfully');
+          navigate('/predictions');
+        }
       } else {
         // Create new prediction
-        console.log('Creating new prediction with data:', predictionData);
-        await createPrediction(predictionData);
-        showSuccess('Prediction created successfully');
-        
-        // Trigger dashboard refresh by dispatching custom event
-        window.dispatchEvent(new CustomEvent('predictionsUpdated'));
-        localStorage.setItem('predictions_updated', Date.now().toString());
+        const newPrediction = await createPrediction(predictionData);
+        if (newPrediction) {
+          showSuccess('Prediction saved successfully');
+          navigate('/predictions');
+        }
       }
-      
-      // Force a refresh of predictions data with a small delay
-      setTimeout(async () => {
-        await fetchUserPredictions();
-      }, 500);
-      
-      navigate('/dashboard'); // Navigate to dashboard to see the updated predictions
     } catch (err) {
-      console.error('Prediction submission error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        response: err.response,
-        status: err.status
-      });
+      process.env.NODE_ENV === 'development' && console.error('Error saving prediction:', err);
       showError(err.message || 'Failed to save prediction');
     }
   };
 
-  // Show loading only during initial data fetch
-  if (isInitialLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-64">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  // Show error if there's an error
-  const error = predictionError || matchError;
-  if (error) {
-    return <ErrorMessage message={error} />;
-  }
-
-  // Use the match from state or selectedMatch
+  // Use either the match from state or the selected match
   const currentMatch = match || selectedMatch;
+  const currentMatchLeague = currentMatch?.league || null;
+  const eligibleGroupsForMatch = currentMatchLeague
+    ? userGroups.filter(g => g.league === currentMatchLeague)
+    : [];
+  const showGroupSelector = eligibleGroupsForMatch.length > 1 && !id && !existingPrediction;
   
-  if (!currentMatch && !isInitialLoading) {
-    return (
-      <ErrorMessage 
-        message="Match not found. Please try again." 
-        onRetry={() => window.location.reload()}
-      />
-    );
-  }
-
-  // Check if prediction deadline has passed (kickoff time)
+  // Check if deadline has passed
   const isDeadlinePassed = currentMatch?.prediction_deadline 
     ? isDateInPast(currentMatch.prediction_deadline)
     : currentMatch?.date 
       ? isDateInPast(currentMatch.date)
       : false;
+
+  if (isInitialLoading) {
+    return <LoadingSpinner />;
+  }
+
+  if (matchError) {
+    return <ErrorMessage message={matchError} />;
+  }
+
+  if (!currentMatch) {
+    return <ErrorMessage message="Match not found" />;
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-6">
@@ -224,38 +206,47 @@ const PredictionFormPage = () => {
           <>
             {/* Match details */}
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="text-center">
+              <div className="flex items-center justify-center space-x-8 mb-4">
+                <div className="flex items-center space-x-2">
+                  {currentMatch.home_team_logo ? (
                     <img 
-                      src={currentMatch.home_team_logo || '/placeholder-logo.svg'} 
-                      alt="" 
-                      className="w-12 h-12 mx-auto mb-1"
-                      onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
+                      src={currentMatch.home_team_logo} 
+                      alt={currentMatch.home_team}
+                      className="w-8 h-8 object-contain"
+                      onError={(e) => { 
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'flex';
+                      }}
                     />
-                    <p className="text-sm font-medium">{currentMatch.home_team}</p>
+                  ) : null}
+                  <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center" style={{ display: currentMatch.home_team_logo ? 'none' : 'flex' }}>
+                    <span className="text-gray-500 text-sm">⚽</span>
                   </div>
-                  
-                  <div className="text-center">
-                    <p className="text-lg font-bold text-gray-900">VS</p>
-                    <p className="text-xs text-gray-500">
-                      {currentMatch.date ? formatKickoffTime(currentMatch.date) : 'TBD'}
-                    </p>
-                  </div>
-                  
-                  <div className="text-center">
+                  <span className="text-lg font-medium">{currentMatch.home_team}</span>
+                </div>
+                
+                <span className="text-gray-400 text-lg">vs</span>
+                
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg font-medium">{currentMatch.away_team}</span>
+                  {currentMatch.away_team_logo ? (
                     <img 
-                      src={currentMatch.away_team_logo || '/placeholder-logo.svg'} 
-                      alt="" 
-                      className="w-12 h-12 mx-auto mb-1"
-                      onError={(e) => { e.target.src = '/placeholder-logo.svg'; }}
+                      src={currentMatch.away_team_logo} 
+                      alt={currentMatch.away_team}
+                      className="w-8 h-8 object-contain"
+                      onError={(e) => { 
+                        e.target.style.display = 'none';
+                        e.target.nextElementSibling.style.display = 'flex';
+                      }}
                     />
-                    <p className="text-sm font-medium">{currentMatch.away_team}</p>
+                  ) : null}
+                  <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center" style={{ display: currentMatch.away_team_logo ? 'none' : 'flex' }}>
+                    <span className="text-gray-500 text-sm">⚽</span>
                   </div>
                 </div>
               </div>
               
-              <div className="mt-3 text-sm text-gray-600 text-center">
+              <div className="text-sm text-gray-600 text-center">
                 <p>{currentMatch.league} • {currentMatch.season}</p>
                 {(() => {
                   const deadline = currentMatch.prediction_deadline || currentMatch.date;
@@ -304,6 +295,30 @@ const PredictionFormPage = () => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
+                {showGroupSelector && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select league group for this prediction
+                    </label>
+                    <select
+                      value={selectedGroupId}
+                      onChange={(e) => setSelectedGroupId(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2"
+                      required
+                    >
+                      <option value="">Choose a group...</option>
+                      {eligibleGroupsForMatch.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-600 mt-2">
+                      You belong to multiple {currentMatchLeague} groups; pick one to avoid ambiguity.
+                    </p>
+                  </div>
+                )}
+
                 <div className="bg-white border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Your Prediction</h3>
                   
@@ -318,10 +333,10 @@ const PredictionFormPage = () => {
                         max="20"
                         value={homeScore}
                         onChange={(e) => {
-                          console.log('Home score input changed:', e.target.value);
+                          process.env.NODE_ENV === 'development' && console.log('Home score input changed:', e.target.value);
                           setHomeScore(e.target.value);
                         }}
-                        className="w-20 h-12 text-center text-xl font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-20 h-12 text-center text-xl text-base font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0"
                         required
                       />
@@ -339,10 +354,10 @@ const PredictionFormPage = () => {
                         max="20"
                         value={awayScore}
                         onChange={(e) => {
-                          console.log('Away score input changed:', e.target.value);
+                          process.env.NODE_ENV === 'development' && console.log('Away score input changed:', e.target.value);
                           setAwayScore(e.target.value);
                         }}
-                        className="w-20 h-12 text-center text-xl font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-20 h-12 text-center text-xl text-base font-bold border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="0"
                         required
                       />
@@ -350,18 +365,18 @@ const PredictionFormPage = () => {
                   </div>
                 </div>
 
-                <div className="flex justify-end space-x-4">
+                <div className="flex flex-col-reverse sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4">
                   <button
                     type="button"
                     onClick={() => navigate('/predictions')}
-                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 w-full sm:w-auto"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={predictionLoading}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
                   >
                     {predictionLoading ? 'Saving...' : (id || existingPrediction ? 'Update Prediction' : 'Save Prediction')}
                   </button>

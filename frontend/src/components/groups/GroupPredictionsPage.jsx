@@ -1,15 +1,16 @@
 // frontend/src/components/groups/GroupPredictionsPage.jsx
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { useNotifications } from '../../contexts/AppContext';
+import MobilePageHeader from '../mobile/MobilePageHeader';
 import LoadingSpinner from '../common/LoadingSpinner';
 import ErrorMessage from '../common/ErrorMessage';
-import OnboardingGuide, { HelpTooltip } from '../onboarding/OnboardingGuide';
+import { useI18n } from '../../i18n';
 
 const GroupPredictionsPage = () => {
+  const { t } = useI18n();
   const { groupId } = useParams();
-  const navigate = useNavigate();
-  const { showError, showSuccess } = useNotifications();
+  const { showError } = useNotifications();
   
   // State management
   const [loading, setLoading] = useState(true);
@@ -19,104 +20,103 @@ const GroupPredictionsPage = () => {
   const [selectedWeek, setSelectedWeek] = useState(null);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [weekMessage, setWeekMessage] = useState(null);
   
-  // Guide state
-  const [showGuide, setShowGuide] = useState(false);
-  const [guideStep, setGuideStep] = useState(0);
-
   useEffect(() => {
     if (groupId) {
       loadGroupData();
     }
-  }, [groupId, selectedWeek]);
+  }, [groupId]); // Remove loadGroupData from dependencies
 
-  const loadGroupData = async () => {
+  // Effect to load predictions when group data is available or week changes
+  useEffect(() => {
+    if (group && selectedWeek) {
+      loadGroupPredictions();
+    }
+  }, [selectedWeek, group]); // Remove loadGroupPredictions from dependencies
+
+  const loadGroupData = useCallback(async () => {
     setLoading(true);
     setError(null);
     
     try {
-      // Load group details
-      const groupResponse = await fetch(`/api/v1/groups/${groupId}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
+      // Load group details using the proper API client with session authentication
+      const { groupsApi } = await import('../../api');
+      const groupResponse = await groupsApi.getGroupById(groupId);
       
-      if (!groupResponse.ok) {
-        throw new Error('Failed to load group');
-      }
-      
-      const groupData = await groupResponse.json();
-      setGroup(groupData.data);
-      setCurrentWeek(groupData.data.current_week || 1);
+      setGroup(groupResponse.data);
+      setCurrentWeek(groupResponse.data.current_week || 1);
       
       // Set default week if not selected
       if (!selectedWeek) {
-        setSelectedWeek(25); // Use week 25 where we know there's data
+        setSelectedWeek(1); // Start with week 1 as default
       }
       
-      // Load group predictions for the selected week
-      await loadGroupPredictions();
-      
     } catch (err) {
-      console.error('Error loading group data:', err);
-      setError('Failed to load group data');
-      showError('Failed to load group predictions');
+      process.env.NODE_ENV === 'development' && console.error('Error loading group data:', err);
+      setError(t('groupPredictions.loadFailedData'));
+      // Only show error notification if we're not in initial loading phase
+      // This prevents the brief error flash when navigating to group pages
+      if (group) {
+        showError(t('groupPredictions.loadFailed'));
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, [groupId, showError, group]); // Add group to dependencies
 
-  const loadGroupPredictions = async () => {
+  const loadGroupPredictions = useCallback(async () => {
     try {
+      setWeekMessage(null); // Clear any previous message
       const week = selectedWeek || currentWeek;
       // Use the correct season format for MLS (2025 instead of 2024-2025)
       const season = '2025'; // MLS uses calendar year format
       
-      console.log('🔍 === GROUP PREDICTIONS DEBUG START ===');
-      console.log(`🔍 Loading group predictions for group ${groupId}, week ${week}, season ${season}`);
-      console.log('🔍 Group data:', group);
-      console.log('🔍 Selected week:', selectedWeek);
-      console.log('🔍 Current week:', currentWeek);
+      process.env.NODE_ENV === 'development' && console.log('🔍 === GROUP PREDICTIONS DEBUG START ===');
+      process.env.NODE_ENV === 'development' && console.log(`🔍 Loading group predictions for group ${groupId}, week ${week}, season ${season}`);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Group data:', group);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Selected week:', selectedWeek);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Current week:', currentWeek);
       
-      const response = await fetch(`/api/v1/predictions/group/${groupId}/week/${week}?season=${season}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-      });
+      // Use the proper API client with session authentication
+      const { predictionsApi } = await import('../../api');
+      const response = await predictionsApi.getGroupPredictions(groupId, week, season);
       
-      console.log(`🔍 Group predictions response status: ${response.status}`);
-      console.log(`🔍 Response headers:`, Object.fromEntries(response.headers.entries()));
+      // NOTE: predictionsApi already normalizes the API response and returns
+      // an object of the form { status, message, data }, so response.data is
+      // already the array of predictions.
+      process.env.NODE_ENV === 'development' && console.log('🔍 Group predictions API normalized response:', response);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Response.data (predictions array):', response.data);
       
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`🔍 Group predictions API error: ${response.status} - ${errorText}`);
-        throw new Error(`Failed to load predictions: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('🔍 Group predictions API response:', data);
-      console.log('🔍 Response data type:', typeof data);
-      console.log('🔍 Response data keys:', Object.keys(data));
-      console.log('🔍 Response.data type:', typeof data.data);
-      console.log('🔍 Response.data:', data.data);
-      
-      const predictionsArray = Array.isArray(data.data) ? data.data : [];
-      console.log('🔍 Processed predictions array:', predictionsArray);
-      console.log('🔍 Predictions array length:', predictionsArray.length);
-      console.log('🔍 Predictions array type:', typeof predictionsArray);
+      const predictionsArray = Array.isArray(response.data) ? response.data : [];
+      process.env.NODE_ENV === 'development' && console.log('🔍 Processed predictions array:', predictionsArray);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Predictions array length:', predictionsArray.length);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Predictions array type:', typeof predictionsArray);
       
       if (predictionsArray.length > 0) {
-        console.log('🔍 First prediction structure:', predictionsArray[0]);
-        console.log('🔍 First prediction keys:', Object.keys(predictionsArray[0]));
+        process.env.NODE_ENV === 'development' && console.log('🔍 First prediction structure:', predictionsArray[0]);
+        process.env.NODE_ENV === 'development' && console.log('🔍 First prediction keys:', Object.keys(predictionsArray[0]));
+      } else {
+        setWeekMessage(t('groupPredictions.noPredictionsWeek'));
       }
       
-      console.log('🔍 Setting predictions state with:', predictionsArray);
       setPredictions(predictionsArray);
-      console.log('🔍 === GROUP PREDICTIONS DEBUG END ===');
       
     } catch (err) {
-      console.error('🔍 Error loading predictions:', err);
-      console.error('🔍 Error stack:', err.stack);
+      process.env.NODE_ENV === 'development' && console.error('🔍 Error loading predictions:', err);
+      process.env.NODE_ENV === 'development' && console.error('🔍 Error stack:', err.stack);
       setPredictions([]);
+      
+      // Set appropriate week message based on error
+      if (err.message.includes('member')) {
+        setWeekMessage(t('groupPredictions.notMember'));
+      } else if (err.message.includes('not found')) {
+        setWeekMessage(t('groupManagement.groupNotFound'));
+      } else {
+        setWeekMessage(t('groupPredictions.noPredictionsWeek'));
+      }
     }
-  };
+  }, [groupId, selectedWeek, currentWeek, group]); // Keep only necessary dependencies
 
   const getWeekOptions = () => {
     // Get league-specific week ranges
@@ -147,107 +147,85 @@ const GroupPredictionsPage = () => {
 
   if (loading) return <LoadingSpinner />;
   if (error) return <ErrorMessage message={error} />;
-  if (!group) return <ErrorMessage message="Group not found" />;
+  if (!group) return <ErrorMessage message={t('groupManagement.groupNotFound')} />;
 
-  console.log('🔍 === GROUP PREDICTIONS RENDER DEBUG ===');
-  console.log('🔍 Current predictions state:', predictions);
-  console.log('🔍 Predictions length:', predictions.length);
-  console.log('🔍 Predictions type:', typeof predictions);
-  console.log('🔍 Selected week:', selectedWeek);
-  console.log('🔍 Current week:', currentWeek);
-  console.log('🔍 View mode:', viewMode);
-  console.log('🔍 === END RENDER DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 === GROUP PREDICTIONS RENDER DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 Current predictions state:', predictions);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Predictions length:', predictions.length);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Predictions type:', typeof predictions);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Selected week:', selectedWeek);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Current week:', currentWeek);
+  process.env.NODE_ENV === 'development' && console.log('🔍 View mode:', viewMode);
+  process.env.NODE_ENV === 'development' && console.log('🔍 === END RENDER DEBUG ===');
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Mobile Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40">
-        <div className="px-4 py-3">
-          {/* Top row: Back button and group name */}
-          <div className="flex items-center justify-between mb-3">
-            <button
-              onClick={() => navigate(`/groups/${groupId}`)}
-              className="flex items-center text-blue-600 hover:text-blue-800"
+      <MobilePageHeader title={group.name} backPath={`/groups/${groupId}`} />
+
+      {/* Controls row */}
+      <div
+        className="px-4 pt-3 pb-2 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 sticky top-14 z-30 md:static md:top-auto"
+        data-tour="tour-group-predictions-controls"
+      >
+        <div className="flex items-center justify-between space-x-3 overflow-x-auto">
+          {/* Week selector */}
+          <div className="flex-1 max-w-32 min-w-[8rem]">
+            <select
+              id="week-selector"
+              value={selectedWeek || currentWeek}
+              onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
+              title={t('groupPredictions.selectWeekHelp')}
+              aria-label={t('groupPredictions.selectWeekHelp')}
+              className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <svg className="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <span className="text-sm font-medium">Back to Group</span>
-            </button>
-            
-            <h1 className="text-lg font-bold text-gray-900 truncate ml-2">
-              {group.name}
-            </h1>
+              {getWeekOptions().map(week => (
+                <option key={week} value={week}>
+                  {t('rivalries.week')} {week}
+                  {week === currentWeek && ` (${t('groupPredictions.current')})`}
+                </option>
+              ))}
+            </select>
           </div>
           
-          {/* Controls row */}
-          <div className="flex items-center justify-between space-x-3">
-            {/* Week selector */}
-            <div className="flex-1 max-w-32">
-              <HelpTooltip content="Select a specific week to view predictions for that week">
-                <select
-                  id="week-selector"
-                  value={selectedWeek || currentWeek}
-                  onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-                  className="w-full p-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {getWeekOptions().map(week => (
-                    <option key={week} value={week}>
-                      Week {week}
-                      {week === currentWeek && ' (Current)'}
-                    </option>
-                  ))}
-                </select>
-              </HelpTooltip>
-            </div>
-            
-            {/* View toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1" id="view-toggle">
-              <HelpTooltip content="Switch between grid view (cards) and list view (compact)">
-                <div className="flex">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      viewMode === 'grid'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    Grid
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                      viewMode === 'list'
-                        ? 'bg-white text-blue-600 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    List
-                  </button>
-                </div>
-              </HelpTooltip>
-            </div>
-            
-            {/* Help button */}
-            <HelpTooltip content="Start the guided tour to learn about this page">
+          {/* View toggle */}
+          <div
+            className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1 shrink-0"
+            id="view-toggle"
+            title={t('groupPredictions.viewModeHelp')}
+          >
+            <div className="flex">
               <button
-                onClick={() => setShowGuide(true)}
-                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
+                  viewMode === 'grid'
+                    ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                {t('groupPredictions.grid')}
               </button>
-            </HelpTooltip>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-1 min-h-[44px] text-sm font-medium rounded-md transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                {t('groupPredictions.list')}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4" data-tour="tour-group-predictions-main">
         {predictions.length === 0 ? (
-          <EmptyPredictionsState selectedWeek={selectedWeek} />
+          <EmptyPredictionsState selectedWeek={selectedWeek} weekMessage={weekMessage} />
         ) : (
           <div id="predictions-display">
             <PredictionsDisplay 
@@ -258,71 +236,36 @@ const GroupPredictionsPage = () => {
           </div>
         )}
       </div>
-      
-      {/* Guide/Help System */}
-      <OnboardingGuide
-        isOpen={showGuide}
-        onClose={() => setShowGuide(false)}
-        onComplete={() => setShowGuide(false)}
-        step={guideStep}
-        totalSteps={4}
-        steps={[
-          {
-            title: "Welcome to Group Predictions!",
-            content: "This page shows all predictions made by your group members for the selected week. You can see how everyone predicted each match and compare results.",
-            action: "Next",
-            highlight: null
-          },
-          {
-            title: "Week Selection",
-            content: "Use the week selector to view predictions for different weeks. The current week is marked with '(Current)'. Different leagues have different numbers of weeks.",
-            action: "Next",
-            highlight: "week-selector"
-          },
-          {
-            title: "View Modes",
-            content: "Switch between Grid view (shows match cards) and List view (compact format). Grid view is great for seeing match details, while List view is perfect for quick scanning.",
-            action: "Next",
-            highlight: "view-toggle"
-          },
-          {
-            title: "Understanding Results",
-            content: "Each prediction shows the user's predicted score and points earned. Perfect predictions (exact score) earn 3 points, correct results earn 1 point. Points are only shown for processed predictions.",
-            action: "Got it!",
-            highlight: "predictions-display"
-          }
-        ]}
-      />
     </div>
   );
 };
 
 // Empty state component
-const EmptyPredictionsState = ({ selectedWeek }) => (
+const EmptyPredictionsState = ({ selectedWeek, weekMessage }) => {
+  const { t } = useI18n();
+  return (
   <div className="text-center py-12">
     <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
       <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012-2" />
       </svg>
     </div>
-    <h3 className="text-lg font-medium text-gray-900 mb-2">No Predictions Yet</h3>
+    <h3 className="text-lg font-medium text-gray-900 mb-2">{t('groupPredictions.noneAvailable')}</h3>
     <p className="text-gray-500 text-sm px-4">
-      {selectedWeek && selectedWeek > new Date().getWeek() 
-        ? `Week ${selectedWeek} predictions will be visible after kickoff times.`
-        : 'No group members have made predictions for this week yet.'
-      }
+      {weekMessage || t('groupPredictions.noPredictionsWeek')}
     </p>
   </div>
-);
+  );
+};
 
 // Predictions display component
 const PredictionsDisplay = ({ predictions, viewMode, selectedWeek }) => {
-  console.log('🔍 === PREDICTIONS DISPLAY DEBUG ===');
-  console.log('🔍 PredictionsDisplay received predictions:', predictions);
-  console.log('🔍 PredictionsDisplay predictions length:', predictions.length);
-  console.log('🔍 PredictionsDisplay viewMode:', viewMode);
-  console.log('🔍 PredictionsDisplay selectedWeek:', selectedWeek);
-  console.log('🔍 === END PREDICTIONS DISPLAY DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 === PREDICTIONS DISPLAY DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsDisplay received predictions:', predictions);
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsDisplay predictions length:', predictions.length);
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsDisplay viewMode:', viewMode);
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsDisplay selectedWeek:', selectedWeek);
+  process.env.NODE_ENV === 'development' && console.log('🔍 === END PREDICTIONS DISPLAY DEBUG ===');
 
   if (viewMode === 'list') {
     return <PredictionsListView predictions={predictions} />;
@@ -333,18 +276,18 @@ const PredictionsDisplay = ({ predictions, viewMode, selectedWeek }) => {
 
 // Grid view for mobile-first design
 const PredictionsGridView = ({ predictions, selectedWeek }) => {
-  console.log('🔍 === PREDICTIONS GRID VIEW DEBUG ===');
-  console.log('🔍 PredictionsGridView received predictions:', predictions);
-  console.log('🔍 PredictionsGridView predictions length:', predictions.length);
+  process.env.NODE_ENV === 'development' && console.log('🔍 === PREDICTIONS GRID VIEW DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsGridView received predictions:', predictions);
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsGridView predictions length:', predictions.length);
   
   // Group predictions by match
   const predictionsByMatch = predictions.reduce((acc, pred) => {
-    console.log('🔍 Processing prediction:', pred);
-    console.log('🔍 Prediction fixture:', pred.fixture);
-    console.log('🔍 Prediction user:', pred.user);
+    process.env.NODE_ENV === 'development' && console.log('🔍 Processing prediction:', pred);
+    process.env.NODE_ENV === 'development' && console.log('🔍 Prediction fixture:', pred.fixture);
+    process.env.NODE_ENV === 'development' && console.log('🔍 Prediction user:', pred.user);
     
-    const matchKey = `${pred.fixture?.home_team} vs ${pred.fixture?.away_team}`;
-    console.log('🔍 Match key:', matchKey);
+    const matchKey = pred.fixture?.fixture_id || pred.match_id;
+    process.env.NODE_ENV === 'development' && console.log('🔍 Match key:', matchKey);
     
     if (!acc[matchKey]) {
       acc[matchKey] = {
@@ -356,9 +299,9 @@ const PredictionsGridView = ({ predictions, selectedWeek }) => {
     return acc;
   }, {});
 
-  console.log('🔍 PredictionsByMatch result:', predictionsByMatch);
-  console.log('🔍 Number of matches:', Object.keys(predictionsByMatch).length);
-  console.log('🔍 === END PREDICTIONS GRID VIEW DEBUG ===');
+  process.env.NODE_ENV === 'development' && console.log('🔍 PredictionsByMatch result:', predictionsByMatch);
+  process.env.NODE_ENV === 'development' && console.log('🔍 Number of matches:', Object.keys(predictionsByMatch).length);
+  process.env.NODE_ENV === 'development' && console.log('🔍 === END PREDICTIONS GRID VIEW DEBUG ===');
 
   return (
     <div className="space-y-4">
@@ -376,6 +319,7 @@ const PredictionsGridView = ({ predictions, selectedWeek }) => {
 
 // Individual match prediction card
 const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   
   // Show top 3 predictions by default, expand to show all
@@ -386,9 +330,9 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
   const actualResult = fixture?.home_score !== null ? `${fixture.home_score}-${fixture.away_score}` : null;
   
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Match header */}
-      <div className="p-4 bg-gray-50 border-b border-gray-200">
+      <div className="p-4 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
         <div className="flex items-center justify-between">
           <div className="flex-1">
             <div className="flex items-center space-x-3">
@@ -401,13 +345,13 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
                     className="w-6 h-6 object-contain"
                   />
                 )}
-                <span className="font-medium text-sm">{fixture?.home_team}</span>
+                <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{fixture?.home_team}</span>
               </div>
               
-              <span className="text-gray-400 text-sm">vs</span>
+              <span className="text-gray-400 dark:text-gray-500 text-sm">{t('matches.vs')}</span>
               
               <div className="flex items-center space-x-2">
-                <span className="font-medium text-sm">{fixture?.away_team}</span>
+                <span className="font-medium text-sm text-gray-900 dark:text-gray-100">{fixture?.away_team}</span>
                 {fixture?.away_team_logo && (
                   <img 
                     src={fixture.away_team_logo} 
@@ -419,9 +363,9 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
             </div>
             
             {/* Match status/result */}
-            <div className="mt-1 text-xs text-gray-500">
+            <div className="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {actualResult ? (
-                <span className="font-medium text-green-600">Final: {actualResult}</span>
+                <span className="font-medium text-green-600 dark:text-green-400">{t('groupPredictions.final')}: {actualResult}</span>
               ) : (
                 <span>{fixture?.league} • {new Date(fixture?.date).toLocaleDateString()}</span>
               )}
@@ -429,8 +373,8 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
           </div>
           
           <div className="text-right">
-            <div className="text-sm font-medium text-gray-900">
-              {predictions.length} prediction{predictions.length !== 1 ? 's' : ''}
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {predictions.length} {predictions.length !== 1 ? t('profile.predictions') : t('groupPredictions.prediction')}
             </div>
           </div>
         </div>
@@ -453,9 +397,9 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
         {hasMore && (
           <button
             onClick={() => setExpanded(!expanded)}
-            className="w-full mt-3 py-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+            className="w-full mt-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
           >
-            {expanded ? 'Show Less' : `Show ${predictions.length - 3} More`}
+            {expanded ? t('groupPredictions.showLess') : `${t('groupPredictions.show')} ${predictions.length - 3} ${t('groupPredictions.more')}`}
           </button>
         )}
       </div>
@@ -465,6 +409,7 @@ const MatchPredictionCard = ({ fixture, predictions, selectedWeek }) => {
 
 // Individual prediction row
 const PredictionRow = ({ prediction, actualResult, isMatchStarted }) => {
+  const { t } = useI18n();
   const predictedScore = `${prediction.home_score}-${prediction.away_score}`;
   const points = prediction.points || 0;
   
@@ -478,48 +423,50 @@ const PredictionRow = ({ prediction, actualResult, isMatchStarted }) => {
   
   if (isPredictionProcessed) {
     if (points === 3) {
-      accuracyClass = 'text-green-600 bg-green-50';
+      accuracyClass = 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
       accuracyIcon = '🎯'; // Perfect
-      accuracyTooltip = 'Perfect prediction! Exact score match (3 points)';
+      accuracyTooltip = t('groupPredictions.tooltipPerfect');
     } else if (points === 1) {
-      accuracyClass = 'text-yellow-600 bg-yellow-50';
+      accuracyClass = 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
       accuracyIcon = '✓'; // Correct result
-      accuracyTooltip = 'Correct result! Right winner/draw (1 point)';
+      accuracyTooltip = t('groupPredictions.tooltipCorrect');
     } else {
-      accuracyClass = 'text-red-600 bg-red-50';
+      accuracyClass = 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
       accuracyIcon = '✗'; // Wrong
-      accuracyTooltip = 'Incorrect prediction (0 points)';
+      accuracyTooltip = t('groupPredictions.tooltipIncorrect');
     }
   }
   
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex items-center space-x-3">
-        <div className="font-medium text-sm text-gray-900">
-          {prediction.user?.username || 'Unknown User'}
+        <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
+          {prediction.user?.username || t('groupPredictions.unknownUser')}
         </div>
         
         {prediction.bonus_type && (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-            {prediction.bonus_type === 'perfect_week' ? '3x' : '2x'} Bonus
+          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+            {prediction.bonus_type === 'perfect_week' ? '3x' : '2x'} {t('groupPredictions.bonus')}
           </span>
         )}
       </div>
       
       <div className="flex items-center space-x-2">
-        <HelpTooltip content={accuracyTooltip || 'Prediction not yet processed'}>
-          <span className={`inline-flex items-center px-2 py-1 rounded-md text-sm font-medium ${accuracyClass || 'bg-gray-100 text-gray-800'}`}>
-            {accuracyIcon && <span className="mr-1">{accuracyIcon}</span>}
-            {predictedScore}
-          </span>
-        </HelpTooltip>
-        
+        <span
+          title={accuracyTooltip || t('groupPredictions.notProcessed')}
+          className={`inline-flex items-center px-2 py-1 rounded-md text-sm font-medium ${accuracyClass || 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}
+        >
+          {accuracyIcon && <span className="mr-1">{accuracyIcon}</span>}
+          {predictedScore}
+        </span>
+
         {isPredictionProcessed && (
-          <HelpTooltip content={`${points} point${points !== 1 ? 's' : ''} earned for this prediction`}>
-            <span className="text-sm font-medium text-gray-600">
-              {points}pt{points !== 1 ? 's' : ''}
-            </span>
-          </HelpTooltip>
+          <span
+            title={`${points} ${points !== 1 ? t('mobile.points') : t('mobile.point')} ${t('groupPredictions.earnedForPrediction')}`}
+            className="text-sm font-medium text-gray-600 dark:text-gray-400"
+          >
+            {points}pt{points !== 1 ? 's' : ''}
+          </span>
         )}
       </div>
     </div>
@@ -528,9 +475,10 @@ const PredictionRow = ({ prediction, actualResult, isMatchStarted }) => {
 
 // List view (compact alternative)
 const PredictionsListView = ({ predictions }) => {
+  const { t } = useI18n();
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="divide-y divide-gray-200">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="divide-y divide-gray-200 dark:divide-gray-700">
         {predictions.map((prediction, index) => {
           const isPredictionProcessed = prediction.prediction_status === 'PROCESSED' && prediction.points !== null;
           
@@ -538,20 +486,20 @@ const PredictionsListView = ({ predictions }) => {
             <div key={index} className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <div className="font-medium text-sm text-gray-900">
+                  <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
                     {prediction.user?.username}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {prediction.fixture?.home_team} vs {prediction.fixture?.away_team}
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    {prediction.fixture?.home_team} {t('matches.vs')} {prediction.fixture?.away_team}
                   </div>
                 </div>
                 
                 <div className="text-right">
-                  <div className="text-sm font-medium">
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     {prediction.home_score}-{prediction.away_score}
                   </div>
                   {isPredictionProcessed && (
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       {prediction.points} pts
                     </div>
                   )}

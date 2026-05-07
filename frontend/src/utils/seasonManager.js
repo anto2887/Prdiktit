@@ -46,6 +46,13 @@ export const LeagueType = {
       displayFormat: '{year}',
       dbFormat: '{year}',
       apiSeason: '{year}'
+    },
+    'World Cup': {
+      type: LeagueType.TOURNAMENT,
+      apiId: 1,
+      displayFormat: '{year}',
+      dbFormat: '{year}',
+      apiSeason: '{year}'
     }
   };
   
@@ -54,6 +61,10 @@ export const LeagueType = {
      * Get the current season for a league in database format
      */
     static getCurrentSeason(leagueName) {
+      if (leagueName === 'World Cup') {
+        // Mirror backend SeasonManager pinned season for FIFA World Cup 2026 (API season 2026)
+        return '2026';
+      }
       const config = LEAGUE_CONFIGS[leagueName];
       if (!config) {
         return new Date().getFullYear().toString();

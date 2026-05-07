@@ -21,21 +21,11 @@ const PredictionHeatmap = ({ groupId, week, season }) => {
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/v1/analytics/group/${groupId}/heatmap?week=${week}&season=${season}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to load heatmap data');
-      }
-
-      const data = await response.json();
-      setHeatmapData(data.data);
+      // Use the proper API client with session authentication
+      const { analyticsApi } = await import('../../api');
+      const response = await analyticsApi.getGroupHeatmap(groupId, week, season);
+      
+      setHeatmapData(response.data.data);
 
     } catch (err) {
       console.error('Error loading heatmap:', err);
@@ -267,19 +257,11 @@ export const CompactHeatmap = ({ groupId, week, season, maxMatches = 2 }) => {
   const loadHeatmapData = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/v1/analytics/group/${groupId}/heatmap?week=${week}&season=${season}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-          }
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setHeatmapData(data.data);
-      }
+      // Use the proper API client with session authentication
+      const { analyticsApi } = await import('../../api');
+      const response = await analyticsApi.getGroupHeatmap(groupId, week, season);
+      
+      setHeatmapData(response.data.data);
     } catch (err) {
       console.error('Error loading compact heatmap:', err);
     } finally {

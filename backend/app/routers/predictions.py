@@ -5,12 +5,13 @@ from typing import Any, Dict, List, Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Path
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 # Set up logger
 logger = logging.getLogger(__name__)
 
-from ..core.security import get_current_active_user
-from ..db.database import get_db
+from ..core.dependencies import get_current_active_user_from_session
+from ..db.session_manager import get_db
 from ..services.cache_service import get_cache, RedisCache
 from ..db import (
     get_fixture_by_id,
@@ -23,10 +24,10 @@ from ..db import (
     get_prediction_deadlines,
     check_group_membership
 )
-from ..db.models import UserPrediction, Group
+from ..db.models import UserPrediction, Group, User, Fixture, group_members
 from ..schemas import (
     Prediction, PredictionCreate, PredictionStatus, 
-    MatchStatus, ListResponse, DataResponse, User,
+    MatchStatus, ListResponse, DataResponse, User as UserSchema,
     PredictionUpdate, BaseResponse
 )
 from ..utils.season_manager import SeasonManager
@@ -34,10 +35,97 @@ from ..services.prediction_visibility import PredictionVisibilityService
 
 router = APIRouter()
 
+
+async def _invalidate_group_caches_if_needed(
+    cache: RedisCache, db: Session, group_id: Optional[int]
+) -> None:
+    if not group_id:
+        return
+    from ..services.group_cache_invalidation import invalidate_group_scoped_caches
+
+    await invalidate_group_scoped_caches(cache, db, group_id)
+
+
+async def _resolve_prediction_group_id(
+    db: Session,
+    user_id: int,
+    fixture: Fixture,
+    requested_group_id: Optional[int] = None
+) -> Optional[int]:
+    """
+    Resolve the group context for a prediction.
+    - If requested_group_id is provided, validate membership and league match.
+    - If omitted, auto-resolve only when exactly one user group tracks this fixture league.
+      Otherwise raise explicit ambiguity error.
+    """
+    if requested_group_id is not None:
+        group = db.query(Group).filter(Group.id == requested_group_id).first()
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Group {requested_group_id} not found"
+            )
+        is_member = await check_group_membership(db, requested_group_id, user_id)
+        if not is_member:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You are not a member of group {requested_group_id}"
+            )
+        if fixture.league and group.league and fixture.league != group.league:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Group {requested_group_id} is for {group.league}, "
+                    f"but fixture belongs to {fixture.league}"
+                )
+            )
+        return requested_group_id
+
+    # No explicit group_id: resolve by fixture league.
+    candidate_groups = (
+        db.query(Group.id)
+        .join(group_members, Group.id == group_members.c.group_id)
+        .filter(
+            group_members.c.user_id == user_id,
+            Group.league == fixture.league
+        )
+        .all()
+    )
+    candidate_ids = [row.id for row in candidate_groups]
+
+    if len(candidate_ids) == 1:
+        return candidate_ids[0]
+
+    if len(candidate_ids) > 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Prediction group is ambiguous. You belong to multiple groups in this league; "
+                f"please provide group_id explicitly. Eligible groups: {candidate_ids}"
+            )
+        )
+
+    # League-specific groups not found; fallback to prior behavior: single membership fallback.
+    fallback_groups = (
+        db.query(Group.id)
+        .join(group_members, Group.id == group_members.c.group_id)
+        .filter(group_members.c.user_id == user_id)
+        .order_by(group_members.c.joined_at.asc())
+        .all()
+    )
+    if len(fallback_groups) == 1:
+        return fallback_groups[0].id
+
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="No unambiguous group context found for this prediction. Please provide group_id."
+    )
+
+
 @router.post("", response_model=DataResponse)
 async def submit_prediction(
     prediction_data: PredictionCreate,
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -121,9 +209,21 @@ async def submit_prediction(
         else:
             logger.warning("Fixture has no date, skipping deadline check")
                 
+        target_group_id = await _resolve_prediction_group_id(
+            db=db,
+            user_id=current_user.id,
+            fixture=fixture,
+            requested_group_id=prediction_data.group_id
+        )
+
         # Check for existing prediction using your actual repository function
         logger.info("Checking for existing prediction")
-        existing_prediction = await get_user_prediction(db, current_user.id, match_id)
+        existing_prediction = await get_user_prediction(
+            db,
+            current_user.id,
+            match_id,
+            target_group_id
+        )
         
         if existing_prediction:
             logger.info(f"Updating existing prediction: {existing_prediction.id}")
@@ -147,7 +247,10 @@ async def submit_prediction(
                 await cache.delete(f"user_predictions:{current_user.id}")
             except Exception as cache_error:
                 logger.warning(f"Cache delete failed: {cache_error}")
-            
+            await _invalidate_group_caches_if_needed(
+                cache, db, existing_prediction.group_id
+            )
+
             logger.info("Prediction updated successfully")
             return DataResponse(
                 data={
@@ -182,7 +285,7 @@ async def submit_prediction(
         
         season = str(getattr(fixture, 'season', '2024'))
         
-        logger.info(f"Creating prediction: user={current_user.id}, fixture={match_id}, season={season}, week={week}")
+        logger.info(f"Creating prediction: user={current_user.id}, fixture={match_id}, season={season}, week={week}, group={target_group_id}")
         
         # Use your actual repository function
         new_prediction = await create_prediction(
@@ -192,7 +295,8 @@ async def submit_prediction(
             home_score,
             away_score, 
             season,
-            week
+            week,
+            group_id=target_group_id
         )
         
         if not new_prediction:
@@ -207,7 +311,8 @@ async def submit_prediction(
             await cache.delete(f"user_predictions:{current_user.id}")
         except Exception as cache_error:
             logger.warning(f"Cache delete failed: {cache_error}")
-        
+        await _invalidate_group_caches_if_needed(cache, db, target_group_id)
+
         logger.info(f"Prediction created successfully: {new_prediction.id}")
         
         return DataResponse(
@@ -219,7 +324,8 @@ async def submit_prediction(
                 "points": new_prediction.points,
                 "prediction_status": new_prediction.prediction_status.value if hasattr(new_prediction.prediction_status, 'value') else str(new_prediction.prediction_status),
                 "created": new_prediction.created.isoformat() if new_prediction.created else None,
-                "user_id": new_prediction.user_id
+                "user_id": new_prediction.user_id,
+                "group_id": new_prediction.group_id
             },
             message="Prediction created successfully"
         )
@@ -237,7 +343,7 @@ async def get_user_predictions_endpoint(
     status: Optional[str] = Query(None),
     season: Optional[str] = Query(None),
     week: Optional[int] = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -310,6 +416,7 @@ async def get_user_predictions_endpoint(
                 "submission_time": pred.submission_time.isoformat() if pred.submission_time else None,
                 "season": pred.season,
                 "week": pred.week,
+                "group_id": pred.group_id,  # Include group_id so users can see which group prediction belongs to
                 # Add fixture data
                 "fixture": {
                     "fixture_id": fixture.fixture_id if fixture else None,
@@ -370,7 +477,7 @@ async def get_user_predictions_endpoint(
 @router.get("/seasons/{group_id}", response_model=ListResponse)
 async def get_group_seasons(
     group_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -405,19 +512,31 @@ async def get_group_seasons(
         raise
     except Exception as e:
         logger.error(f"Error getting group seasons: {e}")
-        return ListResponse(data=[], total=0)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve group seasons"
+        )
 
 @router.post("/batch", response_model=DataResponse)
 async def create_batch_predictions(
-    predictions_data: Dict[str, Dict[str, int]],
-    current_user: User = Depends(get_current_active_user),
+    request_data: Dict[str, Any],
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
     """
     Create multiple predictions at once
+    Accepts: { "predictions": {...}, "group_id": <optional> }
     """
+    # Extract group_id if provided
+    group_id = request_data.get('group_id')
+    predictions_data = request_data.get('predictions', request_data)  # Support both formats
+    
+    if group_id:
+        logger.info(f"Using provided group_id for batch predictions: {group_id}")
+    
     results = []
+    touched_group_ids = set()
     
     for fixture_id, scores in predictions_data.items():
         try:
@@ -427,16 +546,31 @@ async def create_batch_predictions(
             if not fixture or fixture.status != MatchStatus.NOT_STARTED:
                 continue
             
+            prediction_group_id = await _resolve_prediction_group_id(
+                db=db,
+                user_id=current_user.id,
+                fixture=fixture,
+                requested_group_id=group_id
+            )
+
             # Check if user already has a prediction
             existing_prediction = await get_user_prediction(
                 db, 
                 current_user.id, 
-                int(fixture_id)
+                int(fixture_id),
+                prediction_group_id
             )
             
-            # Extract scores
-            score1 = scores.home
-            score2 = scores.away
+            # Extract scores - handle both possible key formats
+            if 'home' in scores and 'away' in scores:
+                score1 = scores['home']
+                score2 = scores['away']
+            elif 'score1' in scores and 'score2' in scores:
+                score1 = scores['score1']
+                score2 = scores['score2']
+            else:
+                logger.warning(f"Invalid score format for fixture {fixture_id}: {scores}")
+                continue
             
             if existing_prediction:
                 # Update existing prediction
@@ -448,7 +582,15 @@ async def create_batch_predictions(
                 )
             else:
                 # Create new prediction
-                week = int(fixture.round.split(' ')[-1]) if 'round' in fixture.round.lower() else 0
+                week = 0
+                if hasattr(fixture, 'round') and fixture.round:
+                    try:
+                        import re
+                        week_match = re.search(r'\d+', str(fixture.round))
+                        if week_match:
+                            week = int(week_match.group())
+                    except Exception:
+                        week = 0
                 
                 prediction = await create_prediction(
                     db,
@@ -457,24 +599,29 @@ async def create_batch_predictions(
                     score1,
                     score2,
                     fixture.season,
-                    week
+                    week,
+                    group_id=prediction_group_id
                 )
             
-            results.append({
-                "prediction_id": prediction.id,
-                "fixture_id": prediction.fixture_id,
-                "score1": prediction.score1,
-                "score2": prediction.score2,
-                "status": prediction.prediction_status.value
-            })
+            if prediction:
+                touched_group_ids.add(prediction.group_id)
+                results.append({
+                    "prediction_id": prediction.id,
+                    "fixture_id": prediction.fixture_id,
+                    "score1": prediction.score1,
+                    "score2": prediction.score2,
+                    "status": prediction.prediction_status.value if hasattr(prediction.prediction_status, 'value') else str(prediction.prediction_status)
+                })
             
         except Exception as e:
-            # Skip any fixtures with errors
+            logger.error(f"Error processing batch prediction for fixture {fixture_id}: {e}")
             continue
     
     # Clear cache
     await cache.delete(f"user_predictions:{current_user.id}")
-    
+    for touched_group_id in touched_group_ids:
+        await _invalidate_group_caches_if_needed(cache, db, touched_group_id)
+
     return DataResponse(
         data=results,
         message="Predictions saved successfully"
@@ -483,13 +630,18 @@ async def create_batch_predictions(
 @router.get("/{prediction_id}", response_model=DataResponse)
 async def get_prediction(
     prediction_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
     Get prediction by ID
     """
-    prediction = await get_prediction_by_id(db, prediction_id)
+    from sqlalchemy.orm import joinedload
+    
+    # Load prediction with fixture data
+    prediction = db.query(UserPrediction).options(
+        joinedload(UserPrediction.fixture)
+    ).filter(UserPrediction.id == prediction_id).first()
     
     if not prediction:
         raise HTTPException(
@@ -504,22 +656,75 @@ async def get_prediction(
             detail="Access denied"
         )
     
+    # Convert to dictionary with fixture data
+    prediction_data = {
+        "id": prediction.id,
+        "match_id": prediction.fixture_id,
+        "user_id": prediction.user_id,
+        "home_score": prediction.score1,
+        "away_score": prediction.score2,
+        "score1": prediction.score1,
+        "score2": prediction.score2,
+        "points": prediction.points,
+        "prediction_status": prediction.prediction_status.value if hasattr(prediction.prediction_status, 'value') else str(prediction.prediction_status),
+        "created": prediction.created.isoformat() if prediction.created else None,
+        "submission_time": prediction.submission_time.isoformat() if prediction.submission_time else None,
+        "season": prediction.season,
+        "week": prediction.week,
+        "fixture": {
+            "fixture_id": prediction.fixture.fixture_id if prediction.fixture else None,
+            "home_team": prediction.fixture.home_team if prediction.fixture else "Home Team",
+            "away_team": prediction.fixture.away_team if prediction.fixture else "Away Team",
+            "home_team_logo": prediction.fixture.home_team_logo if prediction.fixture else None,
+            "away_team_logo": prediction.fixture.away_team_logo if prediction.fixture else None,
+            "date": prediction.fixture.date.isoformat() if prediction.fixture and prediction.fixture.date else None,
+            "league": prediction.fixture.league if prediction.fixture else "Unknown League",
+            "status": prediction.fixture.status.value if prediction.fixture and hasattr(prediction.fixture.status, 'value') else str(prediction.fixture.status) if prediction.fixture else "UNKNOWN",
+            "home_score": prediction.fixture.home_score if prediction.fixture else None,
+            "away_score": prediction.fixture.away_score if prediction.fixture else None,
+            "season": prediction.fixture.season if prediction.fixture else prediction.season,
+            "round": prediction.fixture.round if prediction.fixture else None,
+            "venue": prediction.fixture.venue if prediction.fixture else None,
+            "venue_city": prediction.fixture.venue_city if prediction.fixture else None
+        } if prediction.fixture else {
+            "fixture_id": prediction.fixture_id,
+            "home_team": "Home Team",
+            "away_team": "Away Team",
+            "home_team_logo": None,
+            "away_team_logo": None,
+            "date": None,
+            "league": "Unknown League",
+            "status": "UNKNOWN",
+            "home_score": None,
+            "away_score": None,
+            "season": prediction.season,
+            "round": None,
+            "venue": None,
+            "venue_city": None
+        }
+    }
+    
     return DataResponse(
-        data=prediction,
+        data=prediction_data,
         message="Prediction retrieved successfully"
     )
 
 @router.post("/reset/{prediction_id}", response_model=DataResponse)
 async def reset_prediction_endpoint(
     prediction_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
     """
     Reset a prediction to editable state
     """
-    prediction = await get_prediction_by_id(db, prediction_id)
+    from sqlalchemy.orm import joinedload
+    
+    # Load prediction with fixture data
+    prediction = db.query(UserPrediction).options(
+        joinedload(UserPrediction.fixture)
+    ).filter(UserPrediction.id == prediction_id).first()
     
     if not prediction:
         raise HTTPException(
@@ -535,6 +740,12 @@ async def reset_prediction_endpoint(
         )
     
     # Check if match has already started or reached kickoff
+    if not prediction.fixture:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fixture data not available"
+        )
+    
     if prediction.fixture.status != MatchStatus.NOT_STARTED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -565,225 +776,625 @@ async def reset_prediction_endpoint(
     
     # Clear cache
     await cache.delete(f"user_predictions:{current_user.id}")
-    
+    await _invalidate_group_caches_if_needed(cache, db, prediction.group_id)
+
     return DataResponse(
         message="Prediction reset successfully"
     )
 
 @router.get("/leaderboard/{group_id}", response_model=ListResponse)
 async def get_group_leaderboard(
-    group_id: int = Path(...),
-    season: Optional[str] = Query(None),
-    week: Optional[int] = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    group_id: int,
+    season: Optional[str] = Query(None, description="Season filter"),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
-    """
-    Get group leaderboard showing member rankings by total points
-    """
-    import logging
-    logger = logging.getLogger(__name__)
-    
+    """Get leaderboard for a specific group"""
     try:
-        logger.info(f"🔍 DEBUGGING: group_id={group_id}, season={season}, week={week}")
+        # Check if user is member of the group
+        if not await check_group_membership(db, group_id, current_user.id):
+            raise HTTPException(status_code=403, detail="Not a member of this group")
         
-        # Check if user is a member of the group
-        is_member = await check_group_membership(db, group_id, current_user.id)
-        logger.info(f"🔍 User {current_user.id} is member of group {group_id}: {is_member}")
+        # Build cache key
+        cache_key = f"leaderboard:{group_id}:{season}"
         
-        if not is_member:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not a member of this group"
-            )
+        # Try to get from cache first
+        cached_data = await cache.get(cache_key)
+        if cached_data:
+            return ListResponse(data=cached_data, total=len(cached_data))
         
-        # Get group details to determine league
-        group = db.query(Group).filter(Group.id == group_id).first()
-        if not group:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Group not found"
-            )
+        # Build query - FIXED: Start from group_members to show all members
+        logger.info(f"🔍 Building leaderboard query for group {group_id}, season: {season}")
         
-        logger.info(f"🔍 Group found: {group.name}, league: {group.league}")
+        from sqlalchemy import text
         
-        # Normalize season format for database query
-        if season:
-            normalized_season = SeasonManager.normalize_season_for_query(group.league, season)
-        else:
-            normalized_season = SeasonManager.get_current_season(group.league)
-        
-        logger.info(f"🔍 Normalized season: {normalized_season}")
-        logger.info(f"🔍 Will filter predictions to only include fixtures from league: {group.league}")
-        
-        # Skip cache for debugging
-        logger.info("🔍 Skipping cache for debugging")
-        
-        # First, let's check what group members exist
-        from sqlalchemy import func, text, case
-        from ..db.models import group_members, User as UserModel, UserPrediction
-        
-        # Check group members first
+        # Get all group members first
         members_query = db.query(
-            UserModel.id.label('user_id'),
-            UserModel.username
-        ).select_from(
-            UserModel
+            User.id.label('user_id'),
+            User.username.label('username')
         ).join(
-            group_members,
-            UserModel.id == group_members.c.user_id
+            group_members, User.id == group_members.c.user_id
         ).filter(
             group_members.c.group_id == group_id
         )
         
         all_members = members_query.all()
-        logger.info(f"🔍 Found {len(all_members)} group members: {[m.username for m in all_members]}")
+        logger.info(f"🔍 Found {len(all_members)} members in group {group_id}")
         
-        # Check what seasons exist in predictions
-        seasons_query = db.query(UserPrediction.season).distinct().all()
-        existing_seasons = [s[0] for s in seasons_query if s[0]]
-        logger.info(f"🔍 Existing seasons in database: {existing_seasons}")
-        
-        # Check predictions for group members specifically
-        member_ids = [m.user_id for m in all_members]
-        if member_ids:
-            predictions_query = db.query(
-                UserPrediction.user_id,
-                UserPrediction.season,
-                func.count(UserPrediction.id).label('count')
-            ).filter(
-                UserPrediction.user_id.in_(member_ids)
-            ).group_by(
-                UserPrediction.user_id,
-                UserPrediction.season
-            ).all()
-            
-            logger.info(f"🔍 Predictions by group members:")
-            for pred in predictions_query:
-                username = next((m.username for m in all_members if m.user_id == pred.user_id), f"User{pred.user_id}")
-                logger.info(f"   {username} (ID:{pred.user_id}): {pred.count} predictions in season {pred.season}")
-        
-        # Now build the main query but with better debugging
-        from ..db.models import Fixture
-        
-        query = db.query(
-            UserModel.id.label('user_id'),
-            UserModel.username,
-            func.coalesce(func.sum(UserPrediction.points), 0).label('total_points'),
-            func.count(UserPrediction.id).label('total_predictions'),
-            func.sum(case((UserPrediction.points == 3, 1), else_=0)).label('perfect_scores'),
-            func.sum(case((UserPrediction.points == 1, 1), else_=0)).label('correct_results'),
-            func.sum(case((UserPrediction.points == 0, 1), else_=0)).label('incorrect_predictions')
-        ).select_from(
-            UserModel
-        ).join(
-            group_members,
-            UserModel.id == group_members.c.user_id
-        ).outerjoin(
-            UserPrediction,
-            (UserModel.id == UserPrediction.user_id) & (UserPrediction.season == normalized_season)
-        ).outerjoin(
-            Fixture,
-            UserPrediction.fixture_id == Fixture.fixture_id
-        ).filter(
-            group_members.c.group_id == group_id
-        ).filter(
-            (Fixture.league == group.league) | (UserPrediction.id.is_(None))
-        )
-        
-        # Apply week filter if provided
-        if week:
-            query = query.filter(UserPrediction.week == week)
-            logger.info(f"🔍 Applied week filter: {week}")
-        
-        # Group by user and order by total points descending
-        query = query.group_by(
-            UserModel.id, 
-            UserModel.username
-        ).order_by(
-            text('total_points DESC'),
-            text('total_predictions DESC'),
-            UserModel.username
-        )
-        
-        # Log the SQL query for debugging
-        logger.info(f"🔍 SQL Query: {str(query)}")
-        
-        # Execute query
-        results = query.all()
-        
-        logger.info(f"🔍 Query returned {len(results)} results")
-        for result in results:
-            logger.info(f"   {result.username}: {result.total_points} points, {result.total_predictions} predictions")
-        
-        # Build leaderboard data
+        # Build leaderboard with predictions for each member
         leaderboard = []
-        for rank, result in enumerate(results, 1):
-            # Calculate accuracy
-            total_preds = result.total_predictions or 0
-            accuracy = 0
-            if total_preds > 0:
-                correct_preds = (result.perfect_scores or 0) + (result.correct_results or 0)
-                accuracy = round((correct_preds / total_preds) * 100, 1)
+        for member in all_members:
+            user_id = member.user_id
+            username = member.username
             
-            # Calculate average points per prediction
-            avg_points = 0
-            if total_preds > 0:
-                avg_points = round((result.total_points or 0) / total_preds, 2)
+            # Get predictions for this user in this group - ONLY from FINISHED matches
+            predictions_query = db.query(
+                UserPrediction.id,
+                UserPrediction.points,
+                UserPrediction.bonus_points
+            ).join(
+                Fixture, UserPrediction.fixture_id == Fixture.fixture_id
+            ).filter(
+                UserPrediction.user_id == user_id,
+                UserPrediction.group_id == group_id,
+                # Only include predictions from finished matches
+                Fixture.status.in_([
+                    MatchStatus.FINISHED,
+                    MatchStatus.FINISHED_AET,
+                    MatchStatus.FINISHED_PEN
+                ])
+            )
             
-            leaderboard_entry = {
-                "rank": rank,
-                "user_id": result.user_id,
-                "username": result.username,
-                "total_points": result.total_points or 0,
-                "total_predictions": total_preds,
-                "perfect_scores": result.perfect_scores or 0,
-                "correct_results": result.correct_results or 0,
-                "incorrect_predictions": result.incorrect_predictions or 0,
-                "accuracy_percentage": accuracy,
-                "average_points": avg_points
-            }
-            leaderboard.append(leaderboard_entry)
-            logger.info(f"🔍 Added to leaderboard: {leaderboard_entry}")
+            # Apply season filter if provided
+            if season:
+                predictions_query = predictions_query.filter(Fixture.season == season)
+            
+            predictions = predictions_query.all()
+            
+            # Calculate stats
+            total_predictions = len(predictions)
+            total_points = sum((p.points or 0) + (p.bonus_points or 0) for p in predictions)
+            average_points = (total_points / total_predictions) if total_predictions > 0 else 0.0
+            perfect_predictions = sum(1 for p in predictions if p.points == 3)
+            accurate_predictions = sum(1 for p in predictions if (p.points or 0) > 0)
+            accuracy_percentage = (accurate_predictions / total_predictions * 100) if total_predictions > 0 else 0.0
+            
+            leaderboard.append({
+                "user_id": user_id,
+                "username": username,
+                "total_predictions": total_predictions,
+                "total_points": total_points,
+                "average_points": round(average_points, 2),
+                "perfect_predictions": perfect_predictions,
+                "accuracy_percentage": round(accuracy_percentage, 1)
+            })
         
-        # If no users have predictions, include all group members with zero stats
-        if not leaderboard:
-            logger.info("🔍 No predictions found, including all group members with zero stats")
-            for rank, member in enumerate(all_members, 1):
-                zero_entry = {
-                    "rank": rank,
-                    "user_id": member.user_id,
-                    "username": member.username,
-                    "total_points": 0,
-                    "total_predictions": 0,
-                    "perfect_scores": 0,
-                    "correct_results": 0,
-                    "incorrect_predictions": 0,
-                    "accuracy_percentage": 0,
-                    "average_points": 0
-                }
-                leaderboard.append(zero_entry)
-                logger.info(f"🔍 Added zero-stats member: {zero_entry}")
+        # Sort by total_points descending, then by average_points descending
+        leaderboard.sort(key=lambda x: (x['total_points'], x['average_points']), reverse=True)
         
-        logger.info(f"🔍 Final leaderboard has {len(leaderboard)} entries")
+        # Add rank
+        for i, entry in enumerate(leaderboard, 1):
+            entry['rank'] = i
         
-        return ListResponse(
-            data=leaderboard,
-            total=len(leaderboard)
+        logger.info(f"✅ Leaderboard built successfully with {len(leaderboard)} members")
+        
+        # Cache the result for 5 minutes
+        await cache.set(cache_key, leaderboard, expiry=300)
+        
+        return ListResponse(data=leaderboard, total=len(leaderboard))
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"❌ Error fetching leaderboard: {str(e)}")
+        logger.error(f"❌ Exception type: {type(e).__name__}")
+        logger.error(f"❌ Full traceback: {error_details}")
+        
+        # Provide more specific error details to the client
+        error_message = f"Leaderboard query failed: {type(e).__name__}"
+        if str(e):
+            error_message += f" - {str(e)}"
+        
+        raise HTTPException(status_code=500, detail=error_message)
+
+
+@router.post("/fix-invalid-group-ids", response_model=DataResponse)
+async def fix_invalid_group_ids(
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db)
+):
+    """
+    Fix predictions with invalid group_id (e.g., group_id = 29 that doesn't exist)
+    Updates them to use the user's first valid group
+    """
+    from sqlalchemy import text
+    
+    logger.info("🔧 Starting fix for invalid group_ids...")
+    
+    # Get all predictions with invalid group_ids (group doesn't exist)
+    invalid_predictions = db.execute(text("""
+        SELECT DISTINCT up.id, up.user_id, up.group_id
+        FROM user_predictions up
+        WHERE up.group_id IS NOT NULL
+        AND NOT EXISTS (
+            SELECT 1 FROM groups g WHERE g.id = up.group_id
+        )
+    """)).fetchall()
+    
+    total_invalid = len(invalid_predictions)
+    logger.info(f"📊 Found {total_invalid} predictions with invalid group_ids")
+    
+    if total_invalid == 0:
+        return DataResponse(
+            message="No invalid group_ids found",
+            data={"fixed_count": 0, "total_checked": 0}
+        )
+    
+    updated_count = 0
+    failed_count = 0
+    
+    for pred in invalid_predictions:
+        try:
+            prediction_id = pred.id
+            user_id = pred.user_id
+            old_group_id = pred.group_id
+            
+            # Find user's first valid group
+            user_groups_result = db.execute(text("""
+                SELECT g.id 
+                FROM groups g
+                JOIN group_members gm ON g.id = gm.group_id
+                WHERE gm.user_id = :user_id
+                ORDER BY gm.joined_at ASC
+                LIMIT 1
+            """), {"user_id": user_id}).fetchone()
+            
+            if user_groups_result:
+                new_group_id = user_groups_result.id
+                
+                # Update all predictions for this user with the invalid group_id
+                result = db.execute(text("""
+                    UPDATE user_predictions 
+                    SET group_id = :new_group_id 
+                    WHERE user_id = :user_id 
+                    AND group_id = :old_group_id
+                """), {
+                    "new_group_id": new_group_id,
+                    "user_id": user_id,
+                    "old_group_id": old_group_id
+                })
+                
+                updated_count += result.rowcount
+                logger.info(f"✅ Updated user {user_id} predictions from group {old_group_id} to {new_group_id}")
+            else:
+                logger.warning(f"⚠️ User {user_id} has no valid group membership, setting group_id to NULL")
+                db.execute(text("""
+                    UPDATE user_predictions 
+                    SET group_id = NULL 
+                    WHERE user_id = :user_id 
+                    AND group_id = :old_group_id
+                """), {
+                    "user_id": user_id,
+                    "old_group_id": old_group_id
+                })
+                failed_count += 1
+                
+        except Exception as e:
+            logger.error(f"❌ Error fixing prediction {prediction_id}: {e}")
+            failed_count += 1
+    
+    db.commit()
+    logger.info(f"✅ Fixed {updated_count} predictions, {failed_count} failed")
+    
+    return DataResponse(
+        message=f"Fixed {updated_count} predictions with invalid group_ids",
+        data={
+            "fixed_count": updated_count,
+            "failed_count": failed_count,
+            "total_invalid": total_invalid
+        }
+    )
+
+
+@router.post("/reassign-predictions-to-group", response_model=DataResponse)
+async def reassign_predictions_to_group(
+    from_group_id: Optional[int] = Query(None, description="Source group ID (or omit for NULL predictions)"),
+    to_group_id: int = Query(..., description="Target group ID"),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db)
+):
+    """
+    Reassign predictions from one group to another for the current user
+    Useful for fixing predictions that were assigned to the wrong group
+    
+    Query params:
+    - from_group_id: Source group ID (optional, if omitted, reassigns NULL predictions)
+    - to_group_id: Target group ID (required)
+    """
+    logger.info(f"🔧 Reassigning predictions for user {current_user.id} from group {from_group_id} to group {to_group_id}")
+    
+    # Verify target group exists and user is a member
+    target_group = db.query(Group).filter(Group.id == to_group_id).first()
+    if not target_group:
+        raise HTTPException(status_code=404, detail=f"Target group {to_group_id} not found")
+    
+    # Check if user is member of target group
+    is_member = await check_group_membership(db, to_group_id, current_user.id)
+    if not is_member:
+        raise HTTPException(status_code=403, detail=f"You are not a member of group {to_group_id}")
+    
+    # Build query to find predictions to update
+    if from_group_id is None:
+        # Reassign NULL group_id predictions
+        predictions_query = db.query(UserPrediction).filter(
+            UserPrediction.user_id == current_user.id,
+            UserPrediction.group_id.is_(None)
+        )
+        logger.info(f"Reassigning NULL group_id predictions to group {to_group_id}")
+    else:
+        # Verify source group exists
+        source_group = db.query(Group).filter(Group.id == from_group_id).first()
+        if not source_group:
+            raise HTTPException(status_code=404, detail=f"Source group {from_group_id} not found")
+        
+        # Reassign from specific group
+        predictions_query = db.query(UserPrediction).filter(
+            UserPrediction.user_id == current_user.id,
+            UserPrediction.group_id == from_group_id
+        )
+        logger.info(f"Reassigning predictions from group {from_group_id} to group {to_group_id}")
+    
+    predictions_to_update = predictions_query.all()
+    total_count = len(predictions_to_update)
+    
+    if total_count == 0:
+        return DataResponse(
+            message=f"No predictions found to reassign",
+            data={"updated_count": 0, "from_group_id": from_group_id, "to_group_id": to_group_id}
+        )
+    
+    # Update predictions
+    updated_count = 0
+    for prediction in predictions_to_update:
+        old_group_id = prediction.group_id
+        prediction.group_id = to_group_id
+        updated_count += 1
+        logger.info(f"✅ Reassigned prediction {prediction.id} from group {old_group_id} to {to_group_id}")
+    
+    db.commit()
+    logger.info(f"✅ Reassigned {updated_count} predictions for user {current_user.id} from group {from_group_id} to group {to_group_id}")
+    
+    return DataResponse(
+        message=f"Reassigned {updated_count} predictions from group {from_group_id or 'NULL'} to group {to_group_id}",
+        data={
+            "updated_count": updated_count,
+            "from_group_id": from_group_id,
+            "to_group_id": to_group_id
+        }
+    )
+
+
+@router.post("/migrate-group-id-field", response_model=DataResponse)
+async def migrate_group_id_field(
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db)
+):
+    """Migrate UserPrediction table to add group_id field and populate data"""
+    try:
+        logger.info("🚀 Starting group_id field migration...")
+        
+        # No admin check required - following same pattern as migrate-points-field
+        logger.info("✅ Starting migration (no admin check required)")
+        
+        # Test database connection
+        try:
+            from sqlalchemy import text
+            test_query = db.execute(text("SELECT 1"))
+            logger.info("✅ Database connection test passed")
+        except Exception as db_error:
+            logger.error(f"❌ Database connection failed: {db_error}")
+            raise HTTPException(status_code=500, detail=f"Database connection failed: {str(db_error)}")
+        
+        # Step 1: Check if migration is already done
+        try:
+            # Check if column exists using raw SQL (safer than ORM when field doesn't exist)
+            from sqlalchemy import text
+            result = db.execute(text("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'user_predictions' 
+                AND column_name = 'group_id'
+            """)).fetchone()
+            
+            if result:
+                logger.info("✅ group_id field already exists")
+                
+                # Check if data is populated using raw SQL
+                null_count_result = db.execute(text("""
+                    SELECT COUNT(*) as count 
+                    FROM user_predictions 
+                    WHERE group_id IS NULL
+                """)).fetchone()
+                
+                null_count = null_count_result.count if null_count_result else 0
+                
+                if null_count == 0:
+                    logger.info("✅ All predictions already have group_id populated")
+                    return DataResponse(
+                        message="Migration already completed - group_id field exists and is populated",
+                        data={"migration_status": "already_completed", "records_processed": 0}
+                    )
+                else:
+                    logger.info(f"⚠️ group_id field exists but {null_count} records need population")
+            else:
+                logger.info("🔧 group_id field doesn't exist, proceeding with migration")
+        except Exception as e:
+            logger.info(f"🔧 Error checking column existence, proceeding with migration: {e}")
+        
+        # Step 2: Add group_id column (if not exists)
+        try:
+            db.execute(text("ALTER TABLE user_predictions ADD COLUMN IF NOT EXISTS group_id INTEGER"))
+            db.commit()
+            logger.info("✅ Added group_id column to user_predictions table")
+        except Exception as e:
+            logger.warning(f"⚠️ Column addition failed (might already exist): {e}")
+            db.rollback()
+        
+        # Step 3: Add foreign key constraint (if not exists)
+        try:
+            db.execute(text("""
+                ALTER TABLE user_predictions 
+                ADD CONSTRAINT IF NOT EXISTS fk_user_predictions_group 
+                FOREIGN KEY (group_id) REFERENCES groups(id)
+            """))
+            db.commit()
+            logger.info("✅ Added foreign key constraint for group_id")
+        except Exception as e:
+            logger.warning(f"⚠️ Foreign key constraint addition failed: {e}")
+            db.rollback()
+        
+        # Step 4: Add index for performance (if not exists)
+        try:
+            db.execute(text("CREATE INDEX IF NOT EXISTS idx_user_predictions_group ON user_predictions(group_id)"))
+            db.commit()
+            logger.info("✅ Added index for group_id field")
+        except Exception as e:
+            logger.warning(f"⚠️ Index creation failed: {e}")
+            db.rollback()
+        
+        # Step 5: Populate existing data with group_id
+        logger.info("🔄 Starting data population...")
+        
+        # Get all predictions without group_id using raw SQL
+        predictions_result = db.execute(text("""
+            SELECT id, user_id 
+            FROM user_predictions 
+            WHERE group_id IS NULL
+        """)).fetchall()
+        
+        total_predictions = len(predictions_result)
+        logger.info(f"📊 Found {total_predictions} predictions to update")
+        
+        updated_count = 0
+        failed_count = 0
+        errors = []
+        
+        for prediction_row in predictions_result:
+            try:
+                prediction_id = prediction_row.id
+                user_id = prediction_row.user_id
+                
+                # Find user's group membership using raw SQL
+                user_groups_result = db.execute(text("""
+                    SELECT g.id 
+                    FROM groups g
+                    JOIN group_members gm ON g.id = gm.group_id
+                    WHERE gm.user_id = :user_id
+                    LIMIT 1
+                """), {"user_id": user_id}).fetchall()
+                
+                if user_groups_result:
+                    # Use the first approved group
+                    group_id = user_groups_result[0].id
+                    
+                    # Update the prediction using raw SQL
+                    db.execute(text("""
+                        UPDATE user_predictions 
+                        SET group_id = :group_id 
+                        WHERE id = :prediction_id
+                    """), {"group_id": group_id, "prediction_id": prediction_id})
+                    
+                    updated_count += 1
+                    
+                    if updated_count % 100 == 0:
+                        logger.info(f"🔄 Updated {updated_count}/{total_predictions} predictions...")
+                else:
+                    # User has no group membership - skip this prediction
+                    logger.warning(f"⚠️ User {user_id} has no group membership for prediction {prediction_id}")
+                    failed_count += 1
+                    errors.append(f"User {user_id} has no group membership")
+                    
+            except Exception as e:
+                logger.error(f"❌ Error updating prediction {prediction_id}: {e}")
+                failed_count += 1
+                errors.append(f"Prediction {prediction_id}: {str(e)}")
+        
+        # Commit all changes
+        db.commit()
+        logger.info(f"✅ Successfully updated {updated_count} predictions")
+        
+        # Step 6: Final validation using raw SQL
+        remaining_null_result = db.execute(text("""
+            SELECT COUNT(*) as count 
+            FROM user_predictions 
+            WHERE group_id IS NULL
+        """)).fetchone()
+        remaining_null = remaining_null_result.count if remaining_null_result else 0
+        logger.info(f"📊 Remaining predictions without group_id: {remaining_null}")
+        
+        # Step 7: Make group_id non-nullable (only if all data is populated)
+        if remaining_null == 0:
+            try:
+                db.execute(text("ALTER TABLE user_predictions ALTER COLUMN group_id SET NOT NULL"))
+                db.commit()
+                logger.info("✅ Made group_id field non-nullable")
+            except Exception as e:
+                logger.warning(f"⚠️ Could not make group_id non-nullable: {e}")
+                db.rollback()
+
+        # Step 8: Swap uniqueness to group-scoped predictions.
+        # Old behavior: one prediction per (user_id, fixture_id) globally.
+        # New behavior: one prediction per (user_id, fixture_id, group_id).
+        constraint_swap_status = "skipped"
+        if remaining_null == 0:
+            try:
+                # Ensure there are no duplicates for the new target key.
+                duplicate_rows = db.execute(text("""
+                    SELECT user_id, fixture_id, group_id, COUNT(*) AS c
+                    FROM user_predictions
+                    GROUP BY user_id, fixture_id, group_id
+                    HAVING COUNT(*) > 1
+                    LIMIT 1
+                """)).fetchone()
+
+                if duplicate_rows:
+                    raise ValueError(
+                        "Cannot apply group-scoped unique constraint: duplicate rows exist for "
+                        f"(user_id={duplicate_rows.user_id}, fixture_id={duplicate_rows.fixture_id}, "
+                        f"group_id={duplicate_rows.group_id})"
+                    )
+
+                db.execute(text("""
+                    ALTER TABLE user_predictions
+                    DROP CONSTRAINT IF EXISTS _user_fixture_uc
+                """))
+                db.execute(text("""
+                    ALTER TABLE user_predictions
+                    ADD CONSTRAINT _user_fixture_group_uc UNIQUE (user_id, fixture_id, group_id)
+                """))
+                db.commit()
+                constraint_swap_status = "completed"
+                logger.info("✅ Swapped unique constraint to _user_fixture_group_uc")
+            except Exception as e:
+                logger.error(f"❌ Failed to swap unique constraint: {e}")
+                db.rollback()
+                constraint_swap_status = f"failed: {str(e)}"
+        else:
+            logger.warning(
+                "⚠️ Skipping unique-constraint swap because %s predictions still have NULL group_id",
+                remaining_null
+            )
+        
+        # Migration summary
+        migration_result = {
+            "migration_id": f"migrate_group_id_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+            "steps_completed": 8,
+            "records_processed": total_predictions,
+            "records_updated": updated_count,
+            "records_failed": failed_count,
+            "remaining_null": remaining_null,
+            "errors": errors[:10],  # Limit error list
+            "migration_status": "completed" if remaining_null == 0 else "partial",
+            "group_id_non_nullable": remaining_null == 0,
+            "constraint_swap_status": constraint_swap_status,
+        }
+        
+        logger.info(f"🎉 Migration completed: {migration_result}")
+        
+        return DataResponse(
+            message="Group ID migration completed successfully",
+            data=migration_result
         )
         
-    except HTTPException:
-        # Re-raise HTTP exceptions as-is
-        raise
     except Exception as e:
-        logger.error(f"🔍 ERROR in leaderboard: {e}")
-        logger.exception("🔍 Full traceback:")
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"❌ Migration failed: {e}")
+        logger.error(f"❌ Full traceback: {error_details}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Migration failed: {str(e)} - Type: {type(e).__name__}"
+        )
+
+
+@router.get("/test-migration-endpoint")
+async def test_migration_endpoint():
+    """Simple test endpoint to verify the router is working"""
+    return {"message": "Migration endpoint is accessible", "status": "working"}
+
+
+@router.post("/rollback-group-id-migration", response_model=DataResponse)
+async def rollback_group_id_migration(
+    migration_id: str = Query(..., description="Migration ID to rollback"),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
+    db: Session = Depends(get_db)
+):
+    """Rollback the group_id migration if something goes wrong"""
+    try:
+        # No admin check required - following same pattern as migrate-points-field
         
-        # Return empty leaderboard on error
-        return ListResponse(
-            data=[],
-            total=0
+        logger.info(f"🔄 Starting rollback for migration: {migration_id}")
+        
+        # Step 1: Remove foreign key constraint
+        try:
+            from sqlalchemy import text
+            db.execute(text("ALTER TABLE user_predictions DROP CONSTRAINT IF EXISTS fk_user_predictions_group"))
+            db.commit()
+            logger.info("✅ Removed foreign key constraint")
+        except Exception as e:
+            logger.warning(f"⚠️ Foreign key removal failed: {e}")
+            db.rollback()
+        
+        # Step 2: Remove index
+        try:
+            db.execute(text("DROP INDEX IF EXISTS idx_user_predictions_group"))
+            db.commit()
+            logger.info("✅ Removed group_id index")
+        except Exception as e:
+            logger.warning(f"⚠️ Index removal failed: {e}")
+            db.rollback()
+        
+        # Step 3: Remove group_id column
+        try:
+            db.execute(text("ALTER TABLE user_predictions DROP COLUMN IF EXISTS group_id"))
+            db.commit()
+            logger.info("✅ Removed group_id column")
+        except Exception as e:
+            logger.warning(f"⚠️ Column removal failed: {e}")
+            db.rollback()
+        
+        # Step 4: Restore original unique constraint
+        try:
+            db.execute(text("ALTER TABLE user_predictions DROP CONSTRAINT IF EXISTS _user_fixture_group_uc"))
+            db.execute(text("ALTER TABLE user_predictions ADD CONSTRAINT IF NOT EXISTS _user_fixture_uc UNIQUE (user_id, fixture_id)"))
+            db.commit()
+            logger.info("✅ Restored original unique constraint")
+        except Exception as e:
+            logger.warning(f"⚠️ Constraint restoration failed: {e}")
+            db.rollback()
+        
+        rollback_result = {
+            "migration_id": migration_id,
+            "rollback_status": "completed",
+            "steps_completed": 4,
+            "message": "Successfully rolled back group_id migration"
+        }
+        
+        logger.info(f"🔄 Rollback completed: {rollback_result}")
+        
+        return DataResponse(
+            message="Group ID migration rollback completed successfully",
+            data=rollback_result
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ Rollback failed: {e}")
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Rollback failed: {str(e)}"
         )
 
 
@@ -792,7 +1403,7 @@ async def get_group_predictions_for_week(
     group_id: int = Path(...),
     week: int = Path(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -840,7 +1451,7 @@ async def get_group_predictions_for_week(
 @router.get("/match/{fixture_id}/summary", response_model=DataResponse)
 async def get_match_prediction_summary(
     fixture_id: int = Path(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -882,7 +1493,7 @@ async def get_visibility_schedule(
     group_id: int = Path(...),
     week: int = Query(...),
     season: str = Query(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserSchema = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """

@@ -1,33 +1,41 @@
 # app/routers/users.py
+import logging
 from typing import Any, List
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
-from ..core.security import get_current_active_user, get_password_hash
-from ..db.database import get_db
+# Set up logger for this module
+logger = logging.getLogger(__name__)
+
+from ..core.security import get_password_hash
+from ..core.dependencies import get_current_active_user_from_session
+from ..db.session_manager import get_db
 from ..db import (
     get_user_by_id, 
     update_user,
     get_user_stats,
-    get_user_predictions
+    get_user_predictions,
+    get_user_predictions_with_fixtures
 )
 from ..services.cache_service import get_cache, RedisCache
 from ..schemas import (
     User, 
     UserCreate, 
+    UserUpdate,
     UserStats, 
     BaseResponse, 
     DataResponse, 
     ListResponse,
     PredictionStatus
 )
+from ..db.models import Fixture, MatchStatus
 
 router = APIRouter()
 
 @router.get("/profile", response_model=DataResponse)
 async def get_profile(
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -60,7 +68,8 @@ async def get_profile(
                     "username": current_user.username,
                     "email": current_user.email,
                     "is_active": current_user.is_active,
-                    "created_at": current_user.created_at
+                    "created_at": current_user.created_at,
+                    "settings": current_user.settings if current_user.settings else None
                 },
                 "stats": UserStats(
                     total_points=stats["total_points"],
@@ -82,19 +91,28 @@ async def get_profile(
 
 @router.put("/profile", response_model=BaseResponse)
 async def update_profile(
-    profile_update: UserCreate,
-    current_user: User = Depends(get_current_active_user),
+    profile_update: UserUpdate,
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
     """
     Update current user profile
+    All fields are optional - only provided fields will be updated
     """
     user_data = profile_update.dict(exclude_unset=True)
     
     # If password is being updated, hash it
     if "password" in user_data:
         user_data["hashed_password"] = get_password_hash(user_data.pop("password"))
+    
+    # If settings is being updated, ensure it's a valid dict
+    if "settings" in user_data and user_data["settings"] is not None:
+        if not isinstance(user_data["settings"], dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Settings must be a valid JSON object"
+            )
     
     updated_user = await update_user(db, current_user.id, **user_data)
     
@@ -115,7 +133,7 @@ async def update_profile(
 @router.get("/stats", response_model=DataResponse)
 async def get_user_statistics(
     user_id: int = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db),
     cache: RedisCache = Depends(get_cache)
 ):
@@ -164,7 +182,7 @@ async def get_prediction_history(
     status: PredictionStatus = Query(None),
     fixture_id: int = Query(None),
     group_id: int = Query(None),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(get_current_active_user_from_session),
     db: Session = Depends(get_db)
 ):
     """
@@ -177,16 +195,29 @@ async def get_prediction_history(
         # TODO: Implement group membership check
         pass
     
-    predictions = await get_user_predictions(
-        db,
-        target_id,
-        fixture_id=fixture_id,
-        status=status,
-        season=season,
-        week=week
-    )
-    
-    return ListResponse(
-        data=predictions,
-        total=len(predictions)
-    )
+    try:
+        # Get predictions with fixture data in a single optimized query
+        predictions = await get_user_predictions_with_fixtures(
+            db,
+            target_id,
+            fixture_id=fixture_id,
+            status=status,
+            season=season,
+            week=week
+        )
+        
+        return ListResponse(
+            data=predictions,
+            total=len(predictions)
+        )
+        
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in get_prediction_history: {str(e)}")
+        logger.exception("Full traceback:")
+        
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch predictions: {str(e)}"
+        )

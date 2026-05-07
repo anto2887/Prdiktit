@@ -12,7 +12,7 @@ export const Error400 = ({ error }) => (
 export const Error403 = () => (
   <div className="error-container">
     <h1>Access Denied</h1>
-    <p>You don't have permission to access this resource.</p>
+    <p>You don&apos;t have permission to access this resource.</p>
     <Link to="/" className="btn">Return to Home</Link>
   </div>
 );
@@ -20,7 +20,7 @@ export const Error403 = () => (
 export const Error404 = () => (
   <div className="error-container">
     <h1>Page Not Found</h1>
-    <p>The page you're looking for doesn't exist.</p>
+    <p>The page you&apos;re looking for doesn&apos;t exist.</p>
     <Link to="/" className="btn">Return to Home</Link>
   </div>
 );

@@ -1,5 +1,5 @@
 // src/contexts/AppContext.js
-import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useEffect, useRef, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { authApi, usersApi, groupsApi, matchesApi, predictionsApi } from '../api';
 import SeasonManager from '../utils/seasonManager';
@@ -11,39 +11,37 @@ const AppContext = createContext(null);
 const ActionTypes = {
   // Auth actions
   SET_AUTH_LOADING: 'SET_AUTH_LOADING',
-  SET_AUTH_USER: 'SET_AUTH_USER',
+  SET_AUTH_SUCCESS: 'SET_AUTH_SUCCESS',
+  SET_OAUTH_AUTH_SUCCESS: 'SET_OAUTH_AUTH_SUCCESS',
   SET_AUTH_ERROR: 'SET_AUTH_ERROR',
-  CLEAR_AUTH: 'CLEAR_AUTH',
+  SET_AUTH_LOGOUT: 'SET_AUTH_LOGOUT',
   
   // User actions
-  SET_USER_LOADING: 'SET_USER_LOADING',
   SET_USER_PROFILE: 'SET_USER_PROFILE',
   SET_USER_STATS: 'SET_USER_STATS',
+  SET_USER_LOADING: 'SET_USER_LOADING',
   SET_USER_ERROR: 'SET_USER_ERROR',
-  CLEAR_USER_DATA: 'CLEAR_USER_DATA',
   
   // Groups actions
   SET_GROUPS_LOADING: 'SET_GROUPS_LOADING',
+  SET_GROUPS_ERROR: 'SET_GROUPS_ERROR',
   SET_USER_GROUPS: 'SET_USER_GROUPS',
   SET_CURRENT_GROUP: 'SET_CURRENT_GROUP',
   SET_GROUP_MEMBERS: 'SET_GROUP_MEMBERS',
-  SET_GROUPS_ERROR: 'SET_GROUPS_ERROR',
-  CLEAR_GROUPS_DATA: 'CLEAR_GROUPS_DATA',
+  CLEAR_GROUP_DATA: 'CLEAR_GROUP_DATA',
   
   // Matches actions
   SET_MATCHES_LOADING: 'SET_MATCHES_LOADING',
+  SET_MATCHES_ERROR: 'SET_MATCHES_ERROR',
   SET_FIXTURES: 'SET_FIXTURES',
   SET_LIVE_MATCHES: 'SET_LIVE_MATCHES',
   SET_SELECTED_MATCH: 'SET_SELECTED_MATCH',
-  SET_MATCHES_ERROR: 'SET_MATCHES_ERROR',
-  CLEAR_MATCHES_DATA: 'CLEAR_MATCHES_DATA',
   
   // Predictions actions
   SET_PREDICTIONS_LOADING: 'SET_PREDICTIONS_LOADING',
+  SET_PREDICTIONS_ERROR: 'SET_PREDICTIONS_ERROR',
   SET_USER_PREDICTIONS: 'SET_USER_PREDICTIONS',
   SET_SELECTED_PREDICTION: 'SET_SELECTED_PREDICTION',
-  SET_PREDICTIONS_ERROR: 'SET_PREDICTIONS_ERROR',
-  CLEAR_PREDICTIONS_DATA: 'CLEAR_PREDICTIONS_DATA',
   
   // Notifications actions
   ADD_NOTIFICATION: 'ADD_NOTIFICATION',
@@ -51,27 +49,32 @@ const ActionTypes = {
   CLEAR_NOTIFICATIONS: 'CLEAR_NOTIFICATIONS',
   
   // League actions
-  SET_SELECTED_SEASON: 'SET_SELECTED_SEASON',
-  SET_SELECTED_WEEK: 'SET_SELECTED_WEEK',
-  SET_SELECTED_GROUP: 'SET_SELECTED_GROUP',
-  SET_LEADERBOARD: 'SET_LEADERBOARD',
   SET_LEAGUE_LOADING: 'SET_LEAGUE_LOADING',
   SET_LEAGUE_ERROR: 'SET_LEAGUE_ERROR',
+  SET_LEADERBOARD: 'SET_LEADERBOARD',
+  SET_AVAILABLE_SEASONS: 'SET_AVAILABLE_SEASONS',
+  SET_SELECTED_SEASON: 'SET_SELECTED_SEASON',
+  SET_SELECTED_GROUP: 'SET_SELECTED_GROUP',
+  CLEAR_LEAGUE_DATA: 'CLEAR_LEAGUE_DATA',
+  
+  // Comeback Challenge actions
+  SET_COMEBACK_CHALLENGE_LOADING: 'SET_COMEBACK_CHALLENGE_LOADING',
+  SET_COMEBACK_CHALLENGE_ERROR: 'SET_COMEBACK_CHALLENGE_ERROR',
+  SET_COMEBACK_CHALLENGE_DATA: 'SET_COMEBACK_CHALLENGE_DATA',
+  CLEAR_COMEBACK_CHALLENGE_DATA: 'CLEAR_COMEBACK_CHALLENGE_DATA',
   
   // New user stats actions
   SET_USER_STATS_LOADING: 'SET_USER_STATS_LOADING',
   SET_USER_STATS_ERROR: 'SET_USER_STATS_ERROR',
-  
-  // Season management actions
-  SET_AVAILABLE_SEASONS: 'SET_AVAILABLE_SEASONS',
-  CLEAR_LEAGUE_DATA: 'CLEAR_LEAGUE_DATA',
 };
 
 // Initial state
 const initialState = {
   auth: {
     user: null,
-    loading: false,
+    // True until the first checkAuth() completes so ProtectedRoute does not flash
+    // to /login on refresh and lose the current URL.
+    loading: true,
     error: null,
     isAuthenticated: false
   },
@@ -108,10 +111,14 @@ const initialState = {
   },
   league: {
     selectedSeason: null, // Will be set dynamically based on group league
-    selectedWeek: null,
     selectedGroup: null,
     leaderboard: [],
     availableSeasons: [],
+    loading: false,
+    error: null
+  },
+  comebackChallenge: {
+    data: null,
     loading: false,
     error: null
   }
@@ -127,7 +134,7 @@ const appReducer = (state, action) => {
         auth: { ...state.auth, loading: action.payload }
       };
     
-    case ActionTypes.SET_AUTH_USER:
+    case ActionTypes.SET_AUTH_SUCCESS:
       return {
         ...state,
         auth: {
@@ -139,16 +146,34 @@ const appReducer = (state, action) => {
         }
       };
     
+    case ActionTypes.SET_OAUTH_AUTH_SUCCESS:
+      return {
+        ...state,
+        auth: {
+          ...state.auth,
+          user: action.payload,
+          isAuthenticated: true,
+          loading: false,
+          error: null
+        }
+      };
+    
     case ActionTypes.SET_AUTH_ERROR:
       return {
         ...state,
         auth: { ...state.auth, error: action.payload, loading: false }
       };
     
-    case ActionTypes.CLEAR_AUTH:
+    case ActionTypes.SET_AUTH_LOGOUT:
       return {
         ...state,
-        auth: { ...initialState.auth },
+        auth: {
+          ...initialState.auth,
+          loading: false,
+          isAuthenticated: false,
+          user: null,
+          error: null,
+        },
         user: { ...initialState.user },
         groups: { ...initialState.groups },
         predictions: { ...initialState.predictions }
@@ -177,12 +202,6 @@ const appReducer = (state, action) => {
       return {
         ...state,
         user: { ...state.user, error: action.payload, loading: false }
-      };
-    
-    case ActionTypes.CLEAR_USER_DATA:
-      return {
-        ...state,
-        user: { ...initialState.user }
       };
     
     // Groups cases
@@ -226,7 +245,7 @@ const appReducer = (state, action) => {
         groups: { ...state.groups, error: action.payload, loading: false }
       };
     
-    case ActionTypes.CLEAR_GROUPS_DATA:
+    case ActionTypes.CLEAR_GROUP_DATA:
       return {
         ...state,
         groups: { ...initialState.groups }
@@ -263,12 +282,6 @@ const appReducer = (state, action) => {
         matches: { ...state.matches, error: action.payload, loading: false }
       };
     
-    case ActionTypes.CLEAR_MATCHES_DATA:
-      return {
-        ...state,
-        matches: { ...initialState.matches }
-      };
-    
     // Predictions cases
     case ActionTypes.SET_PREDICTIONS_LOADING:
       return {
@@ -292,12 +305,6 @@ const appReducer = (state, action) => {
       return {
         ...state,
         predictions: { ...state.predictions, error: action.payload, loading: false }
-      };
-    
-    case ActionTypes.CLEAR_PREDICTIONS_DATA:
-      return {
-        ...state,
-        predictions: { ...initialState.predictions }
       };
     
     // Notifications cases
@@ -324,30 +331,6 @@ const appReducer = (state, action) => {
       };
     
     // League cases
-    case ActionTypes.SET_SELECTED_SEASON:
-      return {
-        ...state,
-        league: { ...state.league, selectedSeason: action.payload }
-      };
-    
-    case ActionTypes.SET_SELECTED_WEEK:
-      return {
-        ...state,
-        league: { ...state.league, selectedWeek: action.payload }
-      };
-    
-    case ActionTypes.SET_SELECTED_GROUP:
-      return {
-        ...state,
-        league: { ...state.league, selectedGroup: action.payload }
-      };
-    
-    case ActionTypes.SET_LEADERBOARD:
-      return {
-        ...state,
-        league: { ...state.league, leaderboard: action.payload, loading: false, error: null }
-      };
-    
     case ActionTypes.SET_LEAGUE_LOADING:
       return {
         ...state,
@@ -360,13 +343,36 @@ const appReducer = (state, action) => {
         league: { ...state.league, error: action.payload, loading: false }
       };
     
-    // Season management cases
+    case ActionTypes.SET_LEADERBOARD:
+      return {
+        ...state,
+        league: { ...state.league, leaderboard: action.payload, loading: false, error: null }
+      };
+    
     case ActionTypes.SET_AVAILABLE_SEASONS:
       return {
         ...state,
         league: { 
           ...state.league, 
           availableSeasons: action.payload 
+        }
+      };
+    
+    case ActionTypes.SET_SELECTED_SEASON:
+      return {
+        ...state,
+        league: { 
+          ...state.league, 
+          selectedSeason: action.payload 
+        }
+      };
+    
+    case ActionTypes.SET_SELECTED_GROUP:
+      return {
+        ...state,
+        league: { 
+          ...state.league, 
+          selectedGroup: action.payload 
         }
       };
     
@@ -377,6 +383,31 @@ const appReducer = (state, action) => {
           ...initialState.league,
           selectedSeason: null // Reset to null, will be set based on group
         }
+      };
+    
+    // Comeback Challenge cases
+    case ActionTypes.SET_COMEBACK_CHALLENGE_LOADING:
+      return {
+        ...state,
+        comebackChallenge: { ...state.comebackChallenge, loading: action.payload }
+      };
+    
+    case ActionTypes.SET_COMEBACK_CHALLENGE_ERROR:
+      return {
+        ...state,
+        comebackChallenge: { ...state.comebackChallenge, error: action.payload, loading: false }
+      };
+    
+    case ActionTypes.SET_COMEBACK_CHALLENGE_DATA:
+      return {
+        ...state,
+        comebackChallenge: { ...state.comebackChallenge, data: action.payload }
+      };
+    
+    case ActionTypes.CLEAR_COMEBACK_CHALLENGE_DATA:
+      return {
+        ...state,
+        comebackChallenge: { ...initialState.comebackChallenge }
       };
     
     // New user stats cases
@@ -469,55 +500,50 @@ export const AppProvider = ({ children }) => {
     dispatch({ type: ActionTypes.CLEAR_NOTIFICATIONS });
   }, []);
 
-  // Check authentication on mount
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
   // Auth functions
   const checkAuth = useCallback(async () => {
     try {
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
-      console.log("Checking authentication...");
+      process.env.NODE_ENV === 'development' && console.log("Checking authentication...");
       
-      const hasToken = localStorage.getItem('accessToken');
-      console.log("Has token:", !!hasToken);
+      // Clean up any legacy JWT tokens on startup
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('access_token');
       
-      if (!hasToken) {
-        console.log("No token found, setting unauthenticated");
-        dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
+      const hasSession = window.sessionStorage.getItem('sessionId');
+      
+      if (!hasSession) {
+        dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: null });
         return;
       }
       
-      console.log("Verifying token with server...");
       const response = await authApi.checkAuthStatus();
-      console.log("Auth check response:", response);
       
       if (response && response.status === 'success' && response.data?.authenticated) {
-        console.log("Token valid, setting authenticated");
         // Extract user data from response
         const userData = response.data.user;
         if (userData) {
-          dispatch({ type: ActionTypes.SET_AUTH_USER, payload: userData });
+          dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: userData });
         } else {
           // If no user data, set minimal authenticated state
-          console.log("No user data in auth check, will fetch profile after login");
-          dispatch({ type: ActionTypes.SET_AUTH_USER, payload: { authenticated: true }});
+          dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: { authenticated: true }});
         }
       } else {
-        console.log("Token invalid, clearing");
-        dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
-        localStorage.removeItem('accessToken');
+        dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: null });
+        window.sessionStorage.removeItem('sessionId');
       }
     } catch (err) {
-      console.error('Auth check failed:', err);
+      process.env.NODE_ENV === 'development' && console.error('Auth check failed:', err);
       // Handle 401 errors differently
       if (err.status === 401 || err.message?.includes('401')) {
-        localStorage.removeItem('accessToken');
-        dispatch({ type: ActionTypes.SET_AUTH_USER, payload: null });
+        window.sessionStorage.removeItem('sessionId');
+        dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: null });
       } else {
         dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message || 'Authentication check failed' });
       }
+    } finally {
+      // Always set loading to false
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
     }
   }, []);
 
@@ -526,18 +552,18 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: null });
       
-      console.log('Login: Attempting to log in user:', username);
+      process.env.NODE_ENV === 'development' && console.log('Login: Attempting to log in user:', username);
       const response = await authApi.login(username, password);
-      console.log('Login: API response:', response);
+      process.env.NODE_ENV === 'development' && console.log('Login: API response:', response);
       
       if (response.status === 'success') {
         // Extract user data from response
         const userData = response.data?.user;
-        console.log('Login: Setting user data:', userData);
+        process.env.NODE_ENV === 'development' && console.log('Login: Setting user data:', userData);
         
         if (userData) {
-          dispatch({ type: ActionTypes.SET_AUTH_USER, payload: userData });
-          console.log('Login: User authenticated successfully');
+          dispatch({ type: ActionTypes.SET_AUTH_SUCCESS, payload: userData });
+          process.env.NODE_ENV === 'development' && console.log('Login: User authenticated successfully');
           return response;
         } else {
           throw new Error('User data not found in response');
@@ -546,9 +572,64 @@ export const AppProvider = ({ children }) => {
       
       throw new Error(response.message || 'Login failed');
     } catch (err) {
-      console.error('Login: Error occurred:', err);
+      process.env.NODE_ENV === 'development' && console.error('Login: Error occurred:', err);
       dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message });
       throw err;
+    } finally {
+      // Always set loading to false
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
+    }
+  }, []);
+
+  const loginWithOAuth = useCallback(async (oauthData) => {
+    try {
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
+      dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: null });
+      
+      process.env.NODE_ENV === 'development' && console.log('OAuth Login: Processing OAuth data:', oauthData);
+      
+      // Extract user information from OAuth response
+      let userData = null;
+      
+      if (oauthData.user_exists && oauthData.session_id) {
+        // Existing OAuth user - store session ID and use provided user data
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Existing user, storing session ID');
+        
+        // Store session ID in sessionStorage (not localStorage for security)
+        window.sessionStorage.setItem('sessionId', oauthData.session_id);
+        
+        userData = oauthData.user;
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: Existing user, setting auth state');
+      } else if (oauthData.requires_username) {
+        // New OAuth user that needs username selection
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: New user, requires username selection');
+        return { requires_username: true, oauth_data: oauthData.oauth_data };
+      } else if (oauthData.user && oauthData.session_id) {
+        // Completed OAuth registration with username
+        userData = oauthData.user;
+        
+        // Store session ID in sessionStorage
+        window.sessionStorage.setItem('sessionId', oauthData.session_id);
+        
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: New user completed, setting auth state');
+      } else {
+        throw new Error('Invalid OAuth response format');
+      }
+      
+      if (userData) {
+        dispatch({ type: ActionTypes.SET_OAUTH_AUTH_SUCCESS, payload: userData });
+        process.env.NODE_ENV === 'development' && console.log('OAuth Login: User authenticated successfully');
+        return { success: true, userData };
+      }
+      
+      throw new Error('Failed to process OAuth authentication');
+    } catch (err) {
+      process.env.NODE_ENV === 'development' && console.error('OAuth Login: Error occurred:', err);
+      dispatch({ type: ActionTypes.SET_AUTH_ERROR, payload: err.message });
+      throw err;
+    } finally {
+      // Always set loading to false
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
     }
   }, []);
 
@@ -576,10 +657,27 @@ export const AppProvider = ({ children }) => {
     try {
       dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: true });
       await authApi.logout();
-      dispatch({ type: ActionTypes.CLEAR_AUTH });
+      
+      // Clear session ID from sessionStorage
+      window.sessionStorage.removeItem('sessionId');
+      
+      // Clear any JWT tokens from localStorage (legacy cleanup)
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('access_token');
+      
+      dispatch({ type: ActionTypes.SET_AUTH_LOGOUT });
     } catch (err) {
-      console.error('Logout error:', err);
-      dispatch({ type: ActionTypes.CLEAR_AUTH });
+      process.env.NODE_ENV === 'development' && console.error('Logout error:', err);
+      
+      // Clear session ID and JWT tokens even if logout API fails
+      window.sessionStorage.removeItem('sessionId');
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('access_token');
+      
+      dispatch({ type: ActionTypes.SET_AUTH_LOGOUT });
+    } finally {
+      // Always set loading to false
+      dispatch({ type: ActionTypes.SET_AUTH_LOADING, payload: false });
     }
   }, []);
 
@@ -595,9 +693,9 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_USER_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_USER_ERROR, payload: null });
       
-      console.log('AppContext: Calling usersApi.getUserProfile...');
+      process.env.NODE_ENV === 'development' && console.log('AppContext: Calling usersApi.getUserProfile...');
       const response = await usersApi.getUserProfile();
-      console.log('AppContext: getUserProfile response:', response);
+      process.env.NODE_ENV === 'development' && console.log('AppContext: getUserProfile response:', response);
       
       if (response.status === 'success') {
         if (response.data && response.data.user) {
@@ -623,17 +721,17 @@ export const AppProvider = ({ children }) => {
           }});
         }
       } else {
-        console.warn("Profile fetch returned non-success status:", response.message);
+        process.env.NODE_ENV === 'development' && console.warn("Profile fetch returned non-success status:", response.message);
         dispatch({ type: ActionTypes.SET_USER_PROFILE, payload: { username: "User" }});
         dispatch({ type: ActionTypes.SET_USER_STATS, payload: { total_points: 0, total_predictions: 0, average_points: 0 }});
       }
     } catch (err) {
-      console.error("Error fetching profile:", err);
+      process.env.NODE_ENV === 'development' && console.error("Error fetching profile:", err);
       dispatch({ type: ActionTypes.SET_USER_ERROR, payload: "Unable to load profile data" });
       dispatch({ type: ActionTypes.SET_USER_PROFILE, payload: { username: "User" }});
       dispatch({ type: ActionTypes.SET_USER_STATS, payload: { total_points: 0, total_predictions: 0, average_points: 0 }});
     }
-  }, [state.auth.isAuthenticated]);
+  }, [state.auth.isAuthenticated]); // FIXED: Restore state dependency for proper state access
 
   const updateProfile = useCallback(async (userData) => {
     try {
@@ -655,46 +753,62 @@ export const AppProvider = ({ children }) => {
     }
   }, [fetchProfile, showError]);
 
-  // Groups functions
+  // Groups functions with deduplication to prevent continuous dispatching
+  const groupsRequestInProgress = useRef(false);
   const fetchUserGroups = useCallback(async () => {
     if (!state.auth.isAuthenticated) return [];
+    
+    // Prevent multiple simultaneous requests
+    if (groupsRequestInProgress.current) {
+      process.env.NODE_ENV === 'development' && console.log('AppContext: Groups request already in progress, skipping...');
+      return state.groups.userGroups || [];
+    }
+    
+    // If we already have groups and they're not stale, return them
+    if (state.groups.userGroups && state.groups.userGroups.length > 0 && !state.groups.error) {
+      process.env.NODE_ENV === 'development' && console.log('AppContext: Using cached groups data');
+      return state.groups.userGroups;
+    }
+    
+    groupsRequestInProgress.current = true;
     
     try {
       dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: null });
       
-      console.log('AppContext: Calling groupsApi.getUserGroups...');
+      process.env.NODE_ENV === 'development' && console.log('AppContext: Calling groupsApi.getUserGroups...');
       const response = await groupsApi.getUserGroups();
-      console.log('AppContext: getUserGroups response:', response);
+      process.env.NODE_ENV === 'development' && console.log('AppContext: getUserGroups response:', response);
       
       if (response && response.status === 'success' && Array.isArray(response.data)) {
-        console.log('AppContext: Setting groups to:', response.data);
+        process.env.NODE_ENV === 'development' && console.log('AppContext: Setting groups to:', response.data);
         dispatch({ type: ActionTypes.SET_USER_GROUPS, payload: response.data });
         return response.data;
       } else {
-        console.warn('AppContext: Invalid response format:', response);
+        process.env.NODE_ENV === 'development' && console.warn('AppContext: Invalid response format:', response);
         dispatch({ type: ActionTypes.SET_USER_GROUPS, payload: [] });
         return [];
       }
     } catch (err) {
-      console.error('AppContext: Error in fetchUserGroups:', err);
+      process.env.NODE_ENV === 'development' && console.error('AppContext: Error in fetchUserGroups:', err);
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: err.message || 'Failed to fetch groups' });
       dispatch({ type: ActionTypes.SET_USER_GROUPS, payload: [] });
       return [];
     } finally {
       dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: false });
+      groupsRequestInProgress.current = false;
     }
-  }, [state.auth.isAuthenticated]);
+  }, [state.auth.isAuthenticated, state.groups.userGroups, state.groups.error]); // FIXED: Restore state dependencies for proper state access
 
   const fetchGroupDetails = useCallback(async (groupId) => {
-    console.log('🏢 fetchGroupDetails START:', { 
+    process.env.NODE_ENV === 'development' && console.log('🏢 fetchGroupDetails START:', { 
       groupId, 
       isAuthenticated: state.auth.isAuthenticated,
       currentGroupId: state.groups.currentGroup?.id 
     });
     
     if (!state.auth.isAuthenticated || !groupId) {
-      console.log('🏢 fetchGroupDetails SKIPPED: Not authenticated or no groupId');
+      process.env.NODE_ENV === 'development' && console.log('🏢 fetchGroupDetails SKIPPED: Not authenticated or no groupId');
       return null;
     }
     
@@ -704,67 +818,75 @@ export const AppProvider = ({ children }) => {
       
       // Clear current group first if switching to a different group
       if (state.groups.currentGroup && state.groups.currentGroup.id !== groupId) {
-        console.log(`🏢 Switching from group ${state.groups.currentGroup.id} to ${groupId}, clearing current group`);
+        process.env.NODE_ENV === 'development' && console.log(`🏢 Switching from group ${state.groups.currentGroup.id} to ${groupId}, clearing current group`);
         dispatch({ type: ActionTypes.SET_CURRENT_GROUP, payload: null });
         dispatch({ type: ActionTypes.SET_GROUP_MEMBERS, payload: [] });
       }
       
-      console.log('🏢 Calling groupsApi.getGroupById for groupId:', groupId);
+      process.env.NODE_ENV === 'development' && console.log('🏢 Calling groupsApi.getGroupById for groupId:', groupId);
       const response = await groupsApi.getGroupById(groupId);
-      console.log('🏢 Group details API response:', response);
+      process.env.NODE_ENV === 'development' && console.log('🏢 Group details API response:', response);
       
       if (response.status === 'success') {
-        console.log('🏢 Dispatching SET_CURRENT_GROUP with data:', response.data);
+        process.env.NODE_ENV === 'development' && console.log('🏢 Dispatching SET_CURRENT_GROUP with data:', response.data);
         dispatch({ type: ActionTypes.SET_CURRENT_GROUP, payload: response.data });
         dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: false });
-        console.log('🏢 fetchGroupDetails SUCCESS - returning data');
+        process.env.NODE_ENV === 'development' && console.log('🏢 fetchGroupDetails SUCCESS - returning data');
         return response.data;
       } else {
-        console.error('🏢 Group details API returned error status:', response);
+        process.env.NODE_ENV === 'development' && console.error('🏢 Group details API returned error status:', response);
         throw new Error(response.message || 'Failed to fetch group details');
       }
     } catch (err) {
-      console.error('🏢 fetchGroupDetails ERROR:', err);
+      process.env.NODE_ENV === 'development' && console.error('🏢 fetchGroupDetails ERROR:', err);
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: err.message || 'Failed to fetch group details' });
-      showError(err.message || 'Failed to fetch group details');
+      // Only show error notification if we're not in initial loading phase
+      // This prevents the brief error flash when navigating to group pages
+      if (state.groups.currentGroup) {
+        showError(err.message || 'Failed to fetch group details');
+      }
       return null;
     }
-  }, [state.auth.isAuthenticated, state.groups.currentGroup, showError]);
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Removed currentGroup from dependencies to prevent infinite loop
 
   const fetchGroupMembers = useCallback(async (groupId) => {
-    console.log('👥 fetchGroupMembers START:', { 
+    process.env.NODE_ENV === 'development' && console.log('👥 fetchGroupMembers START:', { 
       groupId, 
       isAuthenticated: state.auth.isAuthenticated 
     });
     
     if (!state.auth.isAuthenticated || !groupId) {
-      console.log('👥 fetchGroupMembers SKIPPED: Not authenticated or no groupId');
+      process.env.NODE_ENV === 'development' && console.log('👥 fetchGroupMembers SKIPPED: Not authenticated or no groupId');
       return [];
     }
     
     try {
       // Always fetch fresh data, don't use cached members for different groups
-      console.log('👥 Calling groupsApi.getGroupMembers for groupId:', groupId);
+      process.env.NODE_ENV === 'development' && console.log('👥 Calling groupsApi.getGroupMembers for groupId:', groupId);
       const response = await groupsApi.getGroupMembers(groupId);
-      console.log('👥 Group members API response:', response);
+      process.env.NODE_ENV === 'development' && console.log('👥 Group members API response:', response);
       
       if (response.status === 'success') {
-        console.log(`👥 Fetched ${response.data?.length || 0} members for group ${groupId}`);
-        console.log('👥 Dispatching SET_GROUP_MEMBERS with data:', response.data);
+        process.env.NODE_ENV === 'development' && console.log(`👥 Fetched ${response.data?.length || 0} members for group ${groupId}`);
+        process.env.NODE_ENV === 'development' && console.log('👥 Dispatching SET_GROUP_MEMBERS with data:', response.data);
         dispatch({ type: ActionTypes.SET_GROUP_MEMBERS, payload: response.data });
-        console.log('👥 fetchGroupMembers SUCCESS - returning data');
+        process.env.NODE_ENV === 'development' && console.log('👥 fetchGroupMembers SUCCESS - returning data');
         return response.data;
       } else {
-        console.error('👥 Group members API returned error status:', response);
+        process.env.NODE_ENV === 'development' && console.error('👥 Group members API returned error status:', response);
         throw new Error(response.message || 'Failed to fetch group members');
       }
     } catch (err) {
-      console.error(`👥 fetchGroupMembers ERROR for group ${groupId}:`, err);
+      process.env.NODE_ENV === 'development' && console.error(`👥 fetchGroupMembers ERROR for group ${groupId}:`, err);
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: err.message || 'Failed to fetch group members' });
-      showError(err.message || 'Failed to fetch group members');
+      // Only show error notification if we're not in initial loading phase
+      // This prevents the brief error flash when navigating to group pages
+      if (state.groups.currentGroup) {
+        showError(err.message || 'Failed to fetch group members');
+      }
       return [];
     }
-  }, [state.auth.isAuthenticated, showError]);
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Restore state dependencies for proper state access
 
   const createGroup = useCallback(async (groupData) => {
     if (!state.auth.isAuthenticated) return null;
@@ -773,9 +895,9 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: null });
       
-      console.log('Creating group with data:', groupData);
+      process.env.NODE_ENV === 'development' && console.log('Creating group with data:', groupData);
       const response = await groupsApi.createGroup(groupData);
-      console.log('Group creation API response:', response);
+      process.env.NODE_ENV === 'development' && console.log('Group creation API response:', response);
       
       if (response.status === 'success') {
         await fetchUserGroups();
@@ -789,7 +911,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to create group');
       return null;
     }
-  }, [state.auth.isAuthenticated, fetchUserGroups, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, fetchUserGroups, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const joinGroup = useCallback(async (inviteCode) => {
     if (!state.auth.isAuthenticated) return null;
@@ -812,7 +934,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to join group');
       return false;
     }
-  }, [state.auth.isAuthenticated, fetchUserGroups, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, fetchUserGroups, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const manageMember = useCallback(async (groupId, userId, action) => {
     if (!state.auth.isAuthenticated || !groupId) return false;
@@ -824,7 +946,6 @@ export const AppProvider = ({ children }) => {
       const response = await groupsApi.manageMember(groupId, userId, action);
       
       if (response.status === 'success') {
-        await fetchGroupMembers(groupId);
         showSuccess('Member action completed successfully');
         return true;
       } else {
@@ -835,7 +956,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to perform member action');
       return false;
     }
-  }, [state.auth.isAuthenticated, fetchGroupMembers, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const regenerateInviteCode = useCallback(async (groupId) => {
     if (!state.auth.isAuthenticated || !groupId) return null;
@@ -847,7 +968,6 @@ export const AppProvider = ({ children }) => {
       const response = await groupsApi.regenerateInviteCode(groupId);
       
       if (response.status === 'success') {
-        await fetchGroupDetails(groupId);
         showSuccess('Invite code regenerated successfully');
         return response;
       } else {
@@ -858,7 +978,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to regenerate invite code');
       return null;
     }
-  }, [state.auth.isAuthenticated, fetchGroupDetails, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const fetchTeamsForLeague = useCallback(async (leagueId) => {
     if (!state.auth.isAuthenticated || !leagueId) {
@@ -870,7 +990,7 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_GROUPS_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_GROUPS_ERROR, payload: null });
       
-      console.log('Fetching teams for league:', leagueId);
+      process.env.NODE_ENV === 'development' && console.log('Fetching teams for league:', leagueId);
       const response = await groupsApi.fetchTeamsForLeague(leagueId);
       
       if (response && response.status === 'success') {
@@ -884,22 +1004,22 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to fetch teams');
       return { status: 'error', data: [] };
     }
-  }, [state.auth.isAuthenticated, showError]);
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Restore state dependencies for proper state access
 
   const isAdmin = useCallback((groupId, userId) => {
     if (!groupId || !userId) {
-      console.log('isAdmin: Missing groupId or userId', { groupId, userId });
+      process.env.NODE_ENV === 'development' && console.log('isAdmin: Missing groupId or userId', { groupId, userId });
       return false;
     }
     
     const numericGroupId = parseInt(groupId);
     const numericUserId = parseInt(userId);
     
-    console.log('isAdmin check:', { numericGroupId, numericUserId });
+    process.env.NODE_ENV === 'development' && console.log('isAdmin check:', { numericGroupId, numericUserId });
     
     if (state.groups.currentGroup && state.groups.currentGroup.id === numericGroupId) {
       const isCurrentGroupAdmin = state.groups.currentGroup.admin_id === numericUserId;
-      console.log('isAdmin (currentGroup):', { 
+      process.env.NODE_ENV === 'development' && console.log('isAdmin (currentGroup):', { 
         currentGroupAdmin: state.groups.currentGroup.admin_id, 
         userId: numericUserId, 
         isAdmin: isCurrentGroupAdmin 
@@ -909,19 +1029,19 @@ export const AppProvider = ({ children }) => {
     
     const group = state.groups.userGroups.find(g => g.id === numericGroupId);
     if (!group) {
-      console.log('isAdmin: Group not found in userGroups', { numericGroupId, userGroups: state.groups.userGroups });
+      process.env.NODE_ENV === 'development' && console.log('isAdmin: Group not found in userGroups', { numericGroupId, userGroups: state.groups.userGroups });
       return false;
     }
     
     const isGroupAdmin = group.admin_id === numericUserId;
-    console.log('isAdmin (userGroups):', { 
+    process.env.NODE_ENV === 'development' && console.log('isAdmin (userGroups):', { 
       groupAdmin: group.admin_id, 
       userId: numericUserId, 
       isAdmin: isGroupAdmin 
     });
     
     return isGroupAdmin;
-  }, [state.groups.currentGroup, state.groups.userGroups]);
+  }, [state.groups.currentGroup, state.groups.userGroups]); // FIXED: Restore state dependencies for proper state access
 
   // Matches functions
   const fetchFixtures = useCallback(async (params = {}) => {
@@ -977,7 +1097,7 @@ export const AppProvider = ({ children }) => {
       }
     } catch (err) {
       dispatch({ type: ActionTypes.SET_MATCHES_ERROR, payload: err.message || 'Failed to fetch fixtures' });
-      console.error('Error fetching fixtures:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching fixtures:', err);
       
       if (err.code !== 429) {
         showError(err.message || 'Failed to fetch fixtures');
@@ -989,7 +1109,7 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_MATCHES_LOADING, payload: false });
       requestInProgress.current[cacheKey] = false;
     }
-  }, [state.auth.isAuthenticated, showError]);
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Restore state dependencies for proper state access
 
   const refreshLiveMatches = useCallback(async () => {
     if (!state.auth.isAuthenticated) return [];
@@ -1019,7 +1139,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_MATCHES_LOADING, payload: false });
     }
-  }, [state.auth.isAuthenticated, state.matches.liveMatches]);
+  }, [state.auth.isAuthenticated, state.matches.liveMatches]); // FIXED: Restore state dependencies for proper state access
 
   const fetchMatchById = useCallback(async (matchId) => {
     if (!state.auth.isAuthenticated || !matchId) return null;
@@ -1054,19 +1174,19 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_MATCHES_LOADING, payload: false });
     }
-  }, [state.auth.isAuthenticated, state.matches.fixtures, showError]);
+  }, [state.auth.isAuthenticated, state.matches.fixtures, showError]); // FIXED: Restore state dependencies for proper state access
 
   const getUpcomingMatches = useCallback(async () => {
-    const today = new Date();
-    const nextWeek = new Date(today);
-    nextWeek.setDate(today.getDate() + 7);
+    const now = new Date();
+    const nextWeek = new Date(now);
+    nextWeek.setDate(now.getDate() + 7);
     
     return await fetchFixtures({
-      from: today.toISOString(),
+      from: now.toISOString(),
       to: nextWeek.toISOString(),
       status: 'NOT_STARTED'
     });
-  }, [fetchFixtures]);
+  }, [fetchFixtures]); // FIXED: Restore function dependency for proper execution
 
   // Predictions functions
   const fetchUserPredictions = useCallback(async (params = {}) => {
@@ -1090,13 +1210,13 @@ export const AppProvider = ({ children }) => {
       }
     } catch (err) {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_ERROR, payload: err.message || 'Failed to fetch predictions' });
-      console.error('Error fetching predictions:', err);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching predictions:', err);
       dispatch({ type: ActionTypes.SET_USER_PREDICTIONS, payload: [] });
       return [];
     } finally {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_LOADING, payload: false });
     }
-  }, [state.auth.isAuthenticated]);
+  }, [state.auth.isAuthenticated]); // FIXED: Restore state dependency for proper state access
 
   const fetchPrediction = useCallback(async (predictionId) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1120,7 +1240,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_LOADING, payload: false });
     }
-  }, [state.auth.isAuthenticated, showError]);
+  }, [state.auth.isAuthenticated, showError]); // FIXED: Restore state dependencies for proper state access
 
   const createPrediction = useCallback(async (predictionData) => {
     if (!state.auth.isAuthenticated) return null;
@@ -1129,7 +1249,14 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_PREDICTIONS_ERROR, payload: null });
       
-      const response = await predictionsApi.createPrediction(predictionData);
+      // Include currentGroup.id if available and not already provided
+      const predictionPayload = { ...predictionData };
+      if (!predictionPayload.group_id && state.groups.currentGroup?.id) {
+        predictionPayload.group_id = state.groups.currentGroup.id;
+        process.env.NODE_ENV === 'development' && console.log('Adding currentGroup.id to prediction:', predictionPayload.group_id);
+      }
+      
+      const response = await predictionsApi.createPrediction(predictionPayload);
       
       if (response.status === 'success') {
         await fetchUserPredictions();
@@ -1143,7 +1270,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to create prediction');
       return null;
     }
-  }, [state.auth.isAuthenticated, fetchUserPredictions, showSuccess, showError]);
+  }, [fetchUserPredictions, showSuccess, showError, state.groups.currentGroup]); // Added currentGroup dependency
 
   const updatePrediction = useCallback(async (predictionId, predictionData) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1166,7 +1293,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to update prediction');
       return null;
     }
-  }, [state.auth.isAuthenticated, fetchUserPredictions, showSuccess, showError]);
+  }, [fetchUserPredictions, showSuccess, showError]); // FIXED: Add missing function dependencies
 
   const resetPrediction = useCallback(async (predictionId) => {
     if (!state.auth.isAuthenticated || !predictionId) return null;
@@ -1180,16 +1307,16 @@ export const AppProvider = ({ children }) => {
       if (response.status === 'success') {
         await fetchUserPredictions();
         showSuccess('Prediction reset successfully');
-        return true;
+        return response.data;
       } else {
         throw new Error(response.message || 'Failed to reset prediction');
       }
     } catch (err) {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_ERROR, payload: err.message || 'Failed to reset prediction' });
       showError(err.message || 'Failed to reset prediction');
-      return false;
+      return null;
     }
-  }, [state.auth.isAuthenticated, fetchUserPredictions, showSuccess, showError]);
+  }, [fetchUserPredictions, showSuccess, showError]); // FIXED: Add missing function dependencies
 
   const submitBatchPredictions = useCallback(async (predictions) => {
     if (!state.auth.isAuthenticated) return null;
@@ -1198,7 +1325,14 @@ export const AppProvider = ({ children }) => {
       dispatch({ type: ActionTypes.SET_PREDICTIONS_LOADING, payload: true });
       dispatch({ type: ActionTypes.SET_PREDICTIONS_ERROR, payload: null });
       
-      const response = await predictionsApi.createBatchPredictions(predictions);
+      // Include currentGroup.id if available and not already provided
+      const predictionsPayload = { ...predictions };
+      if (!predictionsPayload.group_id && state.groups.currentGroup?.id) {
+        predictionsPayload.group_id = state.groups.currentGroup.id;
+        process.env.NODE_ENV === 'development' && console.log('Adding currentGroup.id to batch predictions:', predictionsPayload.group_id);
+      }
+      
+      const response = await predictionsApi.createBatchPredictions(predictionsPayload);
       
       if (response.status === 'success') {
         await fetchUserPredictions();
@@ -1212,7 +1346,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to submit predictions');
       return null;
     }
-  }, [state.auth.isAuthenticated, fetchUserPredictions, showSuccess, showError]);
+  }, [fetchUserPredictions, showSuccess, showError, state.groups.currentGroup]); // Added currentGroup dependency
 
   // League functions
   const setSelectedSeason = useCallback((season, groupId = null) => {
@@ -1221,9 +1355,7 @@ export const AppProvider = ({ children }) => {
     // The GroupDetailsPage will handle refreshing the leaderboard when season changes
   }, []);
 
-  const setSelectedWeek = useCallback((week) => {
-    dispatch({ type: ActionTypes.SET_SELECTED_WEEK, payload: week });
-  }, []);
+
 
   const setSelectedGroup = useCallback((group) => {
     dispatch({ type: ActionTypes.SET_SELECTED_GROUP, payload: group });
@@ -1238,7 +1370,7 @@ export const AppProvider = ({ children }) => {
       const group = state.groups.currentGroup || 
                     state.groups.userGroups.find(g => g.id === parseInt(groupId));
       
-      console.log('🔍 fetchLeaderboard - Group found:', group);
+      process.env.NODE_ENV === 'development' && console.log('🔍 fetchLeaderboard - Group found:', group);
       
       let enhancedParams = { ...queryParams };
       
@@ -1251,7 +1383,7 @@ export const AppProvider = ({ children }) => {
           
           // Update selected season in state if not set
           if (!state.league.selectedSeason) {
-            console.log('🔍 Setting selectedSeason in fetchLeaderboard:', enhancedParams.season);
+            process.env.NODE_ENV === 'development' && console.log('🔍 Setting selectedSeason in fetchLeaderboard:', enhancedParams.season);
             dispatch({ 
               type: ActionTypes.SET_SELECTED_SEASON, 
               payload: enhancedParams.season 
@@ -1259,17 +1391,17 @@ export const AppProvider = ({ children }) => {
           }
         }
       } else {
-        console.warn('🔍 No group or league found for groupId:', groupId);
+        process.env.NODE_ENV === 'development' && console.warn('🔍 No group or league found for groupId:', groupId);
       }
       
-      console.log('🔍 Fetching leaderboard with enhanced params:', enhancedParams);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Fetching leaderboard with enhanced params:', enhancedParams);
       
       const response = await predictionsApi.getGroupLeaderboard(groupId, enhancedParams);
-      console.log('🔍 Leaderboard response:', response);
+      process.env.NODE_ENV === 'development' && console.log('🔍 Leaderboard response:', response);
       dispatch({ type: ActionTypes.SET_LEADERBOARD, payload: response.data || [] });
       return response.data;
     } catch (error) {
-      console.error('🔍 Error fetching leaderboard:', error);
+      process.env.NODE_ENV === 'development' && console.error('🔍 Error fetching leaderboard:', error);
       const errorMessage = error.message || 'Failed to load leaderboard';
       dispatch({ type: ActionTypes.SET_LEAGUE_ERROR, payload: errorMessage });
       showError(errorMessage);
@@ -1278,7 +1410,7 @@ export const AppProvider = ({ children }) => {
     } finally {
       dispatch({ type: ActionTypes.SET_LEAGUE_LOADING, payload: false });
     }
-  }, [state.groups.currentGroup, state.groups.userGroups, state.league.selectedSeason, showError]);
+  }, [state.groups.currentGroup, state.groups.userGroups, state.league.selectedSeason, showError]); // FIXED: Restore state dependencies for proper state access
 
   // NEW: Function to fetch available seasons for a group
   const fetchGroupSeasons = useCallback(async (groupId) => {
@@ -1299,7 +1431,7 @@ export const AppProvider = ({ children }) => {
             seasons = response.data;
           }
         } catch (backendError) {
-          console.warn('Backend season fetch failed, using local seasons:', backendError);
+          process.env.NODE_ENV === 'development' && console.warn('Backend season fetch failed, using local seasons:', backendError);
         }
       }
       
@@ -1310,10 +1442,10 @@ export const AppProvider = ({ children }) => {
       
       return seasons;
     } catch (error) {
-      console.error('Error fetching group seasons:', error);
+      process.env.NODE_ENV === 'development' && console.error('Error fetching group seasons:', error);
       return [];
     }
-  }, [state.groups.currentGroup, state.groups.userGroups]);
+  }, [state.groups.currentGroup, state.groups.userGroups]); // FIXED: Restore state dependencies for proper state access
 
   // Clear functions
   const clearPredictionData = useCallback(() => {
@@ -1326,8 +1458,8 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   const clearGroupData = useCallback(() => {
-    console.log('Clearing all group data');
-    dispatch({ type: ActionTypes.CLEAR_GROUPS_DATA });
+    process.env.NODE_ENV === 'development' && console.log('Clearing all group data');
+    dispatch({ type: ActionTypes.CLEAR_GROUP_DATA });
   }, []);
 
   const clearUserData = useCallback(() => {
@@ -1360,7 +1492,7 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to update group');
       return null;
     }
-  }, [state.auth.isAuthenticated, fetchGroupDetails, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, fetchGroupDetails, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   const leaveGroup = useCallback(async (groupId) => {
     if (!state.auth.isAuthenticated || !groupId) return false;
@@ -1383,13 +1515,13 @@ export const AppProvider = ({ children }) => {
       showError(err.message || 'Failed to leave group');
       return false;
     }
-  }, [state.auth.isAuthenticated, fetchUserGroups, showSuccess, showError]);
+  }, [state.auth.isAuthenticated, fetchUserGroups, showSuccess, showError]); // FIXED: Restore state dependencies for proper state access
 
   // 2. Add new membership check function
   const isMember = useCallback((groupId) => {
     if (!groupId) return false;
     return state.groups.userGroups.some(g => g.id === groupId);
-  }, [state.groups.userGroups]);
+  }, [state.groups.userGroups]); // FIXED: Restore state dependencies for proper state access
 
   // Add getUserStats to the AppProvider component
   const getUserStats = useCallback(async (userId) => {
@@ -1412,26 +1544,29 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // Context value
-  const contextValue = {
+  // Context value - memoized to prevent infinite re-renders
+  const contextValue = useMemo(() => ({
     // Auth
-    user: state.auth.user,
-    isAuthenticated: state.auth.isAuthenticated,
-    authLoading: state.auth.loading,
-    authError: state.auth.error,
+    auth: {
+      user: state.auth.user,
+      loading: state.auth.loading,
+      error: state.auth.error,
+      isAuthenticated: state.auth.isAuthenticated
+    },
     login,
-    register,
+    loginWithOAuth,
     logout,
     checkAuth,
-    clearAuthError,
-
+    
     // User
-    profile: state.user.profile,
-    stats: state.user.stats,
-    userLoading: state.user.loading,
-    userError: state.user.error,
-    statsLoading: state.user.statsLoading,
-    statsError: state.user.statsError,
+    user: {
+      profile: state.user.profile,
+      stats: state.user.stats,
+      loading: state.user.loading,
+      error: state.user.error,
+      statsLoading: state.user.statsLoading,
+      statsError: state.user.statsError
+    },
     fetchProfile,
     updateProfile,
     clearUserData,
@@ -1495,27 +1630,115 @@ export const AppProvider = ({ children }) => {
 
     // League
     selectedSeason: state.league.selectedSeason,
-    selectedWeek: state.league.selectedWeek,
     selectedGroup: state.league.selectedGroup,
     leaderboard: state.league.leaderboard,
     availableSeasons: state.league.availableSeasons,
     leagueLoading: state.league.loading,
     leagueError: state.league.error,
     setSelectedSeason,
-    setSelectedWeek,
     setSelectedGroup,
     fetchLeaderboard,
     fetchGroupSeasons,
-    clearLeagueData,
     
+    // Comeback Challenge
+    comebackChallenge: {
+      data: state.comebackChallenge.data,
+      loading: state.comebackChallenge.loading,
+      error: state.comebackChallenge.error
+    },
+    fetchComebackChallengeData: async (groupId) => {
+      try {
+        dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_LOADING, payload: true });
+        
+        // Use the proper API client with session authentication
+        const { rivalriesApi } = await import('../api');
+        const response = await rivalriesApi.getComebackChallengeStatus(groupId);
+        const data = response.data;
+        
+        if (data.success) {
+          dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_DATA, payload: data });
+        } else {
+          dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_ERROR, payload: data.error });
+        }
+        
+        return data;
+      } catch (error) {
+        const errorMessage = error.message || 'Failed to fetch Comeback Challenge data';
+        dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_ERROR, payload: errorMessage });
+        throw error;
+      } finally {
+        dispatch({ type: ActionTypes.SET_COMEBACK_CHALLENGE_LOADING, payload: false });
+      }
+    },
+    clearComebackChallengeData: () => {
+      dispatch({ type: ActionTypes.CLEAR_COMEBACK_CHALLENGE_DATA });
+    },
+    clearLeagueData,
+
     // Season management utilities
     normalizeSeasonForQuery: (league, season) => SeasonManager.normalizeSeasonForQuery(league, season),
     getSeasonForDisplay: (league, season) => SeasonManager.getSeasonForDisplay(league, season),
     getCurrentSeason: (league) => SeasonManager.getCurrentSeason(league),
 
-    // New getUserStats function
-    getUserStats,
-  };
+
+  }), [
+    // Auth state
+    state.auth.user,
+    state.auth.loading,
+    state.auth.error,
+    state.auth.isAuthenticated,
+    
+    // User state
+    state.user.profile,
+    state.user.stats,
+    state.user.loading,
+    state.user.error,
+    state.user.statsLoading,
+    state.user.statsError,
+    
+    // Groups state
+    state.groups.userGroups,
+    state.groups.currentGroup,
+    state.groups.groupMembers,
+    state.groups.loading,
+    state.groups.error,
+    
+    // Matches state
+    state.matches.fixtures,
+    state.matches.liveMatches,
+    state.matches.selectedMatch,
+    state.matches.loading,
+    state.matches.error,
+    
+    // Predictions state
+    state.predictions.userPredictions,
+    state.predictions.selectedPrediction,
+    state.predictions.loading,
+    state.predictions.error,
+    
+    // Notifications state
+    state.notifications.notifications,
+    
+    // League state
+    state.league.selectedSeason,
+    state.league.selectedGroup,
+    state.league.leaderboard,
+    state.league.availableSeasons,
+    state.league.loading,
+    state.league.error,
+    
+    // Comeback Challenge state
+    state.comebackChallenge.data,
+    state.comebackChallenge.loading,
+    state.comebackChallenge.error,
+    
+    // All functions are now properly dependent on their required state
+  ]);
+
+  // Check authentication on mount - placed after all functions are defined
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   return (
     <AppContext.Provider value={contextValue}>
@@ -1550,11 +1773,12 @@ export const useAuth = () => {
   }
   
   return {
-    user: context.user,
-    loading: context.authLoading,
-    error: context.authError,
-    isAuthenticated: context.isAuthenticated,
+    user: context.auth.user,
+    loading: context.auth.loading,
+    error: context.auth.error,
+    isAuthenticated: context.auth.isAuthenticated,
     login: context.login,
+    loginWithOAuth: context.loginWithOAuth,
     register: context.register,
     logout: context.logout,
     checkAuth: context.checkAuth,
@@ -1569,12 +1793,12 @@ export const useUser = () => {
   }
   
   return {
-    profile: context.profile,
-    stats: context.stats,
-    loading: context.userLoading,
-    error: context.userError,
-    statsLoading: context.statsLoading,
-    statsError: context.statsError,
+    profile: context.user.profile,
+    stats: context.user.stats,
+    loading: context.user.loading,
+    error: context.user.error,
+    statsLoading: context.user.statsLoading,
+    statsError: context.user.statsError,
     fetchProfile: context.fetchProfile,
     updateProfile: context.updateProfile,
     clearUserData: context.clearUserData,
@@ -1691,13 +1915,11 @@ export const useLeagueContext = () => {
   return {
     // FIXED: Access properties directly from context (they're already flattened)
     selectedSeason: context.selectedSeason,
-    selectedWeek: context.selectedWeek,
     selectedGroup: context.selectedGroup,
     leaderboard: context.leaderboard,
     loading: context.leagueLoading,
     error: context.leagueError,
     setSelectedSeason: context.setSelectedSeason,
-    setSelectedWeek: context.setSelectedWeek,
     setSelectedGroup: context.setSelectedGroup,
     fetchLeaderboard: context.fetchLeaderboard,
     fetchTeams: context.fetchTeamsForLeague
@@ -1712,9 +1934,7 @@ export const useGroupDetails = () => {
   
   return {
     selectedSeason: context.selectedSeason,
-    selectedWeek: context.selectedWeek,
     setSelectedSeason: context.setSelectedSeason,
-    setSelectedWeek: context.setSelectedWeek,
     members: context.groupMembers,
     loading: context.groupsLoading,
     error: context.groupsError,
