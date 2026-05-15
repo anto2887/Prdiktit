@@ -63,7 +63,11 @@ class CoinService:
 
         wallet = CoinService.get_or_create_wallet(db, user_id)
         wallet.balance_coins += amount_coins
-        wallet.lifetime_purchased_coins += amount_coins
+        if transaction_type == CoinTransactionType.CREDIT_PURCHASE:
+            wallet.lifetime_purchased_coins += amount_coins
+        else:
+            # Promo / admin grants — do not inflate purchase totals
+            wallet.lifetime_bonus_coins += amount_coins
 
         ledger = CoinLedgerEntry(
             user_id=user_id,

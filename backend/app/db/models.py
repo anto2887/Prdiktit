@@ -101,6 +101,9 @@ class User(Base):
         cascade="all, delete-orphan",
     )
     
+    # Referral attribution (optional)
+    referred_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+
     # OAuth validation
     __table_args__ = (
         # Ensure OAuth users have provider and ID
@@ -339,6 +342,7 @@ class UserWallet(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     balance_coins = Column(Integer, nullable=False, default=0)
     lifetime_purchased_coins = Column(Integer, nullable=False, default=0)
+    lifetime_bonus_coins = Column(Integer, nullable=False, default=0)
     lifetime_spent_coins = Column(Integer, nullable=False, default=0)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
     created_at = Column(DateTime, default=utc_now, nullable=False)
@@ -621,6 +625,32 @@ class RivalryWeek(Base):
     __table_args__ = (
         Index("idx_rivalry_weeks_group_season", "group_id", "season"),
         UniqueConstraint("group_id", "week", "season", name="_rivalry_week_uc")
+    )
+
+
+class UserGroupPredictionStreak(Base):
+    """
+    Consecutive qualifying finished fixtures with a prediction (per group + season).
+    Used for milestone coin bonuses; separate from analytics UserStreak rows.
+    """
+
+    __tablename__ = "user_group_prediction_streaks"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    group_id = Column(Integer, ForeignKey("groups.id", ondelete="CASCADE"), nullable=False, index=True)
+    season = Column(String(32), nullable=False)
+    consecutive_count = Column(Integer, nullable=False, default=0)
+    last_qualifying_fixture_id = Column(Integer, ForeignKey("fixtures.fixture_id", ondelete="SET NULL"), nullable=True)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now, nullable=False)
+
+    user = relationship("User")
+    group = relationship("Group")
+    last_fixture = relationship("Fixture", foreign_keys=[last_qualifying_fixture_id])
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "group_id", "season", name="_user_group_streak_uc"),
+        CheckConstraint("consecutive_count >= 0", name="check_ugps_count_non_negative"),
     )
 
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useI18n } from '../../i18n';
+import { REFERRER_USERNAME_STORAGE_KEY } from '../../constants/referral';
 
 const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
   const { t } = useI18n();
@@ -50,6 +51,13 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
 
     setIsSubmitting(true);
     try {
+      let referrerUsername = null;
+      try {
+        referrerUsername = sessionStorage.getItem(REFERRER_USERNAME_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+
       // Use backend URL from environment variable for user registration
       const response = await fetch(`${process.env.REACT_APP_API_URL}/oauth/google/complete`, {
         method: 'POST',
@@ -63,7 +71,8 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
           oauth_provider: 'google',
           accepted_terms: acceptedTerms,
           accepted_privacy: acceptedPrivacy,
-          is_over_18: isOver18
+          is_over_18: isOver18,
+          referrer_username: referrerUsername || undefined,
         }),
       });
 
@@ -73,6 +82,11 @@ const UsernameSelection = ({ oauthData, onComplete, onCancel }) => {
       }
 
       const data = await response.json();
+      try {
+        sessionStorage.removeItem(REFERRER_USERNAME_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
       onComplete(data);
       
     } catch (error) {

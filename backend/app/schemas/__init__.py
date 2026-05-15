@@ -63,6 +63,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    referrer_username: Optional[str] = None
 
 class UserUpdate(BaseModel):
     """Schema for updating user profile - all fields optional"""
@@ -254,6 +255,9 @@ class UsernameSelectionRequest(BaseModel):
     accepted_terms: bool = Field(..., description="Whether user accepted Terms of Service")
     accepted_privacy: bool = Field(..., description="Whether user accepted Privacy Policy")
     is_over_18: bool = Field(..., description="Whether user confirms they are 18+")
+    referrer_username: Optional[str] = Field(
+        default=None, description="Optional referring user's username (referral bonus)"
+    )
 
 class OAuthUserData(BaseModel):
     """Schema for OAuth user data"""

@@ -10,7 +10,8 @@ from ..services.oauth_service import oauth_service
 from ..db.models import User
 from ..schemas import OAuthCallbackRequest, UsernameSelectionRequest
 from ..services.session_service import session_service
-from ..db.repository import get_user_by_oauth_id, create_oauth_user, is_username_available
+from ..db.repository import get_user_by_oauth_id, create_oauth_user, is_username_available, get_user_by_username
+from ..services.bonus_economy_service import BonusEconomyService
 from ..services.content_filter import content_filter
 
 logger = logging.getLogger(__name__)
@@ -148,6 +149,14 @@ async def complete_oauth_registration(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Username already taken"
             )
+
+        referred_by_user_id = None
+        if username_data.referrer_username:
+            rn = username_data.referrer_username.strip()
+            if rn:
+                ref_user = await get_user_by_username(db, username=rn)
+                if ref_user:
+                    referred_by_user_id = ref_user.id
         
         # Create new user
         new_user = await create_oauth_user(
@@ -164,8 +173,16 @@ async def complete_oauth_registration(
                     "accepted_at": datetime.now(timezone.utc).isoformat(),
                     "terms_version": CURRENT_TERMS_VERSION
                 }
-            }
+            },
+            referred_by_user_id=referred_by_user_id,
         )
+
+        BonusEconomyService.grant_new_user_promotions(
+            db,
+            new_user_id=new_user.id,
+            referred_by_user_id=referred_by_user_id,
+        )
+        db.commit()
         
         # Create session for new user
         session_id, _ = session_service.create_session(

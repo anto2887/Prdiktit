@@ -20,6 +20,7 @@ from ..db.models import (
     PowerUpDailyEffect,
     GlobalCompetitionWindow,
     GlobalCanonicalEntry,
+    UserGroupPredictionStreak,
 )
 from ..services.worldcup_global_service import (
     DEFAULT_WORLD_CUP_SEASON,
@@ -1503,3 +1504,133 @@ async def repair_prediction_group_scoping_endpoint(
         ),
         data=result,
     )
+
+
+@router.post("/migrate-bonus-economy-v1")
+async def migrate_bonus_economy_v1(db: Session = Depends(get_db)):
+    """
+    Idempotent migration: bonus coin rollup column, referral FK, prediction streak table,
+    and backfill wallet rollups from ledger (promo/admin credits → lifetime_bonus_coins).
+    """
+    steps = []
+    try:
+        inspector = inspect(db.bind)
+
+        # --- user_wallets.lifetime_bonus_coins ---
+        wallet_cols = [c["name"] for c in inspector.get_columns("user_wallets")]
+        bonus_column_added_now = "lifetime_bonus_coins" not in wallet_cols
+        if bonus_column_added_now:
+            logger.info("Adding lifetime_bonus_coins to user_wallets")
+            db.execute(
+                text(
+                    """
+                    ALTER TABLE user_wallets
+                    ADD COLUMN lifetime_bonus_coins INTEGER NOT NULL DEFAULT 0
+                    """
+                )
+            )
+            db.commit()
+            steps.append("added user_wallets.lifetime_bonus_coins")
+            inspector = inspect(db.bind)
+        else:
+            steps.append("user_wallets.lifetime_bonus_coins already present")
+
+        # --- users.referred_by_user_id ---
+        user_cols = [c["name"] for c in inspector.get_columns("users")]
+        if "referred_by_user_id" not in user_cols:
+            logger.info("Adding referred_by_user_id to users")
+            db.execute(
+                text(
+                    """
+                    ALTER TABLE users
+                    ADD COLUMN referred_by_user_id INTEGER NULL
+                    REFERENCES users(id) ON DELETE SET NULL
+                    """
+                )
+            )
+            db.execute(
+                text(
+                    "CREATE INDEX IF NOT EXISTS ix_users_referred_by_user_id ON users (referred_by_user_id)"
+                )
+            )
+            db.commit()
+            steps.append("added users.referred_by_user_id")
+        else:
+            steps.append("users.referred_by_user_id already present")
+
+        # --- streak table ---
+        table_names = set(inspector.get_table_names())
+        if "user_group_prediction_streaks" not in table_names:
+            UserGroupPredictionStreak.__table__.create(bind=db.bind, checkfirst=True)
+            db.commit()
+            steps.append("created user_group_prediction_streaks")
+        else:
+            steps.append("user_group_prediction_streaks already present")
+
+        # --- Backfill rollups from ledger ---
+        logger.info("Setting lifetime_bonus_coins from ledger (promo/admin credits)")
+        db.execute(
+            text(
+                """
+                UPDATE user_wallets uw
+                SET lifetime_bonus_coins = COALESCE(
+                    (
+                        SELECT SUM(c.amount_coins)::integer
+                        FROM coin_ledger_entries c
+                        WHERE c.wallet_id = uw.id
+                          AND c.amount_coins > 0
+                          AND (
+                              c.transaction_type::text IN ('CREDIT_PROMO', 'CREDIT_ADMIN')
+                          )
+                    ),
+                    0
+                )
+                """
+            )
+        )
+        if bonus_column_added_now:
+            logger.info(
+                "Adjusting lifetime_purchased_coins once for historical promo misclassification"
+            )
+            db.execute(
+                text(
+                    """
+                    UPDATE user_wallets uw
+                    SET lifetime_purchased_coins = GREATEST(
+                        0,
+                        lifetime_purchased_coins - COALESCE(
+                            (
+                                SELECT SUM(c.amount_coins)::integer
+                                FROM coin_ledger_entries c
+                                WHERE c.wallet_id = uw.id
+                                  AND c.amount_coins > 0
+                                  AND (
+                                      c.transaction_type::text IN ('CREDIT_PROMO', 'CREDIT_ADMIN')
+                                  )
+                            ),
+                            0
+                        )
+                    )
+                    """
+                )
+            )
+            steps.append(
+                "one-time adjustment: subtracted historical promo/admin from lifetime_purchased_coins"
+            )
+        db.commit()
+        steps.append("synced lifetime_bonus_coins totals from coin_ledger_entries")
+
+        return {
+            "success": True,
+            "message": "migrate-bonus-economy-v1 completed",
+            "migration_type": "bonus_economy_v1",
+            "steps": steps,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error("migrate-bonus-economy-v1 failed: %s", e)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"migrate-bonus-economy-v1 failed: {str(e)}",
+        )

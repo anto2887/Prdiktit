@@ -1,11 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import OAuthLogin from './OAuthLogin';
 import { useI18n } from '../../i18n';
+import { REFERRER_USERNAME_STORAGE_KEY } from '../../constants/referral';
 
 export const Register = () => {
   const { t } = useI18n();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const r = params.get('ref');
+      if (r && r.trim()) {
+        sessionStorage.setItem(REFERRER_USERNAME_STORAGE_KEY, r.trim());
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

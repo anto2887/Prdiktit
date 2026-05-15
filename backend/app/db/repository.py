@@ -1425,7 +1425,8 @@ async def create_oauth_user(
     email: str, 
     oauth_provider: str, 
     oauth_id: str,
-    settings: Optional[Dict[str, Any]] = None
+    settings: Optional[Dict[str, Any]] = None,
+    referred_by_user_id: Optional[int] = None,
 ) -> User:
     """Create a new OAuth user"""
     try:
@@ -1442,7 +1443,8 @@ async def create_oauth_user(
             is_oauth_user=True,
             is_active=True,
             created_at=datetime.now(timezone.utc),
-            settings=settings
+            settings=settings,
+            referred_by_user_id=referred_by_user_id,
         )
         
         db.add(user)

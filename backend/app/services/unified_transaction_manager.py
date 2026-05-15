@@ -18,6 +18,7 @@ from ..db.database import SessionLocal
 from ..db.models import Fixture, UserPrediction, MatchStatus, PredictionStatus
 from ..db.repository import calculate_points
 from .powerup_scoring_service import apply_powerup_modifiers
+from .group_streak_service import process_streak_on_first_time_processed
 
 # Configure specialized loggers
 logger = logging.getLogger(__name__)
@@ -447,6 +448,24 @@ class UnifiedTransactionManager:
                         f"{prediction.score1}-{prediction.score2} vs "
                         f"{match.home_score}-{match.away_score} = {points} points"
                     )
+
+                    if prediction.group_id and old_status != "PROCESSED":
+                        try:
+                            process_streak_on_first_time_processed(
+                                session,
+                                user_id=prediction.user_id,
+                                group_id=prediction.group_id,
+                                season=prediction.season,
+                                fixture_id=match.fixture_id,
+                                old_prediction_status=old_status,
+                                match=match,
+                            )
+                        except Exception as streak_exc:
+                            logger.exception(
+                                "Streak processing failed prediction_id=%s: %s",
+                                prediction.id,
+                                streak_exc,
+                            )
         
         return result
     
@@ -573,6 +592,24 @@ class UnifiedTransactionManager:
                 })
                 
                 logger.info(f"Emergency processed prediction {prediction.id}: {prediction.score1}-{prediction.score2} vs {fixture.home_score}-{fixture.away_score} = {points} points")
+
+                if prediction.group_id and old_status != "PROCESSED":
+                    try:
+                        process_streak_on_first_time_processed(
+                            session,
+                            user_id=prediction.user_id,
+                            group_id=prediction.group_id,
+                            season=prediction.season,
+                            fixture_id=fixture.fixture_id,
+                            old_prediction_status=old_status,
+                            match=fixture,
+                        )
+                    except Exception as streak_exc:
+                        logger.exception(
+                            "Streak processing failed (emergency) prediction_id=%s: %s",
+                            prediction.id,
+                            streak_exc,
+                        )
         
         return result
 

@@ -23,6 +23,7 @@ from ..core.dependencies import (
 from ..db.session_manager import get_db
 from ..db.repository import get_user_by_username, create_user
 from ..services.content_filter import content_filter
+from ..services.bonus_economy_service import BonusEconomyService
 from ..schemas import (
     LoginRequest, LoginResponse, Token, UserCreate, User, BaseResponse
 )
@@ -152,14 +153,38 @@ async def register_user(
             detail="Username already exists"
         )
         
-    # Create new user
     hashed_password = get_password_hash(new_user.password)
-    user_data = new_user.dict()
-    user_data.pop("password")
-    user_data["hashed_password"] = hashed_password
-    
-    logger.info(f"🔍 REGISTER DEBUG: Creating user with data: {user_data}")
-    await create_user(db, **user_data)
+    raw = new_user.dict()
+    referrer_username = (raw.get("referrer_username") or "").strip() or None
+
+    referred_by_user_id = None
+    if referrer_username:
+        ref_user = await get_user_by_username(db, username=referrer_username)
+        if ref_user:
+            referred_by_user_id = ref_user.id
+        else:
+            logger.info("Referrer username not found, ignoring: %s", referrer_username)
+
+    logger.info(
+        "🔍 REGISTER DEBUG: Creating user %s referred_by=%s",
+        new_user.username,
+        referred_by_user_id,
+    )
+    await create_user(
+        db,
+        username=new_user.username,
+        email=raw.get("email"),
+        hashed_password=hashed_password,
+        referred_by_user_id=referred_by_user_id,
+    )
+    created = await get_user_by_username(db, username=new_user.username)
+    if created:
+        BonusEconomyService.grant_new_user_promotions(
+            db,
+            new_user_id=created.id,
+            referred_by_user_id=referred_by_user_id,
+        )
+        db.commit()
     logger.info(f"🔍 REGISTER DEBUG: User {new_user.username} created successfully")
     
     return {
