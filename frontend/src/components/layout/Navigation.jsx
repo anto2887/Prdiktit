@@ -5,12 +5,31 @@ import { useAuth, useNotifications } from '../../contexts/AppContext';
 import { useI18n } from '../../i18n';
 import { resolvePageTourKey, useTour } from '../../contexts/TourContext';
 
+/** ISO 3166-1 alpha-2 for flagcdn.com (emoji flags are unreliable on Windows). */
 const LOCALE_OPTIONS = [
-  { value: 'en', flag: '🇺🇸', labelKey: 'common.english' },
-  { value: 'fr', flag: '🇫🇷', labelKey: 'common.french' },
-  { value: 'es', flag: '🇲🇽', labelKey: 'common.spanish' },
-  { value: 'pt', flag: '🇧🇷', labelKey: 'common.portuguese' },
+  { value: 'en', country: 'us', labelKey: 'common.english' },
+  { value: 'fr', country: 'fr', labelKey: 'common.french' },
+  { value: 'es', country: 'mx', labelKey: 'common.spanish' },
+  { value: 'pt', country: 'br', labelKey: 'common.portuguese' },
 ];
+
+function LocaleFlagImg({ country, className, title }) {
+  const base = `https://flagcdn.com/24x18/${country}.png`;
+  const retina = `https://flagcdn.com/48x36/${country}.png`;
+  return (
+    <img
+      src={base}
+      srcSet={`${base} 1x, ${retina} 2x`}
+      width={24}
+      height={18}
+      alt=""
+      title={title}
+      className={`rounded-sm border border-gray-200/90 shadow-sm object-cover dark:border-gray-600 ${className || ''}`}
+      loading="lazy"
+      decoding="async"
+    />
+  );
+}
 
 const Navigation = () => {
   const { user, logout, isAuthenticated } = useAuth();
@@ -94,34 +113,34 @@ const Navigation = () => {
           setIsLangOpen((o) => !o);
           setIsHelpOpen(false);
         }}
-        className={buttonClassName}
+        className={`inline-flex items-center justify-center rounded-md border border-gray-200 bg-white p-1 shadow-sm hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 ${buttonClassName}`}
         aria-expanded={isLangOpen}
         aria-haspopup="listbox"
-        aria-label={t('nav.selectLanguage')}
+        aria-label={`${t('nav.selectLanguage')}: ${t(currentLocaleOption.labelKey)}`}
       >
-        <span className="text-lg leading-none" aria-hidden>
-          {currentLocaleOption.flag}
-        </span>
+        <LocaleFlagImg country={currentLocaleOption.country} title={t(currentLocaleOption.labelKey)} />
       </button>
       {isLangOpen && (
         <ul
           role="listbox"
-          className="absolute right-0 mt-2 w-52 rounded-md shadow-lg py-1 bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-gray-700 ring-opacity-5 z-50"
+          aria-label={t('nav.selectLanguage')}
+          className="absolute right-0 mt-2 min-w-[3.5rem] rounded-md shadow-lg py-1.5 px-1 bg-white dark:bg-gray-800 ring-1 ring-black dark:ring-gray-700 ring-opacity-5 z-50 flex flex-col gap-0.5"
         >
           {LOCALE_OPTIONS.map((o) => (
             <li key={o.value} role="option" aria-selected={locale === o.value}>
               <button
                 type="button"
-                className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                className={`flex w-full items-center justify-center rounded p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                  locale === o.value ? 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-gray-800 rounded' : ''
+                }`}
+                title={t(o.labelKey)}
+                aria-label={t(o.labelKey)}
                 onClick={() => {
                   setLocale(o.value);
                   setIsLangOpen(false);
                 }}
               >
-                <span className="text-lg" aria-hidden>
-                  {o.flag}
-                </span>
-                <span>{t(o.labelKey)}</span>
+                <LocaleFlagImg country={o.country} title={t(o.labelKey)} />
               </button>
             </li>
           ))}
@@ -150,12 +169,7 @@ const Navigation = () => {
           <div className="flex items-center">
             {isAuthenticated ? (
               <div className="flex items-center space-x-3 sm:space-x-4">
-                <span className="text-gray-700 dark:text-gray-200 hidden sm:inline max-w-[10rem] truncate">
-                  {user?.username}
-                </span>
-                {renderLanguageMenu(
-                  'px-2 py-1.5 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
-                )}
+                {renderLanguageMenu('focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800')}
                 <div className="relative" ref={helpRef}>
                   <button
                     type="button"
@@ -203,8 +217,12 @@ const Navigation = () => {
                       id="user-menu-button"
                       aria-expanded={isDropdownOpen}
                       aria-haspopup="true"
+                      aria-label={
+                        user?.username
+                          ? `${t('nav.openUserMenu')}: ${user.username}`
+                          : t('nav.openUserMenu')
+                      }
                     >
-                      <span className="sr-only">Open user menu</span>
                       <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
                         <span className="text-blue-600 dark:text-blue-300 font-medium">
                           {user?.username?.charAt(0).toUpperCase() || 'U'}
@@ -258,9 +276,7 @@ const Navigation = () => {
               </div>
             ) : (
               <div className="flex items-center space-x-4">
-                {renderLanguageMenu(
-                  'px-2 py-1.5 rounded-md text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
-                )}
+                {renderLanguageMenu('focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:focus:ring-offset-gray-800')}
                 <Link
                   to="/login"
                   className="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
