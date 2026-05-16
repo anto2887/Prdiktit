@@ -13,6 +13,8 @@ from ..db.models import (
     group_members, PredictionStatus, MatchStatus
 )
 from ..db.repository import get_group_members, check_group_membership
+from ..services.worldcup_global_service import WORLD_CUP_LEAGUE
+from ..services import worldcup_hybrid_schedule as wc_hybrid
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +78,32 @@ class RivalryService:
             if not group.activation_week or not group.next_rivalry_week:
                 logger.warning(f"Group {group_id} missing activation data: activation_week={group.activation_week}, next_rivalry_week={group.next_rivalry_week}")
                 return False
+
+            if group.league == WORLD_CUP_LEAGUE:
+                today = wc_hybrid.wc_utc_today()
+                if not wc_hybrid.is_world_cup_tournament_started(today):
+                    logger.info(f"Group {group_id} WC tournament not started yet")
+                    return False
+                if not wc_hybrid.is_world_cup_rivalry_calendar_day(today):
+                    logger.info(f"Group {group_id} today is not a WC rivalry calendar day")
+                    return False
+                # Align assignment week with fixture-driven matchweek for this date.
+                from ..utils.season_manager import SeasonManager
+
+                season = SeasonManager.get_current_season(group.league)
+                expected_week = wc_hybrid.canonical_matchweek_on_utc_date(
+                    self.db,
+                    league=group.league,
+                    season=str(season),
+                    on_date=today,
+                )
+                if week != expected_week:
+                    logger.info(
+                        f"Group {group_id} WC rivalry day week mismatch: got {week}, expected {expected_week}"
+                    )
+                    return False
+                logger.info(f"✅ Week {week} is WC rivalry week for group {group_id}")
+                return True
             
             # Check if features are activated for this group
             if week < group.activation_week:
@@ -104,7 +132,28 @@ class RivalryService:
             if not group or not group.activation_week:
                 logger.warning(f"Cannot update rivalry week for group {group_id} - missing activation data")
                 return
-            
+
+            if group.league == WORLD_CUP_LEAGUE:
+                today = wc_hybrid.wc_utc_today()
+                nxt = wc_hybrid.next_world_cup_rivalry_date_strictly_after(today)
+                if nxt:
+                    from ..utils.season_manager import SeasonManager
+
+                    season = SeasonManager.get_current_season(group.league)
+                    group.next_rivalry_week = wc_hybrid.canonical_matchweek_on_utc_date(
+                        self.db,
+                        league=group.league,
+                        season=str(season),
+                        on_date=nxt,
+                    )
+                else:
+                    group.next_rivalry_week = 7
+                self.db.commit()
+                logger.info(
+                    f"✅ WC group {group_id} next_rivalry_week -> {group.next_rivalry_week}"
+                )
+                return
+
             # Calculate next rivalry week (4 weeks from current week)
             next_rivalry_week = current_week + 4
             

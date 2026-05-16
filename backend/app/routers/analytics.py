@@ -17,6 +17,7 @@ from ..services.analytics_service import AnalyticsService
 from ..services.rivalry_service import RivalryService
 from ..services.bonus_service import BonusPointsService
 from ..db.repository import check_group_membership, get_group_by_id, calculate_canonical_matchweek
+from ..services.worldcup_global_service import WORLD_CUP_LEAGUE
 from ..schemas import User, ListResponse, DataResponse
 
 logger = logging.getLogger(__name__)
@@ -201,7 +202,28 @@ async def assign_group_rivalries(
             now_utc=datetime.now(timezone.utc)
         )
         scheduled_week = group.next_rivalry_week or canonical_week
-        if week not in {canonical_week, scheduled_week}:
+
+        if group.league == WORLD_CUP_LEAGUE:
+            from ..services import worldcup_hybrid_schedule as wch
+
+            today = wch.wc_utc_today()
+            if not (
+                wch.is_world_cup_tournament_started(today)
+                and wch.is_world_cup_rivalry_calendar_day(today)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="World Cup manual rivalry assignment is only allowed on configured rivalry days after the tournament has started.",
+                )
+            if week != canonical_week:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Invalid rivalry assignment week={week} for World Cup on this date. "
+                        f"Expected canonical_week={canonical_week}."
+                    ),
+                )
+        elif week not in {canonical_week, scheduled_week}:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(

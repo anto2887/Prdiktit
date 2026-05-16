@@ -61,6 +61,14 @@ def get_season_info_for_league(league):
             'rivalry_frequency': 4,
             'activation_delay': 5
         }
+    elif league == WORLD_CUP_LEAGUE:
+        # Short tournament: week integers are API matchweek-style; activation uses hybrid dates.
+        return {
+            'total_weeks': 7,
+            'season_start_month': 6,
+            'rivalry_frequency': 4,
+            'activation_delay': 0,
+        }
     else:
         return {
             'total_weeks': 30,
@@ -1091,16 +1099,37 @@ async def create_group(db: Session, admin_id: int, **group_data) -> Group:
         
         # Get season info for this league
         season_info = get_season_info_for_league(league)
-        
-        # Calculate actual week in season based on current date
         current_date = datetime.now(timezone.utc)
-        created_week = calculate_actual_week_in_season(current_date, season_info)
-        
-        # Calculate activation week with season boundary handling
-        activation_week = calculate_activation_week_with_boundaries(created_week, league)
-        
-        # Calculate next rivalry week with proper season handling
-        next_rivalry_week = calculate_next_rivalry_week_with_season_handling(activation_week, league)
+
+        if league == WORLD_CUP_LEAGUE:
+            from ..utils.season_manager import SeasonManager
+            from ..services.worldcup_hybrid_schedule import (
+                WORLD_CUP_TOURNAMENT_START,
+                canonical_matchweek_on_utc_date,
+                next_world_cup_rivalry_date_on_or_after,
+                world_cup_display_activation_week,
+            )
+
+            season_str = SeasonManager.get_current_season(league)
+            created_week = calculate_canonical_matchweek(
+                db, league, season_str, current_date
+            ) or 1
+            activation_week = world_cup_display_activation_week()
+            first_rd = next_world_cup_rivalry_date_on_or_after(WORLD_CUP_TOURNAMENT_START)
+            if first_rd:
+                next_rivalry_week = canonical_matchweek_on_utc_date(
+                    db, league=league, season=season_str, on_date=first_rd
+                )
+            else:
+                next_rivalry_week = 1
+            next_rivalry_week = max(1, min(next_rivalry_week, season_info["total_weeks"]))
+        else:
+            # Calculate actual week in season based on current date
+            created_week = calculate_actual_week_in_season(current_date, season_info)
+            # Calculate activation week with season boundary handling
+            activation_week = calculate_activation_week_with_boundaries(created_week, league)
+            # Calculate next rivalry week with proper season handling
+            next_rivalry_week = calculate_next_rivalry_week_with_season_handling(activation_week, league)
         
         group = Group(
             admin_id=admin_id,

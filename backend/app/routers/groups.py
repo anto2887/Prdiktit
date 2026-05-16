@@ -35,6 +35,7 @@ from ..db.repository import (
     calculate_next_rivalry_week_with_season_handling,
 )
 from ..utils.season_manager import SeasonManager
+from ..services.worldcup_global_service import WORLD_CUP_LEAGUE
 
 from ..db.models import (
     PendingMembership,
@@ -125,7 +126,8 @@ async def get_user_groups_endpoint(
                     "weeks_until_next_rivalry": activation_data.get("weeks_until_next_rivalry"),
                     "activation_progress": activation_data.get("activation_progress"),
                     "is_activated": activation_data.get("is_activated"),
-                    "is_rivalry_week": activation_data.get("is_rivalry_week")
+                    "is_rivalry_week": activation_data.get("is_rivalry_week"),
+                    "world_cup_schedule_mode": activation_data.get("world_cup_schedule_mode"),
                 }
                 
                 groups.append(group_dict)
@@ -179,6 +181,51 @@ async def calculate_group_activation_data(group, db):
             season=current_season,
             now_utc=current_date
         )
+
+        if group.league == WORLD_CUP_LEAGUE:
+            from ..services import worldcup_hybrid_schedule as wchs
+
+            today = wchs.wc_utc_today(current_date)
+            is_activated = wchs.is_world_cup_tournament_started(today)
+            is_rivalry_week = bool(
+                is_activated and wchs.is_world_cup_rivalry_calendar_day(today)
+            )
+            weeks_until_activation = wchs.world_cup_weeks_until_activation(today)
+            weeks_until_next_rivalry = wchs.world_cup_weeks_until_next_rivalry(today)
+            activation_progress = wchs.world_cup_activation_progress(today)
+            created_week = group.created_week or current_week
+            activation_week = wchs.world_cup_display_activation_week()
+            nxt = wchs.next_world_cup_rivalry_date_on_or_after(today)
+            if nxt:
+                next_rivalry_week = wchs.canonical_matchweek_on_utc_date(
+                    db,
+                    league=group.league,
+                    season=current_season,
+                    on_date=nxt,
+                )
+            else:
+                next_rivalry_week = season_info["total_weeks"]
+            next_rivalry_week = max(1, min(int(next_rivalry_week), season_info["total_weeks"]))
+            logger.info(
+                "Group %s World Cup hybrid: today=%s activated=%s rivalry_day=%s mw=%s",
+                group.id,
+                today,
+                is_activated,
+                is_rivalry_week,
+                current_week,
+            )
+            return {
+                "created_week": created_week,
+                "activation_week": activation_week,
+                "next_rivalry_week": next_rivalry_week,
+                "current_week": current_week,
+                "weeks_until_activation": weeks_until_activation,
+                "weeks_until_next_rivalry": weeks_until_next_rivalry,
+                "activation_progress": activation_progress,
+                "is_activated": is_activated,
+                "is_rivalry_week": is_rivalry_week,
+                "world_cup_schedule_mode": "hybrid_dates",
+            }
 
         created_week = group.created_week or current_week
         activation_week = group.activation_week or calculate_activation_week_with_boundaries(
@@ -459,7 +506,8 @@ async def get_group_by_id_endpoint(
             "weeks_until_next_rivalry": activation_data.get("weeks_until_next_rivalry"),
             "activation_progress": activation_data.get("activation_progress"),
             "is_activated": activation_data.get("is_activated"),
-            "is_rivalry_week": activation_data.get("is_rivalry_week")
+            "is_rivalry_week": activation_data.get("is_rivalry_week"),
+            "world_cup_schedule_mode": activation_data.get("world_cup_schedule_mode"),
         }
         
         return {"status": "success", "message": "Group details retrieved successfully", "data": group_data}

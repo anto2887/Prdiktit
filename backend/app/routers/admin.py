@@ -1634,3 +1634,73 @@ async def migrate_bonus_economy_v1(db: Session = Depends(get_db)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"migrate-bonus-economy-v1 failed: {str(e)}",
         )
+
+
+@router.post("/migrate-worldcup-hybrid-activation")
+async def migrate_worldcup_hybrid_activation(db: Session = Depends(get_db)):
+    """
+    Recompute created_week, activation_week, and next_rivalry_week for all World Cup groups
+    using the hybrid calendar schedule (safe to run multiple times).
+    """
+    from ..db.models import Group as GroupModel
+    from ..utils.season_manager import SeasonManager
+    from ..db.repository import calculate_canonical_matchweek, get_season_info_for_league
+    from ..services.worldcup_global_service import WORLD_CUP_LEAGUE
+    from ..services.worldcup_hybrid_schedule import (
+        WORLD_CUP_TOURNAMENT_START,
+        canonical_matchweek_on_utc_date,
+        next_world_cup_rivalry_date_on_or_after,
+        world_cup_display_activation_week,
+    )
+
+    try:
+        now = datetime.now(timezone.utc)
+        season_str = SeasonManager.get_current_season(WORLD_CUP_LEAGUE)
+        wc_groups = (
+            db.query(GroupModel)
+            .filter(GroupModel.league == WORLD_CUP_LEAGUE)
+            .all()
+        )
+        updated = []
+        for g in wc_groups:
+            created_week = calculate_canonical_matchweek(
+                db, WORLD_CUP_LEAGUE, season_str, now
+            ) or 1
+            g.created_week = created_week
+            g.activation_week = world_cup_display_activation_week()
+            first_rd = next_world_cup_rivalry_date_on_or_after(WORLD_CUP_TOURNAMENT_START)
+            if first_rd:
+                g.next_rivalry_week = canonical_matchweek_on_utc_date(
+                    db,
+                    league=WORLD_CUP_LEAGUE,
+                    season=season_str,
+                    on_date=first_rd,
+                )
+            else:
+                g.next_rivalry_week = 1
+            cap = get_season_info_for_league(WORLD_CUP_LEAGUE)["total_weeks"]
+            g.next_rivalry_week = max(1, min(int(g.next_rivalry_week), cap))
+            updated.append(
+                {
+                    "group_id": g.id,
+                    "created_week": g.created_week,
+                    "activation_week": g.activation_week,
+                    "next_rivalry_week": g.next_rivalry_week,
+                }
+            )
+        db.commit()
+        return {
+            "success": True,
+            "message": "World Cup hybrid activation fields recomputed",
+            "migration_type": "worldcup_hybrid_activation",
+            "groups_updated": len(updated),
+            "groups": updated,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    except Exception as e:
+        logger.error("migrate-worldcup-hybrid-activation failed: %s", e)
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"migrate-worldcup-hybrid-activation failed: {str(e)}",
+        )

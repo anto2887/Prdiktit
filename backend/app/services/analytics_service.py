@@ -16,6 +16,8 @@ from ..db.models import (
 )
 from ..db.repository import get_group_members
 from ..services.cache_service import RedisCache
+from ..services.worldcup_global_service import WORLD_CUP_LEAGUE
+from ..services import worldcup_hybrid_schedule as wc_hybrid
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +102,19 @@ class AnalyticsService:
                 # Check group-specific activation
                 group = self.db.query(Group).filter(Group.id == group_id).first()
                 if group and group.activation_week:
+                    if group.league == WORLD_CUP_LEAGUE:
+                        today = wc_hybrid.wc_utc_today()
+                        if not wc_hybrid.is_world_cup_tournament_started(today):
+                            return {
+                                'available': False,
+                                'activation_week': group.activation_week,
+                                'reason': 'World Cup analytics unlock when the tournament starts (Jun 11, 2026 UTC date)',
+                            }
+                        return {
+                            'available': True,
+                            'activation_week': group.activation_week,
+                            'reason': 'World Cup tournament started — analytics available',
+                        }
                     if current_week < group.activation_week:
                         return {
                             'available': False,
@@ -121,7 +136,18 @@ class AnalyticsService:
             ).all()
             
             for group in user_groups:
-                if group.activation_week and current_week >= group.activation_week:
+                if not group.activation_week:
+                    continue
+                if group.league == WORLD_CUP_LEAGUE:
+                    today = wc_hybrid.wc_utc_today()
+                    if wc_hybrid.is_world_cup_tournament_started(today):
+                        return {
+                            'available': True,
+                            'activation_week': group.activation_week,
+                            'reason': f'User in activated WC group: {group.name}',
+                        }
+                    continue
+                if current_week >= group.activation_week:
                     return {
                         'available': True,
                         'activation_week': group.activation_week,
