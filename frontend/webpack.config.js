@@ -114,6 +114,8 @@ module.exports = (env, argv) => {
       new Dotenv({
         path: `./.env.${env.environment || 'production'}`,
         safe: true,
+        // Allow keys in *.example to be present-but-empty (optional overrides, e.g. Club WC season).
+        allowEmptyValues: true,
         systemvars: true,
       }),
 
