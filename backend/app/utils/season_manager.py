@@ -2,9 +2,16 @@
 """
 Comprehensive season management utility that handles different league formats
 """
-from datetime import datetime, date, timezone
-from typing import Dict, List, Optional, Tuple
+import logging
+import os
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 from enum import Enum
+
+logger = logging.getLogger(__name__)
+
+# Optional override when API-Football uses a non-obvious season year for league id 15.
+CLUB_WORLD_CUP_API_SEASON_ENV = "CLUB_WORLD_CUP_API_SEASON"
 
 
 class LeagueType(Enum):
@@ -66,13 +73,36 @@ class SeasonManager:
             "api_season": "{year}",
         }
     }
-    
+
+    @staticmethod
+    def _european_campaign_start_year(now: datetime) -> int:
+        """Start year of the European league season containing ``now`` (August flip)."""
+        if now.month >= 8:
+            return now.year
+        return now.year - 1
+
+    @staticmethod
+    def _mls_campaign_calendar_year(now: datetime) -> int:
+        """MLS campaign label year: new season from February (option A). Jan -> prior year."""
+        if now.month >= 2:
+            return now.year
+        return now.year - 1
+
+    @classmethod
+    def _warn_unknown_league(cls, league_name: str, method: str) -> None:
+        logger.warning(
+            "SeasonManager.%s: unknown league %r — using best-effort fallback; "
+            "add LEAGUE_CONFIGS entry for deterministic behavior",
+            method,
+            league_name,
+        )
+
     @classmethod
     def get_current_season(cls, league_name: str) -> str:
         """Get the current season for a league in database format"""
         config = cls.LEAGUE_CONFIGS.get(league_name)
         if not config:
-            # Default to calendar year for unknown leagues
+            cls._warn_unknown_league(league_name, "get_current_season")
             return str(datetime.now(timezone.utc).year)
 
         pinned = config.get("pinned_db_season")
@@ -82,29 +112,36 @@ class SeasonManager:
         now = datetime.now(timezone.utc)
         
         if config["type"] == LeagueType.EUROPEAN:
-            # European season runs Aug-May
-            if now.month >= 8:  # August or later = new season
-                start_year = now.year
-                end_year = now.year + 1
-            else:  # Before August = previous season
-                start_year = now.year - 1
-                end_year = now.year
-                
+            start_year = cls._european_campaign_start_year(now)
+            end_year = start_year + 1
             return config["db_format"].format(
                 start_year=start_year,
                 end_year=end_year,
                 end_year_short=str(end_year)[2:]
             )
-            
-        elif config["type"] in [LeagueType.MLS, LeagueType.CALENDAR_YEAR, LeagueType.TOURNAMENT]:
-            # Calendar year leagues
+
+        if config["type"] == LeagueType.MLS:
+            y = cls._mls_campaign_calendar_year(now)
+            return config["db_format"].format(year=y)
+
+        if config["type"] == LeagueType.CALENDAR_YEAR:
             return config["db_format"].format(year=now.year)
+
+        if config["type"] == LeagueType.TOURNAMENT:
+            if league_name == "FIFA Club World Cup":
+                override = os.environ.get(CLUB_WORLD_CUP_API_SEASON_ENV, "").strip()
+                if override:
+                    return override
+            return config["db_format"].format(year=now.year)
+
+        return str(now.year)
     
     @classmethod
     def get_season_for_api(cls, league_name: str, db_season: str) -> str:
         """Convert database season format to API season format"""
         config = cls.LEAGUE_CONFIGS.get(league_name)
         if not config:
+            cls._warn_unknown_league(league_name, "get_season_for_api")
             return db_season
             
         if config["type"] == LeagueType.EUROPEAN:
@@ -120,6 +157,7 @@ class SeasonManager:
         """Convert database season to display format"""
         config = cls.LEAGUE_CONFIGS.get(league_name)
         if not config:
+            cls._warn_unknown_league(league_name, "get_season_for_display")
             return db_season
             
         if config["type"] == LeagueType.EUROPEAN:
@@ -138,6 +176,7 @@ class SeasonManager:
         """Convert any season format to database format"""
         config = cls.LEAGUE_CONFIGS.get(league_name)
         if not config:
+            cls._warn_unknown_league(league_name, "convert_to_db_format")
             return season_input
             
         if config["type"] == LeagueType.EUROPEAN:
@@ -165,9 +204,10 @@ class SeasonManager:
     def get_available_seasons(cls, league_name: str, years_back: int = 5) -> List[Dict[str, str]]:
         """Get list of available seasons for a league"""
         config = cls.LEAGUE_CONFIGS.get(league_name)
+        now = datetime.now(timezone.utc)
         if not config:
-            # Default to calendar years
-            current_year = datetime.now(timezone.utc).year
+            cls._warn_unknown_league(league_name, "get_available_seasons")
+            current_year = now.year
             return [
                 {
                     "value": str(year),
@@ -178,32 +218,53 @@ class SeasonManager:
             ]
         
         seasons = []
-        current_year = datetime.now(timezone.utc).year
-        
-        if config["type"] == LeagueType.EUROPEAN:
-            # Generate European seasons
+
+        pinned = config.get("pinned_db_season")
+        if pinned:
+            try:
+                anchor = int(pinned)
+            except ValueError:
+                anchor = now.year
             for i in range(years_back + 1):
-                start_year = current_year - i
-                end_year = start_year + 1
-                
-                db_format = f"{start_year}-{end_year}"
-                display_format = f"{start_year}-{str(end_year)[2:]}"
-                
+                y = anchor - 4 * i
+                ys = str(y)
+                seasons.append({"value": ys, "label": ys, "db_format": ys})
+            return seasons
+
+        if config["type"] == LeagueType.EUROPEAN:
+            start_year = cls._european_campaign_start_year(now)
+            for i in range(years_back + 1):
+                sy = start_year - i
+                ey = sy + 1
+                db_format = f"{sy}-{ey}"
+                display_format = f"{sy}-{str(ey)[2:]}"
                 seasons.append({
                     "value": db_format,
                     "label": display_format,
                     "db_format": db_format
                 })
-        else:
-            # Calendar year leagues
+        elif config["type"] == LeagueType.MLS:
+            anchor = cls._mls_campaign_calendar_year(now)
             for i in range(years_back + 1):
-                year = current_year - i
+                year = anchor - i
                 seasons.append({
                     "value": str(year),
                     "label": str(year),
                     "db_format": str(year)
                 })
-        
+        else:
+            try:
+                anchor = int(cls.get_current_season(league_name))
+            except ValueError:
+                anchor = now.year
+            for i in range(years_back + 1):
+                year = anchor - i
+                seasons.append({
+                    "value": str(year),
+                    "label": str(year),
+                    "db_format": str(year)
+                })
+
         return seasons
     
     @classmethod
@@ -211,6 +272,7 @@ class SeasonManager:
         """Validate if season format is correct for the league"""
         config = cls.LEAGUE_CONFIGS.get(league_name)
         if not config:
+            cls._warn_unknown_league(league_name, "is_valid_season_format")
             return True  # Accept any format for unknown leagues
             
         if config["type"] == LeagueType.EUROPEAN:

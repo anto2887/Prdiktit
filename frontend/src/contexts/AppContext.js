@@ -600,12 +600,8 @@ export const AppProvider = ({ children }) => {
         
         userData = oauthData.user;
         process.env.NODE_ENV === 'development' && console.log('OAuth Login: Existing user, setting auth state');
-      } else if (oauthData.requires_username) {
-        // New OAuth user that needs username selection
-        process.env.NODE_ENV === 'development' && console.log('OAuth Login: New user, requires username selection');
-        return { requires_username: true, oauth_data: oauthData.oauth_data };
       } else if (oauthData.user && oauthData.session_id) {
-        // Completed OAuth registration with username
+        // Completed OAuth registration with username (handled inline in OAuthCallback)
         userData = oauthData.user;
         
         // Store session ID in sessionStorage

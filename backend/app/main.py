@@ -459,7 +459,13 @@ async def get_api_status():
 
 # Helper functions for season handling
 def get_season_info_for_league(league):
-    """Get season information for a specific league"""
+    """Get rivalry/week calendar parameters for a league.
+
+    This is orthogonal to API-Football "season" year strings and to
+    :class:`app.utils.season_manager.SeasonManager` (which maps league display,
+    DB, and API season identifiers). Do not merge the two concerns: week counts
+    and activation delays belong here; fixture import/query season belongs there.
+    """
     if league in ['Premier League', 'La Liga', 'Serie A', 'Bundesliga', 'Ligue 1']:
         return {
             'total_weeks': 38,

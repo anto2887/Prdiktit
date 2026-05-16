@@ -52,41 +52,73 @@ export const LeagueType = {
       apiId: 1,
       displayFormat: '{year}',
       dbFormat: '{year}',
-      apiSeason: '{year}'
+      apiSeason: '{year}',
+      pinnedDbSeason: '2026'
     }
   };
+
+  function warnUnknownLeague(method, leagueName) {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn(
+        `SeasonManager.${method}: unknown league "${leagueName}" — using best-effort fallback`
+      );
+    }
+  }
+
+  function europeanCampaignStartYear(now) {
+    if (now.getMonth() >= 7) {
+      return now.getFullYear();
+    }
+    return now.getFullYear() - 1;
+  }
+
+  /** MLS campaign label year: February flip (option A); January -> prior year. */
+  function mlsCampaignCalendarYear(now) {
+    if (now.getMonth() >= 1) {
+      return now.getFullYear();
+    }
+    return now.getFullYear() - 1;
+  }
   
   export class SeasonManager {
     /**
      * Get the current season for a league in database format
      */
     static getCurrentSeason(leagueName) {
-      if (leagueName === 'World Cup') {
-        // Mirror backend SeasonManager pinned season for FIFA World Cup 2026 (API season 2026)
-        return '2026';
-      }
       const config = LEAGUE_CONFIGS[leagueName];
       if (!config) {
+        warnUnknownLeague('getCurrentSeason', leagueName);
         return new Date().getFullYear().toString();
+      }
+
+      if (config.pinnedDbSeason) {
+        return config.pinnedDbSeason;
       }
   
       const now = new Date();
       
       if (config.type === LeagueType.EUROPEAN) {
-        // European season runs Aug-May
-        let startYear, endYear;
-        if (now.getMonth() >= 7) { // August or later (month is 0-indexed)
-          startYear = now.getFullYear();
-          endYear = now.getFullYear() + 1;
-        } else {
-          startYear = now.getFullYear() - 1;
-          endYear = now.getFullYear();
-        }
+        const startYear = europeanCampaignStartYear(now);
+        const endYear = startYear + 1;
         return `${startYear}-${endYear}`;
-      } else {
-        // Calendar year leagues (MLS, tournaments)
-        return now.getFullYear().toString();
       }
+
+      if (config.type === LeagueType.MLS) {
+        return String(mlsCampaignCalendarYear(now));
+      }
+
+      if (config.type === LeagueType.CALENDAR_YEAR) {
+        return String(now.getFullYear());
+      }
+
+      if (leagueName === 'FIFA Club World Cup') {
+        const override = (typeof process !== 'undefined' && process.env.REACT_APP_CLUB_WORLD_CUP_API_SEASON) || '';
+        if (override.trim()) {
+          return override.trim();
+        }
+      }
+
+      return String(now.getFullYear());
     }
   
     /**
@@ -95,6 +127,9 @@ export const LeagueType = {
     static getSeasonForDisplay(leagueName, dbSeason) {
       const config = LEAGUE_CONFIGS[leagueName];
       if (!config || !dbSeason) {
+        if (!config && dbSeason) {
+          warnUnknownLeague('getSeasonForDisplay', leagueName);
+        }
         return dbSeason;
       }
   
@@ -114,6 +149,9 @@ export const LeagueType = {
      */
     static convertToDbFormat(leagueName, seasonInput) {
       const config = LEAGUE_CONFIGS[leagueName];
+      if (!config) {
+        warnUnknownLeague('convertToDbFormat', leagueName);
+      }
       if (!config || !seasonInput) {
         return seasonInput;
       }
@@ -149,11 +187,12 @@ export const LeagueType = {
      */
     static getAvailableSeasons(leagueName, yearsBack = 5) {
       const config = LEAGUE_CONFIGS[leagueName];
-      const currentYear = new Date().getFullYear();
+      const now = new Date();
       const seasons = [];
   
       if (!config) {
-        // Default to calendar years for unknown leagues
+        warnUnknownLeague('getAvailableSeasons', leagueName);
+        const currentYear = now.getFullYear();
         for (let i = 0; i <= yearsBack; i++) {
           const year = currentYear - i;
           seasons.push({
@@ -164,30 +203,57 @@ export const LeagueType = {
         }
         return seasons;
       }
+
+      if (config.pinnedDbSeason) {
+        const anchor = parseInt(config.pinnedDbSeason, 10);
+        const base = Number.isFinite(anchor) ? anchor : now.getFullYear();
+        for (let i = 0; i <= yearsBack; i++) {
+          const y = base - 4 * i;
+          const ys = String(y);
+          seasons.push({ value: ys, label: ys, dbFormat: ys });
+        }
+        return seasons;
+      }
   
       if (config.type === LeagueType.EUROPEAN) {
-        // Generate European seasons
+        const startYear = europeanCampaignStartYear(now);
         for (let i = 0; i <= yearsBack; i++) {
-          const startYear = currentYear - i;
-          const endYear = startYear + 1;
-          
-          const dbFormat = `${startYear}-${endYear}`;
-          const displayFormat = `${startYear}-${endYear.toString().slice(-2)}`;
-          
+          const sy = startYear - i;
+          const ey = sy + 1;
+          const dbFormat = `${sy}-${ey}`;
+          const displayFormat = `${sy}-${ey.toString().slice(-2)}`;
           seasons.push({
             value: dbFormat,
             label: displayFormat,
             dbFormat: dbFormat
           });
         }
-      } else {
-        // Calendar year leagues
+      } else if (config.type === LeagueType.MLS) {
+        const anchor = mlsCampaignCalendarYear(now);
         for (let i = 0; i <= yearsBack; i++) {
-          const year = currentYear - i;
+          const year = anchor - i;
           seasons.push({
-            value: year.toString(),
-            label: year.toString(),
-            dbFormat: year.toString()
+            value: String(year),
+            label: String(year),
+            dbFormat: String(year)
+          });
+        }
+      } else {
+        let anchor;
+        try {
+          anchor = parseInt(SeasonManager.getCurrentSeason(leagueName), 10);
+        } catch {
+          anchor = now.getFullYear();
+        }
+        if (!Number.isFinite(anchor)) {
+          anchor = now.getFullYear();
+        }
+        for (let i = 0; i <= yearsBack; i++) {
+          const year = anchor - i;
+          seasons.push({
+            value: String(year),
+            label: String(year),
+            dbFormat: String(year)
           });
         }
       }
@@ -212,6 +278,7 @@ export const LeagueType = {
     static isValidSeasonFormat(leagueName, season) {
       const config = LEAGUE_CONFIGS[leagueName];
       if (!config) {
+        warnUnknownLeague('isValidSeasonFormat', leagueName);
         return true; // Accept any format for unknown leagues
       }
   

@@ -13,16 +13,7 @@ const OAuthCallbackPage = () => {
     try {
       // Use the new OAuth-specific login function
       const result = await loginWithOAuth(data);
-      
-      if (result.requires_username) {
-        // New OAuth user needs to select username - redirect to username selection
-        navigate('/username-selection', { 
-          replace: true, 
-          state: { oauth_data: result.oauth_data } 
-        });
-        return;
-      }
-      
+
       if (result.success) {
         if (data.user_exists) {
           // Existing user - login successful
